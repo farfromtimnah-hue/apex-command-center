@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Contract</title>
+  <link rel="stylesheet" href="doc-hero.css?v=1790541646">
+  <script src="doc-hero.js?v=1790547506"></script>
+  <style>
+    /* CONTRACT page (contracts build, checkpoint B3). Copied from
+       estimate-view.html (fix build): hero band + logo tile + brand pill,
+       meta area, amount tile, payment tiles, signature pad, signed block.
+       Public, no-login page for a client's CUSTOMER. Modelled on
+       referral.html: self-contained, no app JS/CSS, the CLIENT's brand only.
+       No Apex name, logo, colours or URL anywhere on this page.
+       --brand-bg / --brand-accent are overridden from the client's settings;
+       the defaults are a neutral dark gray and white, never Apex's palette.
+       Text on a brand colour is chosen at runtime for 4.5:1 (textOn).
+       Header reworked in the 2026-09-26 fix build after templates/
+       apex-invoice-template-DRAFT.html: the logo is a frosted tile ON the
+       photo and the business name a pill beside it -- one unit, not a photo
+       and a separate band. */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --ink: #1f2328; --muted: #5a6470; --border: #e3e7ec; --bg: #f5f6f8; --red: #a63d3d; --green: #2f6b3e;
+      --brand-bg: #2b2f36; --brand-accent: #2b2f36; --on-brand-bg: #ffffff; --on-brand-accent: #ffffff; --accent-on-dark: #ffffff;
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
+    /* ---- HERO BAND + TILE ROW: doc-hero.css (shared with the PDF templates
+       and the portal hero picker); framing and tone from doc-hero.js. */
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
+    h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    /* ---- META (DRAFT .invoice-meta-area): customer + business left,
+       document number / dates / terms right, the amount tile under them. */
+    .meta-area { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+    .meta-left { flex: 1; min-width: 0; font-size: 14px; }
+    .k { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .meta-left .who { font-size: 17px; font-weight: 700; }
+    .meta-left .from { margin-top: 10px; font-size: 13px; color: #444; line-height: 1.55; }
+    .meta-right { flex: 0 1 260px; text-align: right; }
+    .meta-right .title { font-size: 22px; font-weight: 800; text-transform: uppercase; color: var(--brand-bg); line-height: 1.1; }
+    .meta-right .num { font-size: 15px; font-weight: 700; color: var(--brand-accent); margin-bottom: 6px; }
+    .meta-right table { width: 100%; border-collapse: collapse; margin-left: auto; }
+    .meta-right td { padding: 2px 6px; font-size: 13px; vertical-align: top; }
+    .meta-right td.fl { font-weight: 600; color: #444; white-space: nowrap; text-align: left; }
+    .meta-right td.fv { text-align: right; }
+    .stamp { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; }
+    .stamp.ok { color: var(--green); } .stamp.bad { color: var(--red); }
+    /* SOFT PRICES (hero build, D, Nicole 2026-09-27): a light weight reads as more
+       affordable than bold, presence comes from a contained charcoal pill, not size;
+       every other amount is weight 400 so nothing screams. Comma and cents kept. */
+    .amount-due-tile { background: #faf7f1; color: #2b2b2b; border: 1px solid var(--brand-accent); border-radius: 999px; padding: 10px 24px; max-width: 360px; margin: 12px auto 0; text-align: center; }
+    .amount-due-tile .adt-label { font-size: 10px; font-weight: 600; color: #6b6b6b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px; }
+    .amount-due-tile .adt-value { font-size: 21px; font-weight: 300; letter-spacing: 0; color: #2b2b2b; }
+    @media (max-width: 520px) { .meta-area { flex-direction: column; } .meta-right { flex-basis: auto; width: 100%; text-align: left; } .meta-right td.fv { text-align: right; } }
+    /* Hero follow-up (D1): a long label ("Current contract price after change
+       orders") no longer forces its own width (it wraps), so it cannot crush
+       the FROM column at laptop width; on a phone the table sits under
+       Prepared for / From, full width. */
+    .meta-right td.fl { white-space: normal; }
+    @media (max-width: 480px) { .meta-area { align-items: stretch; } .meta-left, .meta-right { width: 100%; } }
+    .toplink { display: inline-block; margin-top: 10px; min-height: 44px; line-height: 44px; font-weight: 700; color: var(--brand-accent); text-decoration: underline; }
+    .section { margin-top: 14px; }
+    .section-title { font-weight: 800; font-size: 15px; padding: 8px 0 6px; border-bottom: 2px solid var(--brand-accent); }
+    .cat-title { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 10px 0 2px; }
+    .line { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .line .name { font-weight: 600; }
+    .line .desc { font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+    .line .math { font-size: 13px; color: var(--muted); }
+    .line .amt { font-weight: 400; white-space: nowrap; text-align: right; }
+    .subtotal { display: flex; justify-content: space-between; padding: 8px 0; font-weight: 700; color: var(--muted); }
+    .subtotal span:last-child { font-weight: 400; }
+    .totals { margin-top: 10px; }
+    .totals .row { display: flex; justify-content: space-between; padding: 6px 0; }
+    .totals .grand { font-size: 17px; font-weight: 500; border-top: 2px solid var(--ink); padding-top: 10px; margin-top: 4px; }
+    .totals .grand span:last-child { font-weight: 300; }
+    .option { border: 2px solid var(--border); border-radius: 12px; padding: 12px; margin-top: 12px; }
+    .option.picked { border-color: var(--brand-accent); }
+    .option-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .option-head .tier { font-size: 18px; font-weight: 900; }
+    .option-head .price { font-size: 18px; font-weight: 400; }
+    .pick { min-height: 44px; padding: 0 14px; border-radius: 10px; border: 2px solid var(--brand-accent); background: #fff; color: var(--ink); font-weight: 700; cursor: pointer; font-size: 15px; }
+    .option.picked .pick { background: var(--brand-accent); color: var(--on-brand-accent); }
+    .sched .line { padding: 8px 0; }
+    /* DRAFT .payment-tiles / .payment-tile: one per method, detail as text. */
+    .payment-tiles { display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
+    .payment-tile { background: #fff; border: 1px solid #e0ddd5; border-radius: 8px; padding: 8px 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 120px; max-width: 100%; }
+    .payment-tile .pt-label { font-size: 10px; font-weight: 700; color: #444; text-transform: uppercase; letter-spacing: 0.05em; }
+    .payment-tile .pt-detail { font-size: 14px; color: #111; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .terms p { white-space: pre-wrap; margin-bottom: 10px; font-size: 14px; }
+    label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
+    input[type="text"], textarea { width: 100%; min-height: 48px; padding: 10px 12px; font-size: 16px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--ink); font-family: inherit; }
+    textarea { min-height: 90px; resize: vertical; }
+    input:focus, textarea:focus { outline: none; border-color: var(--brand-accent); }
+    .btn { width: 100%; min-height: 52px; margin-top: 12px; border: none; border-radius: 10px; background: var(--brand-accent); color: var(--on-brand-accent); font-size: 17px; font-weight: 800; cursor: pointer; }
+    .btn.secondary { background: #fff; color: var(--ink); border: 2px solid var(--border); }
+    .btn[disabled] { opacity: 0.6; }
+    .chips { display: flex; gap: 8px; margin-top: 8px; }
+    .chips button { flex: 1; min-height: 44px; border-radius: 999px; border: 2px solid var(--border); background: #fff; color: var(--ink); font-weight: 700; cursor: pointer; }
+    .chips button.sel { border-color: var(--brand-accent); background: var(--brand-accent); color: var(--on-brand-accent); }
+    canvas.sig { width: 100%; height: 160px; border: 2px dashed var(--border); border-radius: 10px; background: #fff; touch-action: none; display: block; }
+    .consent { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; font-size: 14px; min-height: 44px; }
+    .consent input { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--brand-accent); }
+    .err { color: var(--red); font-size: 14px; margin-top: 8px; min-height: 18px; font-weight: 600; }
+    .noc-fold { margin-top: 22px; }
+    .noc-fold > summary { cursor: pointer; list-style: none; }
+    .noc-fold > summary::-webkit-details-marker { display: none; }
+    .noc-fold > summary h2 { display: inline; text-decoration: underline; }
+    .noc-fold[open] > summary h2 { text-decoration: none; }
+    .ok { color: var(--green); font-weight: 700; }
+    .state { text-align: center; padding: 20px 0; }
+    .state h3 { font-size: 20px; margin-bottom: 8px; }
+    .state p { color: var(--muted); }
+    .signed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; text-align: left; font-size: 14px; margin-top: 12px; }
+    .signed-grid .cell { min-width: 0; }
+    @media (max-width: 400px) { .signed-grid { grid-template-columns: 1fr; } }
+    .banner { border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+    .banner.bad { background: #fbeaea; border: 1px solid #e3b4b4; color: #7a2a2a; }
+    .banner b { display: block; font-size: 15px; margin-bottom: 2px; }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+    .hash { font-family: ui-monospace, Menlo, monospace; font-size: 11px; overflow-wrap: anywhere; color: var(--muted); }
+    .sigimg { max-width: 100%; max-height: 120px; border: 1px solid var(--border); border-radius: 8px; background: #fff; margin-top: 6px; }
+    .typed-sig { font-family: "Snell Roundhand", "Brush Script MT", cursive; font-size: 24px; padding: 6px 0; }
+    .hidden { display: none !important; }
+    /* Signature counter and "next signature" jump (Nicole, 2026-09-29): like
+       DocuSign, the homeowner always sees which signature they are on and can
+       jump straight to the next one. */
+    .sig-count { display: inline-block; margin-left: 6px; padding: 2px 9px; border-radius: 999px; background: var(--brand-accent); color: var(--on-brand-accent); font-size: 12px; font-weight: 800; letter-spacing: 0; text-transform: none; vertical-align: middle; }
+    .next-sig { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 50; width: auto; max-width: calc(100% - 32px); min-height: 48px; padding: 0 22px; border: none; border-radius: 999px; background: var(--brand-accent); color: var(--on-brand-accent); font-size: 16px; font-weight: 800; box-shadow: 0 6px 20px rgba(0,0,0,.25); cursor: pointer; }
+    body.has-next-sig { padding-bottom: 84px; }
+    /* Signing tokens (F4): a real line before signing, the signature after. */
+    .sigline { display: inline-block; min-width: 150px; max-width: 100%; height: 1.2em; border-bottom: 1.5px solid var(--ink); vertical-align: bottom; }
+    .sigline.short { min-width: 80px; }
+    .tok-sig { max-height: 44px; max-width: 180px; vertical-align: bottom; }
+    .tok-typed { font-family: "Snell Roundhand", "Brush Script MT", cursive; font-size: 20px; font-weight: 400; text-transform: none; }
+    .lien-done { color: var(--green); font-weight: 700; text-transform: none; font-size: 15px; }
+    @media (max-width: 400px) { .option-head { flex-wrap: wrap; } }
+    /* ---- Contract sections. Clause text is Markdown-light: **bold** and
+       blank-line paragraphs, rendered by richHtml(). ---- */
+    .clause { margin-top: 14px; }
+    .clause .clause-title { font-weight: 800; font-size: 15px; padding: 8px 0 4px; border-bottom: 2px solid var(--brand-accent); margin-bottom: 6px; }
+    .clause p { font-size: 14px; margin: 0 0 8px; line-height: 1.55; }
+    .clause.locked p { font-weight: 700; }
+    /* A state notice the builder prints by itself: the look the statute states
+       (bold; 14px is 10.5 point, 16px is 12 point). */
+    .clause.sys-em p { font-weight: 700; font-size: 14px; }
+    .clause.sys-em12 p { font-size: 16px; }
+    /* RES-36: the type a statute states (18 point, capitals, larger than the
+       rest), a notice set apart on the face of the contract, a separate page. */
+    .clause.sys-em18 p { font-size: 24px; line-height: 1.3; }
+    .clause.sys-larger p { font-size: 17px; }
+    .clause.sys-caps p { text-transform: uppercase; }
+    .clause.state-face { border: 2px solid #111; padding: 10px; margin-bottom: 12px; }
+    .state-page .lien-sign, .clause .lien-sign { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; font-weight: 400; text-transform: none; }
+    .sp-row { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .sp-doc { padding: 8px 0; }
+    /* L1: 12pt+ bold capitals, its own card, its own signature (statute format). */
+    .lien-card p { font-size: 16px; font-weight: 800; text-transform: uppercase; line-height: 1.45; }
+    .lien-card .lien-sign { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+    .l5a { font-weight: 800; font-size: 14px; border: 2px solid var(--ink); border-radius: 8px; padding: 10px 12px; margin: 14px 0 6px; }
+    .noc-copy { border: 1px solid var(--ink); border-radius: 8px; padding: 12px; margin-top: 12px; }
+    .noc-copy .copy-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+    .noc-copy p { font-weight: 700; font-size: 13.5px; margin: 0 0 8px; }
+    .docs a { display: block; min-height: 44px; line-height: 44px; font-weight: 700; color: var(--brand-accent); text-decoration: underline; }
+    .disclaimer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 10px; margin-top: 12px; }
+    /* State riders: outside Florida the same disclaimer also opens the page. */
+    .disclaimer-top { font-size: 14px; color: var(--ink); margin: 0; }
+    .preview-banner { background: #fff4d6; border: 1px solid #e8cf8a; color: #6b4d00; border-radius: 10px; padding: 10px 14px; font-weight: 700; text-align: center; margin-top: 14px; }
+    .step { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-top: 12px; }
+    .step h3 { font-size: 15px; margin-bottom: 4px; }
+    .sig-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+    @media (max-width: 520px) { .sig-pair { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="hero-band doc-screen" id="hero" role="banner">
+    <img class="hero-img" id="heroImg" alt="" hidden>
+    <div class="header-tile-row">
+      <div class="client-logo-tile"><img id="bizLogo" alt="" hidden><span class="client-name-mark" id="bizMark" hidden></span></div>
+      <span class="brand-pill" id="bizName" hidden></span>
+    </div>
+  </div>
+
+  <div class="wrap" role="main">
+    <div class="card" id="cardLoading" role="status"><div class="state"><p>Loading...</p></div></div>
+    <div class="card hidden" id="cardNotFound"><div class="state"><h3 role="heading" aria-level="1">Contract not found</h3><p>This link is not valid or is no longer available.</p></div></div>
+
+    <div id="doc" class="hidden">
+      <div class="preview-banner hidden" id="previewBanner">PREVIEW - not sent. This is exactly what the homeowner will see.</div>
+      <div class="card hidden" id="cardDisclaimerTop" role="note"><p class="disclaimer-top" id="disclaimerTop"></p></div>
+      <div class="card" id="cardMeta"></div>
+      <div class="card hidden" id="cardStateBanner"></div>
+      <div id="sections"></div>
+      <div class="card hidden" id="cardPay"><h2>Accepted payment methods</h2><div id="payMethods"></div></div>
+      <div class="card" id="cardActions"></div>
+      <div class="card" id="cardPdf" style="margin-top:28px;"><button type="button" class="btn secondary" id="btnPdf">Download contract (PDF)</button><div class="err" role="alert" id="pdfErr"></div><p class="disclaimer" id="disclaimerEnd"></p></div>
+    </div>
+    <div class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Privacy Policy</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Terms</a></div>
+  </div>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    // On doc.resonateai.online the Worker serves this page on the readable
+    // address and hands the token over in window.DOC_PAGE_LINK, so it is
+    // never in the address bar there. The ?t= address works as before.
+    var docLink = (window.DOC_PAGE_LINK && typeof window.DOC_PAGE_LINK === "object") ? window.DOC_PAGE_LINK : null;
+    var docToken = (docLink && /^[a-f0-9]{48}$/.test(String(docLink.token || ""))) ? String(docLink.token) : null;
+    var token = docToken || (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    // Portal preview (the builder's Preview button): the same payload through
+    // the owner's session, rendered with a banner and no signing controls.
+    var previewId = (window.location.search.match(/[?&]preview=([A-Za-z0-9-]+)/) || [])[1] || null;
+    // Local mock for offline checks only (mock=path.json); never used in production.
+    var mockUrl = (window.location.search.match(/[?&]mock=([A-Za-z0-9_.\/-]+)/) || [])[1] || null;
+    function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+    function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
+    // Plain YYYY-MM-DD dates print as they are; a UTC timestamp from D1 is
+    // first converted to the Eastern calendar date (a 10 PM Eastern signature
+    // is still that day, never tomorrow).
+    function fmtDate(v) {
+      if (!v) { return ""; }
+      var s = String(v);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { var p = s.split("-"); return p[1] + "/" + p[2] + "/" + p[0]; }
+      var iso = s.replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(iso)) { iso += "Z"; }
+      var d = new Date(iso); if (isNaN(d.getTime())) { return s; }
+      try {
+        var q = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return q.month + "/" + q.day + "/" + q.year;
+      } catch (e) { return s.slice(0, 10); }
+    }
+    // F46: iPhone Safari prints the page URL in its print header/footer, and
+    // this URL carries the private ?t= access token. Everything is already
+    // loaded, so the token is taken out of the address bar
+    // (history.replaceState, same path, other parameters kept) for the
+    // duration of the print and put back afterwards. Hooked on
+    // beforeprint/afterprint AND a print media-query listener (Safari fires
+    // one or the other depending on how printing was started), and wrapped
+    // around this page's own print() calls.
+    var printUrlSaved = null;
+    function printUrlHide() {
+      if (printUrlSaved !== null) { return; }
+      try {
+        var href = window.location.href;
+        if (!/[?&]t=[a-f0-9]{48}/.test(href)) { return; }
+        var q = window.location.search.replace(/([?&])t=[a-f0-9]{48}&?/, "$1").replace(/[?&]$/, "");
+        printUrlSaved = href;
+        history.replaceState(history.state, "", window.location.pathname + q + window.location.hash);
+      } catch (e) { printUrlSaved = null; console.error(e); }
+    }
+    function printUrlRestore() {
+      if (printUrlSaved === null) { return; }
+      try { history.replaceState(history.state, "", printUrlSaved); } catch (e) { console.error(e); }
+      printUrlSaved = null;
+    }
+    function printWithoutToken() { printUrlHide(); window.print(); }
+    window.addEventListener("beforeprint", printUrlHide);
+    window.addEventListener("afterprint", printUrlRestore);
+    if (window.matchMedia) {
+      try {
+        var printMql = window.matchMedia("print");
+        var onPrintMql = function(m) { if (m.matches) { printUrlHide(); } else { printUrlRestore(); } };
+        if (printMql.addEventListener) { printMql.addEventListener("change", onPrintMql); } else if (printMql.addListener) { printMql.addListener(onPrintMql); }
+      } catch (e) { console.error(e); }
+    }
+    // UTC from D1 -> Eastern, 12-hour.
+    function fmtDateTime(iso) {
+      if (!iso) { return ""; }
+      var s = String(iso).replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+      var d = new Date(s); if (isNaN(d.getTime())) { return iso; }
+      try { var p = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "numeric", minute: "2-digit", hour12: true }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return p.month + "/" + p.day + "/" + p.year + " " + p.hour + ":" + p.minute + " " + (p.dayPeriod || "").toUpperCase() + " ET"; } catch (e) { return iso; }
+    }
+    function fmtPhone(tel) { var d = String(tel || "").replace(/\D/g, ""); if (d.length === 11 && d.charAt(0) === "1") { d = d.slice(1); } if (d.length === 10) { return "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6); } return String(tel || ""); }
+    function lum(hex) { var h = hex.replace("#", ""); var rgb = [0, 2, 4].map(function(i) { var c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }); return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]; }
+    function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
+    var PM_LABEL = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", card: "Card", other: "Other" };
+    function byId(id) { return document.getElementById(id); }
+
+    // Docs PDF build: the PDF is printed by Chrome on the server from the same
+    // template and opened as a real https PDF (on iPhone, Safari's own PDF
+    // viewer, where Share / Save to Files works). No blob: URL, no
+    // <a download>, never window.print() on the phone. A preview (owner
+    // signed in to the portal) first asks the Worker for a one-document link.
+    function openPdf(kind) {
+      var err = byId("pdfErr"); if (err) { err.textContent = ""; }
+      if (!previewId) {
+        var url = WORKER_URL + "/api/public/pdf/" + kind + "/" + token;
+        var w0 = window.open(url, "_blank");
+        if (!w0) { window.location.href = url; }
+        return;
+      }
+      var cid = null, tok = null;
+      try { cid = localStorage.getItem("apex_client_id"); tok = localStorage.getItem("apex_client_token"); } catch (e) { cid = null; }
+      if (!cid || !tok) { if (err) { sayErr(err, "Open this preview from the portal to download it."); } return; }
+      var w = window.open("", "_blank");
+      fetch(WORKER_URL + "/api/clients/" + encodeURIComponent(cid) + "/gm/pdf-link", { method: "POST", headers: { "Authorization": "Bearer " + tok, "Content-Type": "application/json" }, body: JSON.stringify({ kind: kind, id: previewId }) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok || !r.data.url) { throw new Error((r.data && (r.data.error_en || r.data.error)) || "Could not prepare the PDF. Please try again."); }
+          if (w) { w.location.href = r.data.url; } else { window.location.href = r.data.url; }
+        })
+        .catch(function(e) { if (w) { w.close(); } if (err) { sayErr(err, e.message); } console.error(e); });
+    }
+    // A notice the builder copied from an official file can carry the hard line
+    // wraps of the page it came from (a line break followed by indentation).
+    // Those are joined for display only; the words are not touched.
+    function flowText(text) { return String(text || "").replace(/[ \t\f]*\n[ \t\f]{2,}/g, " ").replace(/\f/g, ""); }
+    // Markdown-light: **bold** and blank-line paragraphs; single newlines stay
+    // as line breaks (the statutory forms rely on them).
+    function richHtml(text) {
+      var paras = String(text || "").split(/\n\s*\n/);
+      return paras.map(function(p) {
+        var h = withTokens(escHtml(p).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>"));
+        return h.trim() ? "<p>" + h + "</p>" : "";
+      }).join("");
+    }
+    // ── Signing tokens (contracts fix build, F4) ─────────────────────────
+    // Signing fields are captured when the homeowner signs, so the frozen
+    // legal text carries them as {tokens}. Each renders as a real line
+    // before signing, or the actual signature (drawn image or typed name) and
+    // its Eastern date after. Any other {token} still in the text is removed
+    // and logged: a raw brace never reaches the homeowner.
+    function tokLine(wide) { return '<span class="sigline' + (wide ? "" : " short") + '"></span>'; }
+    function tokSig(sig, name) {
+      if (sig && sig.kind === "drawn" && sig.image_url) { return '<img class="tok-sig" src="' + escHtml(sig.image_url) + '" alt="Signature">'; }
+      if (sig) { return '<span class="tok-typed">' + escHtml(name || "") + '</span>'; }
+      return tokLine(true);
+    }
+    function initialsOf(name) { return String(name || "").trim().split(/\s+/).filter(Boolean).map(function(w) { return w.charAt(0).toUpperCase(); }).join(""); }
+    function tokenHtml(name) {
+      var k = String(name).toLowerCase();
+      var hs = con.homeowner_signature, ls = con.lien_signature, cs = con.company_signature;
+      var ownerName = (hs && hs.signer_name) || con.customer_name || "";
+      if (k === "owner_signature_lien_notice") { return tokSig(ls ? { kind: ls.kind, image_url: ls.image_url } : null, ownerName); }
+      if (k === "owner_signature_lien_notice_date") { return ls ? escHtml(fmtDate(ls.signed_at)) : tokLine(false); }
+      if (k === "owner_signature_pool_ack") { return con.pool_ack ? tokSig(hs || { kind: "typed" }, ownerName) : tokLine(true); }
+      if (k === "owner_signature_pool_ack_date") { return con.pool_ack ? escHtml(fmtDate(con.pool_ack.signed_at)) : tokLine(false); }
+      if (k === "owner_initials_arbitration" || k === "owner_initials_jury") { return con.homeowner_initials ? '<span class="tok-typed">' + escHtml(con.homeowner_initials) + '</span>' : tokLine(false); }
+      if (k === "contractor_initials_arbitration" || k === "contractor_initials_jury") { return cs ? '<span class="tok-typed">' + escHtml(initialsOf(cs.signer_name)) + '</span>' : tokLine(false); }
+      if (k === "owner_marketing_consent_checkbox") { return con.marketing_consent ? "[X]" : "[ ]"; }
+      // State parts (RES-36): the signature, date and initials of the part being drawn.
+      if (k === "state_part_signature" || k === "state_part_date") {
+        var spRec = curPart ? spDone("sign", curPart.id) : null;
+        if (k === "state_part_date") { return spRec ? escHtml(fmtDate(spRec.signed_at)) : tokLine(false); }
+        return spRec ? '<span class="tok-typed">' + escHtml(spRec.signer_name || "") + '</span>' : tokLine(true);
+      }
+      if (k === "state_part_company_signature") { return tokSig(cs ? { kind: cs.kind, image_url: cs.image_url } : null, cs ? cs.signer_name : ""); }
+      if (k === "state_part_company_date") { return cs ? escHtml(fmtDate(cs.signed_at)) : tokLine(false); }
+      if (k === "state_part_initials") {
+        var spIni = curPart ? (spDone("choose", curPart.id) || spDone("initials", curPart.id)) : null;
+        return spIni ? '<span class="tok-typed">' + escHtml(spIni.initials || "") + '</span>' : tokLine(false);
+      }
+      // Cleaning service agreement: the signature line inside the continuing-services notice.
+      if (k === "customer_signature") { return tokSig(hs || null, ownerName); }
+      if (k === "customer_signature_date") { return hs ? escHtml(fmtDate(hs.signed_at)) : tokLine(false); }
+      console.error("[contract] unfilled placeholder removed from homeowner text: {" + name + "}");
+      return "";
+    }
+    function withTokens(html) { return String(html).replace(/\{([A-Za-z0-9_]+)\}/g, function(m, k) { return tokenHtml(k); }); }
+
+    function applyBranding(b) {
+      var hex = /^#[0-9a-fA-F]{6}$/;
+      var root = document.documentElement.style;
+      var primary = hex.test(b.brand_primary || "") ? b.brand_primary : null;
+      var accent = hex.test(b.brand_accent || "") ? b.brand_accent : primary;
+      if (primary) { root.setProperty("--brand-bg", primary); root.setProperty("--on-brand-bg", textOn(primary)); }
+      if (accent) {
+        root.setProperty("--brand-accent", accent); root.setProperty("--on-brand-accent", textOn(accent));
+        root.setProperty("--accent-on-dark", lum(accent) > 0.18 ? accent : "#ffffff");
+      }
+      var name = b.name || "";
+      var mark = byId("bizMark");
+      var logo = byId("bizLogo");
+      if (mark) { mark.textContent = name; mark.className = "client-name-mark" + (name.length > 22 ? " is-long" : ""); mark.hidden = false; }
+      if (b.logo_url && logo) {
+        logo.onload = function() { logo.hidden = false; if (mark) { mark.hidden = true; } };
+        logo.onerror = function() { logo.hidden = true; if (mark) { mark.hidden = false; } };
+        logo.src = b.logo_url;
+      }
+      var hero = byId("heroImg");
+      if (b.hero_url && hero) { hero.onload = function() { hero.hidden = false; }; hero.src = b.hero_url; }
+      if (typeof docHeroApply === "function") { docHeroApply(byId("hero"), hero, b.hero); }
+      var pill = byId("bizName");
+      if (pill) { pill.textContent = name; pill.hidden = !name; }
+    }
+    function fromHtml(b) {
+      var lines = [];
+      if (b.name) { lines.push('<strong>' + escHtml(b.name) + '</strong>'); }
+      (b.license_numbers || []).forEach(function(l) { lines.push("License " + escHtml(l)); });
+      if (b.address) { lines.push(escHtml(b.address)); }
+      if (b.phone) { lines.push(escHtml(fmtPhone(b.phone))); }
+      if (b.email) { lines.push(escHtml(b.email)); }
+      return '<div class="from"><div class="k">From</div>' + lines.join("<br>") + '</div>';
+    }
+    function metaHtml(leftLabel, who, whoLines, b, title, num, rows, stamp, tile) {
+      var t = '<table>' + rows.map(function(r) { return '<tr><td class="fl">' + r[0] + '</td><td class="fv">' + r[1] + '</td></tr>'; }).join("") + '</table>';
+      return '<div class="meta-area"><div class="meta-left"><div class="k">' + leftLabel + '</div><div class="who">' + escHtml(who || "") + '</div>' +
+        (whoLines.length ? '<div class="small muted">' + whoLines.map(escHtml).join("<br>") + '</div>' : "") + fromHtml(b) + '</div>' +
+        '<div class="meta-right"><div class="title" role="heading" aria-level="1">' + title + '</div><div class="num">' + escHtml(num) + '</div>' + t + (stamp || "") + '</div></div>' +
+        (tile ? '<div class="amount-due-tile"><div class="adt-label">' + tile.label + '</div><div class="adt-value">' + tile.value + '</div></div>' : "");
+    }
+    function paymentTilesHtml(methods) {
+      return '<div class="payment-tiles">' + methods.map(function(m) {
+        return '<div class="payment-tile"><div class="pt-label">' + escHtml(PM_LABEL[m.key] || m.key) + '</div>' + (m.detail ? '<div class="pt-detail">' + escHtml(m.detail) + '</div>' : "") + '</div>';
+      }).join("") + '</div>';
+    }
+    function show(id) { ["cardLoading", "cardNotFound", "doc"].forEach(function(c) { var el = byId(c); if (el) { el.classList.toggle("hidden", c !== id); } }); }
+
+    var con = null;
+    var sigKind = "typed", lienKind = "typed";
+    var lienTypedDone = false;   // F42: step 1 (the lien notice) signed with the typed name
+    var pads = {};   // canvas id -> { ctx, drew }
+
+    function req(k) { return !!(con && con.requires && con.requires[k]); }
+    // Only the homeowner's own link signs; a changes-requested contract no
+    // longer can (the company signature was voided) -- F17.
+    function canRespond() { return !previewId && ["sent", "viewed"].indexOf(con.status) !== -1; }
+    function isPreviewDraft() { return !!previewId && (con.preview_draft === true || con.status === "draft" || con.status === "awaiting_company"); }
+    function bizName() { return (con.business && con.business.name) || "The company"; }
+    function sectionById(id) { var out = null; (con.sections || []).forEach(function(s) { if (s.id === id) { out = s; } }); return out; }
+
+    // ── State parts (RES-36) ─────────────────────────────────────────────
+    // A state can ask for more than the words of a notice: a set place, a
+    // type size, a separate page the customer signs and dates, initials
+    // beside a provision, an agency document read before signing, the list
+    // of subcontractors and suppliers. con.state_parts says what this
+    // contract asks for and what was already done. Everything is signed in
+    // this same visit, under the same electronic consent as the contract.
+    var spTyped = {};    // part id -> the name typed and confirmed on that part
+    var spAcked = {};    // document slot -> true once the customer confirmed receipt
+    var curPart = null;  // the part whose text is being rendered (for its tokens)
+    function sp() { return (con && con.state_parts) || null; }
+    function spKey(id) { return String(id).replace(/[^A-Za-z0-9]/g, "_"); }
+    function spDone(kind, id) { var s = sp(); var d = s && s.done && s.done[kind]; return d && d[id] ? d[id] : null; }
+    function spAsks(kind, id) {
+      var s = sp(); var r = s && s.requires;
+      if (!r) { return false; }
+      if (kind === "choose") { return (r.choose || []).some(function(c) { return c.id === id; }); }
+      return (r[kind] || []).indexOf(id) !== -1;
+    }
+    function spDocAck(slot) { var out = null; ((sp() && sp().docs) || []).forEach(function(d) { if (d.slot === slot) { out = d.acknowledged || null; } }); return out; }
+    // What is still open on this contract: [{ kind, id }].
+    function spPending() {
+      var s = sp(); var out = [];
+      if (!s || !s.requires) { return out; }
+      (s.requires.sign || []).forEach(function(id) { if (!spDone("sign", id)) { out.push({ kind: "sign", id: id }); } });
+      (s.requires.initials || []).forEach(function(id) { if (!spDone("initials", id)) { out.push({ kind: "initials", id: id }); } });
+      (s.requires.choose || []).forEach(function(c) { if (!spDone("choose", c.id)) { out.push({ kind: "choose", id: c.id }); } });
+      (s.requires.ack || []).forEach(function(slot) { if (!spDocAck(slot)) { out.push({ kind: "ack", id: slot }); } });
+      return out;
+    }
+    // The parts are answered on the customer's own link: while the contract
+    // waits for its signature, and afterwards for a part that was left out.
+    function spLive() { return !previewId && !!con && (canRespond() || (con.status === "completed" && spPending().length > 0)); }
+    function spEmClass(s) {
+      var em = s.system === true && s.emphasis ? s.emphasis : null;
+      if (!em) { return ""; }
+      return " sys-em" + (em.min_pt >= 18 ? " sys-em18" : (em.min_pt >= 12 ? " sys-em12" : "")) + (em.caps ? " sys-caps" : "") + (em.larger ? " sys-larger" : "");
+    }
+    // The part's own words, with its tokens (signature, date, initials) drawn in.
+    function spTextHtml(s) {
+      var text = flowText(s.text);
+      var ch = s.choose ? spDone("choose", s.id) : null;
+      if (ch && s.choose[ch.index]) { text = text.split(s.choose[ch.index]).join(s.choose[ch.index].replace(/^_+/, "{state_part_initials}")); }
+      curPart = s;
+      var h = (s.date_above ? '<p class="small"><strong>Date of transaction: ' + escHtml(con.transaction_date ? fmtDate(con.transaction_date) : "the date you sign") + '</strong></p>' : "") + richHtml(text);
+      curPart = null;
+      return h;
+    }
+    function spSignedLine(rec, what) { return '<div class="lien-sign"><span class="lien-done">' + what + ': ' + escHtml(rec.signer_name || rec.initials || "") + '</span><div class="small muted">' + escHtml(fmtDateTime(rec.signed_at)) + '</div></div>'; }
+    // The boxes under a part: its own signature, initials, or a choice.
+    // passive: the same part is drawn a second time on the page (beside the
+    // signature and in the document body); only one copy carries the boxes.
+    function spControlsHtml(s, passive) {
+      var k = spKey(s.id), h = "", live = spLive() && !passive, nm = (con.homeowner_signature && con.homeowner_signature.signer_name) || con.customer_name || "";
+      if (s.sign) {
+        var sg = spDone("sign", s.id);
+        if (sg) { h += spSignedLine(sg, "Signed"); }
+        else if (!live || !spAsks("sign", s.id)) { h += '<div class="lien-sign small muted">Signature and date: collected when the customer signs.</div>'; }
+        else {
+          h += '<div class="lien-sign sp-step" id="spStep_' + k + '"><h3 style="font-size:15px;">Sign this ' + (s.kind === "state_page" ? "page" : "notice") + '</h3><p class="small muted">It is signed and dated separately from the contract.</p>' +
+            '<div id="spForm_' + k + '"><label for="spName_' + k + '">Your full name</label><input type="text" id="spName_' + k + '" autocomplete="name" value="' + escHtml(nm) + '">' +
+            '<button type="button" class="btn" style="min-height:44px;" onclick="spSign(\'' + escHtml(s.id) + '\')">Sign this ' + (s.kind === "state_page" ? "page" : "notice") + '</button></div>' +
+            '<div id="spSigned_' + k + '" class="hidden" style="margin-top:8px;"><span class="lien-done">Signed: <span id="spSignedName_' + k + '"></span></span> <button type="button" class="btn secondary" style="min-height:44px;width:auto;padding:0 16px;margin-left:8px;" onclick="spUndo(\'' + escHtml(s.id) + '\')">Change</button></div>' +
+            '<div class="err" role="alert" id="spErr_' + k + '"></div></div>';
+        }
+      }
+      if (s.initials) {
+        var ini = spDone("initials", s.id);
+        if (ini) { h += spSignedLine(ini, "Initialed"); }
+        else if (!live || !spAsks("initials", s.id)) { h += '<div class="lien-sign small muted">Initials: collected when the customer signs.</div>'; }
+        else { h += '<div class="lien-sign sp-step" id="spStep_' + k + '"><label for="spIni_' + k + '">Your initials beside this provision</label><input type="text" id="spIni_' + k + '" maxlength="6" autocomplete="off" style="max-width:140px;"><div class="err" role="alert" id="spErr_' + k + '"></div></div>'; }
+      }
+      if (s.choose) {
+        var ch = spDone("choose", s.id);
+        if (ch) { h += spSignedLine(ch, "Initialed"); }
+        else if (!live || !spAsks("choose", s.id)) { h += '<div class="lien-sign small muted">Choice and initials: collected when the customer signs.</div>'; }
+        else {
+          h += '<div class="lien-sign sp-step" id="spStep_' + k + '"><p class="small"><strong>Pick one and type your initials.</strong></p>' +
+            s.choose.map(function(o, i) { return '<label class="consent"><input type="radio" name="spCh_' + k + '" value="' + i + '"><span>' + escHtml(String(o).replace(/^_+\s*/, "")) + '</span></label>'; }).join("") +
+            '<label for="spIni_' + k + '">Your initials</label><input type="text" id="spIni_' + k + '" maxlength="6" autocomplete="off" style="max-width:140px;"><div class="err" role="alert" id="spErr_' + k + '"></div></div>';
+        }
+      }
+      return h;
+    }
+    // A separate page: its own card, titled as the law titles it.
+    function spPageHtml(s) {
+      return '<div class="card state-page' + spEmClass(s) + '" id="spCard_' + spKey(s.id) + '"><h2>' + escHtml(s.title || "") + '</h2><div class="clause locked' + spEmClass(s) + '">' + spTextHtml(s) + '</div>' +
+        (s.copies > 1 ? '<p class="small muted">Two copies of this form are in your PDF copy of this contract. Keep both; use one if you decide to cancel.</p>' : "") + spControlsHtml(s) + '</div>';
+    }
+    function spNoticeHtml(s, passive) {
+      return '<div class="clause locked' + spEmClass(s) + (s.place === "face" || s.place === "first_page" ? " state-face" : "") + '">' + (s.title ? '<div class="clause-title">' + escHtml(s.title) + '</div>' : "") + spTextHtml(s) + spControlsHtml(s, passive) + '</div>';
+    }
+    function spSign(id) {
+      var k = spKey(id), inp = byId("spName_" + k), err = byId("spErr_" + k);
+      var v = inp ? inp.value.trim() : "";
+      if (!v) { if (err) { err.textContent = "Please type your full name to sign here."; } return; }
+      if (err) { err.textContent = ""; }
+      spTyped[id] = v;
+      var nm = byId("spSignedName_" + k); if (nm) { nm.textContent = v; }
+      var fm = byId("spForm_" + k), sd = byId("spSigned_" + k);
+      if (fm) { fm.classList.add("hidden"); }
+      if (sd) { sd.classList.remove("hidden"); }
+    }
+    function spUndo(id) {
+      var k = spKey(id);
+      delete spTyped[id];
+      var fm = byId("spForm_" + k), sd = byId("spSigned_" + k);
+      if (fm) { fm.classList.remove("hidden"); }
+      if (sd) { sd.classList.add("hidden"); }
+    }
+    function spAck(slot) {
+      spAcked[slot] = true;
+      var k = spKey(slot), b = byId("spAckBtn_" + k), d = byId("spAckDone_" + k), err = byId("spErr_" + k);
+      if (b) { b.classList.add("hidden"); }
+      if (d) { d.classList.remove("hidden"); }
+      if (err) { err.textContent = ""; }
+    }
+    // The agency documents given with the contract: opened from here, before
+    // the signature. One that needs a signed acknowledgment asks for it here.
+    function spDocsHtml() {
+      var docs = (sp() && sp().docs) || [];
+      if (!docs.length) { return ""; }
+      var live = spLive();
+      return '<div class="card state-doc" id="spDocsCard"><h2>Official documents given with this contract</h2><p class="small muted">Please open and read ' + (docs.length === 1 ? "this document" : "each document") + ' before you sign. ' + (docs.length === 1 ? "It is" : "They are") + ' the agency\'s own copy, unaltered.</p>' +
+        docs.map(function(d) {
+          var k = spKey(d.slot), h = '<div class="sp-doc"><div class="docs"><a href="' + escHtml(d.url) + '" target="_blank" rel="noopener">' + escHtml(d.title || "Document") + (d.version ? ' (' + escHtml(d.version) + ')' : "") + '</a></div>' + (d.cite ? '<div class="small muted">' + escHtml(d.cite) + '</div>' : "");
+          if (d.ack) {
+            if (d.acknowledged) { h += spSignedLine(d.acknowledged, "Received and read"); }
+            else if (live) {
+              h += '<div class="lien-sign sp-step" id="spStep_' + k + '"><button type="button" class="btn secondary" style="min-height:44px;" id="spAckBtn_' + k + '" onclick="spAck(\'' + escHtml(d.slot) + '\')">I received and read this document</button>' +
+                '<span class="lien-done hidden" id="spAckDone_' + k + '">Confirmed. It is recorded with your signature.</span><div class="err" role="alert" id="spErr_' + k + '"></div></div>';
+            } else { h += '<div class="lien-sign small muted">Acknowledgment: collected when the customer signs.</div>'; }
+          }
+          return h + '</div>';
+        }).join("") + '</div>';
+    }
+    // The subcontractors and suppliers of this job, as the project records them now.
+    function spListHtml() {
+      var l = sp() && sp().list;
+      if (!l || !l.rows || !l.rows.length) { return ""; }
+      var em = l.notice && l.notice.emphasis ? " sys-em" : "";
+      return '<div class="card" id="spListCard"><h2>Subcontractors and suppliers</h2><p class="small muted">The people and companies working on or supplying this job. This list follows the project: when it changes, this page shows the change.</p>' +
+        '<div class="sp-list">' + l.rows.map(function(r) {
+          return '<div class="sp-row"><strong>' + escHtml(r.name) + '</strong> <span class="small muted">' + (r.kind === "supplier" ? "Supplier" : "Subcontractor") + (r.trade ? " - " + escHtml(r.trade) : "") + '</span><br>' +
+            (r.address ? escHtml(r.address) : '<span class="muted">Address not on file yet</span>') + '<br>' + (r.phone ? escHtml(fmtPhone(r.phone)) : '<span class="muted">Telephone not on file yet</span>') + (r.license ? '<br><span class="small muted">License ' + escHtml(r.license) + '</span>' : "") + '</div>';
+        }).join("") + '</div>' + (l.notice ? '<div class="clause locked' + em + '" style="margin-top:10px;">' + richHtml(flowText(l.notice.text)) + '</div>' : "") + '</div>';
+    }
+    // What the signature sends for the state parts, or false (with the
+    // message shown at the part itself) when one is still open.
+    function spCollect(err) {
+      var out = { sign: {}, initials: {}, choose: {}, ack: {} }, any = false, bad = null;
+      function miss(key, msg) { if (bad) { return; } bad = key; var e = byId("spErr_" + key); if (e) { e.textContent = msg; } var st = byId("spStep_" + key); if (st && st.scrollIntoView) { st.scrollIntoView({ block: "center" }); } if (err) { err.textContent = msg; } }
+      spPending().forEach(function(p) {
+        var k = spKey(p.id);
+        if (p.kind === "sign") {
+          if (!spTyped[p.id]) { miss(k, "Please sign the separate notice above: it has its own signature."); return; }
+          out.sign[p.id] = spTyped[p.id]; any = true;
+        } else if (p.kind === "initials") {
+          var i1 = byId("spIni_" + k), v1 = i1 ? i1.value.trim() : "";
+          if (!v1) { miss(k, "Please type your initials beside the provision above."); return; }
+          out.initials[p.id] = v1; any = true;
+        } else if (p.kind === "choose") {
+          var picked = document.querySelector('input[name="spCh_' + k + '"]:checked'), i2 = byId("spIni_" + k), v2 = i2 ? i2.value.trim() : "";
+          if (!picked || !v2) { miss(k, "Please pick one choice above and type your initials."); return; }
+          out.choose[p.id] = { index: Number(picked.value), initials: v2 }; any = true;
+        } else if (p.kind === "ack") {
+          if (!spAcked[p.id]) { miss(k, "Please open the official document above and confirm you received it."); return; }
+          out.ack[p.id] = true; any = true;
+        }
+      });
+      if (bad) { return false; }
+      return any ? out : null;
+    }
+    // After the contract is signed: a part the first visit left out is
+    // finished here. It never holds the signed contract up.
+    function spLateHtml() {
+      if (previewId || !con || con.status !== "completed" || !spPending().length) { return ""; }
+      // One consent box at a time: the second owner's signature comes first.
+      if (con.second_signer && !con.second_signer.signed) { return ""; }
+      return '<div class="step" id="spLateStep"><h3>One more step</h3><p class="small">A notice above still needs your signature or initials. Complete it above, then press the button.</p>' +
+        esignConsentHtml(con.business, "", "btnSpLate") + '<div class="err" role="alert" id="spLateErr"></div>' +
+        '<button type="button" class="btn" id="btnSpLate" onclick="spLate()" disabled>Finish signing</button></div>';
+    }
+    function spLate() {
+      var err = byId("spLateErr"); if (!err) { return; }
+      err.textContent = "";
+      var parts = spCollect(err);
+      if (parts === false) { return; }
+      if (!parts) { return; }
+      var consent = byId("consent");
+      if (!consent || !consent.checked) { sayErr(err, "Please agree to sign electronically."); return; }
+      var btn = byId("btnSpLate"); if (btn) { btn.disabled = true; }
+      fetch(WORKER_URL + "/api/public/contracts/" + token + "/state-parts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ consent: true, consent_text_version: ESIGN_CONSENT_VERSION, state_parts: parts }) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not sign"); } spTyped = {}; spAcked = {}; return load(); })
+        .catch(function(e) { if (btn) { btn.disabled = false; } sayErr(err, e.message); console.error(e); });
+    }
+
+    function renderMeta() {
+      var b = con.business;
+      var whoLines = [];
+      if (con.property_address) { whoLines.push(con.property_address); }
+      var rows = [["Contract date", escHtml(fmtDate(con.contract_date))]];
+      if (con.offer_expiry_date) { rows.push(["Offer valid until", escHtml(fmtDate(con.offer_expiry_date))]); }
+      rows.push(["Job", escHtml(con.job_name || "")]);
+      if (con.estimate_display_number) { rows.push(["Estimate", escHtml(con.estimate_display_number)]); }
+      // Part H3: a price renegotiated after the estimate: the estimate price
+      // and ONE "Negotiated adjustment" line add up to the contract price.
+      (con.price_lines || []).forEach(function(pl) {
+        rows.push([escHtml(pl.label), escHtml((pl.label === "Negotiated adjustment" && Number(pl.amount_cents) > 0 ? "+" : "") + money(pl.amount_cents))]);
+      });
+      // F2: the tile is the price as signed; the current price after signed
+      // change orders is added when it differs.
+      var cur = con.current_contract_amount_cents;
+      if (cur !== undefined && cur !== null && Number(cur) !== Number(con.contract_amount_cents)) { rows.push(["Current contract price after change orders", escHtml(money(cur))]); }
+      // D4b: each change order under it, linked to its own page. The signed
+      // price in the tile below never changes.
+      (con.change_orders || []).forEach(function(co) {
+        var amt = (Number(co.amount_cents) > 0 ? "+" : "") + money(co.amount_cents);
+        var label = escHtml("Change order " + co.number + " (" + (co.state === "signed" ? "signed" : "pending") + ")");
+        rows.push([label, co.link ? '<a href="' + escHtml(co.link) + '" target="_blank" rel="noopener">' + escHtml(amt) + '</a>' : escHtml(amt)]);
+      });
+      var stamp = "";
+      if (con.status === "completed") { stamp = '<span class="stamp ok">SIGNED BY BOTH PARTIES</span>'; }
+      else if (con.status === "homeowner_signed") { stamp = '<span class="stamp ok">SIGNED ' + escHtml(fmtDate(con.homeowner_signature && con.homeowner_signature.signed_at)) + '</span>'; }
+      else if (con.status === "expired") { stamp = '<span class="stamp bad">OFFER EXPIRED</span>'; }
+      else if (con.status === "declined") { stamp = '<span class="stamp bad">DECLINED</span>'; }
+      var tile = { label: "Contract price", value: money(con.contract_amount_cents) };
+      var card = byId("cardMeta");
+      if (card) { card.innerHTML = metaHtml("Prepared for", con.customer_name, whoLines, b, docWord(), con.display_number, rows, stamp, tile); }
+    }
+
+    // The clauses in array order. L1 gets its own card (12pt+ bold capitals,
+    // separately signed); L5-A and L5-B are printed at the signature area
+    // and as two copies, so they are skipped here; L6 shows the two
+    // documents and the delivery acknowledgment.
+    // "Contract", or "Service Agreement" for a cleaning service agreement.
+    function docWord() { return (con && con.doc_title) || "Contract"; }
+    // Cleaning service agreement: the notices printed at the customer's
+    // signature (bold; the renewal panel in a box; the contract date above
+    // the continuing-services notice).
+    function besideSections() { return (con.sections || []).filter(function(s) { return s.beside_signature === true && s.id !== "L5-A"; }); }
+    function besideHtml(passive) {
+      return besideSections().map(function(s) {
+        if (s.system === true && s.line) { return spNoticeHtml(s, passive); }
+        var f = s.format || {};
+        var dateLine = s.date_above ? '<p class="small"><strong>Date: ' + escHtml(fmtDate(con.transaction_date || con.contract_date)) + '</strong></p>' : "";
+        return dateLine + '<div class="clause locked" style="font-weight:700;font-size:' + (f.min_pt >= 12 ? "16px" : "14px") + ';' + (f.box ? "border:2px solid #111;padding:10px;" : "") + '">' + richHtml(s.text) + '</div>';
+      }).join("");
+    }
+    function renderSections() {
+      var box = byId("sections");
+      if (!box) { return; }
+      var h = '<div class="card">';
+      (con.sections || []).forEach(function(s) {
+        if (s.id === "L5-A" || s.id === "L5-B") { return; }
+        if (s.beside_signature === true) { return; }
+        if (s.id === "L1") {
+          h += '</div><div class="card lien-card" id="lienCard"><h2>Construction lien notice</h2>' + richHtml(s.text) + lienSignHtml() + '</div><div class="card">';
+          return;
+        }
+        if (s.id === "L6") {
+          h += '</div><div class="card" id="poolCard"><h2>Pool safety documents</h2><div class="clause locked">' + richHtml(s.text) + '</div>' + poolDocsHtml() + '</div><div class="card">';
+          return;
+        }
+        // A document the state wants the customer to have before signing
+        // (official wording on file): its own card, above the signature.
+        if (s.kind === "state_document") {
+          h += '</div><div class="card state-doc"><h2>' + escHtml(s.title || "") + '</h2><p class="small muted">This document is given to you with this contract' + (s.cite ? ' (' + escHtml(s.cite) + ')' : "") + '. Please read it before you sign.</p><div class="clause">' + richHtml(flowText(s.text)) + '</div></div><div class="card">';
+          return;
+        }
+        // RES-36: a separate page is its own card; a part placed or styled
+        // by rule, or one with its own signature or initials, draws itself.
+        if (s.kind === "state_page") { h += '</div>' + spPageHtml(s) + '<div class="card">'; return; }
+        if (s.system === true && s.line) { h += spNoticeHtml(s); return; }
+        var em = s.system === true && s.emphasis ? s.emphasis : null;
+        h += '<div class="clause' + (s.kind === "locked" || s.kind === "state_notice" ? " locked" : "") + (em ? " sys-em" + (em.min_pt >= 12 ? " sys-em12" : "") : "") + '">' + (s.title ? '<div class="clause-title">' + escHtml(s.title) + '</div>' : "") + richHtml(s.system === true ? flowText(s.text) : s.text) + '</div>';
+      });
+      h += '</div>';
+      if (besideSections().length) { h += '<div class="card" id="besideCard">' + besideHtml(canRespond()) + '</div>'; }
+      h += spDocsHtml() + spListHtml();
+      box.innerHTML = h;
+      setupCanvas("lienCanvas", "lien");
+    }
+
+    // Step 1 (F42): the lien notice is signed by its own deliberate act in
+    // this box -- a typed name confirmed with its own button, or a drawn
+    // signature -- never filled in by the contract signature below.
+    function lienSignHtml() {
+      var ls = con.lien_signature;
+      if (ls) {
+        var visual = (ls.kind === "drawn" && ls.image_url) ? '<img class="sigimg" src="' + escHtml(ls.image_url) + '" alt="Signature">' : '<div class="typed-sig">' + escHtml((con.homeowner_signature && con.homeowner_signature.signer_name) || con.customer_name || "") + '</div>';
+        return '<div class="lien-sign"><div class="k">Owner signature on this notice</div>' + visual + '<div class="small muted">Signed ' + escHtml(fmtDateTime(ls.signed_at)) + '</div></div>';
+      }
+      if (!canRespond() || !req("lien_signature")) {
+        return '<div class="lien-sign small muted">Owner signature and date: collected when the homeowner signs.</div>';
+      }
+      return '<div class="lien-sign" id="lienStep"><h3 style="font-size:15px;">Step 1: sign the lien notice' + sigBadge(1) + '</h3><p class="small muted" style="font-weight:400;text-transform:none;">This notice is signed and dated separately from the contract.</p>' +
+        '<div class="chips"><button type="button" id="lienTyped" class="sel" onclick="setLien(\'typed\')">Type my name</button><button type="button" id="lienDrawn" onclick="setLien(\'drawn\')">Draw</button></div>' +
+        '<div id="lienTypedBox" style="margin-top:8px;"><div id="lienTypedForm"><label for="lienName" style="text-transform:none;">Your full name</label><input type="text" id="lienName" autocomplete="name" value="' + escHtml(con.customer_name || "") + '" style="text-transform:none;font-weight:400;">' +
+        '<button type="button" class="btn" style="min-height:44px;" onclick="lienTypedSign()">Sign the lien notice</button></div>' +
+        '<div id="lienTypedSigned" class="hidden" style="margin-top:8px;"><span class="lien-done">Signed: <span id="lienTypedName"></span></span> <button type="button" class="btn secondary" style="min-height:44px;width:auto;padding:0 16px;margin-left:8px;" onclick="lienTypedUndo()">Change</button></div></div>' +
+        '<div id="lienDrawnBox" class="hidden" style="margin-top:8px;"><canvas class="sig" id="lienCanvas"></canvas><button type="button" class="btn secondary" style="min-height:44px;margin-top:8px;" onclick="clearPad(\'lienCanvas\')">Clear</button></div>' +
+        '<div class="err" role="alert" id="lienErr" style="text-transform:none;"></div></div>';
+    }
+    function lienTypedSign() {
+      var inp = byId("lienName"), err = byId("lienErr");
+      var v = inp ? inp.value.trim() : "";
+      if (!v) { if (err) { err.textContent = "Please type your full name to sign the lien notice."; } return; }
+      if (err) { err.textContent = ""; }
+      lienTypedDone = true;
+      var nm = byId("lienTypedName"); if (nm) { nm.textContent = v; }
+      var fm = byId("lienTypedForm"), sd = byId("lienTypedSigned");
+      if (fm) { fm.classList.add("hidden"); }
+      if (sd) { sd.classList.remove("hidden"); }
+      updateNextSig();
+    }
+    function lienTypedUndo() {
+      lienTypedDone = false;
+      var fm = byId("lienTypedForm"), sd = byId("lienTypedSigned");
+      if (fm) { fm.classList.remove("hidden"); }
+      if (sd) { sd.classList.add("hidden"); }
+      updateNextSig();
+    }
+    function lienStepDone() {
+      if (lienKind === "drawn") { var lp = pads["lienCanvas"]; return !!(lp && lp.drew); }
+      return lienTypedDone;
+    }
+
+    function poolDocsHtml() {
+      var p = con.pool || {};
+      var h = "";
+      if (p.safety_feature) { h += '<p style="margin-top:8px;"><strong>Pool safety feature included in this contract:</strong> ' + escHtml(p.safety_feature) + '</p>'; }
+      if (p.docs && p.docs.length) {
+        h += '<div class="docs" style="margin-top:8px;">' + p.docs.map(function(d) { return '<a href="' + escHtml(d.url) + '" target="_blank" rel="noopener">' + escHtml(d.label) + '</a>'; }).join("") + '</div>';
+      }
+      if (con.pool_ack) { h += '<p class="small muted" style="margin-top:8px;">Delivery acknowledged ' + escHtml(fmtDateTime(con.pool_ack.signed_at)) + ' (' + escHtml(con.pool_ack.method || "electronic delivery on this page") + ').</p>'; }
+      return h;
+    }
+
+    function renderPay() {
+      var pm = (con.business && con.business.payment_methods) || [];
+      if (!pm.length) { return; }
+      var el = byId("payMethods"); if (el) { el.innerHTML = paymentTilesHtml(pm); }
+      var c = byId("cardPay"); if (c) { c.classList.remove("hidden"); }
+    }
+
+    function signatureCell(label, sig, fallbackName) {
+      if (!sig) { return '<div class="cell"><div class="k">' + label + '</div><div class="muted small">Not signed yet</div></div>'; }
+      var drawn = sig.kind === "drawn";
+      var visual = (drawn && sig.image_url) ? '<img class="sigimg" src="' + escHtml(sig.image_url) + '" alt="Signature">' : '<div class="typed-sig">' + escHtml(sig.signer_name || fallbackName || "") + '</div>';
+      return '<div class="cell"><div class="k">' + label + '</div>' + visual +
+        '<div class="k" style="margin-top:8px;">Signer</div>' + escHtml(sig.signer_name || "") +
+        '<div class="k" style="margin-top:8px;">Date and time</div>' + escHtml(fmtDateTime(sig.signed_at)) +
+        '<div class="k" style="margin-top:8px;">Method</div>' + (drawn ? "Signed electronically - drawn signature" : "Signed electronically - typed name") +
+        (sig.device ? '<div class="k" style="margin-top:8px;">Device</div>' + escHtml(sig.device) : "") + '</div>';
+    }
+
+    function signedHtml() {
+      var hs = con.homeowner_signature;
+      var head = con.status === "completed" ? "Signed by both parties" : "Signed";
+      var h = '<div class="state"><h3 class="ok" aria-level="2">' + head + '</h3>' +
+        (hs ? '<p>Signed by ' + escHtml(hs.signer_name || "") + (hs.signed_at ? ' on ' + escHtml(fmtDateTime(hs.signed_at)) : "") + '.</p>' : "") +
+        '<div class="signed-grid">' + signatureCell("Company signature", con.company_signature, con.business.name) + signatureCell("Owner signature", hs, con.customer_name) +
+        (con.second_signer ? signatureCell("Second owner signature", con.second_signer.signed, "") : "") + '</div>';
+      if (con.cancellation && con.cancellation.sold_in_home && con.cancellation.deadline_date) {
+        h += '<p style="margin-top:12px;font-weight:700;">You may cancel this transaction until midnight of ' + escHtml(fmtDate(con.cancellation.deadline_date)) + '. See the Notice of Cancellation below.</p>';
+      }
+      if (con.content_hash) { h += '<p class="hash" style="margin-top:10px;">Document hash (SHA-256): ' + escHtml(con.content_hash) + '</p>'; }
+      if (con.signed_render_hash) { h += '<p class="hash" style="margin-top:4px;">Signed copy hash (SHA-256): ' + escHtml(con.signed_render_hash) + '</p>'; }
+      return h + '</div>';
+    }
+
+    function initialsNote() {
+      var items = [];
+      if (req("arbitration_initials")) { items.push("arbitration clause"); }
+      if (req("jury_initials")) { items.push("jury trial waiver"); }
+      return items.join(" and ");
+    }
+
+    // The attorney disclaimer is printed ONCE, at the foot of the page
+    // (#disclaimerEnd) -- F10.
+    function renderActions() {
+      var card = byId("cardActions");
+      var banner = byId("cardStateBanner");
+      if (!card || !banner) { return; }
+      banner.classList.add("hidden");
+      card.classList.remove("hidden");
+      if (con.status === "homeowner_signed" || con.status === "completed") {
+        banner.innerHTML = signedHtml();
+        banner.classList.remove("hidden");
+        card.innerHTML = secondSignHtml() + spLateHtml() + '<p class="muted">You can download a copy of this signed contract at any time.</p>' + cancellationCopiesHtml();
+        return;
+      }
+      if (isPreviewDraft()) {
+        card.innerHTML = '<h2>Signing</h2><p class="muted">The homeowner signs here after the company has signed. Signing is not available in preview.</p>' + cancellationCopiesHtml();
+        return;
+      }
+      if (con.status === "awaiting_company") {
+        banner.innerHTML = '<div class="state"><h3 aria-level="2">Waiting for the company\'s signature</h3><p>The company signs first. You will be able to sign once it has.</p></div>';
+        banner.classList.remove("hidden");
+        card.classList.add("hidden");
+        return;
+      }
+      if (con.status === "expired") {
+        banner.innerHTML = '<div class="state"><h3 aria-level="2">This offer expired' + (con.offer_expiry_date ? ' on ' + escHtml(fmtDate(con.offer_expiry_date)) : "") + '.</h3><p>Request an updated contract.</p>' +
+          (previewId ? "" : '<button type="button" class="btn" id="btnRenew" onclick="renew()">Request an updated contract</button><div class="err" role="alert" id="renewErr"></div>') + '</div>';
+        banner.classList.remove("hidden");
+        card.classList.add("hidden");
+        return;
+      }
+      if (con.status === "declined") {
+        banner.innerHTML = '<div class="state"><h3 aria-level="2">Declined</h3><p>' + (previewId ? "The homeowner" : "You") + ' declined this contract' + (con.decline_reason ? ": " + escHtml(con.decline_reason) : "") + '.</p></div>';
+        banner.classList.remove("hidden");
+        card.classList.add("hidden");
+        return;
+      }
+      // F17: after a change request the sign form is gone, not refused on submit.
+      if (con.status === "changes_requested") {
+        banner.innerHTML = '<div class="state"><h3 aria-level="2">' + (previewId ? "Changes requested" : "You asked for changes") + '</h3>' +
+          (previewId ? "" : '<p>You asked for changes. ' + escHtml(bizName()) + ' will send you a revised contract.</p>') +
+          (con.change_request_text ? '<p class="muted small">Your request: ' + escHtml(con.change_request_text) + '</p>' : "") + '</div>';
+        banner.classList.remove("hidden");
+        card.classList.add("hidden");
+        return;
+      }
+      var live = canRespond();
+      var off = live ? "" : " disabled";
+      var l5a = sectionById("L5-A");
+      var h = '<h2>' + (con.doc_title ? "Sign this agreement" : "Sign this contract") + '</h2>';
+      if (!live) { h += '<p class="muted small">Signing happens on the homeowner\'s link.</p>'; }
+      if (req("lien_signature")) { h += '<p class="small muted">Step 1 is the lien notice above (sign it there). Step 2 is the contract itself, below.</p>'; }
+      if (req("pool_ack")) {
+        h += '<div class="step"><h3>Pool safety documents</h3><label class="consent"><input type="checkbox" id="poolAck"' + off + '><span>I received both documents listed under Pool safety documents above: the Chapter 515 requirements document and the state drowning-prevention publication.</span></label></div>';
+      }
+      if (req("arbitration_initials") || req("jury_initials")) {
+        h += '<div class="step"><h3>Initials</h3><p class="small muted">Type your initials to confirm you read the ' + escHtml(initialsNote()) + '.</p><label for="initials">Your initials</label><input type="text" id="initials" maxlength="6" autocomplete="off"' + off + '></div>';
+      }
+      if (req("marketing_checkbox")) {
+        h += '<div class="step"><h3>Photos</h3><label class="consent"><input type="checkbox" id="marketing"' + off + '><span>I allow the use of photos of the finished work as described in the Photos clause. I can withdraw this in writing at any time.</span></label></div>';
+      }
+      h += '<label for="signer">Your full name</label><input type="text" id="signer" autocomplete="name" value="' + escHtml(con.customer_name || "") + '"' + off + '>' +
+        '<label id="mainSigStep">Signature' + sigBadge(sigTotal()) + '</label>' +
+        '<div class="chips"><button type="button" id="chipTyped" class="sel" onclick="setSig(\'typed\')"' + off + '>Type my name</button><button type="button" id="chipDrawn" onclick="setSig(\'drawn\')"' + off + '>Draw</button></div>' +
+        '<div id="sigTyped" style="margin-top:8px;"><p class="muted small">Your typed name above will be used as your signature.</p></div>' +
+        '<div id="sigDrawn" class="hidden" style="margin-top:8px;"><canvas class="sig" id="sigCanvas"></canvas><button type="button" class="btn secondary" style="min-height:44px;margin-top:8px;" onclick="clearPad(\'sigCanvas\')">Clear</button></div>';
+      if (l5a && req("cancellation")) { h += '<div class="l5a">' + richHtml(l5a.text) + '</div>'; }
+      h += besideHtml();
+      h += esignConsentHtml(con.business, off, "btnSign") +
+        '<div class="err" role="alert" id="signErr"></div>' +
+        '<button type="button" class="btn" id="btnSign" onclick="sign()" disabled>Sign contract</button>';
+      if (live) {
+        h += '<h2 style="margin-top:22px;">Or</h2>' +
+          '<label for="changes">Request changes</label><textarea id="changes" placeholder="Tell us what you would like changed"></textarea>' +
+          '<button type="button" class="btn secondary" id="btnChanges" onclick="respond(\'changes\')">Send change request</button>' +
+          '<label for="declineReason">Decline (optional reason)</label><input type="text" id="declineReason">' +
+          '<button type="button" class="btn secondary" id="btnDecline" onclick="respond(\'decline\')">Decline this contract</button>' +
+          '<div class="err" role="alert" id="respondErr"></div>';
+      }
+      h += cancellationCopiesHtml();
+      card.innerHTML = h;
+      if (live) { setupCanvas("sigCanvas", "main"); }
+      updateNextSig();
+    }
+
+    // Signature N of M: the lien notice (when required) is 1, the contract is last.
+    function sigTotal() { return req("lien_signature") ? 2 : 1; }
+    function sigBadge(n) { var t = sigTotal(); return t > 1 ? ' <span class="sig-count">' + n + ' of ' + t + '</span>' : ""; }
+    function lienPending() { return req("lien_signature") && !con.lien_signature && !lienStepDone(); }
+    function updateNextSig() {
+      var b = byId("nextSig");
+      var show = !!con && canRespond() && con.status !== "homeowner_signed" && con.status !== "completed";
+      if (!b) {
+        if (!show) { return; }
+        b = document.createElement("button");
+        b.type = "button"; b.id = "nextSig"; b.className = "next-sig";
+        b.onclick = goNextSig;
+        document.body.appendChild(b);
+      }
+      b.classList.toggle("hidden", !show);
+      document.body.classList.toggle("has-next-sig", show);
+      if (!show) { return; }
+      var t = sigTotal();
+      if (lienPending()) { b.textContent = "Next: sign the lien notice (1 of " + t + ")"; }
+      else { b.textContent = t > 1 ? "Next: sign the contract (2 of 2)" : "Go to signature"; }
+      // Out of the way once the signature it points to is on screen, so it
+      // never covers the real Sign button.
+      var target = lienPending() ? byId("lienStep") : byId("cardActions");
+      var r = target ? target.getBoundingClientRect() : null;
+      var inView = !!r && r.top < window.innerHeight - 90 && r.bottom > 0;
+      b.classList.toggle("hidden", inView);
+      document.body.classList.toggle("has-next-sig", !inView);
+    }
+    window.addEventListener("scroll", function() { if (con) { updateNextSig(); } }, { passive: true });
+    window.addEventListener("resize", function() { if (con) { updateNextSig(); } });
+    function goNextSig() {
+      var el = lienPending() ? byId("lienStep") : byId("mainSigStep");
+      if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    }
+
+    // Two completed copies of the NOTICE OF CANCELLATION (16 CFR 429.1(b)).
+    function cancellationCopiesHtml() {
+      var c = con.cancellation || {};
+      if (!req("cancellation") || !c.notice_form_text) { return ""; }
+      var copy = function(n) { return '<div class="noc-copy"><div class="copy-label">Notice of cancellation - copy ' + n + ' of 2</div>' + richHtml(c.notice_form_text) + '</div>'; };
+      // Nicole's decision (docs PDF build, A8): on this page the two copies
+      // are collapsed behind a heading the homeowner taps to open. The short
+      // "may cancel until midnight of ..." sentence in the contract stays
+      // visible, and the PDF keeps both copies in full (s. 501.031, 16 CFR 429).
+      return '<details class="noc-fold"><summary><h2>Notice of Cancellation (2 copies) - tap to read</h2></summary><p class="small muted">Two completed copies are furnished with this contract. Keep both; use one if you decide to cancel.</p>' + copy(1) + copy(2) + '</details>';
+    }
+
+    function setSig(kind) {
+      sigKind = kind;
+      var ct = byId("chipTyped"), cd = byId("chipDrawn"), st = byId("sigTyped"), sd = byId("sigDrawn");
+      if (ct) { ct.className = kind === "typed" ? "sel" : ""; }
+      if (cd) { cd.className = kind === "drawn" ? "sel" : ""; }
+      if (st) { st.classList.toggle("hidden", kind !== "typed"); }
+      if (sd) { sd.classList.toggle("hidden", kind !== "drawn"); }
+      if (kind === "drawn") { setupCanvas("sigCanvas", "main"); }
+    }
+    function setLien(kind) {
+      lienKind = kind;
+      var ct = byId("lienTyped"), cd = byId("lienDrawn"), st = byId("lienTypedBox"), sd = byId("lienDrawnBox");
+      if (ct) { ct.className = kind === "typed" ? "sel" : ""; }
+      if (cd) { cd.className = kind === "drawn" ? "sel" : ""; }
+      if (st) { st.classList.toggle("hidden", kind !== "typed"); }
+      if (sd) { sd.classList.toggle("hidden", kind !== "drawn"); }
+      if (kind === "drawn") { setupCanvas("lienCanvas", "lien"); }
+      updateNextSig();
+    }
+
+    // One pad per canvas id (the contract and the lien notice each have one).
+    function setupCanvas(id, key) {
+      var c = byId(id);
+      if (!c) { return; }
+      var ratio = window.devicePixelRatio || 1;
+      var w = c.clientWidth || 300, h = 160;
+      if (c.width !== Math.round(w * ratio)) { c.width = Math.round(w * ratio); c.height = Math.round(h * ratio); }
+      var ctx = c.getContext("2d");
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.lineWidth = 2.2; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "#111";
+      var pad = pads[id] || { drew: false, drawing: false };
+      pad.ctx = ctx; pads[id] = pad;
+      function pos(ev) { var r = c.getBoundingClientRect(); var t = ev.touches ? ev.touches[0] : ev; return { x: t.clientX - r.left, y: t.clientY - r.top }; }
+      c.onpointerdown = function(ev) { pad.drawing = true; pad.drew = true; var p = pos(ev); ctx.beginPath(); ctx.moveTo(p.x, p.y); ev.preventDefault(); };
+      c.onpointermove = function(ev) { if (!pad.drawing) { return; } var p = pos(ev); ctx.lineTo(p.x, p.y); ctx.stroke(); ev.preventDefault(); };
+      c.onpointerup = c.onpointerleave = function() { pad.drawing = false; updateNextSig(); };
+    }
+    function clearPad(id) { var c = byId(id); var pad = pads[id]; if (c && pad && pad.ctx) { pad.ctx.clearRect(0, 0, c.width, c.height); pad.drew = false; } updateNextSig(); }
+
+    // Every refusal is said next to the button that was pressed (F26).
+    function sayErr(err, text) { err.textContent = text; if (err.scrollIntoView) { err.scrollIntoView({ block: "center" }); } }
+    // Electronic signature consent (E-SIGN, 15 USC 7001(c); Florida UETA, 668.50).
+    // The box comes BEFORE the sign control, and the control stays disabled
+    // until it is ticked. The business name and contact are the ones this
+    // document already shows. CHANGE THE VERSION whenever the words change:
+    // it is stored with every signature.
+    var ESIGN_CONSENT_VERSION = "2026-10-04.1";
+    function esignConsentHtml(b, off, btnId) {
+      b = b || {};
+      var who = b.name ? String(b.name) : "the business named above";
+      var parts = [];
+      if (b.phone) { parts.push(fmtPhone(b.phone)); }
+      if (b.email) { parts.push(String(b.email)); }
+      var contact = parts.length ? parts.join(" or ") : "the business named above";
+      var text = "I agree to receive, review and sign this document and related notices electronically. " +
+        "I can view, download and print this document on this page. " +
+        "I can ask " + who + " for a paper copy at no charge by contacting them at " + contact + ", " +
+        "and I can withdraw this consent before signing by closing this page or contacting them. " +
+        "To use this page I need a current web browser and a PDF viewer. " +
+        "To change my contact details I contact " + who + ".";
+      var points = [
+        "Paper copy: you can ask " + who + " for a paper copy of this document at no charge.",
+        "Withdrawing consent: you can withdraw your consent before signing by closing this page or by contacting " + who + ". Nothing is signed until you press the sign button.",
+        "What this covers: this consent applies to this document and to notices related to it.",
+        "What you need: a current web browser and a PDF viewer, to view, download and print this document.",
+        "Your contact details: to change your phone number, email or address, contact " + who + (parts.length ? " at " + contact : "") + ".",
+        "Your copy: you can view, download and print this document on this page at any time."
+      ];
+      var lis = "";
+      for (var i = 0; i < points.length; i++) { lis += "<li>" + escHtml(points[i]) + "</li>"; }
+      return '<label class="consent"><input type="checkbox" id="consent"' + (off || "") + ' onchange="esignConsentChanged(\'' + btnId + '\')"><span>' + escHtml(text) + '</span></label>' +
+        '<details style="font-size:13px;margin-top:6px;"><summary style="cursor:pointer;">Read the electronic consent details</summary><ul style="margin:8px 0 0 18px;padding:0;">' + lis + '</ul></details>';
+    }
+    function esignConsentChanged(btnId) {
+      var c = byId("consent"); var b = byId(btnId);
+      if (b && !b.hasAttribute("data-busy")) { b.disabled = !(c && c.checked); }
+    }
+    function sign() {
+      var err = byId("signErr"); if (!err) { return; }
+      err.textContent = "";
+      if (!canRespond()) { sayErr(err, "Signing happens on the homeowner's link."); return; }
+      var signerEl = byId("signer");
+      var signer = signerEl ? signerEl.value.trim() : "";
+      if (!signer) { sayErr(err, "Please type your full name."); return; }
+      var body = { signer_name: signer, signature_kind: sigKind, consent: true, consent_text_version: ESIGN_CONSENT_VERSION };
+      if (req("lien_signature")) {
+        // F42: step 1 must have been done in the lien box itself.
+        if (!lienStepDone()) {
+          err.textContent = "Please sign the construction lien notice first (step 1).";
+          var le = byId("lienErr"); if (le) { le.textContent = "Please sign the construction lien notice here first (step 1)."; }
+          var lc0 = byId("lienCard"); if (lc0 && lc0.scrollIntoView) { lc0.scrollIntoView({ block: "start" }); }
+          return;
+        }
+        if (lienKind === "drawn") {
+          var lc = byId("lienCanvas");
+          if (!lc) { sayErr(err, "Please sign the construction lien notice first (step 1)."); return; }
+          body.lien_signature_png = lc.toDataURL("image/png");
+        } else { body.lien_typed = true; }
+      }
+      if (req("pool_ack")) {
+        var pa = byId("poolAck");
+        if (!pa || !pa.checked) { sayErr(err, "Please confirm you received the two pool safety documents."); return; }
+        body.pool_ack = true;
+      }
+      if (req("arbitration_initials") || req("jury_initials")) {
+        var ini = byId("initials");
+        var v = ini ? ini.value.trim() : "";
+        if (!v) { sayErr(err, "Please type your initials."); return; }
+        body.initials = v;
+      }
+      if (req("marketing_checkbox")) { var mk = byId("marketing"); body.marketing_consent = !!(mk && mk.checked); }
+      // RES-36: the separate pages, initials and acknowledgments a state
+      // asks for are signed in this same visit and sent with the signature.
+      var stateParts = spCollect(err);
+      if (stateParts === false) { return; }
+      if (stateParts) { body.state_parts = stateParts; }
+      var consent = byId("consent");
+      if (!consent || !consent.checked) { sayErr(err, "Please agree to sign electronically."); return; }
+      if (sigKind === "drawn") {
+        var c = byId("sigCanvas"); var p = pads["sigCanvas"];
+        if (!c || !p || !p.drew) { sayErr(err, "Please draw your signature."); return; }
+        body.signature_png = c.toDataURL("image/png");
+      }
+      var btn = byId("btnSign"); if (btn) { btn.disabled = true; }
+      fetch(WORKER_URL + "/api/public/contracts/" + token + "/sign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not sign"); } return load(); })
+        .then(function() { window.scrollTo(0, 0); })
+        .catch(function(e) { if (btn) { btn.disabled = false; } sayErr(err, e.message); console.error(e); });
+    }
+
+    // The second customer signer (a state that wants both spouses to sign):
+    // asked for here once the first owner has signed. Typed name with the same
+    // electronic consent. It never holds the contract up.
+    function secondSignHtml() {
+      var ss = con.second_signer;
+      if (!ss || ss.signed || con.status !== "completed") { return ""; }
+      if (previewId) { return '<div class="step"><h3>Second owner signature</h3><p class="muted small">The second owner or spouse signs here, on the homeowner\'s link.</p></div>'; }
+      return '<div class="step" id="secondSignStep"><h3>Second owner signature</h3>' +
+        '<p class="small">This contract asks for the signature of a second owner or spouse. That person signs here.</p>' +
+        '<label for="signer2">Second owner\'s full name</label><input type="text" id="signer2" autocomplete="off">' +
+        '<p class="muted small">The typed name will be used as the signature.</p>' +
+        esignConsentHtml(con.business, "", "btnSign2") +
+        '<div class="err" role="alert" id="sign2Err"></div>' +
+        '<button type="button" class="btn" id="btnSign2" onclick="signSecond()" disabled>Sign as second owner</button></div>';
+    }
+    function signSecond() {
+      var err = byId("sign2Err"); if (!err) { return; }
+      err.textContent = "";
+      var el = byId("signer2");
+      var signer = el ? el.value.trim() : "";
+      if (!signer) { sayErr(err, "Please type the second owner's full name."); return; }
+      var consent = byId("consent");
+      if (!consent || !consent.checked) { sayErr(err, "Please agree to sign electronically."); return; }
+      var btn = byId("btnSign2"); if (btn) { btn.disabled = true; }
+      fetch(WORKER_URL + "/api/public/contracts/" + token + "/second-sign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ signer_name: signer, consent: true, consent_text_version: ESIGN_CONSENT_VERSION }) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not sign"); } return load(); })
+        .then(function() { window.scrollTo(0, 0); })
+        .catch(function(e) { if (btn) { btn.disabled = false; } sayErr(err, e.message); console.error(e); });
+    }
+
+    function respond(kind) {
+      var err = byId("respondErr"); if (!err) { return; }
+      err.textContent = "";
+      var src = byId(kind === "changes" ? "changes" : "declineReason");
+      var text = src ? src.value.trim() : "";
+      if (kind === "changes" && !text) { sayErr(err, "Please describe the changes you would like."); return; }
+      var btn = byId(kind === "changes" ? "btnChanges" : "btnDecline"); if (btn) { btn.disabled = true; }
+      fetch(WORKER_URL + "/api/public/contracts/" + token + "/" + kind, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text || null }) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not send"); } return load(); })
+        .then(function() { window.scrollTo(0, 0); })
+        .catch(function(e) { if (btn) { btn.disabled = false; } sayErr(err, e.message); console.error(e); });
+    }
+
+    function renew() {
+      var err = byId("renewErr"); var btn = byId("btnRenew");
+      if (!err || !btn) { return; }
+      err.textContent = ""; btn.disabled = true;
+      fetch(WORKER_URL + "/api/public/contracts/" + token + "/changes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: "The offer expired. Please send an updated contract." }) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not send"); } btn.textContent = "Request sent"; })
+        .catch(function(e) { btn.disabled = false; sayErr(err, e.message); console.error(e); });
+    }
+
+    // F38: a voided contract's link says so plainly; nothing to sign.
+    function renderVoid() {
+      var card = byId("cardMeta"), banner = byId("cardStateBanner");
+      if (card) {
+        card.innerHTML = '<div class="state"><h3 aria-level="2">Contract ' + escHtml(con.display_number || "") + '</h3><p>This contract was cancelled by ' + escHtml(bizName()) +
+          (con.voided_at ? ' on ' + escHtml(fmtDate(con.voided_at)) : "") + '.</p><p class="muted small">There is nothing to sign. Contact ' + escHtml(bizName()) + ' with any questions.</p></div>';
+      }
+      if (banner) { banner.classList.add("hidden"); }
+      ["sections", "cardPay", "cardActions", "cardPdf"].forEach(function(id) { var el = byId(id); if (el) { el.classList.add("hidden"); } });
+      var sec = byId("sections"); if (sec) { sec.innerHTML = ""; }
+    }
+
+    // N22: the business made a revision that is not sent yet. Same layout as
+    // the voided contract (F38), with the business's contact.
+    function renderPreparing() {
+      var card = byId("cardMeta"), banner = byId("cardStateBanner");
+      var b = con.business || {};
+      var contact = [b.phone ? escHtml(fmtPhone(b.phone)) : "", b.email ? escHtml(b.email) : ""].filter(Boolean).join(" &middot; ");
+      if (card) {
+        card.innerHTML = '<div class="state"><h3 aria-level="2">Contract ' + escHtml(con.display_number || "") + '</h3><p>' + escHtml(bizName()) +
+          ' is preparing a revised contract. You will receive a new link.</p>' +
+          '<p class="muted small">Questions: contact ' + escHtml(bizName()) + (contact ? ' &middot; ' + contact : "") + '.</p></div>';
+      }
+      if (banner) { banner.classList.add("hidden"); }
+      ["sections", "cardPay", "cardActions", "cardPdf"].forEach(function(id) { var el = byId(id); if (el) { el.classList.add("hidden"); } });
+      var sec = byId("sections"); if (sec) { sec.innerHTML = ""; }
+      document.title = docWord() + " " + (con.display_number || "") + (b.name ? " - " + b.name : "");
+    }
+
+    function fetchContract() {
+      if (mockUrl) { return fetch(mockUrl).then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); }); }
+      if (previewId) {
+        var cid = null, tok = null;
+        try { cid = localStorage.getItem("apex_client_id"); tok = localStorage.getItem("apex_client_token"); } catch (e) { cid = null; }
+        if (!cid || !tok) { return Promise.reject(new Error("nf")); }
+        return fetch(WORKER_URL + "/api/clients/" + encodeURIComponent(cid) + "/gm/contracts/" + encodeURIComponent(previewId) + "/preview", { headers: { "Authorization": "Bearer " + tok } })
+          .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); });
+      }
+      return fetch(WORKER_URL + "/api/public/contracts/" + token).then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); });
+    }
+
+    function load() {
+      if (!token && !previewId && !mockUrl) { show("cardNotFound"); return Promise.resolve(); }
+      return fetchContract()
+        .then(function(d) {
+          if (d.superseded) {
+            // A newer version of this document. On the readable address it is
+            // loaded in place (the address bar stays as it is); on the old
+            // address the page moves to the new token as before.
+            if (d.current_token && docLink) { token = d.current_token; return load(); }
+            if (d.current_token) { window.location.replace("contract-view?t=" + d.current_token); return; }
+            if (d.preparing) { con = d.preparing; con.business = con.business || {}; applyBranding(con.business); renderPreparing(); show("doc"); return; }
+            show("cardNotFound"); return;
+          }
+          con = d.contract;
+          con.business = con.business || {};
+          applyBranding(con.business);
+          document.title = docWord() + " " + (con.display_number || "") + (con.business.name ? " - " + con.business.name : "");
+          // F6: the PREVIEW banner is for unsent drafts only; a sent or signed
+          // contract previews exactly as the homeowner sees it.
+          var pb = byId("previewBanner"); if (pb) { pb.classList.toggle("hidden", !isPreviewDraft()); }
+          // State riders: a contract for a job outside Florida shows its
+          // disclaimer at the top of the page as well as at the foot.
+          var dtCard = byId("cardDisclaimerTop"), dt = byId("disclaimerTop");
+          var showTop = con.status !== "void" && con.disclaimer_top === true && !!con.disclaimer_line;
+          if (dt) { dt.textContent = showTop ? con.disclaimer_line : ""; }
+          if (dtCard) { dtCard.classList.toggle("hidden", !showTop); }
+          if (con.status === "void") { renderVoid(); var de0 = byId("disclaimerEnd"); if (de0) { de0.textContent = ""; } show("doc"); return; }
+          renderMeta(); renderSections(); renderPay(); renderActions();
+          var de = byId("disclaimerEnd"); if (de) { de.textContent = con.disclaimer_line || ""; }
+          var pdf = byId("btnPdf");
+          if (pdf) { pdf.textContent = con.status === "completed" ? "Download your signed contract (PDF)" : "Download contract (PDF)"; pdf.onclick = function() { openPdf("contract"); }; }
+          show("doc");
+        })
+        .catch(function(e) { console.error(e); show("cardNotFound"); });
+    }
+
+    window.onload = function() { load(); };
+  </script>
+</body>
+</html>

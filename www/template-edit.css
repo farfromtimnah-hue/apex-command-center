@@ -1,0 +1,130 @@
+/* Edit-in-place template editor. Small focused modal, never a page.
+   Alice's file: short, scannable, plain language, and NO RED -- an error
+   states what happened without shouting about it. */
+
+.tpl-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(20, 18, 16, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 10000;   /* above the page's own modals, since it opens from them */
+}
+
+.tpl-modal {
+  background: var(--card, #fff);
+  color: var(--text, #1a1a1d);
+  border-radius: 14px;
+  padding: 22px;
+  width: 100%;
+  max-width: 460px;
+  max-height: 86vh;
+  overflow-y: auto;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+}
+
+.tpl-title { margin: 0 0 6px; font-size: 17px; font-weight: 700; }
+.tpl-sub,
+.tpl-hint,
+.tpl-loading,
+.tpl-meta {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--muted, #6b6b6b);
+  line-height: 1.5;
+}
+.tpl-meta { margin: 12px 0 0; font-size: 11.5px; }
+
+.tpl-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.55;
+  color: inherit;
+  background: var(--surface-2, #f7f5f1);
+  border: 1px solid var(--border, #e5e0d6);
+  border-radius: 9px;
+  padding: 12px;
+  resize: vertical;
+  margin: 0 0 12px;
+}
+.tpl-textarea:focus-visible {
+  outline: 2px solid var(--gold, #C9A43A);
+  outline-offset: 1px;
+}
+
+/* Token chips. Clickable so a variable deleted by accident can be put back
+   without typing the braces correctly from memory. */
+.tpl-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+.tpl-token {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  padding: 5px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--border, #e5e0d6);
+  background: var(--surface-2, #f7f5f1);
+  color: var(--text, #1a1a1d);
+  cursor: pointer;
+}
+.tpl-token:hover { border-color: var(--gold, #C9A43A); }
+.tpl-token:focus-visible { outline: 2px solid var(--gold, #C9A43A); outline-offset: 2px; }
+
+/* Validation and failure text. Weight carries it, not colour -- red is
+   reserved in this app and a template warning does not earn it. */
+.tpl-msg {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text, #1a1a1d);
+}
+
+.tpl-actions { display: flex; gap: 9px; flex-wrap: wrap; }
+.tpl-btn {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 11px 18px;
+  border-radius: 9px;
+  border: 1px solid var(--border, #e5e0d6);
+  background: transparent;
+  color: var(--text, #1a1a1d);
+  cursor: pointer;
+}
+.tpl-btn:hover { border-color: var(--gold, #C9A43A); }
+.tpl-btn:focus-visible { outline: 2px solid var(--gold, #C9A43A); outline-offset: 2px; }
+.tpl-btn-gold {
+  background: var(--gold, #C9A43A);
+  border-color: var(--gold, #C9A43A);
+  color: #12100a;
+}
+.tpl-btn[disabled] { opacity: 0.6; cursor: default; }
+
+/* The pencil beside a send button. Deliberately quiet: it must read as an
+   affordance ON the send action, not as a second thing to click instead. */
+.tpl-pencil {
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1;
+  padding: 6px 8px;
+  margin-left: 4px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted, #6b6b6b);
+  cursor: pointer;
+  vertical-align: middle;
+}
+.tpl-pencil:hover {
+  color: var(--gold, #C9A43A);
+  border-color: var(--border, #e5e0d6);
+}
+.tpl-pencil:focus-visible { outline: 2px solid var(--gold, #C9A43A); outline-offset: 2px; }

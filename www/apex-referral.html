@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js?v=1788495974, so it is installed before anything that can throw.
+
+       WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
+       with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
+       no replay block, hasListeners=false forever) is consistent with a script
+       dying early. Capacitor only prints that generic string, so the actual
+       message, file, line and stack have to be captured here.
+
+       Buffers into a cookie as well as the console, because the native log is
+       only reachable once the Capacitor plugin exists -- which is exactly what
+       may not have happened yet when the error fires. native-bridge.js?v=1788495974 replays
+       this buffer into the native log once the plugin appears. -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1792442281"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Indicação — Apex</title>
+  <style>
+    /* Public, no-login page. Same rule as referral.html: everything is
+       self-contained, no app JS/CSS is pulled in, and this page must never
+       grow a dependency on authenticated code.
+
+       Deliberately simpler than referral.html in exactly two ways, both
+       because this is APEX'S OWN page rather than a client's:
+         * PT only — no language toggle. Rafa and Alice are both Brazilian and
+           this page represents Apex itself.
+         * Apex's own black-and-gold, hardcoded. No per-partner branding, so
+           there are no CSS custom-property overrides to apply at runtime. */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --gold: #C9A43A; --ink: #1a1a1d; --muted: #6b6660;
+      --border: #e3ded6; --bg: #0e0e10; --red: #b44040; --green: #3f7d4e;
+      /* The card stays light on the dark page: these are text inputs, and
+         inverting them costs contrast for no gain. */
+      --card: #fff; --card-border: #e3ded6;
+    }
+    body {
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg); color: var(--ink); min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 0 0 40px;
+    }
+    .brandbar {
+      background: var(--ink); width: 100%;
+      padding: 22px 14px 24px; text-align: center; margin-bottom: 4px;
+      /* The page is dark now, so the bar needs its own edge or it dissolves
+         into the background. */
+      border-bottom: 3px solid var(--gold);
+    }
+    body.has-hero .brandbar { border-bottom: none; }
+    /* Apex's own logo — the same asset nav.js already uses across the admin
+       UI. Referenced, never re-uploaded. */
+    .brandbar img { height: 34px; width: auto; display: block; margin: 0 auto 12px; }
+    .brandbar .eyebrow {
+      font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--gold); font-weight: 700;
+    }
+    .brandbar h1 { font-size: 21px; color: #fff; margin-top: 5px; }
+    .brandbar .sub { color: rgba(255,255,255,0.72); font-size: 14px; margin-top: 7px; line-height: 1.45; }
+    .card {
+      background: var(--card); border: 1px solid var(--card-border); border-radius: 14px;
+      padding: 20px 18px; width: 100%; max-width: 440px; margin: 14px 14px 0;
+      box-shadow: 0 2px 10px rgba(26,26,29,0.06);
+    }
+    label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 14px 0 6px; }
+    label:first-child { margin-top: 0; }
+    input[type="text"], input[type="tel"], input[type="email"] {
+      width: 100%; min-height: 48px; padding: 10px 12px; font-size: 16px;
+      border: 1px solid var(--border); border-radius: 10px; background: #fff;
+    }
+    input:focus { outline: none; border-color: var(--gold); }
+    .btn {
+      width: 100%; min-height: 52px; margin-top: 18px; border: none; border-radius: 10px;
+      background: var(--gold); color: #1a1a1d; font-size: 17px; font-weight: 700; cursor: pointer;
+    }
+    .btn[disabled] { opacity: 0.6; }
+    .err { color: var(--red); font-size: 14px; margin-top: 10px; min-height: 18px; }
+    .done { text-align: center; padding: 10px 0; }
+    .done .check { font-size: 44px; color: var(--green); }
+    .done h2 { font-size: 20px; margin: 10px 0 8px; }
+    .done p { color: var(--muted); font-size: 15px; line-height: 1.5; }
+    /* Honeypot: visually removed but present in the DOM for bots. */
+    .hp-field { position: absolute; left: -9999px; top: -9999px; height: 0; overflow: hidden; }
+    .loading, .notfound { text-align: center; color: var(--muted); padding: 30px 0; font-size: 15px; }
+    /* Softer shadow reads better on a dark ground than the light-page one. */
+    body { background: var(--bg); }
+    .card { box-shadow: 0 6px 24px rgba(0,0,0,0.35); }
+
+    /* ---- OPTIONAL hero image -------------------------------------------
+       Hidden by default and revealed only when the partner actually has one.
+       A partner with no hero renders EXACTLY as before this existed -- the
+       brandbar is unchanged, so no current link shifts.
+
+       When a hero IS present the brandbar sits on top of it rather than above
+       it: the image becomes the surface the logo and headline sit on, which
+       reads as one composed banner instead of a photo with a black bar glued
+       underneath. The scrim is what keeps white text legible over a photo
+       whose brightness we do not control. */
+    .hero { position: relative; width: 100%; display: none; }
+    /* A soft top scrim so a corner logo stays legible over a bright sky. */
+    .hero-scrim::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 64px;
+      background: linear-gradient(to bottom, rgba(12,12,14,0.55), rgba(12,12,14,0));
+    }
+    body.has-hero .hero { display: block; }
+    /* The brandbar's own background is dropped when it overlays the hero --
+       the scrim below provides the contrast instead. */
+    body.has-hero .brandbar { background: transparent; margin-bottom: 0; padding: 0 14px 12px; }
+    /* The logo stays -- hiding it removed the brand mark, which is not a
+       trade worth making. It moves to the TOP-LEFT corner instead, out of the
+       centre where the summit sits, so both survive. */
+    /* The logo stays IN the centred block with the rest of the type, where it
+       reads as one composed unit. The corner placement was tried and looked
+       detached from the text it belongs to. Keeping it in the block is why the
+       banner is tall enough for the summit to sit ABOVE the whole group rather
+       than behind the logo. */
+    .hero-logo { display: none; }
+    body.has-hero .brandbar img {
+      /* The logo IS the headline over a hero -- it carries the wordmark and the
+         "Business & Leadership" lockup already, so the <h1> repeating "Apex
+         Business" underneath it was redundant AND was eating the height the
+         mark needed. h1 is hidden below; the logo takes that space. */
+      display: block; height: clamp(76px, 17vw, 104px); width: auto;
+      margin: 0 auto 12px;
+      filter: drop-shadow(0 3px 10px rgba(0,0,0,0.7));
+    }
+    /* EITHER/OR, per the original design intent: the name is the FALLBACK for
+       a missing logo, never a second copy of it. The logo already carries the
+       wordmark, so showing both says it twice. .logo-failed is set by the
+       onerror below, which is the only case where the name has to appear. */
+    .brandbar h1 { display: none; }
+    body.logo-failed .brandbar h1 { display: block; }
+    body.logo-failed .brandbar img { display: none; }
+
+
+    .hero-img {
+      display: block; width: 100%;
+      /* A BANNER, not a hero section. The form is the purpose of this page, so
+         the image is capped in real pixels as well as by ratio -- on a wide
+         desktop a pure ratio would run the banner to 500px+ and push the form
+         under the fold, which costs conversions for decoration. */
+      /* HEIGHT-DRIVEN, not ratio-driven. Measured the hard way: with a 21/6
+         ratio the width dictated the height (556px wide forced 159px) and the
+         max-height cap never applied at all, so the summit stayed cropped no
+         matter what the cap said. Setting an explicit height makes the cap the
+         real constraint and lets the ratio go wide naturally. */
+      height: clamp(255px, 36svh, 295px);
+      object-fit: cover;
+      /* No background fill. An <img> paints its own background while the bytes
+         are still arriving, so a dark fill here IS the "black hero" on a slow
+         connection: a black box with text floating on it until the photo lands.
+         The wrapper carries a neutral tone instead, and the hero only reveals
+         once the image has actually decoded. */
+      /* Anchored ABOVE centre. A cover-crop of a landscape photo trims top and
+         bottom equally, which on a mountain shot cuts the summit -- the one
+         part that has to survive. Biasing the crop upward keeps the peak in
+         frame with air above it, and sacrifices foreground instead, which is
+         where the text sits anyway. */
+      object-position: center 42%;
+      /* Fades in on decode rather than snapping from a blank box. */
+      opacity: 0; transition: opacity 260ms ease;
+    }
+    body.has-hero .hero-img { opacity: 1; }
+    @media (max-width: 520px) {
+      /* Taller crop on a phone: a 16:7 slice of a landscape photo leaves almost
+         no vertical room for a subject once the overlay takes the bottom half. */
+      /* Measured: at 390x706 a 200px cap put the submit button at y=604, which
+         a real iPhone's browser chrome (~620px usable) would cut off. Capped
+         with svh so it scales with the ACTUAL viewport rather than a guess. */
+      .hero-img { height: clamp(225px, 33svh, 255px); object-position: center 34%; }
+    }
+
+    /* Two stacked layers: a base darkening pass so ANY photo can carry white
+       text, plus a stronger gradient at the bottom where the type actually
+       sits. Doing it in two passes keeps the top of the image from going
+       muddy while still guaranteeing contrast where it is needed. */
+    .hero-scrim {
+      position: absolute; inset: 0;
+      background:
+        /* Bottom-weighted so the type is legible, but held OFF the upper third
+           so the subject of the photo stays visible rather than being dimmed
+           into a grey field. The slight top vignette stops a bright sky from
+           blowing out against the page edge. */
+        linear-gradient(to top,
+          rgba(12,12,14,0.86) 0%,
+          rgba(12,12,14,0.72) 30%,
+          rgba(12,12,14,0.58) 55%,
+          rgba(12,12,14,0.42) 78%,
+          rgba(12,12,14,0.44) 100%);
+    }
+    .hero-overlay {
+      position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+      padding: 0 0 4px;
+      /* Pinned to the bottom so the type never lands on the subject. The
+         summit owns the upper half of the banner; the words own the lower. */
+      /* Was flex-end, which pinned the block to the bottom and left a band of
+         unused sky above the logo. Now the overlay spans the banner and the
+         block centres in it, so the mark sits in the frame rather than under
+         it. */
+      display: flex; align-items: center; justify-content: center;
+    }
+    /* A hairline of Apex gold along the bottom edge -- the one piece of brand
+       colour that survives over an arbitrary photo. */
+    .hero::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: 0;
+      height: 3px; background: var(--gold);
+    }
+    body.has-hero .brandbar img { filter: drop-shadow(0 2px 6px rgba(0,0,0,0.55)); }
+    body.has-hero .brandbar h1 { text-shadow: 0 1px 8px rgba(0,0,0,0.5); }
+    body.has-hero .brandbar .sub { text-shadow: 0 1px 6px rgba(0,0,0,0.55); }
+  </style>
+</head>
+<body>
+  <!-- Hero wrapper. When no hero exists, body lacks .has-hero, this whole
+       block is display:none, and #brandbarSlot below holds the brandbar in its
+       original position -- byte-identical rendering to before. -->
+  <div class="hero" id="heroWrap">
+    <img class="hero-img" id="heroImg" alt="" decoding="async" fetchpriority="high">
+    <img class="hero-logo" src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png" alt="Apex">
+    <div class="hero-scrim"></div>
+    <div class="hero-overlay" id="heroOverlay"></div>
+  </div>
+
+  <div id="brandbarSlot">
+    <div class="brandbar" id="brandbar">
+      <img src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png" alt="Apex"
+           onerror="document.body.classList.add('logo-failed')">
+      <div class="eyebrow">Indicação</div>
+      <h1>Apex Business</h1>
+      <div class="sub" id="introLine"></div>
+    </div>
+  </div>
+
+  <div class="card" id="cardLoading">
+    <div class="loading">Carregando…</div>
+  </div>
+
+  <div class="card" id="cardNotFound" hidden>
+    <div class="notfound">Link de indicação inválido ou expirado.</div>
+  </div>
+
+  <div class="card" id="cardForm" hidden>
+    <label for="fNome">Seu nome *</label>
+    <input type="text" id="fNome" autocomplete="name">
+    <label for="fTel">Telefone</label>
+    <input type="tel" id="fTel" autocomplete="tel">
+    <label for="fEmail">Email</label>
+    <input type="email" id="fEmail" autocomplete="email">
+    <!-- Honeypot: humans never see or fill this. -->
+    <div class="hp-field" aria-hidden="true">
+      <label for="website">Website</label>
+      <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+    </div>
+    <div class="err" id="formErr"></div>
+    <button type="button" class="btn" id="btnSend" onclick="submitReferral()">Enviar</button>
+  </div>
+
+  <div class="card" id="cardDone" hidden>
+    <div class="done">
+      <div class="check">&#10003;</div>
+      <h2>Recebido!</h2>
+      <p>Obrigado! A equipe da Apex recebeu seus dados e vai entrar em contato em breve.</p>
+    </div>
+  </div>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var slug = (window.location.search.match(/[?&]p=([a-z2-7]{10,40})/) || [])[1] || null;
+    var loadedAt = Date.now();
+
+    function escHtml(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function showCard(id) {
+      ["cardLoading", "cardNotFound", "cardForm", "cardDone"].forEach(function(c) {
+        document.getElementById(c).hidden = (c !== id);
+      });
+    }
+
+    function loadForm() {
+      if (!slug) { showCard("cardNotFound"); return; }
+      fetch(WORKER_URL + "/api/apex-referral/" + slug)
+        .then(function(res) {
+          if (!res.ok) { throw new Error("nf"); }
+          return res.json();
+        })
+        .then(function(d) {
+          document.getElementById("introLine").innerHTML =
+            (d.partner_name ? escHtml(d.partner_name) + " indicou você. " : "") +
+            "Deixe seus dados e a equipe entra em contato.";
+          if (d.has_hero) { applyHero(); }
+          showCard("cardForm");
+        })
+        .catch(function() { showCard("cardNotFound"); });
+    }
+
+    function submitReferral() {
+      var err = document.getElementById("formErr");
+      err.textContent = "";
+      var nome = document.getElementById("fNome").value.trim();
+      if (!nome) { err.textContent = "Preencha seu nome."; return; }
+      var btn = document.getElementById("btnSend");
+      btn.disabled = true;
+      fetch(WORKER_URL + "/api/apex-referral/" + slug, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: nome,
+          telefone: document.getElementById("fTel").value.trim() || null,
+          email: document.getElementById("fEmail").value.trim() || null,
+          website: document.getElementById("website").value || null,
+          elapsed_ms: Date.now() - loadedAt
+        })
+      })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          btn.disabled = false;
+          if (!r.ok) { throw new Error(r.data.error || "Erro"); }
+          showCard("cardDone");
+          window.scrollTo(0, 0);
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          err.textContent = e.message;
+        });
+    }
+
+    // Moves the brandbar INTO the hero and switches the page to hero layout --
+    // but only once the image has genuinely decoded. If the request 404s or the
+    // bytes are corrupt, onerror leaves the page in its default state, so a
+    // broken hero degrades to the normal black brandbar instead of a blank
+    // gap with white text floating over nothing.
+    function applyHero() {
+      var img = document.getElementById("heroImg");
+      img.onload = function() {
+        // decode() resolves only once the bitmap is actually ready to paint.
+        // onload alone can fire while the frame is still blank, which is how a
+        // black box reached the screen in the first place.
+        var reveal = function() {
+          document.getElementById("heroOverlay").appendChild(document.getElementById("brandbar"));
+          document.body.classList.add("has-hero");
+        };
+        if (img.decode) { img.decode().then(reveal).catch(reveal); } else { reveal(); }
+      };
+      img.onerror = function() { /* stay on the default brandbar */ };
+      img.src = WORKER_URL + "/api/apex-referral/" + slug + "/hero-image";
+    }
+
+    loadForm();
+  </script>
+</body>
+</html>

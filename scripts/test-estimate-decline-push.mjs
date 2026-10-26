@@ -9,7 +9,7 @@ let fail = 0, pass = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass++; } else { fail++; } };
 
 const FNS = [
-  "handlePostPublicEstimateRespond", "gmRecordHomeownerResponse", "gmClientPushTargets",
+  "handlePostPublicEstimateRespond", "gmRecordHomeownerResponse", "gmClientPushTargets", "gmOwnerPushLang",
   "gmEstByToken", "gmEstLinkDead", "gmEstAttach", "gmEstDerivedStatus", "gmEstPublicRateLimit",
   "gmLogLeadEvents", "gmStr", "gmDocParseJsonObject", "gmEasternToday"
 ];
@@ -72,6 +72,20 @@ function rq(body) { return { url: "https://x.test/", headers: { get: () => null 
   w.d.raw.prepare("INSERT INTO gm_estimates (id, client_id, lead_id, public_token, status, number, customer_name, valid_until) VALUES ('e3','c3','l3','cccccccccccccccccccccccccccccccccccccccccccccccc','viewed','1003','Pedro','2099-01-01')").run();
   const r = await w.F.handlePostPublicEstimateRespond("cccccccccccccccccccccccccccccccccccccccccccccccc", "renew", rq({}), w.env);
   ok(r.status !== 200 || w.state.pushCalls.length === 0, "a 'renew' (not decline/changes) never triggers THIS new push");
+}
+
+
+{
+  // An owner login that saved English gets the push in English; nobody else changes.
+  const w = world();
+  w.d.raw.exec("CREATE TABLE login_people (client_id TEXT, username TEXT, role TEXT, language TEXT)");
+  w.d.raw.prepare("INSERT INTO clients (id, name) VALUES ('c9', 'Gamma Pools')").run();
+  w.d.raw.prepare("INSERT INTO gm_leads (id, client_id, cliente) VALUES ('l9', 'c9', 'Sam')").run();
+  w.d.raw.prepare("INSERT INTO gm_estimates (id, client_id, lead_id, public_token, status, number, customer_name) VALUES ('e9','c9','l9','cccccccccccccccccccccccccccccccccccccccccccccccc','sent','1009','Sam')").run();
+  w.d.raw.prepare("INSERT INTO client_logins (username, client_id, seller_name) VALUES ('owner9', 'c9', NULL)").run();
+  w.d.raw.prepare("INSERT INTO login_people (client_id, username, role, language) VALUES ('c9', 'owner9', 'client', 'en')").run();
+  await w.F.handlePostPublicEstimateRespond("cccccccccccccccccccccccccccccccccccccccccccccccc", "decline", rq({ text: "too high" }), w.env);
+  ok(w.state.pushCalls.length === 1 && w.state.pushCalls[0].payload.title === "Customer declined", "English owner gets the decline push in English");
 }
 
 console.log("\n" + pass + " passed, " + fail + " failed");

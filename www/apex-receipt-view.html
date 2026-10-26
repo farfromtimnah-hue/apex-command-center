@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Recibo</title>
+  <link rel="stylesheet" href="doc-hero.css?v=1790541646">
+  <style>
+    /* APEX'S OWN RECEIPT, for a payment on Apex's own invoice (2026-10-16).
+       Public, no login: the ?t= token is the credential. Same layout family
+       as receipt-view.html (hero, meta, balance, PDF card) but in Apex's own
+       branding, the way apex-invoice-view.html does it (Apex's hero, the
+       client's logo only inline in "Received from"), and bilingual
+       (?lang=pt default, ?lang=en) like apex-invoice-view.html.
+       The same page is what the Worker prints to PDF (?noprint=1&render=1). */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --ink: #1f2328; --muted: #5a6470; --border: #e3e7ec; --bg: #f5f6f8; --red: #a63d3d; --green: #2f6b3e;
+      --navy: #13294B; --gold: #E0A526;
+      --brand-bg: #13294B; --brand-accent: #13294B; --on-brand-bg: #ffffff; --on-brand-accent: #ffffff; --accent-on-dark: #ffffff;
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
+    .client-logo-tile img { max-height: 58px; }
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
+    h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .meta-area { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+    .meta-left { flex: 1; min-width: 0; font-size: 14px; }
+    .k { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .meta-left .who { font-size: 17px; font-weight: 700; }
+    .meta-left .who-logo { display: block; width: auto; height: auto; max-width: min(100%, 220px); max-height: 56px; object-fit: contain; margin: 6px 0 4px; }
+    .meta-left .who-logo[hidden] { display: none; }
+    .meta-right { flex: 0 1 260px; text-align: right; }
+    .meta-right .title { font-size: 22px; font-weight: 800; text-transform: uppercase; color: var(--brand-bg); line-height: 1.1; }
+    .meta-right .num { font-size: 15px; font-weight: 700; color: var(--brand-accent); margin-bottom: 6px; }
+    .meta-right table { width: 100%; border-collapse: collapse; margin-left: auto; }
+    .meta-right td { padding: 2px 6px; font-size: 13px; vertical-align: top; }
+    .meta-right td.fl { font-weight: 600; color: #444; white-space: normal; text-align: left; }
+    .meta-right td.fv { text-align: right; }
+    .stamp { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+    .stamp.ok { color: var(--green); } .stamp.bad { color: var(--red); }
+    .amount-due-tile { background: #faf7f1; color: #2b2b2b; border: 1px solid var(--gold); border-radius: 999px; padding: 10px 24px; max-width: 360px; margin: 12px auto 0; text-align: center; }
+    .amount-due-tile .adt-label { font-size: 10px; font-weight: 600; color: #6b6b6b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px; }
+    .amount-due-tile .adt-value { font-size: 21px; font-weight: 300; letter-spacing: 0; color: #2b2b2b; }
+    @media (max-width: 520px) { .meta-area { flex-direction: column; } .meta-right { flex-basis: auto; width: 100%; text-align: left; } .meta-right td.fv { text-align: right; } }
+    @media (max-width: 480px) { .meta-area { align-items: stretch; } .meta-left, .meta-right { width: 100%; } }
+    .head-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 6px; }
+    @media (max-width: 520px) { .head-row { justify-content: flex-start; } }
+    .lang-toggle { display: inline-block; min-width: 44px; min-height: 32px; line-height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; color: var(--navy); text-decoration: none; text-align: center; background: #fff; }
+    .totals { margin-top: 10px; }
+    .totals .row { display: flex; justify-content: space-between; padding: 6px 0; }
+    .totals .grand { font-size: 17px; font-weight: 500; border-top: 2px solid var(--ink); padding-top: 10px; margin-top: 4px; }
+    .totals .grand span:last-child { font-weight: 300; }
+    .banner { border-radius: 10px; padding: 12px 14px; font-size: 14px; font-weight: 700; text-align: center; }
+    .banner.bad { background: #fbeaea; border: 1px solid #e3b4b4; color: #7a2a2a; }
+    .btn { width: 100%; min-height: 52px; margin-top: 12px; border: none; border-radius: 10px; background: var(--brand-accent); color: var(--on-brand-accent); font-size: 17px; font-weight: 800; cursor: pointer; font-family: inherit; }
+    .btn.secondary { background: #fff; color: var(--ink); border: 2px solid var(--border); }
+    .state { text-align: center; padding: 20px 0; }
+    .state h3 { font-size: 20px; margin-bottom: 8px; }
+    .state p { color: var(--muted); }
+    .foot { margin-top: 18px; text-align: center; font-size: 12px; color: var(--muted); line-height: 1.7; }
+    .foot a { color: var(--muted); }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+    .hidden { display: none !important; }
+    @page { size: letter; margin: 0.5in 0.5in 0.6in; }
+    @media print {
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .wrap { max-width: none; padding: 0; }
+      .hero-band.doc-screen { height: 1.25in; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .hero-band.doc-screen .header-tile-row { margin-left: 16px; bottom: 8px; gap: 5px; }
+      .hero-band.doc-screen .client-logo-tile { height: 62px; }
+      .hero-band.doc-screen .client-logo-tile img { max-height: 46px; }
+      .card { border: none; padding: 0; margin-top: 9px; break-inside: avoid; }
+      .amount-due-tile { margin-top: 8px; padding: 6px 24px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .foot { margin-top: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="hero-band doc-screen" id="hero" role="banner">
+    <img class="hero-img" id="heroImg" alt="" hidden>
+    <div class="header-tile-row">
+      <div class="client-logo-tile"><img id="bizLogo" src="assets/apex-logo.png" alt="APEX"></div>
+      <span class="brand-pill" id="bizName">APEX Business &amp; Leadership</span>
+    </div>
+  </div>
+
+  <div class="wrap" role="main">
+    <div class="card" id="cardLoading" role="status"><div class="state"><p id="loadingText">Carregando...</p></div></div>
+    <div class="card hidden" id="cardNotFound"><div class="state"><p id="notFoundText" role="heading" aria-level="1">Este recibo n&atilde;o est&aacute; dispon&iacute;vel.</p></div></div>
+    <div id="doc" class="hidden">
+      <div class="card hidden" id="cardVoided"></div>
+      <div class="card" id="cardMeta"></div>
+      <div class="card" id="cardTotals"><h2 id="balanceTitle">Saldo</h2><div class="totals" id="balance"></div></div>
+      <div class="foot" id="foot"></div>
+      <div class="card no-print" id="cardPdf"><button type="button" class="btn secondary" id="btnPdf"></button></div>
+    </div>
+  </div>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var qs = window.location.search;
+    var docLink = (window.DOC_PAGE_LINK && typeof window.DOC_PAGE_LINK === "object") ? window.DOC_PAGE_LINK : null;
+    var docToken = (docLink && /^[a-f0-9]{48}$/.test(String(docLink.token || ""))) ? String(docLink.token) : null;
+    var token = docToken || (qs.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    var LANG = /[?&]lang=en(&|$)/.test(qs) ? "en" : "pt";
+    var isRender = /[?&](render|noprint)=1/.test(qs);
+
+    var STR = {
+      pt: {
+        title: "Recibo", loading: "Carregando...", notAvailable: "Este recibo não está disponível.",
+        receivedFrom: "Recebido de", receivedInCash: "Recebido em dinheiro", paymentReceived: "Pagamento recebido",
+        receiptNum: "Número do recibo", invoiceNum: "Fatura", dateReceived: "Data do recebimento",
+        amountReceived: "Valor recebido", method: "Forma de pagamento", reference: "Referência",
+        balanceTitle: "Saldo", balanceBefore: "Saldo da fatura antes deste pagamento", thisPayment: "Este pagamento",
+        balanceAfter: "Saldo da fatura depois", voided: "ANULADO", voidedOn: "Anulado em {date}",
+        voidedNote: "Este pagamento foi desfeito. Este recibo não é mais prova de pagamento.",
+        pdfBtn: "Baixar o recibo (PDF)",
+        mCash: "Dinheiro", mZelle: "Zelle", mCheck: "Cheque", mMoneyOrder: "Ordem de pagamento",
+        mBankTransfer: "Transferência bancária", mCard: "Cartão", mOther: "Outro",
+        footBiz: "Apex Business & Leadership · Tampa, FL",
+        other: "EN"
+      },
+      en: {
+        title: "Receipt", loading: "Loading...", notAvailable: "This receipt is not available.",
+        receivedFrom: "Received from", receivedInCash: "Received in cash", paymentReceived: "Payment received",
+        receiptNum: "Receipt number", invoiceNum: "Invoice", dateReceived: "Date received",
+        amountReceived: "Amount received", method: "Payment method", reference: "Reference",
+        balanceTitle: "Balance", balanceBefore: "Invoice balance before this payment", thisPayment: "This payment",
+        balanceAfter: "Invoice balance after", voided: "VOIDED", voidedOn: "Voided on {date}",
+        voidedNote: "This payment was undone. This receipt is no longer proof of payment.",
+        pdfBtn: "Download the receipt (PDF)",
+        mCash: "Cash", mZelle: "Zelle", mCheck: "Check", mMoneyOrder: "Money order",
+        mBankTransfer: "Bank transfer", mCard: "Card", mOther: "Other",
+        footBiz: "Apex Business & Leadership · Tampa, FL",
+        other: "PT"
+      }
+    };
+    function T(key, vars) {
+      var s = (STR[LANG] && STR[LANG][key]) || STR.pt[key] || "";
+      if (vars) { Object.keys(vars).forEach(function(k) { s = s.split("{" + k + "}").join(vars[k]); }); }
+      return s;
+    }
+    var METHOD_KEY = { cash: "mCash", zelle: "mZelle", check: "mCheck", money_order: "mMoneyOrder", bank_transfer: "mBankTransfer", card: "mCard", other: "mOther" };
+
+    function byId(id) { return document.getElementById(id); }
+    function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+    // US formats in BOTH languages: $1,234.56 and MM/DD/YYYY.
+    function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
+    function fmtDate(v) {
+      if (!v) { return ""; }
+      var s = String(v).slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { var p = s.split("-"); return p[1] + "/" + p[2] + "/" + p[0]; }
+      return String(v);
+    }
+    function show(id) { ["cardLoading", "cardNotFound", "doc"].forEach(function(c) { var el = byId(c); if (el) { el.classList.toggle("hidden", c !== id); } }); }
+
+    // The token is taken out of the address bar for the duration of a print
+    // (iPhone Safari prints the page URL in its header/footer), same
+    // handling as apex-invoice-view.html / receipt-view.html.
+    var printUrlSaved = null;
+    function printUrlHide() {
+      if (printUrlSaved !== null) { return; }
+      try {
+        var href = window.location.href;
+        if (!/[?&]t=[a-f0-9]{48}/.test(href)) { return; }
+        var q = window.location.search.replace(/([?&])t=[a-f0-9]{48}&?/, "$1").replace(/[?&]$/, "");
+        printUrlSaved = href;
+        history.replaceState(history.state, "", window.location.pathname + q + window.location.hash);
+      } catch (e) { printUrlSaved = null; console.error(e); }
+    }
+    function printUrlRestore() {
+      if (printUrlSaved === null) { return; }
+      try { history.replaceState(history.state, "", printUrlSaved); } catch (e) { console.error(e); }
+      printUrlSaved = null;
+    }
+    window.addEventListener("beforeprint", printUrlHide);
+    window.addEventListener("afterprint", printUrlRestore);
+    if (window.matchMedia) {
+      try {
+        var printMql = window.matchMedia("print");
+        var onPrintMql = function(m) { if (m.matches) { printUrlHide(); } else { printUrlRestore(); } };
+        if (printMql.addEventListener) { printMql.addEventListener("change", onPrintMql); } else if (printMql.addListener) { printMql.addListener(onPrintMql); }
+      } catch (e) { console.error(e); }
+    }
+
+    function langHref() {
+      var other = LANG === "pt" ? "en" : "pt";
+      var q = window.location.search.replace(/([?&])lang=[^&]*&?/g, "$1").replace(/[?&]$/, "");
+      return window.location.origin + window.location.pathname + q + (q ? "&" : "?") + "lang=" + other;
+    }
+
+    // Docs PDF: printed by Chrome on the server from this same template and
+    // opened as a real https PDF, never a blob: URL or window.print() on
+    // the phone.
+    function openPdf() {
+      var url = WORKER_URL + "/api/public/pdf/apex-receipt/" + token + "?lang=" + LANG;
+      var w = window.open(url, "_blank");
+      if (!w) { window.location.href = url; }
+    }
+
+    function renderDone(flag) {
+      if (flag !== "1") { document.body.setAttribute("data-render-done", flag); return; }
+      var imgs = Array.prototype.slice.call(document.images);
+      Promise.all(imgs.map(function(im) { return im.complete ? null : new Promise(function(r) { im.addEventListener("load", r); im.addEventListener("error", r); }); }))
+        .then(function() { document.body.setAttribute("data-render-done", "1"); });
+    }
+
+    function render(r) {
+      document.documentElement.lang = LANG === "en" ? "en" : "pt-BR";
+      document.title = T("title") + " " + r.receipt_number;
+      var lt = byId("loadingText"); if (lt) { lt.textContent = T("loading"); }
+
+      var methodLabel = T(METHOD_KEY[r.method] || "mOther");
+      var rows = [
+        [T("receiptNum"), escHtml(r.receipt_number)],
+        [T("invoiceNum"), escHtml(r.invoice_number)],
+        [T("dateReceived"), escHtml(fmtDate(r.paid_date))],
+        [T("amountReceived"), escHtml(money(r.amount_cents))],
+        [T("method"), escHtml(methodLabel)]
+      ];
+      if (r.reference) { rows.push([T("reference"), escHtml(r.reference)]); }
+
+      var stampLabel = r.method === "cash" ? T("receivedInCash") : T("paymentReceived");
+      var stamp = '<span class="stamp ' + (r.voided ? "bad" : "ok") + '">' + escHtml(r.voided ? T("voided") : stampLabel.toUpperCase()) + '</span>';
+      var tile = { label: r.voided ? T("voided") : T("paymentReceived"), value: money(r.amount_cents) };
+      var t = '<table>' + rows.map(function(row) { return '<tr><td class="fl">' + row[0] + '</td><td class="fv">' + row[1] + '</td></tr>'; }).join("") + '</table>';
+
+      var logo = r.client_logo_url ? '<img class="who-logo" src="' + escHtml(r.client_logo_url) + '" alt="">' : '';
+      var meta = byId("cardMeta");
+      if (meta) {
+        meta.innerHTML =
+          '<div class="head-row"><span></span><a class="lang-toggle no-print" id="langToggle" href="' + escHtml(langHref()) + '">' + escHtml(T("other")) + '</a></div>' +
+          '<div class="meta-area">' +
+            '<div class="meta-left"><div class="k">' + escHtml(T("receivedFrom")) + '</div>' + logo + '<div class="who">' + escHtml(r.client_name || "") + '</div></div>' +
+            '<div class="meta-right"><div class="title" role="heading" aria-level="1">' + escHtml(T("title")) + '</div>' + t + stamp + '</div>' +
+          '</div>' +
+          '<div class="amount-due-tile"><div class="adt-label">' + escHtml(tile.label) + '</div><div class="adt-value">' + escHtml(tile.value) + '</div></div>';
+      }
+
+      var vcard = byId("cardVoided");
+      if (vcard) {
+        if (r.voided) {
+          vcard.innerHTML = '<div class="banner bad"><div>' + escHtml(T("voidedOn", { date: fmtDate(r.voided_at) })) + '</div>' +
+            '<div class="small" style="margin-top:6px;font-weight:400;">' + escHtml(T("voidedNote")) + '</div></div>';
+          vcard.classList.remove("hidden");
+        } else {
+          vcard.classList.add("hidden");
+        }
+      }
+
+      var balTitle = byId("balanceTitle"); if (balTitle) { balTitle.textContent = T("balanceTitle"); }
+      var bal = byId("balance");
+      if (bal) {
+        bal.innerHTML =
+          '<div class="row"><span>' + escHtml(T("balanceBefore")) + '</span><span>' + money(r.balance_before_cents) + '</span></div>' +
+          '<div class="row"><span>' + escHtml(T("thisPayment")) + '</span><span>-' + money(r.amount_cents) + '</span></div>' +
+          '<div class="row grand"><span>' + escHtml(T("balanceAfter")) + '</span><span>' + money(r.balance_after_cents) + '</span></div>';
+      }
+
+      var foot = byId("foot"); if (foot) { foot.textContent = T("footBiz"); }
+      var pdf = byId("btnPdf");
+      if (pdf) { pdf.textContent = T("pdfBtn"); pdf.onclick = openPdf; }
+    }
+
+    function notFound() {
+      var nf = byId("notFoundText"); if (nf) { nf.textContent = T("notAvailable"); }
+      show("cardNotFound");
+      renderDone("0");
+    }
+
+    function load() {
+      if (!token) { notFound(); return; }
+      fetch(WORKER_URL + "/api/public/apex-receipts/" + token)
+        .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); })
+        .then(function(d) { render(d.receipt); show("doc"); renderDone("1"); })
+        .catch(function(e) { console.error(e); notFound(); });
+    }
+
+    window.onload = function() {
+      var lt = byId("loadingText"); if (lt) { lt.textContent = T("loading"); }
+      var hi = byId("heroImg");
+      if (hi) { hi.style.objectPosition = "50% 38%"; hi.addEventListener("load", function() { hi.hidden = false; }); hi.src = "assets/login/Picture4.jpg"; }
+      load();
+    };
+  </script>
+</body>
+</html>

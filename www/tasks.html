@@ -1,0 +1,3032 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js?v=1788495974, so it is installed before anything that can throw.
+
+       WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
+       with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
+       no replay block, hasListeners=false forever) is consistent with a script
+       dying early. Capacitor only prints that generic string, so the actual
+       message, file, line and stack have to be captured here.
+
+       Buffers into a cookie as well as the console, because the native log is
+       only reachable once the Capacitor plugin exists -- which is exactly what
+       may not have happened yet when the error fires. native-bridge.js?v=1788495974 replays
+       this buffer into the native log once the plugin appears. -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1792442281"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
+  <script src="datetime.js"></script>
+  <script src="task-sheet.js?v=1792440996"></script>
+  <title data-title-pt="Apex — Tarefas" data-title-en="Apex &#8212; Tasks">Apex — Tarefas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ─── Reset ─────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --surface  : #f9f7f4;
+      --header   : #1a1a1d;
+      --gold     : #C9A43A;
+      --gold-dim : rgba(201,164,58,0.14);
+      --brown    : #7a5c2e;
+      --text     : #1a1a1d;
+      --muted    : #6b6660;
+      --border   : #e8e2d9;
+      --card     : #ffffff;
+      --radius   : 10px;
+      --shadow   : 0 2px 16px rgba(26,26,29,0.08);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Bilingual toggle ──────────────────────────────────────────────── */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ─── Header ────────────────────────────────────────────────────────── */
+    #appHeader {
+      background: var(--header);
+      height: 64px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+
+    .logo-img { height: 32px; width: auto; display: block; }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.7);
+      font-size: 13px;
+    }
+
+    .role-badge {
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.4);
+      color: var(--gold);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .btn-header {
+      background: transparent;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+
+    .lang-btn {
+      background: transparent;
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    /* ─── Loading screen ─────────────────────────────────────────────────── */
+    #loadingScreen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    #loadingScreen[hidden] { display: none !important; }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── App main ───────────────────────────────────────────────────────── */
+    #appMain {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Tasks hero section ─────────────────────────────────────────────── */
+    .tasks-hero-section {
+      position: relative;
+      padding: 24px 28px 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    #tasksHeroBg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #tasksHeroBg.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #tasksHeroScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .tasks-hero-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ─── Glass tiles ────────────────────────────────────────────────────── */
+    .glass-tile-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 16px 20px;
+      flex: 1;
+      min-width: 120px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .glass-tile-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .glass-tile-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    /* ─── Page heading (white over photo) ───────────────────────────────── */
+    .page-heading-hero {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* ─── Page header row ────────────────────────────────────────────────── */
+    .page-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    /* ─── Speak my tasks (same control as the dashboard card) — hero dark bg ─ */
+    .mt-speak-block { margin-bottom: 18px; }
+    .mt-speak-block[hidden] { display: none; }
+    .mt-speak { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 0 0 8px; }
+    .btn-voice-mic {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+      padding: 10px 18px; border-radius: 8px; cursor: pointer;
+      background: #c9a227; color: #1a1712; border: none;
+    }
+    .btn-voice-mic:hover    { opacity: 0.88; }
+    .btn-voice-mic.recording { background: #b4322a; color: #fff; }
+    .btn-voice-mic[disabled] { opacity: 0.55; cursor: default; }
+    /* "Add task": the same button shape, outlined, beside the microphone. */
+    .btn-voice-mic.btn-task-add { background: transparent; color: #fff; border: 1px solid #c9a227; }
+    .mt-timer { font-size: 13px; color: rgba(255,255,255,0.8); font-variant-numeric: tabular-nums; }
+    .mt-link-btn {
+      background: none; border: none; padding: 6px 4px; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 13px; color: rgba(255,255,255,0.8); text-decoration: underline;
+    }
+    .mt-link-btn[hidden] { display: none; }
+    .mt-status { padding: 2px 0 8px; font-size: 13px; color: rgba(255,255,255,0.8); }
+    .mt-status:empty { display: none; }
+    .mt-status.is-error { color: #ffb4a8; }
+    .mt-status.is-ok { color: #fff; font-weight: 600; }
+    .mt-heard { padding: 0 0 8px; }
+    .mt-heard[hidden] { display: none; }
+    .mt-heard-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.8); }
+    .voice-transcript {
+      background: #f1ece2; color: #1a1712; border-radius: 8px; padding: 12px;
+      font-size: 14px; margin: 6px 0 0; white-space: pre-wrap;
+    }
+
+    /* ─── Help requests (same-day, always visible) ──────────────────────── */
+    .help-requests-section {
+      margin-bottom: 18px;
+    }
+
+    .help-requests-heading {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: #e8c96a;
+      margin-bottom: 8px;
+    }
+
+    #helpRequestsContainer {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .task-row.help-request {
+      border-left: 3px solid #b44040;
+    }
+
+    /* ─── Role tabs (Consultant / Client) — hero dark bg ────────────────── */
+    .role-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid rgba(255,255,255,0.15);
+    }
+
+    .role-tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      padding: 10px 20px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.55);
+      cursor: pointer;
+      transition: color 0.12s, border-color 0.12s;
+      white-space: nowrap;
+    }
+
+    .role-tab-btn.active {
+      color: #fff;
+      border-bottom-color: var(--gold);
+    }
+
+    .role-tab-btn:not(.active):hover {
+      color: rgba(255,255,255,0.85);
+    }
+
+    .role-tab-count {
+      display: inline-block;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      margin-left: 6px;
+      color: rgba(255,255,255,0.65);
+      vertical-align: middle;
+    }
+
+    .role-tab-btn.active .role-tab-count {
+      background: rgba(201,164,58,0.3);
+      border-color: rgba(201,164,58,0.5);
+      color: #e8c96a;
+    }
+
+    /* ─── Controls bar (sort + done count) ──────────────────────────────── */
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* ─── View toggle pills — hero dark bg ──────────────────────────────── */
+    .view-toggle {
+      display: flex;
+      gap: 0;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(26,22,18,0.45);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+    }
+
+    .view-toggle-btn {
+      background: transparent;
+      border: none;
+      padding: 7px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.6);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      white-space: nowrap;
+    }
+
+    .view-toggle-btn + .view-toggle-btn {
+      border-left: 1px solid rgba(255,255,255,0.14);
+    }
+
+    .view-toggle-btn.active {
+      background: var(--gold);
+      color: #000;
+    }
+
+    .view-toggle-btn:not(.active):hover {
+      color: #fff;
+    }
+
+    /* ─── Done counter chip ──────────────────────────────────────────────── */
+    .done-chip {
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+    }
+
+    /* ─── Client filter — hero dark bg ──────────────────────────────────── */
+    .client-filter-label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+      white-space: nowrap;
+    }
+
+    /* ─── Below hero section ─────────────────────────────────────────────── */
+    .below-hero-section {
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ─── Task cards container ───────────────────────────────────────────── */
+    #tasksContainer {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* ─── Group heading (by-type view) ──────────────────────────────────── */
+    .group-heading {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 16px 0 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+
+    .group-heading:first-child {
+      padding-top: 0;
+    }
+
+    /* ─── Task row ───────────────────────────────────────────────────────── */
+    .task-row {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      transition: border-color 0.12s, opacity 0.15s;
+    }
+
+    .task-row:hover {
+      border-color: rgba(201,164,58,0.5);
+    }
+
+    /* .task-row.done intentionally removed — done tasks leave the tab entirely */
+
+    /* ─── Checkbox toggle ────────────────────────────────────────────────── */
+    .task-check {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      cursor: pointer;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.12s, background 0.12s;
+      padding: 0;
+    }
+
+    .task-check:hover {
+      border-color: var(--gold);
+    }
+
+    .task-check.checked {
+      border-color: #888;
+      background: #888;
+    }
+
+    .task-check.checked::after {
+      content: "";
+      display: block;
+      width: 5px;
+      height: 9px;
+      border: 1.5px solid #fff;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg) translate(-1px, -1px);
+    }
+
+    .task-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .task-text {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text);
+      margin-bottom: 5px;
+    }
+
+    .task-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .task-client {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--brown);
+      text-decoration: none;
+    }
+    .task-client:hover { text-decoration: underline; }
+
+    .task-session-date {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .task-due {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      padding: 2px 7px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .task-due.overdue {
+      color: #b44040;
+      border-color: rgba(180,64,64,0.3);
+      background: #fff0f0;
+    }
+
+    .task-type-tag {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .task-type-tag.rafa   { color: var(--brown); border-color: rgba(201,164,58,0.4); background: var(--gold-dim); }
+    .task-type-tag.client { color: #3a5f9a; border-color: rgba(58,95,154,0.3); background: rgba(58,95,154,0.08); }
+
+    /* ─── Empty state ────────────────────────────────────────────────────── */
+    .tasks-empty {
+      padding: 52px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tasks-empty-icon {
+      font-size: 36px;
+      opacity: 0.5;
+    }
+
+    /* ─── Session source note (footer-style) ────────────────────────────── */
+    .tasks-footer-note {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      padding: 8px 0 4px;
+    }
+
+    /* ─── Overdue section (in-tab) ──────────────────────────────────────── */
+    .overdue-section-header {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #b44040;
+      padding: 14px 0 6px;
+      border-bottom: 1px solid rgba(180,64,64,0.25);
+      margin-bottom: 4px;
+    }
+
+    .overdue-section-header:first-child {
+      padding-top: 0;
+    }
+
+    /* ─── Sections that open and close (My tasks tab, Done tab) ──────────── */
+    /* Level 1 is a section, level 2 a month, level 3 a person. */
+    .fold {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .fold-head {
+      width: 100%;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 0 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .fold-head:hover { color: var(--text); }
+    .fold-head:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+    .fold-caret {
+      flex-shrink: 0;
+      display: inline-block;
+      font-size: 12px;
+      transition: transform 0.12s;
+    }
+    .fold-head[aria-expanded="true"] .fold-caret { transform: rotate(90deg); }
+
+    .fold-label { flex: 1; min-width: 0; }
+
+    .fold-count {
+      flex-shrink: 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0;
+      color: var(--muted);
+      padding: 1px 8px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .fold-body {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-bottom: 10px;
+    }
+    .fold-body[hidden] { display: none; }
+
+    .fold-l2 > .fold-head,
+    .fold-l3 > .fold-head {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--text);
+    }
+    .fold-l2 > .fold-head:hover,
+    .fold-l3 > .fold-head:hover { border-color: rgba(201,164,58,0.5); }
+    .fold-l2 > .fold-body,
+    .fold-l3 > .fold-body { padding: 0 0 4px 14px; }
+    .fold-l2 > .fold-body { border-left: 2px solid var(--border); margin-left: 6px; }
+
+    .fold-quiet {
+      font-size: 13px;
+      color: var(--muted);
+      padding: 4px 0 6px;
+    }
+
+    .role-tab-btn[hidden] { display: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .fold-caret { transition: none; }
+    }
+
+    /* ─── Client filter row ─────────────────────────────────────────────── */
+    .client-filter-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .client-filter-select {
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: #fff;
+      background: rgba(26,22,18,0.45);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      max-width: 200px;
+    }
+    .client-filter-select:focus { border-color: var(--gold); }
+
+    /* ─── Responsive ─────────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .tasks-hero-section { padding: 16px; }
+      .below-hero-section { padding: 16px; }
+      .glass-tile { min-width: 100px; padding: 12px 14px; }
+      .glass-tile-value { font-size: 22px; }
+      .task-meta { gap: 6px; }
+      .overdue-row { gap: 6px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #tasksHeroBg.is-loaded { animation: none; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <!-- ═══════════════ HEADER ═══════════════════════════════════════════════ -->
+  <header id="appHeader">
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" onclick="apexNavToggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
+
+  <!-- ═══════════════ LOADING SCREEN ═══════════════════════════════════════ -->
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <span class="show-pt">Carregando...</span>
+    <span class="show-en">Loading...</span>
+  </div>
+
+  <!-- ═══════════════ MAIN ═════════════════════════════════════════════════ -->
+  <main id="appMain" hidden>
+
+    <!-- Hero section with background photo, glass tiles, and header controls -->
+    <div class="tasks-hero-section">
+      <div id="tasksHeroBg" aria-hidden="true"></div>
+      <div id="tasksHeroScrim" aria-hidden="true"></div>
+      <div class="tasks-hero-content">
+
+        <!-- Glass stat tiles -->
+        <div class="glass-tile-row">
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">TAREFAS DO CONSULTOR</span>
+              <span class="show-en">CONSULTANT TASKS</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileConsultant">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">TAREFAS DO CLIENTE</span>
+              <span class="show-en">CLIENT TASKS</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileClient">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">ATRASADAS</span>
+              <span class="show-en">OVERDUE</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileOverdue">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">CONCLUIDAS</span>
+              <span class="show-en">COMPLETED</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileCompleted">--</div>
+          </div>
+          <div class="glass-tile">
+            <div class="glass-tile-label">
+              <span class="show-pt">TOTAL DE TAREFAS</span>
+              <span class="show-en">TOTAL TASKS</span>
+            </div>
+            <div class="glass-tile-value" id="heroTileTotal">--</div>
+          </div>
+        </div>
+
+        <!-- Page heading -->
+        <div class="page-header-row">
+          <h1 class="page-heading-hero">
+            <span class="show-pt">Tarefas</span>
+            <span class="show-en">Tasks</span>
+          </h1>
+        </div>
+
+        <!-- Help requests: same-day, always visible, separate from the tabs below -->
+        <div id="helpRequestsSection" class="help-requests-section" hidden>
+          <div class="help-requests-heading">
+            <span class="show-pt">Pedidos de Ajuda — Hoje</span>
+            <span class="show-en">Help Requests — Today</span>
+          </div>
+          <div id="helpRequestsContainer"><!-- Rendered by JS --></div>
+        </div>
+
+        <!-- Speak my tasks: the same control as the dashboard card. Hidden
+             until placeSpeakTasks() sees a staff role (rafa, alice, developer). -->
+        <div class="mt-speak-block" id="mtSpeakBlock" hidden>
+          <div class="mt-speak">
+            <button class="btn-voice-mic" id="mtSpeakBtn" onclick="toggleMyTasksRecording()">
+              <span aria-hidden="true">&#127908;</span>
+              <span id="mtSpeakLabel">
+                <span class="show-pt">Falar minhas tarefas</span>
+                <span class="show-en">Speak my tasks</span>
+              </span>
+            </button>
+            <button type="button" class="btn-voice-mic btn-task-add" id="mtAddBtn" onclick="openAddTask()">
+              <span aria-hidden="true">+</span>
+              <span>
+                <span class="show-pt">Adicionar tarefa</span>
+                <span class="show-en">Add task</span>
+              </span>
+            </button>
+            <span class="mt-timer" id="mtTimer"></span>
+            <button type="button" class="mt-link-btn" id="mtCancelBtn" hidden onclick="cancelMyTasksRecording()">
+              <span class="show-pt">Cancelar</span>
+              <span class="show-en">Cancel</span>
+            </button>
+          </div>
+          <div class="mt-status" id="mtStatus" aria-live="polite"></div>
+          <div class="mt-heard" id="mtHeard" hidden>
+            <div class="mt-heard-label">
+              <span class="show-pt">O que eu ouvi:</span>
+              <span class="show-en">What I heard:</span>
+            </div>
+            <div class="voice-transcript" id="mtHeardText"></div>
+          </div>
+        </div>
+
+        <!-- Role tabs -->
+        <div class="role-tabs">
+          <button class="role-tab-btn active" id="tabBtnMine" onclick="setTabRole('mine')">
+            <span class="show-pt">Minhas tarefas</span>
+            <span class="show-en">My tasks</span>
+            <span class="role-tab-count" id="tabCountMine">0</span>
+          </button>
+          <button class="role-tab-btn" id="tabBtnClient" onclick="setTabRole('client')">
+            <span class="show-pt">Cliente</span>
+            <span class="show-en">Client</span>
+            <span class="role-tab-count" id="tabCountClient">0</span>
+          </button>
+          <!-- The consultant's list, for the office (alice, developer) only:
+               placeTabs() shows it. For the consultant his list is "My tasks". -->
+          <button class="role-tab-btn" id="tabBtnConsultant" hidden onclick="setTabRole('consultant')">
+            <span class="show-pt">Consultor</span>
+            <span class="show-en">Consultant</span>
+            <span class="role-tab-count" id="tabCountConsultant">0</span>
+          </button>
+          <button class="role-tab-btn" id="tabBtnDone" onclick="setTabRole('done')">
+            <span class="show-pt">Concluidas</span>
+            <span class="show-en">Done</span>
+            <span class="role-tab-count" id="tabCountDone">0</span>
+          </button>
+        </div>
+
+        <!-- Client filter -->
+        <div class="client-filter-row" id="clientFilterRow">
+          <span class="client-filter-label show-pt">Cliente:</span>
+          <span class="client-filter-label show-en">Client:</span>
+          <select class="client-filter-select" id="clientFilterSelect" onchange="onClientFilterChange()">
+            <option value="">Todos os Clientes / All Clients</option>
+          </select>
+        </div>
+
+        <!-- Sort controls + done chip -->
+        <div class="controls-bar" id="controlsBar" style="display:none;">
+          <div class="view-toggle">
+            <button class="view-toggle-btn active" id="btnViewDate" onclick="setTaskView('date')">
+              <span class="show-pt">Por Data</span>
+              <span class="show-en">By Date</span>
+            </button>
+            <button class="view-toggle-btn" id="btnViewType" onclick="setTaskView('type')">
+              <span class="show-pt">Por Tipo</span>
+              <span class="show-en">By Type</span>
+            </button>
+          </div>
+          <span class="done-chip" id="doneChip"></span>
+        </div>
+
+      </div><!-- /tasks-hero-content -->
+    </div><!-- /tasks-hero-section -->
+
+    <!-- Below hero: task rows -->
+    <div class="below-hero-section">
+      <div id="tasksContainer">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+  </main><!-- /appMain -->
+
+    </div><!-- /contentArea -->
+  </div><!-- /pageWrapper -->
+
+  <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
+  <script src="nav.js"></script>
+  <script src="help-config.js"></script>
+  <script src="help-core.js"></script>
+  <script src="help-widget.js"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+
+  <script>
+    // ── Configuration ──────────────────────────────────────────────────────
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    // ── State ──────────────────────────────────────────────────────────────
+    var auth         = null;
+    var currentUser  = null;
+    var taskView     = "date";         // "date" | "type"
+    var tabRole      = "mine";         // "mine" | "client" | "consultant" (office only) | "done"
+    var tabsRole     = null;           // the role the tabs were last laid out for
+    var mineClosed   = {};             // "My tasks" sections the person closed: mine, sessions, given
+    var archOpen     = {};             // Done tab: what is open now (sections, months, people)
+    var foldSeq      = 0;              // makes each opening section's id unique
+    var clientFilter = "";             // "" = all clients, otherwise clientName string
+    var overdueOnly  = false;          // true when arrived via ?overdue=1 (dashboard tile deep link)
+    var allTasks     = [];             // all derived task rows (both tabs)
+    var completedMap = {};             // taskKey → true/false; keyed per session
+
+    // ── Month abbrev map for parsing "DD Mon" due strings ─────────────────
+    // "fev"/"feb" mapped to 0 here, so February parsed as January. With the
+    // six-months-ago rollover in parseDueDate() that pushed February tasks a
+    // full year forward, where they never read as overdue. Kept in sync with
+    // MONTH_MAP in scripts/task-unification/derive.mjs.
+    var MONTH_MAP = {
+      "jan": 0, "fev": 1, "feb": 1,
+      "mar": 2,
+      "abr": 3, "apr": 3,
+      "mai": 4, "may": 4,
+      "jun": 5,
+      "jul": 6,
+      "ago": 7, "aug": 7,
+      "set": 8, "sep": 8,
+      "out": 9, "oct": 9,
+      "nov": 10,
+      "dez": 11, "dec": 11
+    };
+
+    // ── Completion persistence ────────────────────────────────────────────
+    // Completion now lives in the `tasks` table and is loaded per-request in
+    // rowsToTasks(). The old localStorage cache is deliberately no longer read
+    // or written: it was keyed by the "{sessionId}_{type}_{index}" derivation
+    // keys, so it would both mis-key against real row ids and let this page
+    // show a completion the client profile and Overview tile never saw.
+    // The stale key is cleared once so it cannot resurface.
+
+    function completionStorageKey() {
+      var email = sessionStorage.getItem("apex_email") || "unknown";
+      return "apex_task_completions_" + email;
+    }
+
+    function loadLocalCompletions() {
+      try { localStorage.removeItem(completionStorageKey()); } catch(e) {}
+      completedMap = {};
+    }
+
+    function saveLocalCompletions() {
+      // Intentionally a no-op — D1 is the only store for completion state.
+    }
+
+    // ── Hero background ────────────────────────────────────────────────────
+
+    function initHeroBg(imgElId, scrimElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx = Math.floor(Math.random() * imgs.length);
+      var bgEl = document.getElementById(imgElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function() {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function() {
+          tryLoadImage((i + 1) % imgs.length === idx ? imgs.length : i + 1);
+        };
+        img.src = url;
+      }
+    }
+
+    // ── Hero stat tiles ────────────────────────────────────────────────────
+
+    function updateTasksHeroTiles() {
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      var consultantCount = allTasks.filter(function(t) {
+        return isOwnConsultantTask(t) && !completedMap[t.key];
+      }).length;
+
+      var clientCount = allTasks.filter(function(t) {
+        return t.type === "client" && !completedMap[t.key];
+      }).length;
+
+      var overdueCount = allTasks.filter(function(t) {
+        return t.dueDate && t.dueDate < today && !completedMap[t.key];
+      }).length;
+
+      var completedCount = allTasks.filter(function(t) {
+        return !!completedMap[t.key];
+      }).length;
+
+      var totalCount = allTasks.length;
+
+      var tileConsultant = document.getElementById("heroTileConsultant");
+      var tileClient     = document.getElementById("heroTileClient");
+      var tileOverdue    = document.getElementById("heroTileOverdue");
+      var tileCompleted  = document.getElementById("heroTileCompleted");
+      var tileTotal      = document.getElementById("heroTileTotal");
+
+      if (tileConsultant) { tileConsultant.textContent = consultantCount; }
+      if (tileClient)     { tileClient.textContent     = clientCount; }
+      if (tileOverdue)    { tileOverdue.textContent    = overdueCount; }
+      if (tileCompleted)  { tileCompleted.textContent  = completedCount; }
+      if (tileTotal)      { tileTotal.textContent      = totalCount; }
+    }
+
+    // ── Auth & bootstrap ───────────────────────────────────────────────────
+
+    function handleSignOut() {
+      currentUser = null;
+      sessionStorage.removeItem("apex_role");
+      sessionStorage.removeItem("apex_email");
+      sessionStorage.removeItem("apex_display_name");
+      sessionStorage.removeItem("apex_avatar_url");
+      sessionStorage.removeItem("apex_dev_view");
+      auth.signOut().then(function() {
+        window.location.href = "index.html";
+      });
+    }
+
+    function populateHeaderUser(email, displayName, avatarUrl) {
+      var emailEl = document.getElementById("headerEmail");
+      if (!emailEl) { return; }
+      var firstName;
+      if (displayName && displayName.trim()) {
+        var dn = displayName.trim();
+        firstName = dn.indexOf(" ") > -1 ? dn.split(" ")[0] : dn;
+      } else {
+        var atIdx = email ? email.indexOf("@") : -1;
+        firstName = atIdx > -1 ? email.slice(0, atIdx) : (email || "");
+      }
+      var label = firstName || email;
+      var imgHtml = "";
+      if (avatarUrl) {
+        var src = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+        imgHtml = "<img src=\"" + src + "\" alt=\"\" style=\"width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;\">";
+      } else {
+        var initial = (label.charAt(0) || "?").toUpperCase();
+        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + escHtml(initial) + "</span>";
+      }
+      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
+    }
+
+    function fetchAndApplyRole() {
+      return user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/role", {
+          headers: { "Authorization": "Bearer " + token },
+          cache: "no-store"
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        sessionStorage.setItem("apex_role",         data.role);
+        sessionStorage.setItem("apex_email",        data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        if (window.apexApplyRoleLanguage) { window.apexApplyRoleLanguage(data); }
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        placeSpeakTasks(data.role);
+        placeTabs(data.role);
+        return data;
+      });
+    }
+
+    function setupPage(role) {
+      var roleEl  = document.getElementById("headerRole");
+      var email = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      var displayName = sessionStorage.getItem("apex_display_name") || null;
+      var avatarUrl = sessionStorage.getItem("apex_avatar_url") || null;
+      populateHeaderUser(email, displayName, avatarUrl);
+      if (roleEl)  { roleEl.textContent  = role; }
+
+      var loadingEl = document.getElementById("loadingScreen");
+      var mainEl    = document.getElementById("appMain");
+      if (loadingEl) { loadingEl.hidden = true; }
+      if (mainEl)    { mainEl.hidden    = false; }
+
+      window.initNav && window.initNav();
+      initHeroBg('tasksHeroBg', 'tasksHeroScrim');
+      loadMineFolds();
+      placeTabs(role);
+      applyOverdueParam(role);
+      loadLocalCompletions();
+      placeSpeakTasks(role);
+      loadTasks();
+      if (role === "rafa" || role === "alice" || role === "developer") {
+        loadHelpRequests();
+      }
+    }
+
+    // Deep link from the dashboard's overdue-tasks tile (?overdue=1): lands on the
+    // consultant's own list pre-filtered to overdue tasks. Rafa's dashboard tile
+    // counts consultant tasks specifically (/api/tasks/consultant/overdue). For
+    // him that list is "My tasks" (Mine and From sessions); for the office it
+    // is the Consultant tab.
+    function applyOverdueParam(role) {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get("overdue") !== "1") { return; }
+      overdueOnly = true;
+      tabRole = (role === "alice" || role === "developer") ? "consultant" : "mine";
+      paintTabs();
+    }
+
+    // WHICH TABS: everyone has My tasks, Client and Done. The office (alice,
+    // developer) also keeps the consultant's list as its own tab; for the
+    // consultant that list is "My tasks", so the tab is not there.
+    function placeTabs(role) {
+      var office = role === "alice" || role === "developer";
+      var btn = document.getElementById("tabBtnConsultant");
+      if (btn) { btn.hidden = !office; }
+      if (!office && tabRole === "consultant") { tabRole = "mine"; }
+      paintTabs();
+      // The role can arrive (or change) after the list was drawn: the
+      // sections depend on who is looking, so draw them again.
+      if (tabsRole !== null && tabsRole !== role) {
+        updateTabCounts();
+        renderTaskView();
+      }
+      tabsRole = role;
+    }
+
+    // The active tab, and the controls that belong to it: By Date / By Type
+    // sort the Client and Consultant tabs only; the client filter is on every
+    // tab but Done.
+    function paintTabs() {
+      var ids = { mine: "tabBtnMine", client: "tabBtnClient", consultant: "tabBtnConsultant", done: "tabBtnDone" };
+      for (var k in ids) {
+        var btn = document.getElementById(ids[k]);
+        if (btn) { btn.className = "role-tab-btn" + (tabRole === k ? " active" : ""); }
+      }
+      var sorted = tabRole === "client" || tabRole === "consultant";
+      var controlsBar = document.getElementById("controlsBar");
+      var clientFilterRow = document.getElementById("clientFilterRow");
+      if (controlsBar)     { controlsBar.style.display     = sorted ? "" : "none"; }
+      if (clientFilterRow) { clientFilterRow.style.display = tabRole === "done" ? "none" : ""; }
+    }
+
+    function viewerRole() {
+      try { return sessionStorage.getItem("apex_role") || ""; } catch (e) { return ""; }
+    }
+
+    // Which "My tasks" sections are closed is remembered on this device. The
+    // page works the same when storage is not available: all three are open.
+    var MINE_FOLDS_KEY = "apex_tasks_sections_closed";
+
+    function loadMineFolds() {
+      try {
+        var raw = localStorage.getItem(MINE_FOLDS_KEY);
+        var got = raw ? JSON.parse(raw) : null;
+        if (got && typeof got === "object") {
+          mineClosed = { mine: !!got.mine, sessions: !!got.sessions, given: !!got.given };
+        }
+      } catch (e) {}
+    }
+
+    function saveMineFolds() {
+      try { localStorage.setItem(MINE_FOLDS_KEY, JSON.stringify(mineClosed)); } catch (e) {}
+    }
+
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+
+      auth.onAuthStateChanged(function(user) {
+        if (!user) {
+          var hadCachedRole = sessionStorage.getItem("apex_role");
+          if (hadCachedRole) {
+            // WAIT, THEN EITHER BOOT OR BAIL -- never neither.
+            //
+            // Firebase reports a momentary null user during a token refresh
+            // and then restores the session. The old code only handled the
+            // bad outcome: if the user came back within the second it did
+            // NOTHING, and because this branch returns, setupPage() had
+            // already been skipped. The page sat on "Carregando..." with no
+            // navigation, forever, and a refresh replayed the same race --
+            // only retyping the URL and logging in again cleared it.
+            //
+            // Seen live 2026-08-30, on every page at once, right after a
+            // worker deploy forced exactly that token refresh.
+            setTimeout(function() {
+              if (!auth.currentUser) {
+                window.location.href = "index.html";
+                return;
+              }
+              // Session came back. Boot the page the callback skipped.
+              currentUser = auth.currentUser;
+              try { setupPage(hadCachedRole); } catch (e) {}
+              if (typeof fetchAndApplyRole === "function") {
+                fetchAndApplyRole().catch(function() {});
+              }
+            }, 1000);
+            return;
+          }
+          window.location.href = "index.html";
+          return;
+        }
+        currentUser = user;
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) {
+          setupPage(cached);
+        }
+        fetchAndApplyRole().then(function(data) {
+          if (!cached) {
+            setupPage(data.role);
+          }
+        }).catch(function() {
+          if (!cached) {
+            window.location.href = "index.html";
+          }
+        });
+      });
+
+      window.addEventListener("pageshow", function(evt) {
+        if (evt.persisted && currentUser) {
+          fetchAndApplyRole().catch(function() {});
+        }
+      });
+    }
+
+    // ── Data: fetch sessions and derive tasks ──────────────────────────────
+
+    // A push about a note opens tasks.html?task=<id>: once the list is loaded,
+    // that staff task's sheet opens, the same call a click makes. The address
+    // is read once. An id that is not a staff task on this list does nothing.
+    var taskUrlRead = false;
+    function openTaskFromUrl() {
+      if (taskUrlRead) { return; }
+      taskUrlRead = true;
+      try {
+        var id = new URLSearchParams(window.location.search).get("task");
+        if (!id) { return; }
+        for (var i = 0; i < allTasks.length; i++) {
+          var tk = allTasks[i];
+          if (tk.key !== id || tk.type !== "rafa") { continue; }
+          var openers = document.querySelectorAll("[data-task-open]");
+          for (var j = 0; j < openers.length; j++) {
+            if (openers[j].getAttribute("data-task-open") === String(id)) { openers[j].click(); return; }
+          }
+          openTaskSheet(tk, [], !!completedMap[tk.key]);
+          return;
+        }
+      } catch (e) { /* a bad address never breaks the page */ }
+    }
+
+    function loadTasks() {
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/tasks", { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          allTasks = rowsToTasks(data.tasks || []);
+          updateTabCounts();
+          updateTasksHeroTiles();
+          populateClientFilter();
+          renderTaskView();
+          openTaskFromUrl();
+        })
+        .catch(function(e) {
+          document.getElementById("tasksContainer").innerHTML =
+            '<div class="tasks-empty" style="color:#b44040;">' + t("Erro ao carregar tarefas: ", "Could not load tasks: ") + escHtml(e.message) + '</div>';
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // SPEAK MY TASKS (the dashboard's "MY TASKS CARD" recorder, copied here)
+    // ══════════════════════════════════════════════════════════════════════
+    //
+    // A staff member presses one button, says everything they have to do, and
+    // each to-do becomes a task (POST /api/tasks/voice). A to-do is the
+    // speaker's own unless they name someone else. After a dictation the page
+    // loads its list again, so each new task shows in the tab it belongs to.
+
+    // Five minutes is long enough to list a full day and short enough that a
+    // phone left recording stops itself. The worker has its own size cap.
+    var MT_MAX_SECONDS = 300;
+    // A tap that was never speech is discarded, not interpreted.
+    var VOICE_MIN_MS   = 2000;
+
+    var mtLastAdded  = [];     // ids of the last dictation, for Undo
+    var mtRecorder   = null;
+    var mtChunks     = [];
+    var mtTimerId    = null;
+    var mtStartedAt  = 0;
+    var mtCancelled  = false;
+    var mtBusy       = false;
+    var mtLastBlob   = null;   // kept only until the worker answers, for "Try again"
+
+    // WHO SEES THE BUTTON: the three staff roles, and nobody else.
+    function placeSpeakTasks(role) {
+      var block = document.getElementById("mtSpeakBlock");
+      if (!block) { return; }
+      var staff = role === "rafa" || role === "alice" || role === "developer";
+      if (!staff) { cancelMyTasksRecording(); }
+      block.hidden = !staff;
+    }
+
+    // "Adicionar tarefa" / "Add task": a task typed instead of spoken. The
+    // form is in task-sheet.js (taskAddOpen) and saves with POST /api/tasks.
+    function openAddTask() {
+      if (typeof taskAddOpen !== "function" || mtBusy) { return; }
+      if (mtRecorder && mtRecorder.state === "recording") { return; }
+      taskAddOpen({
+        viewerRole: viewerRole(), names: taskPeopleNames(), loadClients: loadAddTaskClients,
+        apiBase: WORKER_URL, getToken: user_getToken, onAdded: taskAdded
+      });
+    }
+
+    // The names the who-tags on this page print, read from the same task
+    // rows. With none loaded the form prints the plain "Rafa" / "Alice", as
+    // the tags do.
+    function taskPeopleNames() {
+      var names = { rafa: "", alice: "" };
+      for (var i = 0; i < allTasks.length; i++) {
+        var tk = allTasks[i];
+        if (!names.alice && tk.assignedTo === "alice" && tk.assigneeName) { names.alice = tk.assigneeName; }
+        if (!names.rafa && tk.ownerName) { names.rafa = tk.ownerName; }
+        if (tk.giverName && tk.createdByRole === "alice" && !names.alice) { names.alice = tk.giverName; }
+        if (tk.giverName && tk.createdByRole === "rafa" && !names.rafa) { names.rafa = tk.giverName; }
+      }
+      return names;
+    }
+
+    // This page keeps no client list of its own (its filter is built from
+    // the tasks), so the form's list is read from GET /api/clients, the
+    // route the dashboard reads its own from. Kept once it has arrived.
+    var addTaskClients = null;
+    function loadAddTaskClients() {
+      if (addTaskClients) { return Promise.resolve(addTaskClients); }
+      return user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/clients", { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(res) { return res.json(); })
+        .then(function(d) {
+          if (!d || !Array.isArray(d.clients)) { throw new Error("clients"); }
+          addTaskClients = d.clients;
+          return addTaskClients;
+        });
+    }
+
+    // A typed task was saved: the list is loaded again, the same way it is
+    // after a dictation. No Undo for a typed task.
+    function taskAdded(task, all) {
+      mtLastAdded = [];
+      loadTasks();
+      mtShowHeard("");
+      if (all && all.length > 1) {
+        mtSetStatus(mtBoth(all.length + " tarefas adicionadas.", all.length + " tasks added."), "ok");
+      } else {
+        mtSetStatus(mtBoth("Tarefa adicionada.", "Task added."), "ok");
+      }
+    }
+
+    function mtBoth(pt, en) {
+      return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span>';
+    }
+
+    function mtSetStatus(html, kind) {
+      var st = document.getElementById("mtStatus");
+      if (!st) { return; }
+      st.className = "mt-status" + (kind ? " is-" + kind : "");
+      st.innerHTML = html || "";
+    }
+
+    function mtShowHeard(text) {
+      var box = document.getElementById("mtHeard");
+      var txt = document.getElementById("mtHeardText");
+      if (!box || !txt) { return; }
+      if (!text) { box.hidden = true; txt.textContent = ""; return; }
+      txt.textContent = text;
+      box.hidden = false;
+    }
+
+    function toggleMyTasksRecording() {
+      if (mtBusy) { return; }
+      if (mtRecorder && mtRecorder.state === "recording") { stopMyTasksRecording(); return; }
+      startMyTasksRecording();
+    }
+
+    function startMyTasksRecording() {
+      mtShowHeard("");
+      if (!navigator.mediaDevices || !window.MediaRecorder) {
+        mtSetStatus(mtBoth("Este navegador n\u00e3o consegue gravar \u00e1udio.",
+                           "This browser cannot record audio."), "error");
+        return;
+      }
+      mtSetStatus("");
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(function(stream) {
+          mtChunks = [];
+          mtCancelled = false;
+          mtRecorder = new MediaRecorder(stream);
+          mtRecorder.ondataavailable = function(e) {
+            if (e.data && e.data.size) { mtChunks.push(e.data); }
+          };
+          mtRecorder.onstop = function() {
+            // Release the microphone the moment recording ends.
+            for (var i = 0; i < stream.getTracks().length; i++) { stream.getTracks()[i].stop(); }
+            if (mtCancelled) {
+              mtChunks = [];
+              mtSetStatus(mtBoth("Grava\u00e7\u00e3o descartada.", "Recording discarded."));
+              return;
+            }
+            sendMyTasksRecording();
+          };
+          mtRecorder.start();
+          mtStartedAt = Date.now();
+          setMyTasksRecordingUi(true);
+          tickMyTasksTimer();
+          mtTimerId = setInterval(tickMyTasksTimer, 250);
+        })
+        .catch(function() {
+          mtSetStatus(mtBoth("Permiss\u00e3o do microfone negada.", "Microphone permission denied."), "error");
+        });
+    }
+
+    function mtClock(secs) {
+      var s = secs % 60;
+      return Math.floor(secs / 60) + ":" + (s < 10 ? "0" + s : "" + s);
+    }
+
+    function tickMyTasksTimer() {
+      var secs = Math.floor((Date.now() - mtStartedAt) / 1000);
+      var tm = document.getElementById("mtTimer");
+      if (tm) { tm.textContent = mtClock(secs) + " / " + mtClock(MT_MAX_SECONDS); }
+      if (secs >= MT_MAX_SECONDS) { stopMyTasksRecording(); }
+    }
+
+    function stopMyTasksRecording() {
+      if (mtTimerId) { clearInterval(mtTimerId); mtTimerId = null; }
+      if (mtRecorder && mtRecorder.state === "recording") { mtRecorder.stop(); }
+      setMyTasksRecordingUi(false);
+    }
+
+    function cancelMyTasksRecording() {
+      if (!mtRecorder || mtRecorder.state !== "recording") { return; }
+      mtCancelled = true;
+      stopMyTasksRecording();
+    }
+
+    function setMyTasksRecordingUi(on) {
+      var btn = document.getElementById("mtSpeakBtn");
+      if (btn) { btn.className = "btn-voice-mic" + (on ? " recording" : ""); }
+      var label = document.getElementById("mtSpeakLabel");
+      if (label) {
+        label.innerHTML = on
+          ? mtBoth("Gravando. Toque para terminar", "Recording. Tap to finish")
+          : mtBoth("Falar minhas tarefas", "Speak my tasks");
+      }
+      var cancel = document.getElementById("mtCancelBtn");
+      if (cancel) { cancel.hidden = !on; }
+      if (!on) {
+        var tm = document.getElementById("mtTimer");
+        if (tm) { tm.textContent = ""; }
+      }
+    }
+
+    function setMyTasksBusy(on) {
+      mtBusy = on;
+      var btn = document.getElementById("mtSpeakBtn");
+      if (btn) { btn.disabled = on; }
+    }
+
+    function sendMyTasksRecording() {
+      if (!mtChunks.length) {
+        mtSetStatus(mtBoth("Nada foi gravado.", "Nothing was recorded."), "error");
+        return;
+      }
+      if (mtStartedAt && (Date.now() - mtStartedAt) < VOICE_MIN_MS) {
+        mtChunks = [];
+        mtSetStatus(mtBoth("Muito curto. Toque e fale suas tarefas.",
+                           "Too short. Tap and say your tasks."), "error");
+        return;
+      }
+      var blob = new Blob(mtChunks, { type: (mtChunks[0] && mtChunks[0].type) || "audio/webm" });
+      mtChunks = [];
+      uploadMyTasksBlob(blob);
+    }
+
+    function retryMyTasksUpload() {
+      if (mtBusy || !mtLastBlob) { return; }
+      uploadMyTasksBlob(mtLastBlob);
+    }
+
+    // The second part of the "Added N tasks" line: where the handed-out ones
+    // went. Only tasks with given true count, by owner: assigned_to "alice",
+    // "developer" (the system), or none (Rafa). Returns "" when none were.
+    function mtGaveText(tasks) {
+      var toAlice = 0;
+      var toRafa = 0;
+      var toSystem = 0;
+      for (var i = 0; i < tasks.length; i++) {
+        if (tasks[i].given !== true) { continue; }
+        if (tasks[i].assigned_to === "alice") { toAlice++; }
+        else if (tasks[i].assigned_to === "developer") { toSystem++; }
+        else { toRafa++; }
+      }
+      var gavePt = [];
+      var gaveEn = [];
+      if (toAlice)  { gavePt.push(toAlice + " para Alice");      gaveEn.push(toAlice + " for Alice"); }
+      if (toRafa)   { gavePt.push(toRafa + " para Rafa");        gaveEn.push(toRafa + " for Rafa"); }
+      if (toSystem) { gavePt.push(toSystem + " para o sistema"); gaveEn.push(toSystem + " for the system"); }
+      return gavePt.length ? " " + mtBoth(gavePt.join(", ") + ".", gaveEn.join(", ") + ".") : "";
+    }
+
+    function uploadMyTasksBlob(blob) {
+      mtLastBlob = blob;
+      setMyTasksBusy(true);
+      mtShowHeard("");
+      mtSetStatus(mtBoth("Ouvindo o que voc\u00ea disse...", "Listening to what you said..."));
+
+      var fd = new FormData();
+      fd.append("audio", blob, "tasks.webm");
+      // Only used if the automatic language setting is refused by the model.
+      fd.append("lang", isEn() ? "en" : "pt");
+
+      // No Content-Type header: the browser must set the multipart boundary itself.
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/tasks/voice", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: fd
+        });
+      })
+        .then(function(r) {
+          return r.json().then(
+            function(d) { return { ok: r.ok, data: d || {} }; },
+            function() { return { ok: false, data: {} }; });
+        })
+        .then(function(res) {
+          setMyTasksBusy(false);
+          var d = res.data;
+          if (!res.ok || d.error || !d.ok || !Array.isArray(d.tasks)) {
+            // The worker answered. If it heard the speaker, show what it
+            // heard, so nothing said is lost; if it did not, it can be sent again.
+            var retry = d.transcript ? "" :
+              ' <button type="button" class="mt-link-btn" onclick="retryMyTasksUpload()">' +
+              mtBoth("Tentar de novo", "Try again") + '</button>';
+            if (d.transcript) { mtLastBlob = null; }
+            mtSetStatus(mtBoth(
+              escHtml(d.error_pt || d.error || "Algo deu errado. Nada foi adicionado."),
+              escHtml(d.error_en || d.error || "Something went wrong. Nothing was added.")) + retry, "error");
+            mtShowHeard(d.transcript || "");
+            return;
+          }
+          mtLastBlob = null;
+          if (!d.tasks.length) {
+            mtSetStatus(mtBoth("Nada foi adicionado: n\u00e3o encontrei nenhuma tarefa no que voc\u00ea disse.",
+                               "Nothing was added: I found no task in what you said."));
+            mtShowHeard(d.transcript || "");
+            return;
+          }
+          mtLastAdded = [];
+          for (var i = 0; i < d.tasks.length; i++) { mtLastAdded.push(d.tasks[i].id); }
+          // The list is loaded again, so each new task is in its own tab.
+          loadTasks();
+          var n = d.tasks.length;
+          mtSetStatus(
+            mtBoth(n === 1 ? "1 tarefa adicionada." : n + " tarefas adicionadas.",
+                   n === 1 ? "Added 1 task." : "Added " + n + " tasks.") +
+            mtGaveText(d.tasks) +
+            (d.truncated ? " " + mtBoth("S\u00f3 as primeiras " + n + " entraram.", "Only the first " + n + " were added.") : "") +
+            ' <button type="button" class="mt-link-btn" id="mtUndoBtn" onclick="undoMyTasksDictation()">' +
+            mtBoth("Desfazer", "Undo") + '</button>', "ok");
+        })
+        .catch(function() {
+          // No answer at all (no connection, or the token could not be read).
+          setMyTasksBusy(false);
+          mtSetStatus(mtBoth("N\u00e3o consegui enviar a grava\u00e7\u00e3o. Verifique a conex\u00e3o.",
+                             "Could not send the recording. Check the connection.") +
+            ' <button type="button" class="mt-link-btn" onclick="retryMyTasksUpload()">' +
+            mtBoth("Tentar de novo", "Try again") + '</button>', "error");
+        });
+    }
+
+    // Undo removes exactly the tasks the last dictation added. Tasks cannot be
+    // deleted anywhere in the app, so the worker closes them with the marker
+    // completed_by 'voice-undo' and no list shows them again.
+    function undoMyTasksDictation() {
+      if (mtBusy || !mtLastAdded.length) { return; }
+      var ids = mtLastAdded.slice();
+      setMyTasksBusy(true);
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/tasks/voice/undo", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: ids })
+        });
+      })
+        .then(function(r) {
+          return r.json().then(function(d) { return { ok: r.ok, data: d || {} }; });
+        })
+        .then(function(res) {
+          setMyTasksBusy(false);
+          if (!res.ok || !res.data.ok) { throw new Error("undo"); }
+          mtLastAdded = [];
+          loadTasks();
+          var n = Number(res.data.undone) || 0;
+          mtSetStatus(mtBoth(
+            n === 1 ? "Desfeito: 1 tarefa removida." : "Desfeito: " + n + " tarefas removidas.",
+            n === 1 ? "Undone: 1 task removed." : "Undone: " + n + " tasks removed."));
+        })
+        .catch(function() {
+          setMyTasksBusy(false);
+          mtSetStatus(mtBoth("N\u00e3o consegui desfazer. Tente de novo.", "Could not undo. Please try again.") +
+            ' <button type="button" class="mt-link-btn" onclick="undoMyTasksDictation()">' +
+            mtBoth("Desfazer", "Undo") + '</button>', "error");
+        });
+    }
+
+    // ── Data: fetch today's help-request tasks ─────────────────────────────
+    // source=help_request is load-bearing. This section used to filter on
+    // type='consultant' alone, which only worked while help requests were the
+    // only consultant rows in the table; once session-derived tasks were
+    // migrated in, four of them due today showed up here.
+
+    function loadHelpRequests() {
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/tasks/consultant?scope=today&source=help_request", { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          var tasks = (data.tasks || []).filter(function(t) { return t.status === "pending"; });
+          renderHelpRequests(tasks);
+        })
+        .catch(function() {
+          // Fail quiet: this section is a same-day-urgency add-on, not the primary
+          // task list — a failed fetch here should not block the rest of the page.
+          document.getElementById("helpRequestsSection").hidden = true;
+        });
+    }
+
+    function renderHelpRequests(tasks) {
+      var section   = document.getElementById("helpRequestsSection");
+      var container = document.getElementById("helpRequestsContainer");
+      if (!tasks.length) { section.hidden = true; return; }
+      section.hidden = false;
+      container.innerHTML = tasks.map(function(t) {
+        return (
+          '<div class="task-row help-request">' +
+            '<button class="task-check" onclick="toggleHelpRequest(\'' + t.id + '\', this)"></button>' +
+            '<div class="task-body">' +
+              '<div class="task-text">' + escHtml(t.description || "") + '</div>' +
+              '<div class="task-meta">' +
+                '<span class="task-client">' + escHtml(t.client_name || "") + '</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join("");
+    }
+
+    function toggleHelpRequest(taskId, btnEl) {
+      var row = btnEl.closest(".task-row");
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/tasks/" + taskId, {
+          method: "PATCH",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "done" })
+        });
+      }).then(function() {
+        if (row) { row.remove(); }
+        var remaining = document.querySelectorAll("#helpRequestsContainer .task-row").length;
+        if (!remaining) { document.getElementById("helpRequestsSection").hidden = true; }
+      }).catch(function() {});
+    }
+
+    function user_getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    // ── Task derivation ────────────────────────────────────────────────────
+    // Primary: pdf_data.consultant_followups (Rafa) + pdf_data.client_actions (client)
+    //   — structured array [{text, due}] with per-item due dates
+    // Fallback: summary_json.rafa_followups.pt/en — free text block, one task per session
+    //
+    // Completion state from task_completions column is merged into completedMap.
+    // Task key format: "{sessionId}_{type}_{index}"
+
+    // ── D1 rows → task view model ─────────────────────────────────────────
+    // Since the task unification the `tasks` table is the single source of
+    // truth. `key` is the row's real id (not the old "{sessionId}_{type}_{i}"
+    // derivation key) and completion comes from status, so a checkbox ticked
+    // here is the same fact the client profile and Overview tile read.
+    // deriveTasks() below is retained only as the historical reference for
+    // how these rows were originally produced from sessions.pdf_data.
+
+    function rowsToTasks(rows) {
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      return rows.map(function(r) {
+        var dueDate = null;
+        if (r.due_date) {
+          var p = String(r.due_date).split("-");
+          dueDate = new Date(+p[0], +p[1] - 1, +p[2]);
+          dueDate.setHours(0, 0, 0, 0);
+        }
+        var isDone = r.status === "done";
+
+        // Drive the completion map straight off DB status — no localStorage
+        // merge, which is what previously let the three views disagree.
+        completedMap[r.id] = isDone;
+
+        return {
+          key:         r.id,
+          type:        r.type === "consultant" ? "rafa" : "client",
+          text:        r.description || "",
+          // The same words in the other language, when the task has them
+          // (a task that involves the developer). The row prints what the
+          // signed-in person reads (taskSheetWords in task-sheet.js).
+          textEn:      r.description_en || null,
+          textPt:      r.description_pt || null,
+          due:         r.due_date || null,
+          dueDate:     dueDate,
+          overdue:     (!isDone && dueDate) ? dueDate < today : false,
+          // A task may have no client at all (a spoken to-do): then there
+          // is no name to show. The dash is only for a client whose row is
+          // missing.
+          clientName:  r.client_name || (r.client_id ? "—" : ""),
+          clientId:    r.client_id || null,
+          sessionDate: r.session_date || null,
+          sessionId:   r.session_id || null,
+          // Handed to someone else by voice ("alice" or "developer"), or
+          // null for a task that belongs to whoever it always did.
+          assignedTo:   r.assigned_to || null,
+          assigneeName: r.assignee_name || null,
+          createdByRole: r.created_by_role || null,
+          giverName:    r.giver_name || null,
+          // The consultant's name, on a task someone gave him.
+          ownerName:    r.owner_name || null,
+          // 'voice' | 'manual' | 'session' | 'help_request'
+          source:       r.source || null,
+          completedBy:  r.completed_by || null,
+          // The moment it was marked done (UTC). A row closed before this
+          // was recorded has none; updatedAt is then the nearest thing.
+          completedAt:  r.completed_at || null,
+          updatedAt:    r.updated_at || null,
+          createdAt:    r.created_at || null,
+          // Staff tasks only (task-sheet.js): the one-click status
+          // ('working' | 'waiting_client' | null) and the note thread's
+          // count and newest note.
+          progress:     r.progress || null,
+          noteCount:    r.note_count || 0,
+          lastNote:     r.last_note || null
+        };
+      });
+    }
+
+    // ── Handed-out tasks (tasks.assigned_to) ──────────────────────────────
+    // A task he handed to Alice or to the system is not the consultant's own
+    // work: it is not in the Consultant tab or its count.
+
+    function isOwnConsultantTask(task) {
+      return (task.type === "rafa" || task.type === "text") && !task.assignedTo;
+    }
+
+    // ── Whose task is it (the same rule as the dashboard's task cards) ─────
+    // The owner is assigned_to, and the consultant when that is empty. The
+    // maker is created_by_role, and the consultant on an old row without one.
+
+    function taskOwnerRole(task) {
+      return task.assignedTo ? String(task.assignedTo) : "rafa";
+    }
+
+    function taskMakerRole(task) {
+      return task.createdByRole ? String(task.createdByRole) : "rafa";
+    }
+
+    // Where a task sits for the person looking (viewer = rafa, alice or
+    // developer), open or done alike:
+    //   "client"   a client's task (the Client tab; Client in the Done tab)
+    //   "mine"     the viewer owns it and it did not come from a session
+    //   "sessions" the viewer owns it and it came from a session
+    //   "given"    the viewer made it and someone else owns it
+    //   null       not the viewer's, or a dictation that was undone
+    function taskSectionFor(task, viewer) {
+      if (!task || task.completedBy === "voice-undo") { return null; }
+      if (task.type === "client") { return "client"; }
+      if (!viewer) { return null; }
+      if (taskOwnerRole(task) === viewer) { return task.source === "session" ? "sessions" : "mine"; }
+      if (taskMakerRole(task) === viewer) { return "given"; }
+      return null;
+    }
+
+    // The tasks of one section, open ones or done ones. "consultant" is the
+    // consultant's own list whoever is looking (the office's Consultant tab,
+    // and its section in the Done tab).
+    function tasksInSection(tasks, viewer, section, wantDone, doneMap) {
+      var out = [];
+      for (var i = 0; i < (tasks || []).length; i++) {
+        var task = tasks[i];
+        if (!!doneMap[task.key] !== !!wantDone) { continue; }
+        if (section === "consultant") {
+          if (isOwnConsultantTask(task) && task.completedBy !== "voice-undo") { out.push(task); }
+        } else if (taskSectionFor(task, viewer) === section) {
+          out.push(task);
+        }
+      }
+      return out;
+    }
+
+    function taskStampKey(s) {
+      return String(s || "").replace(" ", "T").slice(0, 19);
+    }
+
+    // The order inside a "My tasks" section, as on the dashboard. Mine: the
+    // consultant's newest first, the office's oldest first (what has waited
+    // longest is on top). From sessions and Given to others: soonest due
+    // first, the ones with no date last.
+    function sortSectionTasks(section, viewer, tasks) {
+      var rows = tasks.slice();
+      var newestFirst = section === "mine" && viewer === "rafa";
+      var byDue = section !== "mine";
+      rows.sort(function(a, b) {
+        if (byDue) {
+          var da = a.due || "9999-12-31";
+          var db = b.due || "9999-12-31";
+          if (da !== db) { return da < db ? -1 : 1; }
+        }
+        var ka = taskStampKey(a.createdAt);
+        var kb = taskStampKey(b.createdAt);
+        if (ka === kb) { return 0; }
+        if (newestFirst) { return ka < kb ? 1 : -1; }
+        return ka < kb ? -1 : 1;
+      });
+      return rows;
+    }
+
+    // ── The Done tab's tree: months, and months then people ────────────────
+
+    // When a done task was done: completed_at; an older row has none, then
+    // updated_at, then created_at.
+    function taskDoneStamp(task) {
+      return task.completedAt || task.updatedAt || task.createdAt || "";
+    }
+
+    // "2026-10" for a stored UTC moment, read in America/New_York: a task
+    // done at 11:30 PM on 10/31 in New York belongs to October. A plain date
+    // is its own month. "" when it cannot be read.
+    function taskNyMonth(when) {
+      var s = String(when || "").replace(" ", "T");
+      if (!s) { return ""; }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { return s.slice(0, 7); }
+      if (!/[Zz]$|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+      var d = new Date(s);
+      if (isNaN(d.getTime())) { return ""; }
+      try {
+        var parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/New_York", year: "numeric", month: "2-digit"
+        }).formatToParts(d);
+        var got = {};
+        for (var i = 0; i < parts.length; i++) { got[parts[i].type] = parts[i].value; }
+        return got.year + "-" + got.month;
+      } catch (e) { return s.slice(0, 7); }
+    }
+
+    // "Outubro 2026" / "October 2026" for "2026-10". Accents are HTML
+    // entities: the result goes into innerHTML.
+    function archiveMonthLabel(key) {
+      var pt = ["Janeiro", "Fevereiro", "Mar&ccedil;o", "Abril", "Maio", "Junho",
+                "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+      var en = ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"];
+      var m = /^(\d{4})-(\d{2})$/.exec(String(key || ""));
+      var idx = m ? Number(m[2]) - 1 : -1;
+      if (idx < 0 || idx > 11) { return { pt: "Sem data", en: "No date" }; }
+      return { pt: pt[idx] + " " + m[1], en: en[idx] + " " + m[1] };
+    }
+
+    // Done tasks by month, newest month first; inside a month, newest done
+    // first. A task whose date cannot be read goes in a last group with key "".
+    function buildArchiveMonths(tasks) {
+      var byKey = {};
+      var months = [];
+      for (var i = 0; i < (tasks || []).length; i++) {
+        var key = taskNyMonth(taskDoneStamp(tasks[i]));
+        if (!byKey[key]) { byKey[key] = { key: key, tasks: [] }; months.push(byKey[key]); }
+        byKey[key].tasks.push(tasks[i]);
+      }
+      months.sort(function(a, b) {
+        if (a.key === b.key) { return 0; }
+        return a.key < b.key ? 1 : -1;
+      });
+      for (var j = 0; j < months.length; j++) {
+        months[j].tasks.sort(function(a, b) {
+          var ka = taskStampKey(taskDoneStamp(a));
+          var kb = taskStampKey(taskDoneStamp(b));
+          if (ka === kb) { return 0; }
+          return ka < kb ? 1 : -1;
+        });
+      }
+      return months;
+    }
+
+    // Given to others, done: the same months, and inside each month one group
+    // per person the tasks were given to. key is the owner's role; name is
+    // the person's name for the consultant and for Alice, and null for the
+    // developer, who is always shown as "Sistema" / "System".
+    function buildArchiveGivenTree(tasks) {
+      var months = buildArchiveMonths(tasks);
+      var order = ["rafa", "alice", "developer"];
+      for (var i = 0; i < months.length; i++) {
+        var byRole = {};
+        for (var j = 0; j < months[i].tasks.length; j++) {
+          var task = months[i].tasks[j];
+          var role = taskOwnerRole(task);
+          if (!byRole[role]) {
+            byRole[role] = { key: role, name: null, tasks: [] };
+            if (order.indexOf(role) < 0) { order.push(role); }
+          }
+          byRole[role].tasks.push(task);
+          if (!byRole[role].name && role === "alice") { byRole[role].name = task.assigneeName || null; }
+          if (!byRole[role].name && role === "rafa")  { byRole[role].name = task.ownerName || null; }
+        }
+        months[i].people = [];
+        for (var k = 0; k < order.length; k++) {
+          var person = byRole[order[k]];
+          if (!person) { continue; }
+          if (!person.name && person.key === "alice") { person.name = "Alice"; }
+          if (!person.name && person.key === "rafa")  { person.name = "Rafa"; }
+          months[i].people.push(person);
+        }
+      }
+      return months;
+    }
+
+    // Which rows get a checkbox: only the person the task was handed to.
+    // He does not tick other people's work. (The Worker enforces nothing
+    // here; this is only what the page offers.)
+    function givenCanCheck(task) {
+      var role = sessionStorage.getItem("apex_role") || "";
+      return (role === "alice" || role === "developer") && task.assignedTo === role;
+    }
+
+    // "10/07/2026 2:15 PM" in America/New_York for the moment a task was
+    // marked done; the date alone for a row closed before the moment was
+    // recorded; "" when nothing is known.
+    function givenDoneWhen(task) {
+      if (task.completedAt) { return formatDateTimeUTC(task.completedAt); }
+      if (task.updatedAt) { return formatDateUTC(task.updatedAt); }
+      return "";
+    }
+
+    function deriveTasks(sessions) {
+      var tasks = [];
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (var i = 0; i < sessions.length; i++) {
+        var s = sessions[i];
+        if (s.status === "discarded") { continue; }
+        if (!s.summary_json && !s.pdf_data) { continue; }
+
+        var clientName  = s.client_name || "—";
+        var clientId    = s.client_id   || null;
+        var sessionDate = s.date        || null;
+        var sessionYear = sessionDate ? parseInt(sessionDate.split("-")[0], 10) : today.getFullYear();
+        var sessionId   = s.id;
+
+        // Merge backend completions into completedMap (backend wins over local for this session)
+        if (s.task_completions) {
+          try {
+            var backendMap = JSON.parse(s.task_completions);
+            var bkeys = Object.keys(backendMap);
+            for (var bk = 0; bk < bkeys.length; bk++) {
+              completedMap[bkeys[bk]] = backendMap[bkeys[bk]];
+            }
+          } catch(e) {}
+        }
+
+        var pdfData = null;
+        if (s.pdf_data) {
+          try { pdfData = JSON.parse(s.pdf_data); } catch(e) { pdfData = null; }
+        }
+
+        if (pdfData && pdfData.consultant_followups && pdfData.consultant_followups.length) {
+          for (var j = 0; j < pdfData.consultant_followups.length; j++) {
+            var cf = pdfData.consultant_followups[j];
+            var taskKey = sessionId + "_rafa_" + j;
+            var dueDate = parseDueDate(cf.due, sessionYear, today);
+            tasks.push({
+              key:         taskKey,
+              type:        "rafa",
+              text:        cf.text || "",
+              due:         cf.due  || null,
+              dueDate:     dueDate,
+              overdue:     dueDate ? dueDate < today : false,
+              clientName:  clientName,
+              clientId:    clientId,
+              sessionDate: sessionDate,
+              sessionId:   sessionId
+            });
+          }
+        }
+
+        if (pdfData && pdfData.client_actions && pdfData.client_actions.length) {
+          for (var k = 0; k < pdfData.client_actions.length; k++) {
+            var ca = pdfData.client_actions[k];
+            var taskKey2 = sessionId + "_client_" + k;
+            var dueDate2 = parseDueDate(ca.due, sessionYear, today);
+            tasks.push({
+              key:         taskKey2,
+              type:        "client",
+              text:        ca.text || "",
+              due:         ca.due  || null,
+              dueDate:     dueDate2,
+              overdue:     dueDate2 ? dueDate2 < today : false,
+              clientName:  clientName,
+              clientId:    clientId,
+              sessionDate: sessionDate,
+              sessionId:   sessionId
+            });
+          }
+        }
+
+        // Fallback: rafa_followups text block (no pdf_data)
+        if (!pdfData && s.summary_json) {
+          var sj = null;
+          try { sj = JSON.parse(s.summary_json); } catch(e) { sj = null; }
+          if (sj && sj.rafa_followups) {
+            var rfText = document.body.classList.contains("lang-en")
+              ? (sj.rafa_followups.en || sj.rafa_followups.pt || "")
+              : (sj.rafa_followups.pt || sj.rafa_followups.en || "");
+            if (rfText) {
+              var taskKey3 = sessionId + "_text_0";
+              tasks.push({
+                key:         taskKey3,
+                type:        "text",
+                text:        rfText,
+                due:         null,
+                dueDate:     null,
+                overdue:     false,
+                clientName:  clientName,
+                clientId:    clientId,
+                sessionDate: sessionDate,
+                sessionId:   sessionId
+              });
+            }
+          }
+        }
+      }
+
+      return tasks;
+    }
+
+    // Parse "DD Mon" string (e.g. "20 Jun") into a Date object.
+    function parseDueDate(dueStr, sessionYear, today) {
+      if (!dueStr) { return null; }
+      var parts = dueStr.trim().split(/\s+/);
+      if (parts.length < 2) { return null; }
+      var day = parseInt(parts[0], 10);
+      var mon = MONTH_MAP[parts[1].toLowerCase().slice(0, 3)];
+      if (isNaN(day) || mon === undefined) { return null; }
+
+      var d = new Date(sessionYear, mon, day);
+      d.setHours(0, 0, 0, 0);
+
+      var sixMonthsAgo = new Date(today);
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      if (d < sixMonthsAgo) {
+        d = new Date(sessionYear + 1, mon, day);
+        d.setHours(0, 0, 0, 0);
+      }
+
+      return d;
+    }
+
+    // ── Tab + view control ─────────────────────────────────────────────────
+
+    function setTabRole(role) {
+      tabRole = role;
+      clientFilter = "";
+      overdueOnly = false;
+      var sel = document.getElementById("clientFilterSelect");
+      if (sel) { sel.value = ""; }
+      // The Done tab always opens with every section closed.
+      if (role === "done") { archOpen = {}; }
+      paintTabs();
+
+      renderTaskView();
+    }
+
+    function onClientFilterChange() {
+      var sel = document.getElementById("clientFilterSelect");
+      if (sel) { clientFilter = sel.value; }
+      renderTaskView();
+    }
+
+    function setTaskView(view) {
+      taskView = view;
+      document.getElementById("btnViewDate").className =
+        "view-toggle-btn" + (view === "date" ? " active" : "");
+      document.getElementById("btnViewType").className =
+        "view-toggle-btn" + (view === "type" ? " active" : "");
+      renderTaskView();
+    }
+
+    function getTabTasks() {
+      var base;
+      if (tabRole === "consultant") {
+        base = allTasks.filter(isOwnConsultantTask);
+      } else if (tabRole === "client") {
+        base = allTasks.filter(function(t) { return t.type === "client"; });
+      } else {
+        // My tasks and Done draw their own sections.
+        base = [];
+      }
+      if (clientFilter) {
+        base = base.filter(function(t) { return t.clientName === clientFilter; });
+      }
+      if (overdueOnly) {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        base = base.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
+      }
+      return base;
+    }
+
+    function updateTabCounts() {
+      var consultantTotal = allTasks.filter(isOwnConsultantTask).length;
+      var clientTotal     = allTasks.filter(function(t) { return t.type === "client"; }).length;
+
+      var consultantPending = allTasks.filter(function(t) {
+        return isOwnConsultantTask(t) && !completedMap[t.key];
+      }).length;
+      var clientPending = allTasks.filter(function(t) {
+        return t.type === "client" && !completedMap[t.key];
+      }).length;
+
+      // My tasks: every open row of its three sections.
+      var role = viewerRole();
+      var mineOpen = tasksInSection(allTasks, role, "mine", false, completedMap).length +
+                     tasksInSection(allTasks, role, "sessions", false, completedMap).length +
+                     tasksInSection(allTasks, role, "given", false, completedMap).length;
+
+      // Done: every done task this person's Done tab lists, each counted once
+      // (for the office a task can sit in two of its sections).
+      var seen = {};
+      var doneCount = 0;
+      var sections = archiveSectionKeys(role);
+      for (var i = 0; i < sections.length; i++) {
+        var rows = tasksInSection(allTasks, role, sections[i], true, completedMap);
+        for (var j = 0; j < rows.length; j++) {
+          if (!seen[rows[j].key]) { seen[rows[j].key] = true; doneCount++; }
+        }
+      }
+
+      var elConsultant = document.getElementById("tabCountConsultant");
+      var elClient     = document.getElementById("tabCountClient");
+      var elDone       = document.getElementById("tabCountDone");
+      var elMine       = document.getElementById("tabCountMine");
+      if (elConsultant) { elConsultant.textContent = consultantPending + "/" + consultantTotal; }
+      if (elClient)     { elClient.textContent     = clientPending + "/" + clientTotal; }
+      if (elDone)       { elDone.textContent       = doneCount; }
+      if (elMine)       { elMine.textContent       = mineOpen; }
+    }
+
+    // The sections of the Done tab for the person looking. The office also
+    // gets the consultant's done list, as it has the Consultant tab.
+    function archiveSectionKeys(viewer) {
+      var keys = ["mine", "sessions", "given", "client"];
+      if (viewer === "alice" || viewer === "developer") { keys.push("consultant"); }
+      return keys;
+    }
+
+    function updateDoneChip(tabTasks) {
+      var chip = document.getElementById("doneChip");
+      if (!chip) { return; }
+      if (tabRole === "done" || tabRole === "mine") { chip.textContent = ""; return; }
+      var done  = tabTasks.filter(function(t) { return completedMap[t.key]; }).length;
+      var total = tabTasks.length;
+      if (done === 0) {
+        chip.textContent = "";
+      } else {
+        chip.innerHTML =
+          '<span class="show-pt">' + done + ' de ' + total + ' concluída' + (done !== 1 ? 's' : '') + '</span>' +
+          '<span class="show-en">' + done + ' of ' + total + ' done</span>';
+      }
+    }
+
+    // ── Overdue header (prepended inside tabs) ────────────────────────────
+
+    function makeOverdueSectionHeader(count) {
+      var el = document.createElement("div");
+      el.className = "overdue-section-header";
+      el.innerHTML =
+        '<span class="show-pt">ATRASADO (' + count + ')</span>' +
+        '<span class="show-en">OVERDUE (' + count + ')</span>';
+      return el;
+    }
+
+    function makeUpcomingSectionHeader() {
+      var el = document.createElement("div");
+      el.className = "group-heading";
+      el.innerHTML =
+        '<span class="show-pt">Próximas</span>' +
+        '<span class="show-en">Upcoming</span>';
+      return el;
+    }
+
+    // ── Client filter ──────────────────────────────────────────────────────
+
+    function populateClientFilter() {
+      var sel = document.getElementById("clientFilterSelect");
+      if (!sel) { return; }
+
+      // Collect unique client names from all tasks
+      var seen = {};
+      var names = [];
+      for (var i = 0; i < allTasks.length; i++) {
+        var cn = allTasks[i].clientName;
+        if (cn && !seen[cn]) {
+          seen[cn] = true;
+          names.push(cn);
+        }
+      }
+      names.sort();
+
+      // Rebuild options — keep default "all" option
+      sel.innerHTML = '<option value="">' + t("Todos os Clientes", "All Clients") + '</option>';
+      for (var j = 0; j < names.length; j++) {
+        var opt = document.createElement("option");
+        opt.value = names[j];
+        opt.textContent = names[j];
+        sel.appendChild(opt);
+      }
+      sel.value = clientFilter;
+    }
+
+    function renderTaskView() {
+      if (tabRole === "done") {
+        renderDoneTab();
+      } else if (tabRole === "mine") {
+        renderMineTab();
+      } else if (taskView === "date") {
+        renderByDate();
+      } else {
+        renderByType();
+      }
+      updateDoneChip(getTabTasks());
+    }
+
+    // ── Render: by date ────────────────────────────────────────────────────
+
+    function renderByDate() {
+      var container = document.getElementById("tasksContainer");
+      container.innerHTML = "";
+
+      var tabTasks = getTabTasks();
+      var showTypeTag = tabRole === "consultant";
+
+      if (tabTasks.length === 0) {
+        container.appendChild(makeEmpty());
+        return;
+      }
+
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      var overdueTasks   = tabTasks.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
+      var remainingTasks = tabTasks.filter(function(t) { return !completedMap[t.key] && !(t.dueDate && t.dueDate < today); });
+
+      overdueTasks.sort(function(a, b) { return a.dueDate - b.dueDate; });
+
+      if (overdueTasks.length > 0) {
+        container.appendChild(makeOverdueSectionHeader(overdueTasks.length));
+        for (var oi = 0; oi < overdueTasks.length; oi++) {
+          container.appendChild(makeTaskRow(overdueTasks[oi], showTypeTag));
+        }
+      }
+
+      var dated   = [];
+      var undated = [];
+      for (var i = 0; i < remainingTasks.length; i++) {
+        if (remainingTasks[i].dueDate) { dated.push(remainingTasks[i]); }
+        else                            { undated.push(remainingTasks[i]); }
+      }
+      dated.sort(function(a, b) { return a.dueDate - b.dueDate; });
+      undated.sort(function(a, b) { return a.clientName.localeCompare(b.clientName); });
+
+      var sorted = dated.concat(undated);
+
+      if (overdueTasks.length > 0 && sorted.length > 0) {
+        container.appendChild(makeUpcomingSectionHeader());
+      }
+
+      for (var j = 0; j < sorted.length; j++) {
+        container.appendChild(makeTaskRow(sorted[j], showTypeTag));
+      }
+
+      container.appendChild(makeFooterNote());
+    }
+
+    // ── Render: by type ────────────────────────────────────────────────────
+
+    function renderByType() {
+      var container = document.getElementById("tasksContainer");
+      container.innerHTML = "";
+
+      var tabTasks = getTabTasks();
+
+      if (tabTasks.length === 0) {
+        container.appendChild(makeEmpty());
+        return;
+      }
+
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      var overdueTasks    = tabTasks.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
+      var nonOverdueTasks = tabTasks.filter(function(t) { return !completedMap[t.key] && !(t.dueDate && t.dueDate < today); });
+
+      if (overdueTasks.length > 0) {
+        overdueTasks.sort(function(a, b) { return a.dueDate - b.dueDate; });
+        container.appendChild(makeOverdueSectionHeader(overdueTasks.length));
+        for (var oi = 0; oi < overdueTasks.length; oi++) {
+          container.appendChild(makeTaskRow(overdueTasks[oi], false));
+        }
+      }
+
+      function sortGroup(arr) {
+        var dated   = arr.filter(function(t) { return t.dueDate; });
+        var undated = arr.filter(function(t) { return !t.dueDate; });
+        dated.sort(function(a, b) { return a.dueDate - b.dueDate; });
+        undated.sort(function(a, b) { return a.clientName.localeCompare(b.clientName); });
+        return dated.concat(undated);
+      }
+
+      function appendGroup(labelPt, labelEn, tasks) {
+        if (tasks.length === 0) { return; }
+        var heading = document.createElement("div");
+        heading.className = "group-heading";
+        heading.innerHTML =
+          '<span class="show-pt">' + escHtml(labelPt) + ' (' + tasks.length + ')</span>' +
+          '<span class="show-en">' + escHtml(labelEn) + ' (' + tasks.length + ')</span>';
+        container.appendChild(heading);
+        var sorted = sortGroup(tasks);
+        for (var i = 0; i < sorted.length; i++) {
+          container.appendChild(makeTaskRow(sorted[i], false));
+        }
+      }
+
+      if (tabRole === "consultant") {
+        var rafaTasks = nonOverdueTasks.filter(function(t) { return t.type === "rafa"; });
+        var textTasks = nonOverdueTasks.filter(function(t) { return t.type === "text"; });
+        appendGroup("Follow-ups do Consultor", "Consultant Follow-ups", rafaTasks);
+        appendGroup("Resumo de Follow-ups",     "Follow-up Summary",    textTasks);
+      } else {
+        appendGroup("Ações do Cliente", "Client Action Items", nonOverdueTasks);
+      }
+
+      container.appendChild(makeFooterNote());
+    }
+
+    // ── Sections that open and close ──────────────────────────────────────
+
+    // One header with what it opens under it. The header is a real button
+    // (Tab reaches it, Enter and Space press it) and says with aria-expanded
+    // whether it is open. fill(body) draws what is inside, the first time it
+    // is opened; onToggle(open) is told each time the person opens or closes it.
+    function makeFold(level, labelHtml, count, isOpen, onToggle, fill) {
+      var wrap = document.createElement("div");
+      wrap.className = "fold fold-l" + level;
+
+      var body = document.createElement("div");
+      body.className = "fold-body";
+      foldSeq++;
+      body.id = "foldBody" + foldSeq;
+
+      var head = document.createElement("button");
+      head.type = "button";
+      head.className = "fold-head";
+      head.setAttribute("aria-controls", body.id);
+      head.innerHTML =
+        '<span class="fold-caret" aria-hidden="true">&#9656;</span>' +
+        '<span class="fold-label">' + labelHtml + '</span>' +
+        '<span class="fold-count">' + count + '</span>';
+
+      var filled = false;
+      function show(open) {
+        head.setAttribute("aria-expanded", open ? "true" : "false");
+        body.hidden = !open;
+        if (open && !filled) { filled = true; fill(body); }
+      }
+      head.onclick = function() {
+        var open = head.getAttribute("aria-expanded") !== "true";
+        show(open);
+        if (onToggle) { onToggle(open); }
+      };
+      show(!!isOpen);
+
+      wrap.appendChild(head);
+      wrap.appendChild(body);
+      return wrap;
+    }
+
+    function makeQuietLine(pt, en) {
+      var el = document.createElement("div");
+      el.className = "fold-quiet";
+      el.innerHTML = mtBoth(pt, en);
+      return el;
+    }
+
+    // The names of the sections, the same words as the dashboard's task card
+    // (and, for Client and Consultant, as the tabs of this page).
+    var SECTION_LABELS = {
+      mine:       ["Minhas", "Mine"],
+      sessions:   ["Das sess&otilde;es", "From sessions"],
+      given:      ["Passei para outros", "Given to others"],
+      client:     ["Cliente", "Client"],
+      consultant: ["Consultor", "Consultant"]
+    };
+
+    function sectionLabelHtml(key) {
+      return mtBoth(SECTION_LABELS[key][0], SECTION_LABELS[key][1]);
+    }
+
+    // How a row of a section is drawn (see makeTaskRow).
+    function sectionRowMode(key) {
+      if (key === "given") { return "given"; }
+      if (key === "mine" || key === "sessions") { return "own"; }
+      return "";
+    }
+
+    // ── Render: My tasks tab ──────────────────────────────────────────────
+    // The viewer's open tasks in the three lists of their dashboard: Mine,
+    // From sessions, Given to others. All of them: no row limit here.
+
+    var MINE_EMPTY = {
+      mine:     ["Nenhuma tarefa sua em aberto.", "No open tasks of your own."],
+      sessions: ["Nenhuma tarefa de sess&atilde;o em aberto.", "No open tasks from sessions."],
+      given:    ["Nada passado para outros.", "Nothing given to others."]
+    };
+
+    function mineSectionRows(key, role) {
+      var rows = tasksInSection(allTasks, role, key, false, completedMap);
+      if (clientFilter) {
+        rows = rows.filter(function(t) { return t.clientName === clientFilter; });
+      }
+      if (overdueOnly) {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        rows = rows.filter(function(t) { return t.dueDate && t.dueDate < today; });
+      }
+      return sortSectionTasks(key, role, rows);
+    }
+
+    function appendMineSection(container, key, role) {
+      var rows = mineSectionRows(key, role);
+      // From the overdue link every section is open, whatever was remembered.
+      var open = overdueOnly || !mineClosed[key];
+      container.appendChild(makeFold(1, sectionLabelHtml(key), rows.length, open,
+        function(isOpen) {
+          if (overdueOnly) { return; }
+          mineClosed[key] = !isOpen;
+          saveMineFolds();
+        },
+        function(body) {
+          if (!rows.length) {
+            body.appendChild(makeQuietLine(MINE_EMPTY[key][0], MINE_EMPTY[key][1]));
+            return;
+          }
+          for (var i = 0; i < rows.length; i++) {
+            body.appendChild(makeTaskRow(rows[i], false, false, sectionRowMode(key)));
+          }
+        }));
+    }
+
+    function renderMineTab() {
+      var container = document.getElementById("tasksContainer");
+      if (!container) { return; }
+      container.innerHTML = "";
+      var role = viewerRole();
+
+      if (overdueOnly) {
+        // The dashboard's overdue tile counts the consultant's own tasks:
+        // Mine and From sessions. Given to others is not part of that number.
+        var late = mineSectionRows("mine", role).length + mineSectionRows("sessions", role).length;
+        container.appendChild(makeOverdueSectionHeader(late));
+        appendMineSection(container, "mine", role);
+        appendMineSection(container, "sessions", role);
+        return;
+      }
+
+      appendMineSection(container, "mine", role);
+      appendMineSection(container, "sessions", role);
+      appendMineSection(container, "given", role);
+    }
+
+    // ── Render: Done tab ──────────────────────────────────────────────────
+    // Every done task, with no time limit. Sections, then months, then (for
+    // Given to others) the person the task was given to. Everything starts
+    // closed; archOpen remembers what is open while the person stays here,
+    // so reopening a task does not close the month it was in.
+
+    function appendArchiveRows(body, tasks, mode) {
+      for (var i = 0; i < tasks.length; i++) {
+        body.appendChild(makeTaskRow(tasks[i], false, true, mode));
+      }
+    }
+
+    function archivePersonLabelHtml(person) {
+      // The system is never a person's name.
+      if (person.key === "developer") { return mtBoth("Sistema", "System"); }
+      return escHtml(person.name || "");
+    }
+
+    function appendArchivePerson(body, openKey, person, mode) {
+      body.appendChild(makeFold(3, archivePersonLabelHtml(person), person.tasks.length, !!archOpen[openKey],
+        function(isOpen) { archOpen[openKey] = isOpen; },
+        function(inner) { appendArchiveRows(inner, person.tasks, mode); }));
+    }
+
+    function appendArchiveMonth(body, sectionKey, month, mode) {
+      var openKey = sectionKey + "|" + month.key;
+      var label = archiveMonthLabel(month.key);
+      body.appendChild(makeFold(2, mtBoth(label.pt, label.en), month.tasks.length, !!archOpen[openKey],
+        function(isOpen) { archOpen[openKey] = isOpen; },
+        function(inner) {
+          if (!month.people) { appendArchiveRows(inner, month.tasks, mode); return; }
+          for (var i = 0; i < month.people.length; i++) {
+            appendArchivePerson(inner, openKey + "|" + month.people[i].key, month.people[i], mode);
+          }
+        }));
+    }
+
+    function appendArchiveSection(container, key, role) {
+      var tasks = tasksInSection(allTasks, role, key, true, completedMap);
+      var mode = sectionRowMode(key);
+      container.appendChild(makeFold(1, sectionLabelHtml(key), tasks.length, !!archOpen[key],
+        function(isOpen) { archOpen[key] = isOpen; },
+        function(body) {
+          if (!tasks.length) {
+            body.appendChild(makeQuietLine("Nada conclu&iacute;do aqui.", "Nothing done here."));
+            return;
+          }
+          var months = key === "given" ? buildArchiveGivenTree(tasks) : buildArchiveMonths(tasks);
+          for (var i = 0; i < months.length; i++) {
+            appendArchiveMonth(body, key, months[i], mode);
+          }
+        }));
+    }
+
+    function renderDoneTab() {
+      var container = document.getElementById("tasksContainer");
+      if (!container) { return; }
+      container.innerHTML = "";
+      var role = viewerRole();
+      var keys = archiveSectionKeys(role);
+      for (var i = 0; i < keys.length; i++) {
+        appendArchiveSection(container, keys[i], role);
+      }
+    }
+
+    // ── Completion toggle ──────────────────────────────────────────────────
+
+    // taskKey is the tasks-table row id. The write goes to /api/tasks/:id, so
+    // the same row backs Rafa's page, the client profile and the Overview
+    // tile — previously this wrote to sessions.task_completions, which only
+    // this page ever read.
+    function toggleComplete(taskKey, sessionId) {
+      var newVal = !completedMap[taskKey];
+      completedMap[taskKey] = newVal;
+      // The moment it was marked done, for the tag on a handed-out task; the
+      // Worker records its own. Put back as it was if the write fails.
+      var toggled = null;
+      for (var ti = 0; ti < allTasks.length; ti++) { if (allTasks[ti].key === taskKey) { toggled = allTasks[ti]; } }
+      var hadCompletedAt = toggled ? toggled.completedAt : null;
+      if (toggled) { toggled.completedAt = newVal ? new Date().toISOString() : null; }
+
+      // Optimistic: repaint now, reconcile if the write fails.
+      updateTabCounts();
+      updateTasksHeroTiles();
+      updateDoneChip(getTabTasks());
+      renderTaskView();
+
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/tasks/" + encodeURIComponent(taskKey), {
+          method: "PATCH",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newVal ? "done" : "pending" })
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+      }).catch(function() {
+        // Roll back rather than fail silently: leaving the checkbox ticked
+        // while D1 still says pending is the exact divergence this unification
+        // was meant to remove.
+        completedMap[taskKey] = !newVal;
+        if (toggled) { toggled.completedAt = hadCompletedAt; }
+        updateTabCounts();
+        updateTasksHeroTiles();
+        updateDoneChip(getTabTasks());
+        renderTaskView();
+      });
+    }
+
+    // ── DOM builders ───────────────────────────────────────────────────────
+
+    // Is this task given, and by which role? Given = created_by_role is set
+    // and differs from the owner (assigned_to, or the consultant when empty).
+    function taskGivenBy(task) {
+      var by = task.createdByRole ? String(task.createdByRole) : "";
+      if (!by) { return null; }
+      var owner = task.assignedTo ? String(task.assignedTo) : "rafa";
+      return by === owner ? null : by;
+    }
+
+    // mode says which list the row is in:
+    //   "own"    a section of the viewer's own tasks (Mine, From sessions):
+    //            a checkbox, and a From tag when someone else gave it.
+    //   "given"  Given to others: no checkbox, and a tag saying who has it.
+    //   ""       the Client and Consultant lists, drawn as they always were.
+    function makeTaskRow(task, showTypeTag, suppressDoneStyle, mode) {
+      var isDone = !!completedMap[task.key];
+      var showDone = isDone && !suppressDoneStyle;
+
+      var row = document.createElement("div");
+      row.className = "task-row" + (showDone ? " done" : "");
+
+      var noCheck = !!task.assignedTo && !givenCanCheck(task);
+      if (mode === "given") { noCheck = true; }
+      if (mode === "own")   { noCheck = false; }
+
+      if (noCheck) {
+        // A task handed to someone else: no checkbox for anyone but that
+        // person. An empty space of the same size keeps the words in line.
+        var gap = document.createElement("span");
+        gap.className = "task-check";
+        gap.style.visibility = "hidden";
+        gap.setAttribute("aria-hidden", "true");
+        row.appendChild(gap);
+      } else {
+      // Checkbox toggle button
+      var check = document.createElement("button");
+      check.className = "task-check" + (showDone ? " checked" : "");
+      check.title = t("Marcar como concluída", "Mark complete");
+      check.setAttribute("aria-label", "Toggle complete");
+      // Use a self-contained closure via data attributes to avoid closure issues in loops
+      (function(tKey, sId) {
+        check.onclick = function() { toggleComplete(tKey, sId); };
+      })(task.key, task.sessionId);
+      row.appendChild(check);
+      }
+
+      var body = document.createElement("div");
+      body.className = "task-body";
+
+      // Task text
+      var textEl = document.createElement("div");
+      textEl.className = "task-text";
+      textEl.textContent = (typeof taskSheetWords === "function")
+        ? taskSheetWords(task.text, task.textEn, task.textPt) : task.text;
+      body.appendChild(textEl);
+
+      // A staff task can be opened (task-sheet.js): its words open the
+      // sheet, the latest note shows under them, and its pill is in the tags.
+      // A client's own to-do gets none of it.
+      var isStaff = task.type === "rafa";
+      var sheetTags = [];
+      var noteLine = (isStaff && typeof taskSheetRowNote === "function")
+        ? taskSheetRowNote(task.lastNote, task.noteCount) : null;
+      if (noteLine) { body.appendChild(noteLine); }
+
+      // Meta line
+      var meta = document.createElement("div");
+      meta.className = "task-meta";
+
+      // Client name (link if has client_id)
+      if (task.clientId) {
+        var clientLink = document.createElement("a");
+        clientLink.className = "task-client";
+        clientLink.href = "client.html?id=" + encodeURIComponent(task.clientId);
+        clientLink.textContent = task.clientName;
+        meta.appendChild(clientLink);
+      } else if (task.clientName) {
+        var clientSpan = document.createElement("span");
+        clientSpan.className = "task-client";
+        clientSpan.style.textDecoration = "none";
+        clientSpan.textContent = task.clientName;
+        meta.appendChild(clientSpan);
+      }
+
+      // Session date
+      if (task.sessionDate) {
+        var sep = document.createElement("span");
+        sep.style.cssText = "color:var(--border);font-size:11px;";
+        sep.textContent = "·";
+        // No separator in front of the first item (a task with no client).
+        if (meta.childNodes.length) { meta.appendChild(sep); }
+
+        var sdEl = document.createElement("span");
+        sdEl.className = "task-session-date";
+        sdEl.innerHTML =
+          '<span class="show-pt">Sessão ' + escHtml(formatDate(task.sessionDate)) + '</span>' +
+          '<span class="show-en">Session ' + escHtml(formatDate(task.sessionDate)) + '</span>';
+        meta.appendChild(sdEl);
+      }
+
+      // Due date pill
+      if (task.due) {
+        var sep2 = document.createElement("span");
+        sep2.style.cssText = "color:var(--border);font-size:11px;";
+        sep2.textContent = "·";
+        if (meta.childNodes.length) { meta.appendChild(sep2); }
+
+        var dueEl = document.createElement("span");
+        dueEl.className = "task-due" + (task.overdue && !isDone ? " overdue" : "");
+        dueEl.innerHTML =
+          '<span class="show-pt">Prazo: ' + escHtml(formatDate(task.due)) + '</span>' +
+          '<span class="show-en">Due: ' + escHtml(formatDate(task.due)) + '</span>';
+        meta.appendChild(dueEl);
+      }
+
+      // A handed-out task: who has it. Not on the viewer's own row: they
+      // know it is theirs.
+      var showWho = mode === "given" || (mode !== "own" && !!task.assignedTo);
+      if (showWho) {
+        var whoEl = document.createElement("span");
+        whoEl.className = "task-type-tag";
+        // The system is never a person's name.
+        if (task.assignedTo === "developer") {
+          whoEl.innerHTML = '<span class="show-pt">Sistema</span><span class="show-en">System</span>';
+        } else if (task.assignedTo) {
+          whoEl.textContent = task.assigneeName || "Alice";
+        } else {
+          // Given to the consultant.
+          whoEl.textContent = task.ownerName || "Rafa";
+        }
+        meta.appendChild(whoEl);
+        sheetTags.push(whoEl.innerHTML);
+      }
+
+      // When it was done, on every done row.
+      var doneWhen = isDone ? givenDoneWhen(task) : "";
+      if (doneWhen) {
+        var doneEl = document.createElement("span");
+        doneEl.className = "task-due";
+        doneEl.innerHTML =
+          '<span class="show-pt">Conclu&iacute;da ' + escHtml(doneWhen) + '</span>' +
+          '<span class="show-en">Done ' + escHtml(doneWhen) + '</span>';
+        meta.appendChild(doneEl);
+      }
+
+      // A task someone else gave its owner says who it came from. A task
+      // the owner made for themself, or an old row, has no such tag.
+      // Rows handed to someone else keep the tag that says who has them.
+      var giverRole = null;
+      if (mode === "own") { giverRole = taskGivenBy(task); }
+      else if (mode !== "given" && !task.assignedTo) { giverRole = taskGivenBy(task); }
+      if (giverRole) {
+        var fromEl = document.createElement("span");
+        fromEl.className = "task-type-tag";
+        if (giverRole === "developer") {
+          fromEl.innerHTML = '<span class="show-pt">Do sistema</span><span class="show-en">From the system</span>';
+        } else {
+          var fromName = escHtml(task.giverName || (giverRole === "alice" ? "Alice" : "Rafa"));
+          fromEl.innerHTML = '<span class="show-pt">De ' + fromName + '</span><span class="show-en">From ' + fromName + '</span>';
+        }
+        meta.appendChild(fromEl);
+        sheetTags.push(fromEl.innerHTML);
+      }
+
+      // Type tag (only shown in consultant tab, by-date view)
+      if (showTypeTag && task.type !== "client" && !task.assignedTo) {
+        var tagEl = document.createElement("span");
+        if (task.type === "rafa") {
+          tagEl.className = "task-type-tag rafa";
+          tagEl.innerHTML = '<span class="show-pt">Consultor</span><span class="show-en">Consultant</span>';
+        } else {
+          tagEl.className = "task-type-tag";
+          tagEl.innerHTML = '<span class="show-pt">Resumo</span><span class="show-en">Summary</span>';
+        }
+        meta.appendChild(tagEl);
+      }
+
+      // The one-click status, when it is set. A done task has none.
+      var pill = (isStaff && !isDone && typeof taskSheetRowPill === "function")
+        ? taskSheetRowPill(task.progress, "task-due") : null;
+      if (pill) { meta.appendChild(pill); }
+
+      body.appendChild(meta);
+      row.appendChild(body);
+      if (isStaff && typeof taskSheetMakeOpener === "function") {
+        (function(tk, tags, done) {
+          taskSheetMakeOpener(textEl, tk.key, function() { openTaskSheet(tk, tags, done); });
+        })(task, sheetTags, isDone);
+      }
+      return row;
+    }
+
+    // Opens a staff task in the sheet (task-sheet.js). tags are the
+    // who-has-it / who-gave-it tags of the row that was pressed.
+    function openTaskSheet(task, tags, isDone) {
+      if (typeof taskSheetOpen !== "function") { return; }
+      taskSheetOpen({
+        id: task.key, description: task.text,
+        descriptionEn: task.textEn || null, descriptionPt: task.textPt || null,
+        clientName: task.clientName && task.clientName !== "\u2014" ? task.clientName : "",
+        tags: tags, done: !!isDone,
+        progress: task.progress || null, dueDate: task.due || null,
+        apiBase: WORKER_URL, getToken: user_getToken,
+        onChange: taskSheetChanged, onClose: taskSheetClosed
+      });
+    }
+
+    // What was saved in the sheet goes onto the task this page holds, so the
+    // row is right without loading again. The due date is kept the same three
+    // ways rowsToTasks keeps it.
+    function taskSheetChanged(c) {
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+      for (var i = 0; i < allTasks.length; i++) {
+        var tk = allTasks[i];
+        if (tk.key !== c.id) { continue; }
+        tk.progress = c.progress || null;
+        tk.due = c.due_date || null;
+        if (c.description) {
+          tk.text = c.description;
+          tk.textEn = c.description_en || null;
+          tk.textPt = c.description_pt || null;
+        }
+        tk.dueDate = null;
+        if (tk.due) {
+          var p = String(tk.due).split("-");
+          tk.dueDate = new Date(+p[0], +p[1] - 1, +p[2]);
+          tk.dueDate.setHours(0, 0, 0, 0);
+        }
+        tk.overdue = (!completedMap[tk.key] && tk.dueDate) ? tk.dueDate < today : false;
+        if (c.hasOwnProperty("note_count")) {
+          tk.noteCount = c.note_count || 0;
+          tk.lastNote = c.last_note || null;
+        }
+      }
+    }
+
+    // The sheet closed: the counts and the list are drawn again from what the
+    // page already holds (no reload).
+    function taskSheetClosed() {
+      updateTabCounts();
+      updateTasksHeroTiles();
+      renderTaskView();
+    }
+
+    function makeEmpty() {
+      var el = document.createElement("div");
+      el.className = "tasks-empty";
+      el.innerHTML =
+        '<div class="tasks-empty-icon">&#10003;</div>' +
+        '<span class="show-pt">Nenhuma tarefa encontrada.<br>Tarefas aparecem aqui após sessões serem resumidas.</span>' +
+        '<span class="show-en">No tasks found.<br>Tasks appear here after sessions are summarized.</span>';
+      return el;
+    }
+
+    function makeFooterNote() {
+      var el = document.createElement("div");
+      el.className = "tasks-footer-note";
+      el.innerHTML =
+        '<span class="show-pt">Tarefas derivadas automaticamente dos resumos de sessão.</span>' +
+        '<span class="show-en">Tasks automatically derived from session summaries.</span>';
+      return el;
+    }
+
+    // ── Utilities ──────────────────────────────────────────────────────────
+
+        function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+function escHtml(str) {
+      return (str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    // ── Bootstrap ──────────────────────────────────────────────────────────
+    window.onload = function() { init(); };
+  </script>
+
+  <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
+       injected fixed-position nav broke the desktop flex layout, so these
+       must exist in the markup from page load. nav.js only fills them in;
+       mobile.css alone controls their visibility and positioning. -->
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
+</body>
+</html>

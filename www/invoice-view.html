@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Invoice</title>
+  <link rel="stylesheet" href="doc-hero.css?v=1790541646">
+  <script src="doc-hero.js?v=1790547506"></script>
+  <style>
+    /* Public, no-login page for a client's CUSTOMER. Modelled on
+       referral.html: self-contained, no app JS/CSS, the CLIENT's brand only.
+       No Apex name, logo, colours or URL anywhere on this page.
+       --brand-bg / --brand-accent are overridden from the client's settings;
+       the defaults are a neutral dark gray and white, never Apex's palette.
+       Text on a brand colour is chosen at runtime for 4.5:1 (textOn).
+       Header reworked in the 2026-09-26 fix build after templates/
+       apex-invoice-template-DRAFT.html: the logo is a frosted tile ON the
+       photo and the business name a pill beside it -- one unit, not a photo
+       and a separate band. */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --ink: #1f2328; --muted: #5a6470; --border: #e3e7ec; --bg: #f5f6f8; --red: #a63d3d; --green: #2f6b3e;
+      --brand-bg: #2b2f36; --brand-accent: #2b2f36; --on-brand-bg: #ffffff; --on-brand-accent: #ffffff; --accent-on-dark: #ffffff;
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
+    /* ---- HERO BAND + TILE ROW: doc-hero.css (shared with the PDF templates
+       and the portal hero picker); framing and tone from doc-hero.js. */
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
+    h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    /* ---- META (DRAFT .invoice-meta-area): customer + business left,
+       document number / dates / terms right, the amount tile under them. */
+    .meta-area { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+    .meta-left { flex: 1; min-width: 0; font-size: 14px; }
+    .k { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .meta-left .who { font-size: 17px; font-weight: 700; }
+    .meta-left .from { margin-top: 10px; font-size: 13px; color: #444; line-height: 1.55; }
+    .meta-right { flex: 0 1 260px; text-align: right; }
+    .meta-right .title { font-size: 22px; font-weight: 800; text-transform: uppercase; color: var(--brand-bg); line-height: 1.1; }
+    .meta-right .num { font-size: 15px; font-weight: 700; color: var(--brand-accent); margin-bottom: 6px; }
+    .meta-right table { width: 100%; border-collapse: collapse; margin-left: auto; }
+    .meta-right td { padding: 2px 6px; font-size: 13px; vertical-align: top; }
+    .meta-right td.fl { font-weight: 600; color: #444; white-space: nowrap; text-align: left; }
+    .meta-right td.fv { text-align: right; }
+    .stamp { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; }
+    .stamp.ok { color: var(--green); } .stamp.bad { color: var(--red); }
+    /* SOFT PRICES (hero build, D, Nicole 2026-09-27): a light weight reads as more
+       affordable than bold, presence comes from a contained charcoal pill, not size;
+       every other amount is weight 400 so nothing screams. Comma and cents kept. */
+    .amount-due-tile { background: #faf7f1; color: #2b2b2b; border: 1px solid var(--brand-accent); border-radius: 999px; padding: 10px 24px; max-width: 360px; margin: 12px auto 0; text-align: center; }
+    .amount-due-tile .adt-label { font-size: 10px; font-weight: 600; color: #6b6b6b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px; }
+    .amount-due-tile .adt-value { font-size: 21px; font-weight: 300; letter-spacing: 0; color: #2b2b2b; }
+    @media (max-width: 520px) { .meta-area { flex-direction: column; } .meta-right { flex-basis: auto; width: 100%; text-align: left; } .meta-right td.fv { text-align: right; } }
+    /* Hero follow-up (D1): a long label ("Current contract price after change
+       orders") no longer forces its own width (it wraps), so it cannot crush
+       the FROM column at laptop width; on a phone the table sits under
+       Prepared for / From, full width. */
+    .meta-right td.fl { white-space: normal; }
+    @media (max-width: 480px) { .meta-area { align-items: stretch; } .meta-left, .meta-right { width: 100%; } }
+    .toplink { display: inline-block; margin-top: 10px; min-height: 44px; line-height: 44px; font-weight: 700; color: var(--brand-accent); text-decoration: underline; }
+    .section { margin-top: 14px; }
+    .section-title { font-weight: 800; font-size: 15px; padding: 8px 0 6px; border-bottom: 2px solid var(--brand-accent); }
+    .cat-title { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 10px 0 2px; }
+    .line { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .line .name { font-weight: 600; }
+    .line .desc { font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+    .line .math { font-size: 13px; color: var(--muted); }
+    .line .amt { font-weight: 400; white-space: nowrap; text-align: right; }
+    .subtotal { display: flex; justify-content: space-between; padding: 8px 0; font-weight: 700; color: var(--muted); }
+    .subtotal span:last-child { font-weight: 400; }
+    .totals { margin-top: 10px; }
+    .totals .row { display: flex; justify-content: space-between; padding: 6px 0; }
+    .totals .grand { font-size: 17px; font-weight: 500; border-top: 2px solid var(--ink); padding-top: 10px; margin-top: 4px; }
+    .totals .grand span:last-child { font-weight: 300; }
+    .option { border: 2px solid var(--border); border-radius: 12px; padding: 12px; margin-top: 12px; }
+    .option.picked { border-color: var(--brand-accent); }
+    .option-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .option-head .tier { font-size: 18px; font-weight: 900; }
+    .option-head .price { font-size: 18px; font-weight: 400; }
+    .pick { min-height: 44px; padding: 0 14px; border-radius: 10px; border: 2px solid var(--brand-accent); background: #fff; color: var(--ink); font-weight: 700; cursor: pointer; font-size: 15px; }
+    .option.picked .pick { background: var(--brand-accent); color: var(--on-brand-accent); }
+    .sched .line { padding: 8px 0; }
+    /* DRAFT .payment-tiles / .payment-tile: one per method, detail as text. */
+    .payment-tiles { display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
+    .payment-tile { background: #fff; border: 1px solid #e0ddd5; border-radius: 8px; padding: 8px 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 120px; max-width: 100%; }
+    .payment-tile .pt-label { font-size: 10px; font-weight: 700; color: #444; text-transform: uppercase; letter-spacing: 0.05em; }
+    .payment-tile .pt-detail { font-size: 14px; color: #111; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .terms p { white-space: pre-wrap; margin-bottom: 10px; font-size: 14px; }
+    label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
+    input[type="text"], textarea { width: 100%; min-height: 48px; padding: 10px 12px; font-size: 16px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--ink); font-family: inherit; }
+    textarea { min-height: 90px; resize: vertical; }
+    input:focus, textarea:focus { outline: none; border-color: var(--brand-accent); }
+    .btn { width: 100%; min-height: 52px; margin-top: 12px; border: none; border-radius: 10px; background: var(--brand-accent); color: var(--on-brand-accent); font-size: 17px; font-weight: 800; cursor: pointer; }
+    .btn.secondary { background: #fff; color: var(--ink); border: 2px solid var(--border); }
+    .btn[disabled] { opacity: 0.6; }
+    .chips { display: flex; gap: 8px; margin-top: 8px; }
+    .chips button { flex: 1; min-height: 44px; border-radius: 999px; border: 2px solid var(--border); background: #fff; color: var(--ink); font-weight: 700; cursor: pointer; }
+    .chips button.sel { border-color: var(--brand-accent); background: var(--brand-accent); color: var(--on-brand-accent); }
+    canvas.sig { width: 100%; height: 160px; border: 2px dashed var(--border); border-radius: 10px; background: #fff; touch-action: none; display: block; }
+    .consent { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; font-size: 14px; min-height: 44px; }
+    .consent input { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--brand-accent); }
+    .err { color: var(--red); font-size: 14px; margin-top: 8px; min-height: 18px; font-weight: 600; }
+    .ok { color: var(--green); font-weight: 700; }
+    .state { text-align: center; padding: 20px 0; }
+    .state h3 { font-size: 20px; margin-bottom: 8px; }
+    .state p { color: var(--muted); }
+    .signed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; text-align: left; font-size: 14px; margin-top: 12px; }
+    .signed-grid .cell { min-width: 0; }
+    @media (max-width: 400px) { .signed-grid { grid-template-columns: 1fr; } }
+    .banner { border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+    .banner.bad { background: #fbeaea; border: 1px solid #e3b4b4; color: #7a2a2a; }
+    .banner b { display: block; font-size: 15px; margin-bottom: 2px; }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+    .hash { font-family: ui-monospace, Menlo, monospace; font-size: 11px; overflow-wrap: anywhere; color: var(--muted); }
+    .sigimg { max-width: 100%; max-height: 120px; border: 1px solid var(--border); border-radius: 8px; background: #fff; margin-top: 6px; }
+    .typed-sig { font-family: "Snell Roundhand", "Brush Script MT", cursive; font-size: 24px; padding: 6px 0; }
+    .hidden { display: none !important; }
+    @media (max-width: 400px) { .option-head { flex-wrap: wrap; } }
+  </style>
+</head>
+<body>
+  <div class="hero-band doc-screen" id="hero" role="banner">
+    <img class="hero-img" id="heroImg" alt="" hidden>
+    <div class="header-tile-row">
+      <div class="client-logo-tile"><img id="bizLogo" alt="" hidden><span class="client-name-mark" id="bizMark" hidden></span></div>
+      <span class="brand-pill" id="bizName" hidden></span>
+    </div>
+  </div>
+
+  <div class="wrap" role="main">
+    <div class="card" id="cardLoading" role="status"><div class="state"><p>Loading...</p></div></div>
+    <div class="card hidden" id="cardNotFound"><div class="state"><h3 role="heading" aria-level="1">Invoice not found</h3><p>This link is not valid or is no longer available.</p></div></div>
+    <div id="doc" class="hidden">
+      <div class="card hidden" id="cardPaidNote"></div>
+      <div class="card" id="cardMeta"></div>
+      <div class="card hidden" id="cardStateBanner"></div>
+      <div class="card" id="cardLines"><h2>This invoice</h2><div id="lines"></div></div>
+      <div class="card" id="totals"><h2>Balance</h2><div class="totals" id="balance"></div></div>
+      <div class="card hidden" id="cardPayments"><h2>Payments received</h2><div id="payments"></div></div>
+      <div class="card hidden" id="cardScope"><h2>Contract scope</h2><p class="muted small" id="scopeNote"></p><div id="scope"></div></div>
+      <div class="card hidden" id="cardPay"><h2>How to pay</h2><div id="payMethods"></div></div>
+      <div class="card" id="cardTerms"><h2>Terms</h2><div class="terms" id="terms"></div></div>
+      <div class="card"><button type="button" class="btn secondary" id="btnPdf">Download your invoice (PDF)</button></div>
+    </div>
+    <div class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Privacy Policy</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Terms</a></div>
+  </div>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    // On doc.resonateai.online the Worker serves this page on the readable
+    // address and hands the token over in window.DOC_PAGE_LINK, so it is
+    // never in the address bar there. The ?t= address works as before.
+    var docLink = (window.DOC_PAGE_LINK && typeof window.DOC_PAGE_LINK === "object") ? window.DOC_PAGE_LINK : null;
+    var docToken = (docLink && /^[a-f0-9]{48}$/.test(String(docLink.token || ""))) ? String(docLink.token) : null;
+    var token = docToken || (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+    function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
+    // Plain YYYY-MM-DD dates print as they are; a UTC timestamp from D1 is
+    // first converted to the Eastern calendar date (a 10 PM Eastern signature
+    // is still that day, never tomorrow).
+    function fmtDate(v) {
+      if (!v) { return ""; }
+      var s = String(v);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { var p = s.split("-"); return p[1] + "/" + p[2] + "/" + p[0]; }
+      var iso = s.replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(iso)) { iso += "Z"; }
+      var d = new Date(iso); if (isNaN(d.getTime())) { return s; }
+      try {
+        var q = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return q.month + "/" + q.day + "/" + q.year;
+      } catch (e) { return s.slice(0, 10); }
+    }
+    // F46: iPhone Safari prints the page URL in its print header/footer, and
+    // this URL carries the private ?t= access token. Everything is already
+    // loaded, so the token is taken out of the address bar
+    // (history.replaceState, same path, other parameters kept) for the
+    // duration of the print and put back afterwards. Hooked on
+    // beforeprint/afterprint AND a print media-query listener (Safari fires
+    // one or the other depending on how printing was started), and wrapped
+    // around this page's own print() calls.
+    var printUrlSaved = null;
+    function printUrlHide() {
+      if (printUrlSaved !== null) { return; }
+      try {
+        var href = window.location.href;
+        if (!/[?&]t=[a-f0-9]{48}/.test(href)) { return; }
+        var q = window.location.search.replace(/([?&])t=[a-f0-9]{48}&?/, "$1").replace(/[?&]$/, "");
+        printUrlSaved = href;
+        history.replaceState(history.state, "", window.location.pathname + q + window.location.hash);
+      } catch (e) { printUrlSaved = null; console.error(e); }
+    }
+    function printUrlRestore() {
+      if (printUrlSaved === null) { return; }
+      try { history.replaceState(history.state, "", printUrlSaved); } catch (e) { console.error(e); }
+      printUrlSaved = null;
+    }
+    function printWithoutToken() { printUrlHide(); window.print(); }
+    window.addEventListener("beforeprint", printUrlHide);
+    window.addEventListener("afterprint", printUrlRestore);
+    if (window.matchMedia) {
+      try {
+        var printMql = window.matchMedia("print");
+        var onPrintMql = function(m) { if (m.matches) { printUrlHide(); } else { printUrlRestore(); } };
+        if (printMql.addEventListener) { printMql.addEventListener("change", onPrintMql); } else if (printMql.addListener) { printMql.addListener(onPrintMql); }
+      } catch (e) { console.error(e); }
+    }
+    // UTC from D1 -> Eastern, 12-hour.
+    function fmtDateTime(iso) {
+      if (!iso) { return ""; }
+      var s = String(iso).replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+      var d = new Date(s); if (isNaN(d.getTime())) { return iso; }
+      try { var p = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "numeric", minute: "2-digit", hour12: true }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return p.month + "/" + p.day + "/" + p.year + " " + p.hour + ":" + p.minute + " " + (p.dayPeriod || "").toUpperCase() + " ET"; } catch (e) { return iso; }
+    }
+    function fmtPhone(tel) { var d = String(tel || "").replace(/\D/g, ""); if (d.length === 11 && d.charAt(0) === "1") { d = d.slice(1); } if (d.length === 10) { return "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6); } return String(tel || ""); }
+    function lum(hex) { var h = hex.replace("#", ""); var rgb = [0, 2, 4].map(function(i) { var c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }); return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]; }
+    function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
+    var PM_LABEL = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", card: "Card", other: "Other" };
+    function byId(id) { return document.getElementById(id); }
+
+    // Docs PDF build: the PDF is printed by Chrome on the server from the same
+    // template and opened as a real https PDF (on iPhone, Safari's own PDF
+    // viewer, where Share / Save to Files works). No blob: URL, no
+    // <a download>, never window.print() on the phone.
+    function openPdf(kind) {
+      var url = WORKER_URL + "/api/public/pdf/" + kind + "/" + token;
+      var w = window.open(url, "_blank");
+      if (!w) { window.location.href = url; }
+    }
+
+    // The header: brand colours, the photo (or the solid band), the logo
+    // tile (or the name as a wordmark), the name pill.
+    function applyBranding(b) {
+      var hex = /^#[0-9a-fA-F]{6}$/;
+      var root = document.documentElement.style;
+      var primary = hex.test(b.brand_primary || "") ? b.brand_primary : null;
+      var accent = hex.test(b.brand_accent || "") ? b.brand_accent : primary;
+      if (primary) { root.setProperty("--brand-bg", primary); root.setProperty("--on-brand-bg", textOn(primary)); }
+      if (accent) {
+        root.setProperty("--brand-accent", accent); root.setProperty("--on-brand-accent", textOn(accent));
+        root.setProperty("--accent-on-dark", lum(accent) > 0.18 ? accent : "#ffffff");
+      }
+      var name = b.name || "";
+      var mark = byId("bizMark");
+      var logo = byId("bizLogo");
+      if (mark) { mark.textContent = name; mark.className = "client-name-mark" + (name.length > 22 ? " is-long" : ""); mark.hidden = false; }
+      if (b.logo_url && logo) {
+        logo.onload = function() { logo.hidden = false; if (mark) { mark.hidden = true; } };
+        logo.onerror = function() { logo.hidden = true; if (mark) { mark.hidden = false; } };
+        logo.src = b.logo_url;
+      }
+      var hero = byId("heroImg");
+      if (b.hero_url && hero) { hero.onload = function() { hero.hidden = false; }; hero.src = b.hero_url; }
+      if (typeof docHeroApply === "function") { docHeroApply(byId("hero"), hero, b.hero); }
+      var pill = byId("bizName");
+      if (pill) { pill.textContent = name; pill.hidden = !name; }
+    }
+    function fromHtml(b) {
+      var lines = [];
+      if (b.name) { lines.push('<strong>' + escHtml(b.name) + '</strong>'); }
+      (b.license_numbers || []).forEach(function(l) { lines.push("License " + escHtml(l)); });
+      if (b.address) { lines.push(escHtml(b.address)); }
+      if (b.phone) { lines.push(escHtml(fmtPhone(b.phone))); }
+      if (b.email) { lines.push(escHtml(b.email)); }
+      return '<div class="from"><div class="k">From</div>' + lines.join("<br>") + '</div>';
+    }
+    function metaHtml(leftLabel, who, whoLines, b, title, num, rows, stamp, tile) {
+      var t = '<table>' + rows.map(function(r) { return '<tr><td class="fl">' + r[0] + '</td><td class="fv">' + r[1] + '</td></tr>'; }).join("") + '</table>';
+      return '<div class="meta-area"><div class="meta-left"><div class="k">' + leftLabel + '</div><div class="who">' + escHtml(who || "") + '</div>' +
+        (whoLines.length ? '<div class="small muted">' + whoLines.map(escHtml).join("<br>") + '</div>' : "") + fromHtml(b) + '</div>' +
+        '<div class="meta-right"><div class="title" role="heading" aria-level="1">' + title + '</div><div class="num">' + escHtml(num) + '</div>' + t + (stamp || "") + '</div></div>' +
+        (tile ? '<div class="amount-due-tile"><div class="adt-label">' + tile.label + '</div><div class="adt-value">' + tile.value + '</div></div>' : "");
+    }
+    function paymentTilesHtml(methods) {
+      return '<div class="payment-tiles">' + methods.map(function(m) {
+        return '<div class="payment-tile"><div class="pt-label">' + escHtml(PM_LABEL[m.key] || m.key) + '</div>' + (m.detail ? '<div class="pt-detail">' + escHtml(m.detail) + '</div>' : "") + '</div>';
+      }).join("") + '</div>';
+    }
+    function lateFeeTerms(b) {
+      if (!b.late_fee_annual_pct) { return ""; }
+      return '<b>Late payment</b><p>Payments more than ' + escHtml(String(b.late_fee_grace_days || 0)) + ' days late accrue interest at ' + escHtml(String(b.late_fee_annual_pct)) + '% per year on the unpaid balance, counted from the due date.</p>';
+    }
+    function show(id) { ["cardLoading", "cardNotFound", "doc"].forEach(function(c) { var el = byId(c); if (el) { el.classList.toggle("hidden", c !== id); } }); }
+
+    var inv = null;
+    function render() {
+      var b = inv.business;
+      applyBranding(b);
+      document.title = "Invoice " + inv.number + (b.name ? " - " + b.name : "");
+      var whoLines = [];
+      if (inv.customer_address) { whoLines.push(inv.customer_address); }
+      var rows = [["Issued", escHtml(fmtDate(inv.issue_date))], ["Due", escHtml(fmtDate(inv.due_date))], ["Terms", b.terms_days ? "Net " + escHtml(String(b.terms_days)) + " days" : "Due on receipt"], ["Job", escHtml(inv.job_name || "")]];
+      if (inv.completion_signed_at) { rows.push(["Completion signed", escHtml((inv.completion_signer || "") + " on " + (typeof fmtDateTime === "function" ? fmtDateTime(inv.completion_signed_at) : fmtDate(inv.completion_signed_at)))]); }
+      if (inv.step_label) { rows.push(["Step", escHtml(inv.step_label) + (inv.step_pct ? " (" + escHtml(String(inv.step_pct)) + "% of contract)" : "")]); }
+      var stamp = inv.status === "paid" ? '<span class="stamp ok">PAID</span>' : (inv.status === "overdue" ? '<span class="stamp bad">PAST DUE</span>' : "");
+      var tile = { label: inv.status === "paid" ? "Paid in full" : "Balance due now", value: money(inv.balance_cents) };
+      var meta = byId("cardMeta");
+      if (meta) { meta.innerHTML = metaHtml("Bill to", inv.customer_name, whoLines, b, "Invoice", inv.number, rows, stamp, tile) + '<a class="toplink" href="#totals" id="viewTotal">View balance</a>'; }
+      var banner = byId("cardStateBanner");
+      if (banner) {
+        if (inv.status === "paid") { banner.innerHTML = '<div class="state"><h3 class="ok" aria-level="2">Paid</h3><p>Thank you for your payment.</p></div>'; banner.classList.remove("hidden"); }
+        else if (inv.awaiting_verification) { banner.innerHTML = '<div class="state"><h3 aria-level="2">Payment reported</h3><p>A payment was reported and is awaiting confirmation.</p></div>'; banner.classList.remove("hidden"); }
+        else if (inv.status === "overdue") { banner.innerHTML = '<div class="state"><h3 style="color:var(--red);">Past due</h3><p>This invoice was due on ' + escHtml(fmtDate(inv.due_date)) + '.</p></div>'; banner.classList.remove("hidden"); }
+      }
+      var lines = byId("lines");
+      if (lines) {
+        lines.innerHTML = (inv.items || []).map(function(it) {
+          return '<div class="line"><div><div class="name">' + escHtml(it.description) + '</div>' + (it.qty !== 1 ? '<div class="math">' + escHtml(String(it.qty)) + (it.unit ? " " + escHtml(it.unit) : "") + ' x ' + money(it.rate_cents) + '</div>' : "") + '</div><div class="amt">' + money(it.amount_cents) + '</div></div>';
+        }).join("");
+      }
+      var c = inv.contract || {};
+      var bal = byId("balance");
+      if (bal) {
+        bal.innerHTML =
+          '<div class="row"><span>Contract total</span><span>' + money(c.total_cents) + '</span></div>' +
+          (c.late_fee_cents ? '<div class="row"><span>Late fees</span><span>' + money(c.late_fee_cents) + '</span></div>' : "") +
+          '<div class="row"><span>Paid to date</span><span>' + money(c.paid_cents) + '</span></div>' +
+          ((c.credit_cents || c.refund_cents) ? '<div class="row"><span>Credits / refunds</span><span>' + money(c.credit_cents) + ' / ' + money(c.refund_cents) + '</span></div>' : "") +
+          '<div class="row"><span>This invoice</span><span>' + money(inv.amount_cents) + '</span></div>' +
+          (inv.paid_cents ? '<div class="row"><span>Paid on this invoice</span><span>-' + money(inv.paid_cents) + '</span></div>' : "") +
+          (inv.credit_cents ? '<div class="row"><span>Credits on this invoice</span><span>-' + money(inv.credit_cents) + '</span></div>' : "") +
+          '<div class="row grand"><span>Balance due now</span><span>' + money(inv.balance_cents) + '</span></div>' +
+          '<div class="row"><span>Remaining contract balance</span><span>' + money(c.remaining_cents) + '</span></div>';
+      }
+      if ((inv.payments || []).length || (inv.credits || []).length) {
+        var pays = byId("payments");
+        if (pays) {
+          pays.innerHTML = (inv.payments || []).map(function(p) {
+            return '<div class="line"><div><div class="name">' + escHtml(fmtDate(p.paid_date)) + ' - ' + escHtml(PM_LABEL[p.method] || p.method) + (p.reference ? " " + escHtml(p.reference) : "") + '</div>' + (p.receipt_number ? '<div class="math">Receipt ' + escHtml(p.receipt_number) + '</div>' : "") + '</div><div class="amt">' + money(p.amount_cents) + '</div></div>';
+          }).join("") + (inv.credits || []).map(function(cr) {
+            return '<div class="line"><div><div class="name">' + escHtml(cr.number) + ' - ' + (cr.kind === "refund" ? "Refund" : "Credit") + '</div><div class="math">' + escHtml(cr.reason) + '</div></div><div class="amt">' + (cr.kind === "refund" ? "+" : "-") + money(cr.amount_cents) + '</div></div>';
+          }).join("");
+        }
+        var pc = byId("cardPayments"); if (pc) { pc.classList.remove("hidden"); }
+      }
+      // Contract scope (B4): exactly as on the accepted estimate -- category
+      // subtotals (only with more than one category, B6), discount, total.
+      var sc = inv.scope;
+      if (sc && sc.sections && sc.sections.length) {
+        var note = byId("scopeNote");
+        if (note) { note.textContent = "From accepted estimate " + sc.estimate_number + " (contract total " + money(sc.total_cents) + "). For reference; the amount due is above."; }
+        var groups = sc.sections.filter(function(s) { return s.lines && s.lines.length; });
+        var multi = groups.length > 1;
+        var sum = 0;
+        var h = groups.map(function(sec) {
+          var sub = 0;
+          var body = sec.lines.map(function(l) {
+            sub += l.amount_cents || 0;
+            var inc = l.line_type === "included";
+            var amt = inc ? "Included" : (l.line_type === "allowance" ? "Allowance " + money(l.amount_cents) : money(l.amount_cents));
+            var math = inc ? "" : (String(l.qty) + (l.unit ? " " + l.unit : "") + " x " + money(l.rate_cents));
+            return '<div class="line"><div><div class="name">' + escHtml(l.item_name) + '</div>' + (l.description ? '<div class="desc">' + escHtml(l.description) + '</div>' : "") + (math ? '<div class="math">' + escHtml(math) + '</div>' : "") + '</div><div class="amt">' + escHtml(amt) + '</div></div>';
+          }).join("");
+          sum += sub;
+          return '<div class="section">' + (sec.category ? '<div class="section-title">' + escHtml(sec.category) + '</div>' : "") + body +
+            (multi ? '<div class="subtotal"><span>Subtotal' + (sec.category ? " " + escHtml(sec.category) : "") + '</span><span>' + money(sub) + '</span></div>' : "") + '</div>';
+        }).join("");
+        var subtotal = (sc.subtotal_cents !== null && sc.subtotal_cents !== undefined) ? sc.subtotal_cents : sum;
+        var discount = (sc.discount_cents !== null && sc.discount_cents !== undefined) ? sc.discount_cents : Math.max(0, subtotal - (sc.total_cents || 0));
+        h += '<div class="totals">' + ((multi || discount) ? '<div class="row"><span>Subtotal</span><span>' + money(subtotal) + '</span></div>' : "") +
+          (discount ? '<div class="row"><span>Discount' + (sc.discount_type === "pct" && sc.discount_value ? " (" + escHtml(String(sc.discount_value)) + "%)" : "") + '</span><span>-' + money(discount) + '</span></div>' : "") +
+          '<div class="row grand"><span>Contract total</span><span>' + money(sc.total_cents) + '</span></div></div>';
+        var scopeEl = byId("scope"); if (scopeEl) { scopeEl.innerHTML = h; }
+        var scard = byId("cardScope"); if (scard) { scard.classList.remove("hidden"); }
+      }
+      var pm = b.payment_methods || [];
+      // Pay by card (Stripe): the business connected its own Stripe account,
+      // so the button opens a payment page with this invoice's balance and
+      // number already filled in. It replaces the plain "Card" tile.
+      var canCard = !!inv.card_pay && (inv.balance_cents || 0) > 0;
+      if (inv.card_pay) { pm = pm.filter(function(m) { return m.key !== "card_link"; }); }
+      if (pm.length || canCard) {
+        var ph = "";
+        if (canCard) {
+          ph += '<button type="button" class="btn" id="btnCard" onclick="payByCard()" style="margin-top:0;">Pay ' + money(inv.balance_cents) + ' by card</button>' +
+            '<p class="muted small" style="margin-top:6px;">Secure card payment by Stripe. The amount and invoice number are already filled in. <a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p>' +
+            '<div class="err" role="alert" id="cardErr"></div>';
+          if (pm.length) { ph += '<p class="muted small" style="margin:10px 0 6px;font-weight:700;">Other ways to pay</p>'; }
+        }
+        if (pm.length) { ph += paymentTilesHtml(pm); }
+        var pmEl = byId("payMethods"); if (pmEl) { pmEl.innerHTML = ph; }
+        var payCard = byId("cardPay"); if (payCard) { payCard.classList.remove("hidden"); }
+      } else {
+        var payCardOff = byId("cardPay"); if (payCardOff) { payCardOff.classList.add("hidden"); }
+      }
+      paidNote();
+      var t = '<b>Payment terms</b><p>' + (b.terms_days ? "Net " + b.terms_days + " days" : "Due on receipt") + '. Please reference ' + escHtml(inv.number) + ' with your payment.</p>' + lateFeeTerms(b);
+      var te = byId("terms"); if (te) { te.innerHTML = t; }
+      var pdf = byId("btnPdf"); if (pdf) { pdf.onclick = function() { openPdf("invoice"); }; }
+    }
+    // Opens Stripe's payment page for exactly this invoice's balance.
+    function payByCard() {
+      var btn = byId("btnCard"), err = byId("cardErr");
+      if (err) { err.textContent = ""; }
+      if (btn) { btn.disabled = true; btn.textContent = "Opening secure payment..."; }
+      fetch(WORKER_URL + "/api/public/invoices/" + token + "/pay", { method: "POST" })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok || !r.data.url) { throw new Error((r.data && r.data.error) || "Could not open the card payment page. Please try again."); }
+          window.location.href = r.data.url;
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; btn.textContent = "Pay " + money(inv.balance_cents) + " by card"; }
+          if (err) { err.textContent = e.message; }
+          console.error(e);
+        });
+    }
+    // Back from Stripe (?paid=1): thank the customer and refresh until the
+    // payment Stripe confirmed shows on the invoice (it arrives by webhook).
+    var paidReturn = /[?&]paid=1/.test(window.location.search), paidTries = 0;
+    function paidNote() {
+      var el = byId("cardPaidNote");
+      if (!el || !paidReturn) { return; }
+      if ((inv.balance_cents || 0) <= 0) {
+        el.innerHTML = '<div class="state"><h3 aria-level="2">Thank you. Your card payment was received.</h3><p>Your receipt is under Payments received below.</p></div>';
+      } else {
+        el.innerHTML = '<div class="state"><h3 aria-level="2">Thank you. Your card payment is being confirmed.</h3><p>This page updates by itself in a few seconds.</p></div>';
+        if (paidTries < 10) { paidTries++; window.setTimeout(load, 3000); }
+      }
+      el.classList.remove("hidden");
+    }
+    function load() {
+      if (!token) { show("cardNotFound"); return; }
+      fetch(WORKER_URL + "/api/public/invoices/" + token)
+        .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); })
+        .then(function(d) { inv = d.invoice; render(); show("doc"); })
+        .catch(function(e) { console.error(e); show("cardNotFound"); });
+    }
+
+    window.onload = function() { load(); };
+  </script>
+</body>
+</html>

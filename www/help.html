@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Aprenda</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+  <style>
+    /* Aprenda. One hero: the question box, on a black band. Under it a quiet ruled index.
+       Palette: off-black, warm white, one gold accent (the portal's own). Serif titles, sans text. */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --surface: #f9f7f4;
+      --header: #111112;
+      --gold: #C9A43A;
+      --text: #1a1a1d;
+      --muted: #5f5b55;
+      --border: #ddd7cc;
+      --soft: #f1ede5;
+      --card: #ffffff;
+      --red: #8f2f2f;
+      --green: #2f6b3e;
+      --on-dark: #f6f3ec;
+      --on-dark-muted: #aaa59b;
+      --radius: 12px;
+      --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--surface); color: var(--text); min-height: 100vh; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+    [hidden] { display: none !important; }
+    button { font-family: inherit; color: inherit; }
+    button:disabled { opacity: 0.55; cursor: default; }
+    :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+    header { background: var(--header); height: 64px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+    .logo-img { height: 30px; width: auto; display: block; }
+    .lang-btn { background: transparent; border: 1.5px solid var(--gold); color: var(--gold); font-size: 11px; font-weight: 700; letter-spacing: 0.8px; padding: 6px 12px; min-height: 32px; border-radius: 20px; cursor: pointer; transition: transform 120ms ease-out, background-color 120ms ease-out; }
+    .lang-btn:active { transform: scale(0.97); }
+
+    /* The hero: a black band, a serif line and the question box. */
+    .hero { position: relative; overflow: hidden; background: var(--header); color: var(--on-dark); padding: 64px 20px 72px; }
+    .hero-bg { position: absolute; inset: 0; z-index: 0; background-size: cover; background-position: 30% 40%; opacity: 0; transition: opacity 400ms ease-out; }
+    .hero-bg.on { opacity: 1; }
+    .hero-scrim { position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(17,17,18,0.55) 0%, rgba(17,17,18,0.62) 55%, rgba(17,17,18,0.82) 100%); }
+    .hero-in { position: relative; z-index: 2; max-width: 760px; margin: 0 auto; }
+    .page-title { font-family: var(--serif); font-size: 52px; font-weight: 400; line-height: 1.08; letter-spacing: -0.015em; margin-bottom: 10px; }
+    .hero-sub { font-size: 18px; line-height: 1.5; color: #e4dfd5; margin-bottom: 30px; max-width: 34em; }
+    .search { margin: 0; }
+    .ask-label { display: block; font-size: 16px; font-weight: 600; color: #fff; margin: 0 0 10px; }
+    .ask { position: relative; display: flex; align-items: stretch; gap: 10px; }
+    .ask-ico { position: absolute; left: 18px; top: 50%; margin-top: -11px; width: 22px; height: 22px; color: #111; display: inline-flex; pointer-events: none; z-index: 1; }
+    .ask-ico svg { width: 22px; height: 22px; }
+    .ask input { flex: 1; min-width: 0; min-height: 60px; border: 2px solid #111; border-radius: 12px; background: #f3f0e9; box-shadow: inset 0 2px 5px rgba(0,0,0,0.18), 0 0 0 4px rgba(255,255,255,0.55); padding: 0 16px 0 52px; font: 500 18px 'Inter', sans-serif; color: var(--text); caret-color: #111; }
+    .ask input::placeholder { color: #4d4a44; opacity: 1; }
+    .ask input:focus { outline: none; background: #fff; border-color: var(--gold); box-shadow: inset 0 1px 3px rgba(0,0,0,0.12), 0 0 0 4px rgba(201,164,58,0.55); }
+    .ask .btn-primary { min-width: 118px; min-height: 60px; justify-content: center; border-radius: 12px; font-size: 16px; border: 2px solid #fff; box-shadow: 0 0 0 0 transparent; }
+    .ask .btn-primary .ico { width: 20px; height: 20px; }
+    .ask input[type="search"] { -webkit-appearance: none; appearance: none; }
+    .ask input::-webkit-search-cancel-button { -webkit-appearance: none; }
+    .hero #answer { color: var(--text); }
+
+    .wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px calc(72px + env(safe-area-inset-bottom)); }
+    .banner { display: flex; align-items: flex-start; gap: 16px; padding: 22px 12px 22px 22px; margin-bottom: 8px; border-radius: 14px; background: var(--header); color: var(--on-dark); }
+    .banner-ico { flex: none; width: 48px; height: 48px; border-radius: 50%; background: var(--gold); color: var(--header); display: inline-flex; align-items: center; justify-content: center; }
+    .banner-ico svg { width: 26px; height: 26px; }
+    .banner-body { flex: 1; min-width: 0; }
+    .banner-title { font-family: var(--serif); font-size: 24px; font-weight: 500; line-height: 1.2; color: #fff; margin: 2px 0 6px; }
+    .banner-intro { font-size: 16px; line-height: 1.5; color: #ddd8cd; margin: 0 0 12px; }
+    .banner-ways { display: grid; gap: 8px; }
+    .way { display: flex; align-items: baseline; gap: 12px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.09); }
+    .way-where { flex: none; min-width: 124px; font-size: 14px; font-weight: 700; color: var(--gold); }
+    .way-what { font-size: 16px; line-height: 1.45; color: #fff; }
+    @media (max-width: 480px) { .way { flex-direction: column; gap: 2px; } .way-where { min-width: 0; } }
+    .banner .icon-btn { margin: -8px 0 0 0; color: #fff; }
+    @media (hover: hover) { .banner .icon-btn:hover { background: rgba(255,255,255,0.14); } }
+    .icon-btn { width: 44px; height: 44px; margin: -10px -10px -10px 0; flex: none; border: none; background: transparent; border-radius: var(--radius); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: transform 120ms ease-out, background-color 120ms ease-out; }
+    .icon-btn:active { transform: scale(0.97); }
+    .icon-btn svg, .ico { width: 18px; height: 18px; flex: none; }
+
+    .btn-primary { min-height: 52px; padding: 0 22px; border: none; border-radius: var(--radius); background: var(--header); color: #fff; font-weight: 600; font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; transition: transform 120ms ease-out, background-color 120ms ease-out; }
+    .btn-quiet { min-height: 44px; padding: 0 14px; border: 1px solid var(--text); border-radius: var(--radius); background: var(--card); font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: transform 120ms ease-out, background-color 120ms ease-out; }
+    .btn-primary:active, .btn-quiet:active { transform: scale(0.97); }
+    .btn-primary.small { min-height: 44px; padding: 0 16px; font-size: 14px; }
+    @media (hover: hover) { .btn-quiet:hover, .icon-btn:hover { background: var(--soft); } .vcard:hover .vlabel { background: var(--soft); } .btn-primary:hover { background: #2e2e32; } .lang-btn:hover { background: rgba(201,164,58,0.14); } .card.click:hover { background: #f3efe7; } }
+
+    .state { font-size: 15px; margin: 14px 0; }
+    .state.muted { color: var(--muted); }
+    .state.error { color: var(--red); }
+    .ok { color: var(--green); font-size: 14px; font-weight: 600; margin-top: 8px; }
+    .ok.error { color: var(--red); }
+    .ok-row { display: flex; align-items: center; gap: 6px; }
+    .sug { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 16px 18px; margin: 14px 0; }
+    .sug-label { font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+    .sug-q { font-size: 16px; margin-bottom: 8px; }
+    .sug form { margin: 6px 0 4px; }
+    .reply { font-size: 17px; line-height: 1.55; margin: 6px 0 16px; }
+    #answer:empty { display: none; }
+    #answer { margin: 0 0 8px; }
+
+    /* The guide list: a ruled index with serif titles, no boxes. */
+    .card { position: relative; border: none; border-top: 1px solid var(--border); border-radius: 0; background: transparent; padding: 22px 38px 22px 0; margin: 0; width: 100%; text-align: left; display: block; }
+    .card.click { cursor: pointer; font: inherit; color: inherit; transition: background-color 120ms ease-out; }
+    .card.click::after { content: ""; position: absolute; right: 8px; top: 50%; width: 9px; height: 9px; margin-top: -6px; border-right: 2px solid var(--text); border-top: 2px solid var(--text); transform: rotate(45deg); }
+    .card.click:active { background: #f3efe7; }
+    .card-title { display: block; font-family: var(--serif); font-size: 24px; font-weight: 500; line-height: 1.22; margin-bottom: 4px; }
+    .card-sum { display: block; font-size: 15px; line-height: 1.5; color: var(--muted); }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    #guideList { border-bottom: 1px solid var(--border); }
+
+    .side-row { margin: 18px 0 -10px; }
+    .side-btn { min-height: 44px; padding: 0 2px; border: none; border-radius: var(--radius); background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; transition: transform 120ms ease-out; }
+    .side-btn:active { transform: scale(0.97); }
+    .side-btn:disabled { text-decoration: none; }
+    @media (hover: hover) { .side-btn:hover { color: var(--text); } }
+    .stag { margin-left: 6px; }
+    .list-title { font-size: 14px; font-weight: 600; color: var(--muted); margin: 26px 0 12px; }
+
+    .back { margin-bottom: 20px; }
+    #returnBtn[hidden] { display: none; }
+    #returnBtn { color: var(--text); }
+    .guide-title { font-family: var(--serif); font-size: 38px; font-weight: 400; line-height: 1.12; letter-spacing: -0.01em; margin-bottom: 8px; }
+    .guide-sum { font-size: 17px; line-height: 1.55; color: var(--muted); margin-bottom: 20px; }
+    .sec-title { font-family: var(--serif); font-size: 26px; font-weight: 500; line-height: 1.25; margin: 40px 0 6px; padding-top: 26px; border-top: 2px solid var(--text); }
+    .step { padding: 30px 14px 34px; margin: 0 -14px; border-radius: var(--radius); border-bottom: 1px solid var(--border); }
+    .step.hit { background: #f3eee3; }
+    .step-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+    .step-n { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%; background: var(--gold); color: var(--header); font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; }
+    .step-title { font-family: var(--serif); font-size: 22px; font-weight: 500; line-height: 1.3; margin: 0; }
+    .step-text { font-size: 18px; line-height: 1.65; margin: 0 0 20px 44px; }
+    .step .pic { margin-top: 20px; }
+    .pic { display: flex; justify-content: center; width: 100%; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: #f1eee8; cursor: zoom-in; }
+    .pic img { display: block; width: auto; max-width: 100%; height: auto; max-height: 70vh; }
+    .step-tag { display: inline-block; margin: 0 0 10px 44px; padding: 3px 10px; border-radius: 999px; background: #ece6d8; color: var(--muted); font-size: 13px; font-weight: 600; }
+    .link { color: var(--text); font-weight: 600; font-size: 15px; text-decoration: underline; text-underline-offset: 3px; }
+    .vwrap { margin-bottom: 20px; }
+    .vcard { display: block; width: 100%; padding: 0; border: 1px solid var(--text); border-radius: var(--radius); background: var(--card); overflow: hidden; cursor: pointer; text-align: left; font: inherit; transition: transform 120ms ease-out; }
+    .vcard:active { transform: scale(0.97); }
+    .vmedia { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--header); overflow: hidden; }
+    .vposter { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .vplay { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%; background: var(--gold); color: var(--header); display: flex; align-items: center; justify-content: center; }
+    .vplay svg { width: 28px; height: 28px; margin-left: 3px; }
+    .vlabel { display: block; padding: 14px 16px; font-size: 16px; font-weight: 600; transition: background-color 120ms ease-out; }
+    .video { display: block; width: 100%; max-height: 70vh; border-radius: var(--radius); background: #000; }
+    .vhint { font-size: 14px; color: var(--muted); margin-top: 8px; }
+    .vtag { display: inline-block; margin-top: 10px; padding: 2px 10px; border: 1px solid var(--text); border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--text); }
+    .fade { animation: fadein 200ms ease-out; }
+    @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+
+    .light { position: fixed; inset: 0; z-index: 100; background: rgba(17,17,18,0.9); display: flex; align-items: center; justify-content: center; padding: 16px; animation: fadein 200ms ease-out; }
+    .light img { max-width: 100%; max-height: 100%; border-radius: var(--radius); }
+    .light .icon-btn { position: absolute; right: 12px; top: 12px; margin: 0; background: var(--card); }
+    @media (prefers-reduced-motion: reduce) { .lang-btn:active, .icon-btn:active, .btn-primary:active, .btn-quiet:active, .card.click:active, .vcard:active, .side-btn:active { transform: none; } }
+    @media (max-width: 480px) { .hero { padding: 36px 16px 44px; } .page-title { font-size: 40px; } .hero-sub { font-size: 16px; margin-bottom: 22px; } .ask { gap: 8px; } .ask input { font-size: 16px; padding-left: 46px; } .ask-ico { left: 14px; } .ask .btn-primary { padding: 0 14px; min-width: 0; } .guide-title { font-size: 31px; } .step-title { font-size: 21px; } .card-title { font-size: 22px; } }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <header>
+    <img src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png" alt="Apex" class="logo-img">
+    <button type="button" class="lang-btn" id="langBtn" aria-label="Português / English">
+      <span class="show-pt">EN</span>
+      <span class="show-en">PT</span>
+    </button>
+  </header>
+
+  <div id="libraryView">
+    <section class="hero">
+      <div class="hero-bg" id="heroBg"></div>
+      <div class="hero-scrim"></div>
+      <div class="hero-in">
+        <button type="button" class="btn-quiet back" id="returnBtn" hidden></button>
+        <h1 class="page-title" id="pageTitle">Aprenda</h1>
+        <p class="hero-sub" id="heroSub"></p>
+        <section class="search" id="searchBox" hidden>
+          <label class="ask-label" for="askInput" id="askLabel"></label>
+          <form id="askForm" class="ask" autocomplete="off" role="search">
+            <span class="ask-ico" aria-hidden="true" id="askIco"></span>
+            <input type="search" id="askInput" maxlength="300" enterkeyhint="search">
+            <button type="submit" class="btn-primary" id="askBtn"></button>
+          </form>
+        </section>
+      </div>
+    </section>
+
+    <main class="wrap">
+      <div id="answer" aria-live="polite"></div>
+      <div class="banner" id="banner">
+        <span class="banner-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5" fill="currentColor"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="10" opacity="0.5"/></svg></span>
+        <div class="banner-body">
+          <p class="banner-title" id="bannerTitle"></p>
+          <p class="banner-intro" id="bannerIntro"></p>
+          <div class="banner-ways" id="bannerText"></div>
+        </div>
+        <button type="button" class="icon-btn" id="bannerClose"></button>
+      </div>
+
+      <p class="side-row" id="sideRow" hidden></p>
+      <h2 class="list-title" id="listTitle"></h2>
+      <div id="guideList"></div>
+    </main>
+  </div>
+
+  <main class="wrap" id="guideView" hidden></main>
+
+  <script>
+    // ?aprenda=on / ?aprenda=off sets the preview switch here, before help-config.js reads it,
+    // so a browser holding an old cached help-config.js still gets it.
+    (function () {
+      try {
+        var m = /[?&]aprenda=(on|off)(&|$)/.exec(window.location.search);
+        if (m) { if (m[1] === "on") { window.localStorage.setItem("aprenda-preview", "on"); } else { window.localStorage.removeItem("aprenda-preview"); } }
+      } catch (e) { /* works without storage */ }
+    }());
+  </script>
+  <script src="help-config.js"></script>
+  <script src="help-core.js"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+  <script>
+    // Learn (Aprenda) library page. Text from guides.json or from the worker goes
+    // onto the page only through textContent, so there is nothing to inject.
+    var HC = window.HelpCore;
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var FIREBASE_CONFIG = {
+      apiKey: "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain: "apex-command-center-4b038.firebaseapp.com",
+      projectId: "apex-command-center-4b038",
+      storageBucket: "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId: "1:894743550437:web:45041f841f7e8196db770c"
+    };
+    var ICON_CLOSE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    var ICON_BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+    var ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    var ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+    var ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    var ICON_SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
+
+    var cfg = window.APEX_HELP || { enabled: false, base: "https://apex.resonateai.online/" };
+    var enabled = HC.isEnabled(window);
+    var deep = HC.parseDeepLink(window.location.search);
+
+    // Only on a computer's own localhost, a query string can point the page at the
+    // test fixture (used to check the screens without publishing any guide).
+    var onLocalhost = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
+    var useFixture = onLocalhost && /[?&]fixture=1(&|$)/.test(window.location.search);
+    var useLocal = onLocalhost && /[?&]local=1(&|$)/.test(window.location.search);
+    var BASE = (useFixture || useLocal) ? (window.location.origin + "/") : String(cfg.base || "");
+    var GUIDES_URL = useFixture ? (BASE + "scripts/fixtures/help-guides-fixture.json") : (BASE + "help/guides.json");
+
+    // The mountain photo comes from the site (not the app bundle), like the guide pictures.
+    (function () {
+      if (typeof Image !== "function") { return; }
+      var bg = new Image();
+      bg.onload = function () { var h = document.getElementById("heroBg"); if (h) { h.style.backgroundImage = "url(" + bg.src + ")"; h.className = "hero-bg on"; } };
+      bg.src = BASE + "help/img/hero.jpg";
+    }());
+
+    var currentLang = "pt";
+    var guides = null;
+    var loadState = "loading";   // loading, ready, error
+    var openGuide = null;        // { id, section, step } while a guide is open
+    var authUser = null;
+    var activePlayer = null;     // the video element in the open guide, if one was started
+    var side = "client";         // the side the list and the search use: "admin" or "client"
+    var sideTouched = false;     // true once staff press the side button; then the page stops choosing for them
+
+    function store(key, val) { try { if (val === undefined) { return localStorage.getItem(key); } localStorage.setItem(key, val); } catch (e) { /* works without storage */ } return null; }
+    function t(pt, en) { return currentLang === "en" ? en : pt; }
+    function L(v) { return (v && typeof v === "object") ? (v[currentLang] || v.pt || "") : ""; }
+    function byId(id) { return document.getElementById(id); }
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) { e.className = cls; } if (text !== undefined && text !== null) { e.textContent = text; } return e; }
+    function btn(cls, text) { var b = el("button", cls, text); b.type = "button"; return b; }
+    function clear(n) { while (n.firstChild) { n.removeChild(n.firstChild); } }
+
+    // ---- the two sides. Every guide is on the admin side (the staff app) or the client
+    // side (the client portal). Staff may look at either; everyone else is on client.
+    // The role read here only decides whether the button is SHOWN. The Worker decides
+    // what a person may be answered, from the verified sign in.
+    function hasClientToken() {
+      try { return !!(localStorage.getItem("apex_client_token") || sessionStorage.getItem("apex_client_token")); } catch (e) { return false; }
+    }
+    function isStaff() {
+      var role = null;
+      try { role = sessionStorage.getItem("apex_role"); } catch (e) { role = null; }
+      // Staff sign in through Firebase; a client carries a portal token instead.
+      return HC.isStaffRole(role) || (!!authUser && !hasClientToken());
+    }
+    function sideLabel(a) { return a === "admin" ? t("Lado administrador", "Admin side") : t("Lado cliente", "Client side"); }
+    // The starting side: a guide link's own side, then ?audience=, then the page default.
+    function chooseSide() {
+      if (sideTouched) { side = HC.effectiveAudience(isStaff(), side); return; }
+      var want = deep.audience || HC.defaultAudienceForPage("help");
+      if (deep.guide && guides) {
+        var dg = findGuide(deep.guide);
+        var da = dg ? HC.guideAudience(dg) : null;
+        if (da) { want = da; }
+      }
+      side = HC.effectiveAudience(isStaff(), want);
+    }
+    function sideTag(g) {
+      if (!isStaff()) { return null; }
+      var a = HC.guideAudience(g);
+      return a ? el("span", "vtag stag", sideLabel(a)) : null;
+    }
+    function renderSideRow() {
+      var row = byId("sideRow");
+      if (!row) { return; }
+      clear(row);
+      if (!isStaff()) { row.hidden = true; return; }
+      row.hidden = false;
+      var b = btn("side-btn", side === "admin" ? t("Ver guias do cliente", "See client guides") : t("Voltar aos guias do administrador", "Back to admin guides"));
+      b.addEventListener("click", function () {
+        side = side === "admin" ? "client" : "admin";
+        sideTouched = true;
+        var out = byId("answer");
+        if (out) { clear(out); }
+        renderList();
+      });
+      row.appendChild(b);
+    }
+
+    // ---- language: the portal keeps it as the body class lang-en and, in the tab,
+    // sessionStorage "apex_lang". This standalone page reads that, then its own saved choice.
+    function pickLanguage() {
+      if (deep.lang) { return deep.lang; }
+      var saved = store("apex_help_lang");
+      if (saved === "en" || saved === "pt") { return saved; }
+      var tab = null;
+      try { tab = sessionStorage.getItem("apex_lang"); } catch (e) { tab = null; }
+      return tab === "en" ? "en" : "pt";
+    }
+    // The Voltar / Back button on the library: shown only when a menu sent the person here
+    // (it left the page to come back to in sessionStorage). Back goes back in history, so the
+    // person lands on the screen they came from; with no history it opens the remembered page.
+    var returnPage = null;
+    function renderReturn() {
+      var rb = byId("returnBtn");
+      if (!rb) { return; }
+      if (returnPage === null) {
+        try { returnPage = HC.safeReturn(window.sessionStorage.getItem("apex_learn_return")) || ""; } catch (e) { returnPage = ""; }
+      }
+      rb.hidden = !returnPage;
+      clear(rb);
+      if (!returnPage) { return; }
+      var bi = el("span", "ico");
+      bi.innerHTML = ICON_BACK;
+      rb.appendChild(bi);
+      rb.appendChild(document.createTextNode(t("Voltar", "Back")));
+    }
+    function applyLanguage() {
+      document.body.classList.remove("lang-pt", "lang-en");
+      document.body.classList.add(currentLang === "en" ? "lang-en" : "lang-pt");
+      document.documentElement.lang = currentLang;
+      document.title = t("Aprenda", "Learn");
+      byId("pageTitle").textContent = t("Aprenda", "Learn");
+      byId("bannerTitle").textContent = t("Dica: aprenda sem sair da tela", "Tip: learn without leaving the screen");
+      byId("bannerIntro").textContent = t("Em qualquer botão do Apex, faça isto para aprender sobre ele:", "On any button in Apex, do this to learn about it:");
+      var ways = byId("bannerText");
+      clear(ways);
+      [[t("No app do celular", "In the phone app"), t("Toque e segure o botão.", "Press and hold the button.")],
+       [t("No computador", "On a computer"), t("Clique no botão com o botão direito do mouse.", "Right click the button.")]].forEach(function (w) {
+        var row = el("div", "way");
+        row.appendChild(el("span", "way-where", w[0]));
+        row.appendChild(el("span", "way-what", w[1]));
+        ways.appendChild(row);
+      });
+      byId("heroSub").textContent = enabled
+        ? t("Pergunte com as suas palavras, ou escolha um guia abaixo.", "Ask in your own words, or pick a guide below.")
+        : t("Passo a passo com imagens, para fazer cada coisa no Apex.", "Step by step with pictures, to do each thing in Apex.");
+      byId("askIco").innerHTML = ICON_SEARCH;
+      byId("askLabel").textContent = t("Busque um guia ou faça uma pergunta", "Search for a guide or ask a question");
+      if (!enabled) { byId("banner").hidden = true; }
+      byId("bannerClose").setAttribute("aria-label", t("Fechar", "Close"));
+      byId("bannerClose").setAttribute("title", t("Fechar", "Close"));
+      var ph = t("Ex.: orçamento", "Ex.: estimate");
+      byId("askInput").setAttribute("placeholder", ph);
+      byId("askInput").setAttribute("aria-label", ph);
+      if (!byId("askBtn").disabled) { setAskLabel(false); }
+      byId("listTitle").textContent = t("Todos os guias", "All guides");
+    }
+
+    function setAskLabel(busy) {
+      var b = byId("askBtn");
+      clear(b);
+      var ic = el("span", "ico");
+      ic.innerHTML = ICON_SEARCH;
+      b.appendChild(ic);
+      b.appendChild(document.createTextNode(busy ? t("Buscando...", "Searching...") : t("Buscar", "Search")));
+    }
+
+    // ---- banner
+    function setupBanner() {
+      var x = byId("bannerClose");
+      x.innerHTML = ICON_CLOSE;
+      if (store("apex_help_banner_closed") === "1") { byId("banner").hidden = true; }
+      x.addEventListener("click", function () { byId("banner").hidden = true; store("apex_help_banner_closed", "1"); });
+    }
+
+    // ---- guides
+    function loadGuides() {
+      loadState = "loading";
+      renderList();
+      return fetch(GUIDES_URL, { cache: "no-cache" }).then(function (res) {
+        if (!res.ok) { throw new Error("status " + res.status); }
+        return res.json();
+      }).then(function (data) {
+        if (!data || data.version !== 1 || !Array.isArray(data.guides)) { throw new Error("shape"); }
+        guides = data;
+        loadState = "ready";
+        chooseSide();
+      }, function () {
+        loadState = "error";
+      }).then(function () { renderList(); renderGuideView(); });
+    }
+    function findGuide(id) {
+      var list = guides && guides.guides ? guides.guides : [];
+      for (var i = 0; i < list.length; i++) { if (list[i].id === id) { return list[i]; } }
+      return null;
+    }
+    function imageUrl(path) {
+      if (typeof path !== "string" || !path || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(path) || path.indexOf("..") !== -1 || path.indexOf("//") === 0) { return ""; }
+      return BASE + path.replace(/^\/+/, "");
+    }
+    function deepLink(guideId, sectionId, step) {
+      var q = "guide=" + encodeURIComponent(guideId);
+      if (sectionId) { q += "&section=" + encodeURIComponent(sectionId); }
+      if (step) { q += "&step=" + encodeURIComponent(step); }
+      var origin = /^https?:\/\//.test(window.location.origin || "") ? window.location.origin : BASE.replace(/\/$/, "");
+      return origin + "/help.html?" + q + "&lang=" + currentLang;
+    }
+
+    // ---- copy link, with an in page confirmation
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) { return navigator.clipboard.writeText(text); }
+      return new Promise(function (resolve, reject) {
+        try {
+          var ta = el("textarea");
+          ta.value = text; ta.setAttribute("readonly", "readonly");
+          ta.style.position = "fixed"; ta.style.opacity = "0";
+          document.body.appendChild(ta); ta.select();
+          var done = document.execCommand("copy");
+          document.body.removeChild(ta);
+          if (done) { resolve(); } else { reject(new Error("copy")); }
+        } catch (e) { reject(e); }
+      });
+    }
+    function copyButton(getLink) {
+      var b = btn("btn-quiet");
+      var ic = el("span", "ico");
+      ic.innerHTML = ICON_COPY;
+      b.appendChild(ic);
+      b.appendChild(document.createTextNode(t("Copiar link", "Copy link")));
+      var note = el("p", "ok");
+      note.setAttribute("role", "status");
+      note.hidden = true;
+      b.addEventListener("click", function () {
+        copyText(getLink()).then(function () {
+          note.textContent = t("Link copiado.", "Link copied.");
+          note.className = "ok"; note.hidden = false;
+        }, function () {
+          note.textContent = t("Não foi possível copiar.", "Could not copy.");
+          note.className = "ok error"; note.hidden = false;
+        });
+      });
+      return { button: b, note: note };
+    }
+
+    // ---- the video: tag on the list, play card and player in a guide
+    function videoTag(g) {
+      return HC.videoFor(g, currentLang) ? el("span", "vtag", t("Vídeo", "Video")) : null;
+    }
+    // Pause it, drop its address and reload, so nothing keeps downloading or
+    // playing once the person has left the guide.
+    function stopPlayer() {
+      var v = activePlayer;
+      activePlayer = null;
+      if (!v) { return; }
+      v.pause();
+      v.removeAttribute("src");
+      v.load();
+    }
+    function showVideoError(wrap, v) {
+      if (activePlayer !== v) { return; }
+      stopPlayer();
+      clear(wrap);
+      var msg = el("p", "state error", t("Não foi possível carregar o vídeo agora. Siga os passos abaixo.", "The video could not load right now. Follow the steps below."));
+      msg.setAttribute("role", "status");
+      wrap.appendChild(msg);
+    }
+    // The tap that chose the video also starts it, which is what lets a phone
+    // browser play it. The addresses are only ever set as attributes.
+    function startPlayer(wrap, card, vid) {
+      stopPlayer();
+      var v = el("video", "video");
+      v.setAttribute("controls", "");
+      v.setAttribute("playsinline", "");
+      v.setAttribute("webkit-playsinline", "");
+      v.setAttribute("preload", "none");
+      if (vid.poster) { v.setAttribute("poster", vid.poster); }
+      v.setAttribute("src", vid.src);
+      v.addEventListener("error", function () { showVideoError(wrap, v); });
+      wrap.replaceChild(v, card);
+      activePlayer = v;
+      var started = v.play();
+      if (started && started.then) { started.then(null, function () { if (v.error) { showVideoError(wrap, v); } }); }
+      try { v.focus(); } catch (e) { /* focus is a courtesy */ }
+    }
+    function videoBlock(g) {
+      var vid = HC.videoFor(g, currentLang);
+      if (!vid) { return null; }
+      var wrap = el("div", "vwrap");
+      var card = btn("vcard");
+      var media = el("span", "vmedia");
+      if (vid.poster) {
+        var pic = el("img", "vposter");
+        pic.alt = "";
+        pic.src = vid.poster;
+        // A poster that does not load leaves the calm dark panel.
+        pic.addEventListener("error", function () { if (pic.parentNode) { pic.parentNode.removeChild(pic); } });
+        media.appendChild(pic);
+      }
+      var play = el("span", "vplay");
+      play.setAttribute("aria-hidden", "true");
+      play.innerHTML = ICON_PLAY;
+      media.appendChild(play);
+      card.appendChild(media);
+      card.appendChild(el("span", "vlabel", t("Assistir ao vídeo", "Watch the video")));
+      card.addEventListener("click", function () { startPlayer(wrap, card, vid); });
+      wrap.appendChild(card);
+      wrap.appendChild(el("p", "vhint", t("Ou siga os passos abaixo.", "Or follow the steps below.")));
+      return wrap;
+    }
+
+    // ---- the library list
+    function renderList() {
+      var box = byId("guideList");
+      clear(box);
+      renderSideRow();
+      if (loadState === "loading") { box.appendChild(el("p", "state muted", t("Carregando...", "Loading..."))); return; }
+      if (loadState === "error") {
+        box.appendChild(el("p", "state error", t("Sem conexão. Tente de novo.", "No connection. Try again.")));
+        var retry = btn("btn-primary small", t("Tentar de novo", "Try again"));
+        retry.addEventListener("click", loadGuides);
+        box.appendChild(retry);
+        return;
+      }
+      var shown = HC.filterByAudience(guides.guides, side);
+      if (!shown.length) { box.appendChild(el("p", "state muted", isStaff() ? t("Os guias deste lado estão sendo preparados.", "The guides for this side are being prepared.") : t("Os guias estão sendo preparados.", "The guides are being prepared."))); return; }
+      shown.forEach(function (g) { box.appendChild(quietCard(g)); });
+    }
+    function quietCard(g) {
+      var b = btn("card click");
+      b.appendChild(el("span", "card-title", L(g.title)));
+      b.appendChild(el("span", "card-sum", L(g.summary)));
+      var qtag = videoTag(g);
+      if (qtag) { b.appendChild(qtag); }
+      var qside = sideTag(g);
+      if (qside) { b.appendChild(qside); }
+      b.addEventListener("click", function () { showGuide(g.id, null, null); });
+      return b;
+    }
+    function answerCard(g, section) {
+      var card = el("div", "card");
+      card.appendChild(el("span", "card-title", L(g.title)));
+      card.appendChild(el("span", "card-sum", L(g.summary)));
+      var gtag = videoTag(g);
+      if (gtag) { card.appendChild(gtag); }
+      var gside = sideTag(g);
+      if (gside) { card.appendChild(gside); }
+      var row = el("div", "row");
+      var open = btn("btn-primary small", t("Ver passo a passo", "See step by step"));
+      open.addEventListener("click", function () { showGuide(g.id, section, null); });
+      row.appendChild(open);
+      var cp = copyButton(function () { return deepLink(g.id, section, null); });
+      row.appendChild(cp.button);
+      card.appendChild(row);
+      card.appendChild(cp.note);
+      return card;
+    }
+
+    // ---- ask
+    function getToken() {
+      var clientToken = null;
+      try { clientToken = localStorage.getItem("apex_client_token") || sessionStorage.getItem("apex_client_token"); } catch (e) { clientToken = null; }
+      if (clientToken) { return Promise.resolve(clientToken); }
+      if (authUser) { return authUser.getIdToken(); }
+      return Promise.reject(new Error("no session"));
+    }
+    function ask(question, audience, logGap) {
+      return getToken().then(function (token) {
+        var payload = { question: question, language: currentLang, page_key: "help", audience: audience };
+        if (logGap === true) { payload.log_gap = true; }
+        return fetch(WORKER_URL + "/api/help/ask", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      }).then(function (res) {
+        if (!res.ok) { var e = new Error("status " + res.status); e.status = res.status; throw e; }
+        return res.json();
+      });
+    }
+    // A card for a guide on the other side, for staff: the button flips the side and opens it.
+    function otherSideCard(g, otherSide) {
+      var card = el("div", "card");
+      card.appendChild(el("span", "card-title", L(g.title)));
+      card.appendChild(el("span", "card-sum", L(g.summary)));
+      var tag = sideTag(g);
+      if (tag) { card.appendChild(tag); }
+      var row = el("div", "row");
+      var open = btn("btn-primary small", otherSide === "client" ? t("Ver o guia do cliente", "See the client guide") : t("Ver o guia do administrador", "See the admin guide"));
+      open.addEventListener("click", function () { side = otherSide; sideTouched = true; showGuide(g.id, null, null); renderList(); });
+      row.appendChild(open);
+      card.appendChild(row);
+      return card;
+    }
+    function guideOn(id, audience) {
+      var g = (typeof id === "string") ? findGuide(id) : null;
+      return (g && HC.guideAudience(g) === audience) ? g : null;
+    }
+    // The miss messages. missing_guide is today's message, exactly.
+    function renderMissing(out, r) {
+      var msg = t("Ainda não temos um guia para isso.", "We do not have a guide for that yet.");
+      if (r && r.logged === true) { msg += " " + t("Sua pergunta foi anotada.", "Your question was noted."); }
+      out.appendChild(el("p", "state", msg));
+    }
+
+    var GENERIC_ERROR = function () { return t("Algo deu errado. Tente de novo.", "Something went wrong. Try again."); };
+
+    // Apex does not do this: one calm line and two buttons. No thanks only closes the offer.
+    function renderOffer(out, q, askedSide) {
+      var box = el("div");
+      box.appendChild(el("p", "state", t("O Apex ainda não faz isso. Quer nos contar mais para enviarmos uma sugestão?", "Apex does not do that yet. Want to tell us more so we can send a suggestion?")));
+      var row = el("div", "row");
+      var yes = btn("btn-primary", t("Sim, contar mais", "Yes, tell more"));
+      var no = btn("btn-quiet", t("Não, obrigada", "No thanks"));
+      yes.addEventListener("click", function () {
+        yes.disabled = true;
+        no.disabled = true;
+        suggestFlow(box, q, askedSide);
+      });
+      no.addEventListener("click", function () { if (box.parentNode) { box.parentNode.removeChild(box); } });
+      row.appendChild(yes);
+      row.appendChild(no);
+      box.appendChild(row);
+      out.appendChild(box);
+    }
+
+    // The model could not tell: ask the person which one they mean.
+    function renderClarify(out, q, askedSide) {
+      var box = el("div");
+      box.appendChild(el("p", "state", t("Você quer aprender a fazer isso no Apex, ou quer que o Apex passe a fazer isso?", "Do you want to learn how to do this in Apex, or do you want Apex to start doing it?")));
+      var row = el("div", "row");
+      var learn = btn("btn-quiet", t("Aprender", "Learn"));
+      var want = btn("btn-primary", t("Quero que o Apex faça", "I want Apex to do it"));
+      learn.addEventListener("click", function () {
+        learn.disabled = true;
+        want.disabled = true;
+        ask(q, askedSide, true).then(function (r) { clear(box); renderMissing(box, r); }, function () {
+          learn.disabled = false;
+          want.disabled = false;
+          var old = box.querySelector ? box.querySelector(".error") : null;
+          if (old && old.parentNode) { old.parentNode.removeChild(old); }
+          box.appendChild(el("p", "state error", GENERIC_ERROR()));
+        });
+      });
+      want.addEventListener("click", function () {
+        learn.disabled = true;
+        want.disabled = true;
+        suggestFlow(box, q, askedSide);
+      });
+      row.appendChild(learn);
+      row.appendChild(want);
+      box.appendChild(row);
+      out.appendChild(box);
+    }
+
+    // The suggestion flow: the transcript lives here and is sent whole each turn.
+    // Nothing is saved until the Worker answers done. All text is set with
+    // textContent; the decisions come from HelpCore (nextSuggestState, canFinish).
+    function suggestFlow(host, q, askedSide) {
+      var transcript = HC.startTranscript(q);
+      var question = "";
+      var busy = false;
+      var closed = false;
+
+      function post(tx, finish) {
+        return getToken().then(function (token) {
+          return fetch(WORKER_URL + "/api/help/suggest", {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+            body: JSON.stringify({ transcript: tx, page_key: "help", language: currentLang, finish: finish, audience: askedSide })
+          });
+        }).then(function (res) {
+          if (!res.ok) { var e = new Error("status " + res.status); e.status = res.status; throw e; }
+          return res.json();
+        });
+      }
+
+      // Sends tx; onFail runs when the call fails or the answer is not usable.
+      function run(tx, finish, onFail) {
+        post(tx, finish).then(function (data) {
+          if (closed) { return; }
+          var st = HC.nextSuggestState(tx, data);
+          if (st.phase === "asking") { transcript = st.transcript; question = st.question; showAsk(); }
+          else if (st.phase === "done") { showDone(st, tx, finish); }
+          else { onFail(); }
+        }, function () { if (!closed) { onFail(); } });
+      }
+
+      function showLoading() {
+        clear(host);
+        var p = el("p", "state muted", t("Enviando...", "Sending..."));
+        p.setAttribute("aria-busy", "true");
+        host.appendChild(p);
+      }
+
+      function showRetry(tx, finish, lead, isError) {
+        clear(host);
+        if (lead) { host.appendChild(el("p", isError ? "state error" : "reply", lead)); }
+        var row = el("div", "row");
+        var again = btn("btn-primary", t("Tentar de novo", "Try again"));
+        again.addEventListener("click", function () {
+          again.disabled = true;
+          showLoading();
+          run(tx, finish, function () { showRetry(tx, finish, GENERIC_ERROR(), true); });
+        });
+        row.appendChild(again);
+        host.appendChild(row);
+      }
+
+      function showDone(st, tx, finish) {
+        if (!st.sent && st.retry) { showRetry(tx, finish, st.reply, false); return; }
+        clear(host);
+        if (st.reply) { host.appendChild(el("p", "reply", st.reply)); }
+        if (st.sent) {
+          var okRow = el("p", "ok ok-row");
+          var ic = el("span", "ico");
+          ic.innerHTML = ICON_CHECK;
+          okRow.appendChild(ic);
+          okRow.appendChild(el("span", null, t("Sugestão enviada.", "Suggestion sent.")));
+          host.appendChild(okRow);
+        }
+      }
+
+      function showAsk() {
+        busy = false;
+        clear(host);
+        var block = el("div", "sug");
+        block.appendChild(el("p", "sug-label", "Apex"));
+        block.appendChild(el("p", "sug-q", question));
+        var form = el("form");
+        var input = el("input");
+        input.type = "text";
+        input.maxLength = 600;
+        input.setAttribute("autocomplete", "off");
+        input.setAttribute("aria-label", t("Sua resposta", "Your answer"));
+        input.setAttribute("placeholder", t("Sua resposta", "Your answer"));
+        var send = btn("btn-primary");
+        send.type = "submit";
+        var sendLabel = el("span", null, t("Enviar", "Send"));
+        send.appendChild(sendLabel);
+        form.appendChild(input);
+        form.appendChild(send);
+        block.appendChild(form);
+        var err = el("div");
+        err.setAttribute("aria-live", "polite");
+        block.appendChild(err);
+        var row = el("div", "row");
+        var fin = HC.canFinish(transcript) ? btn("side-btn", t("Enviar assim mesmo", "Send it as it is")) : null;
+        var cancel = btn("side-btn", t("Cancelar", "Cancel"));
+        if (fin) { row.appendChild(fin); }
+        row.appendChild(cancel);
+        block.appendChild(row);
+        host.appendChild(block);
+
+        function setBusy(on) {
+          busy = on;
+          input.disabled = on;
+          send.disabled = on;
+          if (fin) { fin.disabled = on; }
+          if (on) { send.setAttribute("aria-busy", "true"); sendLabel.textContent = t("Enviando...", "Sending..."); }
+          else { send.removeAttribute("aria-busy"); sendLabel.textContent = t("Enviar", "Send"); }
+        }
+        function failed() {
+          setBusy(false);
+          clear(err);
+          err.appendChild(el("p", "state error", GENERIC_ERROR()));
+          input.focus();
+        }
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          if (busy) { return; }
+          var text = String(input.value || "").replace(/^\s+|\s+$/g, "");
+          if (!text) { return; }
+          clear(err);
+          setBusy(true);
+          run(HC.addAnswer(transcript, text), false, failed);
+        });
+        if (fin) {
+          fin.addEventListener("click", function () {
+            if (busy) { return; }
+            var text = String(input.value || "").replace(/^\s+|\s+$/g, "");
+            clear(err);
+            setBusy(true);
+            run(text ? HC.addAnswer(transcript, text) : transcript, true, failed);
+          });
+        }
+        cancel.addEventListener("click", function () { closed = true; clear(host); });
+        input.focus();
+      }
+
+      showLoading();
+      run(transcript, false, function () { showRetry(transcript, false, GENERIC_ERROR(), true); });
+    }
+
+    function renderAnswer(out, r, askedSide, question) {
+      var ids = (r && Array.isArray(r.guide_ids)) ? r.guide_ids : [];
+      var cards = [];
+      ids.forEach(function (id) { var g = guideOn(id, askedSide); if (g && cards.length < 3) { cards.push(g); } });
+      if (!r || !r.found || !cards.length) {
+        var others = [];
+        var otherSide = askedSide === "admin" ? "client" : "admin";
+        if (isStaff() && r && Array.isArray(r.other_side)) {
+          r.other_side.forEach(function (id) { var og = guideOn(id, otherSide); if (og && others.length < 2) { others.push(og); } });
+        }
+        if (others.length) {
+          out.appendChild(el("p", "state", t("Ainda não temos um guia deste lado.", "We do not have a guide for this side yet.")));
+          others.forEach(function (og) { out.appendChild(otherSideCard(og, otherSide)); });
+          return;
+        }
+        var kind = HC.replyKind(r);
+        if (kind === "new_feature") { renderOffer(out, question, askedSide); return; }
+        if (kind === "unclear") { renderClarify(out, question, askedSide); return; }
+        renderMissing(out, r);
+        return;
+      }
+      if (typeof r.reply === "string" && r.reply) { out.appendChild(el("p", "reply", r.reply)); }
+      cards.forEach(function (g) { out.appendChild(answerCard(g, (r.best && r.best.guide === g.id) ? r.best.section : null)); });
+    }
+    function setupAsk() {
+      var box = byId("searchBox");
+      if (!enabled) { box.hidden = true; return; }
+      box.hidden = false;
+      try { if (window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches) { byId("askInput").focus({ preventScroll: true }); } } catch (e) { /* focus is a courtesy */ }
+      var form = byId("askForm"), input = byId("askInput"), go = byId("askBtn"), out = byId("answer");
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var q = input.value.replace(/^\s+|\s+$/g, "");
+        clear(out);
+        if (q.length < 3) { out.appendChild(el("p", "state error", t("Escreva pelo menos 3 letras.", "Write at least 3 letters."))); return; }
+        go.disabled = true;
+        go.setAttribute("aria-busy", "true");
+        setAskLabel(true);
+        out.appendChild(el("p", "state muted", t("Buscando o guia certo...", "Finding the right guide...")));
+        var askedSide = HC.effectiveAudience(isStaff(), side);
+        var sideNow = byId("sideRow") ? byId("sideRow").querySelector("button") : null;
+        if (sideNow) { sideNow.disabled = true; }
+        var ready = guides ? Promise.resolve() : loadGuides();
+        ready.then(function () { return ask(q, askedSide); }).then(function (r) { clear(out); renderAnswer(out, r, askedSide, q); }, function (err) {
+          clear(out);
+          var msg = t("Não foi possível buscar agora. Tente de novo.", "Could not search right now. Try again.");
+          if (err && err.status === 429) { msg = t("Muitas perguntas em pouco tempo. Tente de novo em alguns minutos.", "Too many questions in a short time. Try again in a few minutes."); }
+          if (err && (err.status === 401 || /no session/.test(String(err.message)))) { msg = t("Entre no Apex para fazer perguntas.", "Sign in to Apex to ask questions."); }
+          out.appendChild(el("p", "state error", msg));
+        }).then(function () {
+          go.disabled = false;
+          if (sideNow) { sideNow.disabled = false; }
+          go.removeAttribute("aria-busy");
+          setAskLabel(false);
+        });
+      });
+    }
+
+    // ---- the guide view
+    function showGuide(id, section, step) {
+      openGuide = { id: id, section: section, step: step };
+      renderGuideView();
+      window.scrollTo(0, 0);
+    }
+    function closeGuide() {
+      openGuide = null;
+      stopPlayer();
+      try { window.history.replaceState(null, "", "help.html?lang=" + currentLang + (isStaff() ? "&audience=" + side : "")); } catch (e) { /* history is a courtesy */ }
+      renderGuideView();
+    }
+    function renderGuideView() {
+      var view = byId("guideView"), lib = byId("libraryView");
+      if (!view || !lib) { return; }
+      stopPlayer();
+      var g = (openGuide && guides) ? findGuide(openGuide.id) : null;
+      if (!openGuide) { view.hidden = true; lib.hidden = false; return; }
+      lib.hidden = true; view.hidden = false;
+      clear(view);
+      var back = btn("btn-quiet back");
+      var bi = el("span", "ico");
+      bi.innerHTML = ICON_BACK;
+      back.appendChild(bi);
+      back.appendChild(document.createTextNode(t("Voltar", "Back")));
+      back.addEventListener("click", closeGuide);
+      view.appendChild(back);
+      if (loadState === "loading") { view.appendChild(el("p", "state muted", t("Carregando...", "Loading..."))); return; }
+      if (loadState === "error") {
+        view.appendChild(el("p", "state error", t("Sem conexão. Tente de novo.", "No connection. Try again.")));
+        var retry = btn("btn-primary small", t("Tentar de novo", "Try again"));
+        retry.addEventListener("click", loadGuides);
+        view.appendChild(retry);
+        return;
+      }
+      if (!g) { view.appendChild(el("p", "state", t("Não encontramos esse guia.", "We could not find that guide."))); return; }
+      view.classList.add("fade");
+      view.appendChild(el("h1", "guide-title", L(g.title)));
+      view.appendChild(el("p", "guide-sum", L(g.summary)));
+      var gtag2 = sideTag(g);
+      if (gtag2) { var tagWrap = el("p", "guide-sum"); tagWrap.appendChild(gtag2); view.appendChild(tagWrap); }
+      var vblock = videoBlock(g);
+      if (vblock) { view.appendChild(vblock); }
+      var hit = null;
+      (Array.isArray(g.sections) ? g.sections : []).forEach(function (s) {
+        view.appendChild(el("h2", "sec-title", L(s.title)));
+        (Array.isArray(s.steps) ? s.steps : []).forEach(function (st) {
+          var box = el("div", "step");
+          var tg = (HC && typeof HC.splitStepTag === "function") ? HC.splitStepTag(L(st.text)) : { text: L(st.text), tag: "" };
+          var sp = (HC && typeof HC.splitStep === "function") ? HC.splitStep(tg.text) : { title: tg.text, body: "" };
+          var head = el("div", "step-head");
+          head.appendChild(el("span", "step-n", String(st.n)));
+          head.appendChild(el("p", "step-title", sp.title));
+          box.appendChild(head);
+          if (sp.body) { box.appendChild(el("p", "step-text", sp.body)); }
+          if (tg.tag) { box.appendChild(el("span", "step-tag", tg.tag)); }
+          var src = st.image ? imageUrl(L(st.image)) : "";
+          if (src) {
+            var pb = btn("pic");
+            pb.setAttribute("aria-label", t("Ampliar a imagem", "Enlarge the picture"));
+            var im = el("img");
+            im.loading = "lazy";
+            im.alt = L(st.text);
+            im.src = src;
+            pb.appendChild(im);
+            pb.addEventListener("click", function () { openLightbox(src, L(st.text)); });
+            box.appendChild(pb);
+          }
+          if (s.id === openGuide.section && (!openGuide.step || openGuide.step === st.n)) {
+            if (!hit) { hit = box; }
+            if (openGuide.step) { box.classList.add("hit"); }
+          }
+          view.appendChild(box);
+        });
+      });
+      var cp = copyButton(function () { return deepLink(g.id, openGuide.section, openGuide.step); });
+      var row = el("div", "row");
+      row.appendChild(cp.button);
+      view.appendChild(row);
+      view.appendChild(cp.note);
+      if (hit && hit.scrollIntoView) { try { hit.scrollIntoView({ block: "start" }); } catch (e) { /* older engines */ } }
+    }
+
+    // ---- picture layer, in the page
+    var lightEl = null;
+    function openLightbox(src, alt) {
+      closeLightbox();
+      lightEl = el("div", "light");
+      lightEl.setAttribute("role", "dialog");
+      lightEl.setAttribute("aria-modal", "true");
+      var im = el("img");
+      im.src = src; im.alt = alt || "";
+      var x = btn("icon-btn");
+      x.innerHTML = ICON_CLOSE;
+      x.setAttribute("aria-label", t("Fechar", "Close"));
+      x.addEventListener("click", function (e) { e.stopPropagation(); closeLightbox(); });
+      lightEl.appendChild(im);
+      lightEl.appendChild(x);
+      lightEl.addEventListener("click", closeLightbox);
+      document.body.appendChild(lightEl);
+      x.focus();
+    }
+    function closeLightbox() { if (lightEl && lightEl.parentNode) { lightEl.parentNode.removeChild(lightEl); } lightEl = null; }
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeLightbox(); } });
+
+    // ---- start
+    function init() {
+      currentLang = pickLanguage();
+      setupBanner();
+      applyLanguage();
+      renderReturn();
+      byId("returnBtn").addEventListener("click", function () {
+        try { window.sessionStorage.removeItem("apex_learn_return"); } catch (e) { /* nothing to clear */ }
+        if (window.history.length > 1) { window.history.back(); } else if (returnPage) { window.location.href = returnPage; }
+      });
+      setupAsk();
+      byId("langBtn").addEventListener("click", function () {
+        currentLang = currentLang === "en" ? "pt" : "en";
+        store("apex_help_lang", currentLang);
+        applyLanguage();
+        renderReturn();
+        renderList();
+        renderGuideView();
+        byId("answer").textContent = "";
+      });
+      chooseSide();
+      if (deep.guide) { openGuide = { id: deep.guide, section: deep.section, step: deep.step }; }
+      // The search needs a sign in; staff sign in through Firebase, portal users carry their own token.
+      if (enabled && window.firebase && !window.firebase.apps.length) {
+        try {
+          window.firebase.initializeApp(FIREBASE_CONFIG);
+          window.firebase.auth().onAuthStateChanged(function (u) { authUser = u; chooseSide(); renderList(); });
+        } catch (e) { /* the search then says to sign in */ }
+      }
+      loadGuides();
+    }
+    init();
+  </script>
+</body>
+</html>

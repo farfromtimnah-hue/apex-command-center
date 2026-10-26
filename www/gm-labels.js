@@ -1,0 +1,987 @@
+// Stored KEYS vs displayed LABELS — the shape that makes the portal bilingual.
+//
+// THE DEFECT THIS EXISTS TO FIX. gm.js calls gmT(pt, en) in hundreds of places
+// and the machinery works, but gmT can only translate strings that live in the
+// CODE. Anything stored in the database as a display string can never
+// translate, no matter how good the toggle is. gm_leads.estagio stored
+// "Negociação" as literal text, so an English-speaking owner saw English
+// chrome wrapped around Portuguese data — at its worst, gm.js read
+// "Stage: Novo Lead · Date: now."
+//
+// THE RULE, applied to every FIXED system list:
+//   * the database stores a stable, language-neutral KEY ('negociacao');
+//   * the UI looks up the LABEL for the caller's language at render time.
+//
+// A key never changes when a translation is corrected, and a label never
+// reaches the database. Client-AUTHORED vocabulary (servicos, vendedores,
+// partner names, job names, lead names) is deliberately NOT in here: it is
+// the client's own words and must never be machine-translated.
+//
+// Shared by portal.html/gm.js and seller-diagnostics.html so a label is
+// defined exactly once. Loaded as a plain script; attaches to window.
+
+(function (global) {
+  "use strict";
+
+  // ── Lead pipeline stages ───────────────────────────────────────────────
+  //
+  // A FIXED, never-configurable ladder — no client can add a stage (see the
+  // comment block in migrations/lead_pipeline.sql), which is what makes keys
+  // safe here. ORDER MATTERS: it is the pipeline order the UI renders in.
+  var STAGES = [
+    { key: "novo_lead",        pt: "Novo Lead",        en: "New Lead" },
+    { key: "contato_feito",    pt: "Contato Feito",    en: "Contacted" },
+    { key: "visita_agendada",  pt: "Visita Agendada",  en: "Visit Scheduled" },
+    { key: "estimate_enviado", pt: "Orçamento Enviado", en: "Estimate Sent" },
+    { key: "follow_up",        pt: "Follow-up",        en: "Follow-up" },
+    { key: "negociacao",       pt: "Negociação",       en: "Negotiation" },
+    { key: "fechado",          pt: "Fechado",          en: "Closed" },
+    { key: "perdido",          pt: "Perdido",          en: "Lost" }
+  ];
+
+  // The three stages "pipeline ativo" sums. Visita Agendada and Contato Feito
+  // deliberately do NOT count — the client's own rule, unchanged by the
+  // rename; only the representation moved from label to key.
+  var ACTIVE_PIPELINE_STAGE_KEYS = ["estimate_enviado", "follow_up", "negociacao"];
+  // "Live" = everything except closed and lost.
+  var LIVE_STAGE_KEYS = ["novo_lead", "contato_feito", "visita_agendada",
+                         "estimate_enviado", "follow_up", "negociacao"];
+
+  var STAGE_KEYS = STAGES.map(function (s) { return s.key; });
+
+  var STAGE_BY_KEY = {};
+  STAGES.forEach(function (s) { STAGE_BY_KEY[s.key] = s; });
+
+  // Legacy Portuguese label -> key, for reading rows written before the
+  // migration and for any request body that still sends a display string.
+  var STAGE_KEY_BY_LABEL = {};
+  STAGES.forEach(function (s) {
+    STAGE_KEY_BY_LABEL[s.pt] = s.key;
+    STAGE_KEY_BY_LABEL[s.en] = s.key;
+  });
+  // The Portuguese label was "Estimate Enviado" until the docs PDF build (N3);
+  // rows or requests carrying the old label still read as the same stage.
+  STAGE_KEY_BY_LABEL["Estimate Enviado"] = "estimate_enviado";
+
+  // Normalise anything that might be a stage into a key.
+  //
+  // Accepts a key, a Portuguese label or an English label, so a stale client
+  // build posting "Negociação" still writes negociacao rather than being
+  // rejected. Returns null for anything unrecognised — callers decide whether
+  // that is an error; nothing here silently coerces an unknown stage into a
+  // real one.
+  function stageKey(v) {
+    if (v === null || v === undefined) { return null; }
+    var s = String(v).trim();
+    if (!s) { return null; }
+    if (STAGE_BY_KEY[s]) { return s; }
+    if (STAGE_KEY_BY_LABEL[s]) { return STAGE_KEY_BY_LABEL[s]; }
+    return null;
+  }
+
+  // The label for a stage key in the caller's language. An unknown key is
+  // echoed back rather than blanked: showing the raw value is more honest
+  // than showing nothing, and it makes a missed migration visible instead of
+  // silent.
+  function stageLabel(key, en) {
+    var s = STAGE_BY_KEY[key];
+    if (!s) { return key === null || key === undefined ? "" : String(key); }
+    return en ? s.en : s.pt;
+  }
+
+  // ── Calendar event types ───────────────────────────────────────────────
+  //
+  // UNLIKE STAGES, CLIENTS CAN ADD THEIR OWN, so the stored shape carries the
+  // labels with the key:
+  //   [{key:"visita_tecnica", pt:"Visita técnica", en:"Site visit"}, ...]
+  //
+  // A type a client adds themselves stores THE SAME TEXT in pt and en. Their
+  // vocabulary is theirs and must never be machine-translated; it simply
+  // displays identically in both languages. That is correct behaviour, not a
+  // gap.
+  //
+  // This table is the translation for the SEEDED types only. It is also what
+  // the migration uses to convert the old string arrays.
+  var EVENT_TYPE_EN = {
+    "Visita técnica": "Site visit",
+    "Medição": "Measurement",
+    "Instalação": "Installation",
+    "Entrega de material": "Material delivery",
+    "Início de obra": "Job start",
+    "Entrega de obra": "Job completion",
+    "Reunião": "Meeting",
+    "Apresentação de projeto": "Design presentation",
+    "Pedido de material": "Material order",
+    "Chegada de importação": "Import arrival",
+    "Entrega / retirada": "Delivery / pickup",
+    "Degustação": "Tasting",
+    "Consulta de projeto": "Design consultation",
+    "Sinal / confirmação": "Deposit / confirmation",
+    "Dia de produção": "Production day",
+    "Dia de decoração": "Decorating day",
+    "Atendimento personalizado": "Personal shopping",
+    "Prova / ajuste": "Fitting / alteration",
+    "Atendimento online": "Virtual appointment",
+    "Chegada de novidades": "New arrivals",
+    "Live": "Live sale",
+    "Viagem de compras": "Buying trip",
+    "Evento / pop-up": "Event / pop-up",
+    "Visita": "Visit",
+    "Serviço": "Service",
+    "Entrega": "Delivery",
+    "Outro": "Other"
+  };
+
+  // Stable keys for the seeded types, so the same concept carries the same key
+  // for every client and a corrected translation never orphans stored rows.
+  var EVENT_TYPE_KEY = {
+    "Visita técnica": "visita_tecnica",
+    "Medição": "medicao",
+    "Instalação": "instalacao",
+    "Entrega de material": "entrega_de_material",
+    "Início de obra": "inicio_de_obra",
+    "Entrega de obra": "entrega_de_obra",
+    "Reunião": "reuniao",
+    "Apresentação de projeto": "apresentacao_de_projeto",
+    "Pedido de material": "pedido_de_material",
+    "Chegada de importação": "chegada_de_importacao",
+    "Entrega / retirada": "entrega_retirada",
+    "Degustação": "degustacao",
+    "Consulta de projeto": "consulta_de_projeto",
+    "Sinal / confirmação": "sinal_confirmacao",
+    "Dia de produção": "dia_de_producao",
+    "Dia de decoração": "dia_de_decoracao",
+    "Atendimento personalizado": "atendimento_personalizado",
+    "Prova / ajuste": "prova_ajuste",
+    "Atendimento online": "atendimento_online",
+    "Chegada de novidades": "chegada_de_novidades",
+    "Live": "live",
+    "Viagem de compras": "viagem_de_compras",
+    "Evento / pop-up": "evento_pop_up",
+    "Visita": "visita",
+    "Serviço": "servico",
+    "Entrega": "entrega",
+    "Outro": "outro"
+  };
+
+  // THE one true "Outro" key. Compared as a KEY, never as a lowercased display
+  // string: "Other" and "Outro" are the same escape hatch and a string compare
+  // gets that wrong the moment the UI is in English.
+  var OUTRO_KEY = "outro";
+
+  // A slug for a type a client typed themselves. Suffixed with a short random
+  // tag so two different custom types that slugify the same ("Prova!" and
+  // "prova") cannot collide and silently become one type.
+  function customEventTypeKey(label, rnd) {
+    var base = String(label || "")
+      .toLowerCase()
+      .normalize ? String(label || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+                 : String(label || "").toLowerCase();
+    base = base.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 32);
+    if (!base) { base = "tipo"; }
+    return "custom_" + base + "_" + (rnd || Math.random().toString(36).slice(2, 6));
+  }
+
+  // Normalise one stored event type into {key, pt, en}.
+  //
+  // Tolerates the OLD shape (a bare string) so a client whose gm_config has
+  // not been migrated yet still gets a working picker: the string becomes both
+  // labels, and a seeded name also picks up its stable key and translation.
+  function normalizeEventType(t) {
+    if (!t) { return null; }
+    if (typeof t === "string") {
+      var key = EVENT_TYPE_KEY[t] || customEventTypeKey(t, "lgcy");
+      return { key: key, pt: t, en: EVENT_TYPE_EN[t] || t };
+    }
+    if (!t.key) { return null; }
+    return { key: t.key, pt: t.pt || t.key, en: t.en || t.pt || t.key };
+  }
+
+  function normalizeEventTypes(list) {
+    var out = [];
+    (list || []).forEach(function (t) {
+      var n = normalizeEventType(t);
+      if (n) { out.push(n); }
+    });
+    return out;
+  }
+
+  // The label for an event-type key, looked up in the client's OWN configured
+  // list (their custom types are only defined there). Falls back to the seeded
+  // translation table, then to the key itself.
+  function eventTypeLabel(key, types, en) {
+    var list = normalizeEventTypes(types);
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].key === key) { return en ? list[i].en : list[i].pt; }
+    }
+    // Not in this client's list any more (a type they removed, on an event
+    // that still references it). Try the seeded table by key before giving up.
+    var byKey = null;
+    Object.keys(EVENT_TYPE_KEY).forEach(function (pt) {
+      if (EVENT_TYPE_KEY[pt] === key) { byKey = pt; }
+    });
+    if (byKey) { return en ? (EVENT_TYPE_EN[byKey] || byKey) : byKey; }
+    return key === null || key === undefined ? "" : String(key);
+  }
+
+  // ── Other FIXED system lists ───────────────────────────────────────────
+  //
+  // Job status, roadmap status/frente, Base de Ouro status, partner status and
+  // lead origem are all fixed lists a client cannot add to, so they have the
+  // same defect stages had: the stored value IS the display string.
+  //
+  // TRANSLATED AT THE DISPLAY LAYER ONLY — the stored values stay Portuguese
+  // and NO data migration is performed. That is a deliberate, narrower fix
+  // than the one applied to stages, and the reason is risk asymmetry:
+  //
+  //   * Stages earned a full key migration because gm_leads.estagio is
+  //     compared in revenue SQL (receita_fechada, pipeline_ativo), so the
+  //     stored representation had to be language-neutral to be safe.
+  //   * These five are compared in far fewer places and none of them produce
+  //     a money figure, so a lookup table at render time buys the whole
+  //     bilingual benefit at none of the migration risk (~950 live rows).
+  //
+  // NOT DONE, deliberately: gm_finance.tipo (Entrada / Saída). It is DERIVED
+  // from gm_config.finance_categories_json, whose category names are
+  // admin-editable per client and which embeds tipo per category. Migrating
+  // the column means migrating that JSON for every client and re-deriving
+  // every row — real risk to money classification for a two-value list.
+  // Left alone on purpose; see the report.
+  var STATUS_EN = {
+    // gm_jobs.status
+    "Em andamento": "In progress",
+    "Concluída": "Completed",
+    "Atrasada": "Late",
+    "Pausada": "Paused",
+    // gm_roadmap.status ("Em andamento" shared with jobs above)
+    "Realizado": "Done",
+    "Pendente": "Pending",
+    "Atrasado": "Late",
+    "Cancelado": "Cancelled",
+    // gm_base_ouro.status
+    "Não contatado": "Not contacted",
+    "Contatado": "Contacted",
+    "Interessado": "Interested",
+    "Reativado": "Reactivated",
+    "Sem interesse": "Not interested",
+    // gm_partners.status
+    "Prospectando": "Prospecting",
+    "Ativo": "Active",
+    "Inativo": "Inactive",
+    // gm_roadmap.frente
+    "Comercial": "Sales",
+    "Gestão": "Management",
+    "Base de Ouro": "Golden Base",
+    "Financeiro": "Finance",
+    "Parcerias": "Partnerships",
+    "Marketing": "Marketing",
+    "Operação": "Operations",
+    // gm_leads.origem
+    "Orgânico": "Organic",
+    "Tráfego pago": "Paid traffic",
+    "Indicação": "Referral",
+    "Base de Clientes": "Customer base",
+    "Parceiro": "Partner",
+    "Google": "Google",
+    "Instagram": "Instagram",
+    "Site": "Website",
+    "Outro": "Other",
+    // Cycle months (gm_config.cycle_months, stored in Portuguese): lead
+    // "Mês" and project "Mês entrega" show English month names on an
+    // English screen (N4).
+    "Janeiro": "January", "Fevereiro": "February", "Março": "March", "Abril": "April",
+    "Maio": "May", "Junho": "June", "Julho": "July", "Agosto": "August",
+    "Setembro": "September", "Outubro": "October", "Novembro": "November", "Dezembro": "December"
+  };
+
+  // An unknown value is echoed back rather than blanked: showing the stored
+  // word is more honest than showing nothing.
+  function statusLabel(v, en) {
+    if (v === null || v === undefined || v === "") { return ""; }
+    if (!en) { return String(v); }
+    return STATUS_EN[v] || String(v);
+  }
+
+  // ── Estimates & invoices build: fixed document vocabulary ─────────────
+  //
+  // Stored as language-neutral KEYS (gm_doc_settings.payment_methods_json
+  // keys, gm_pricing.kind, cost_breakdown[].type) and labelled here. The
+  // customer-facing documents are English only, so the EN label is also
+  // what prints; the PT label is for the portal UI.
+  var DOC_PAYMENT_METHODS = [
+    { key: "zelle",         pt: "Zelle",                    en: "Zelle",               hintPt: "Chave ou telefone do Zelle",     hintEn: "Zelle handle or phone" },
+    { key: "check",         pt: "Cheque",                   en: "Check",               hintPt: "Nominal a",                      hintEn: "Payable to" },
+    { key: "cash",          pt: "Dinheiro",                 en: "Cash",                hintPt: "",                               hintEn: "" },
+    { key: "money_order",   pt: "Money order",              en: "Money order",         hintPt: "Nominal a",                      hintEn: "Payable to" },
+    { key: "bank_transfer", pt: "Transferência / ACH",      en: "Bank transfer / ACH", hintPt: "Instruções",                     hintEn: "Instructions" },
+    { key: "card_link",     pt: "Cartão / Stripe",          en: "Card / Stripe",       hintPt: "Cole o seu próprio link de pagamento. A Apex não processa pagamentos.", hintEn: "Paste your own payment link. Apex does not process payments." },
+    { key: "other",         pt: "Outro",                    en: "Other",               hintPt: "Texto livre",                    hintEn: "Free text" }
+  ];
+  var DOC_PAYMENT_METHOD_BY_KEY = {};
+  DOC_PAYMENT_METHODS.forEach(function (m) { DOC_PAYMENT_METHOD_BY_KEY[m.key] = m; });
+  function paymentMethodLabel(key, en) {
+    var m = DOC_PAYMENT_METHOD_BY_KEY[key];
+    if (!m) { return key === null || key === undefined ? "" : String(key); }
+    return en ? m.en : m.pt;
+  }
+
+  // Document hero gallery industries (hero build, 2026-09-27). Keys match
+  // data/hero-gallery-v1.json categories, in Nicole's order.
+  var HERO_CATEGORIES = [
+    { key: "pools",          pt: "Piscinas",               en: "Pools" },
+    { key: "pavers",         pt: "Pavers",                 en: "Pavers" },
+    { key: "outdoor_living", pt: "Área externa",           en: "Outdoor living" },
+    { key: "tile",           pt: "Porcelanato e cerâmica", en: "Tile" },
+    { key: "flooring",       pt: "Pisos de madeira",       en: "Wood flooring" },
+    { key: "home_exterior",  pt: "Fachadas",               en: "Home exteriors" },
+    { key: "interiors",      pt: "Drywall e interiores",   en: "Drywall and interiors" },
+    { key: "stone",          pt: "Pedras e mármore",       en: "Stone and marble" },
+    { key: "construction",   pt: "Construção geral",       en: "General construction" },
+    { key: "cakes",          pt: "Bolos e confeitaria",    en: "Cakes and bakery" },
+    { key: "boutique",       pt: "Moda e tecidos",         en: "Boutique and fashion" },
+    { key: "water",          pt: "Filtros de água",        en: "Water filters" },
+    { key: "cleaning",       pt: "Limpeza",                en: "Cleaning" }
+  ];
+  // Hero follow-up F1: gm_job_value_history.source and .field.
+  var VALUE_HISTORY_SOURCES = [
+    { key: "estimate",     pt: "Orçamento",     en: "Estimate" },
+    { key: "change_order", pt: "Aditivo",       en: "Change order" },
+    { key: "contract",     pt: "Contrato",      en: "Contract" },
+    { key: "manual",       pt: "Edição manual", en: "Manual edit" }
+  ];
+  var VALUE_HISTORY_FIELDS = [
+    { key: "valor",                pt: "Valor",                en: "Value" },
+    { key: "material",             pt: "Material",             en: "Materials" },
+    { key: "mao_de_obra",          pt: "Mão de obra",          en: "Labor" },
+    { key: "outros",               pt: "Outros",               en: "Other" },
+    { key: "custo_administrativo", pt: "Custo administrativo", en: "Administrative cost" },
+    { key: "comissao",             pt: "Comissão vendedor",    en: "Sales commission" },
+    { key: "imposto",              pt: "Imposto",              en: "Tax" },
+    { key: "inicio",               pt: "Início",               en: "Start" },
+    { key: "prazo_previsto",       pt: "Prazo previsto",       en: "Deadline" },
+    { key: "contract_price_cents", pt: "Preço do contrato",    en: "Contract price" },
+    { key: "final_total_cents",    pt: "Total final",          en: "Final total" }
+  ];
+  function valueHistoryLabel(list, key, en) {
+    for (var i = 0; i < list.length; i++) { if (list[i].key === key) { return en ? list[i].en : list[i].pt; } }
+    return key === null || key === undefined ? "" : String(key);
+  }
+
+  // Hero follow-up (B4): a client's PRIVATE collection (their own photos),
+  // shown as the first chip only to the clients on its list.
+  var HERO_PRIVATE_CHIP = { key: "exclusive", pt: "Exclusivas", en: "Exclusive" };
+  function heroCategoryLabel(key, en) {
+    for (var i = 0; i < HERO_CATEGORIES.length; i++) {
+      if (HERO_CATEGORIES[i].key === key) { return en ? HERO_CATEGORIES[i].en : HERO_CATEGORIES[i].pt; }
+    }
+    if (key === HERO_PRIVATE_CHIP.key) { return en ? HERO_PRIVATE_CHIP.en : HERO_PRIVATE_CHIP.pt; }
+    return key === null || key === undefined ? "" : String(key);
+  }
+
+  // gm_pricing.kind
+  var PRICING_KINDS = [
+    { key: "product", pt: "Produto", en: "Product" },
+    { key: "addon",   pt: "Adicional", en: "Add-on" }
+  ];
+  function pricingKindLabel(key, en) {
+    for (var i = 0; i < PRICING_KINDS.length; i++) {
+      if (PRICING_KINDS[i].key === key) { return en ? PRICING_KINDS[i].en : PRICING_KINDS[i].pt; }
+    }
+    return en ? "Product" : "Produto";
+  }
+
+  // cost_breakdown[].type — absent reads as material.
+  var COST_LINE_TYPES = [
+    { key: "material", pt: "Material",    en: "Material" },
+    { key: "labor",    pt: "Mão de obra", en: "Labor" },
+    { key: "other",    pt: "Outro",       en: "Other" }
+  ];
+  function costLineTypeLabel(key, en) {
+    for (var i = 0; i < COST_LINE_TYPES.length; i++) {
+      if (COST_LINE_TYPES[i].key === key) { return en ? COST_LINE_TYPES[i].en : COST_LINE_TYPES[i].pt; }
+    }
+    return en ? "Material" : "Material";
+  }
+
+  // Payment terms: stored as a number of days (0 = due on receipt).
+  var DOC_TERMS_PRESETS = [
+    { days: 0,  pt: "Na entrega (due on receipt)", en: "Due on receipt" },
+    { days: 7,  pt: "Net 7",  en: "Net 7" },
+    { days: 15, pt: "Net 15", en: "Net 15" },
+    { days: 30, pt: "Net 30", en: "Net 30" }
+  ];
+  function termsLabel(days, en) {
+    var d = Number(days) || 0;
+    for (var i = 0; i < DOC_TERMS_PRESETS.length; i++) {
+      if (DOC_TERMS_PRESETS[i].days === d) { return en ? DOC_TERMS_PRESETS[i].en : DOC_TERMS_PRESETS[i].pt; }
+    }
+    return "Net " + d;
+  }
+
+  // gm_estimates.status (stored) plus the derived "expired".
+  var ESTIMATE_STATUSES = [
+    { key: "draft",             pt: "Rascunho",           en: "Draft" },
+    { key: "sent",              pt: "Enviado",            en: "Sent" },
+    { key: "viewed",            pt: "Aberto",             en: "Viewed" },
+    { key: "changes_requested", pt: "Mudanças pedidas",   en: "Changes requested" },
+    { key: "accepted",          pt: "Aceito",             en: "Accepted" },
+    { key: "declined",          pt: "Recusado",           en: "Declined" },
+    { key: "expired",           pt: "Expirado",           en: "Expired" },
+    { key: "superseded",        pt: "Substituído",        en: "Superseded" },
+    { key: "void",              pt: "Anulado",            en: "Void" }
+  ];
+  function estimateStatusLabel(key, en) {
+    for (var i = 0; i < ESTIMATE_STATUSES.length; i++) {
+      if (ESTIMATE_STATUSES[i].key === key) { return en ? ESTIMATE_STATUSES[i].en : ESTIMATE_STATUSES[i].pt; }
+    }
+    return key === null || key === undefined ? "" : String(key);
+  }
+  var ESTIMATE_LINE_TYPES = [
+    { key: "standard",  pt: "Normal",    en: "Standard" },
+    { key: "included",  pt: "Incluído",  en: "Included" },
+    { key: "allowance", pt: "Allowance", en: "Allowance" }
+  ];
+  function estimateLineTypeLabel(key, en) {
+    for (var i = 0; i < ESTIMATE_LINE_TYPES.length; i++) {
+      if (ESTIMATE_LINE_TYPES[i].key === key) { return en ? ESTIMATE_LINE_TYPES[i].en : ESTIMATE_LINE_TYPES[i].pt; }
+    }
+    return en ? "Standard" : "Normal";
+  }
+
+  // Invoice status is DERIVED by the Worker (never stored except draft /
+  // sent / void); these are the labels for what it reports.
+  var INVOICE_STATUSES = [
+    { key: "draft",          pt: "Rascunho",         en: "Draft" },
+    { key: "unpaid",         pt: "Em aberto",        en: "Unpaid" },
+    { key: "partially_paid", pt: "Parcialmente paga", en: "Partially paid" },
+    { key: "paid",           pt: "Paga",             en: "Paid" },
+    { key: "overdue",        pt: "Vencida",          en: "Overdue" },
+    { key: "void",           pt: "Anulada",          en: "Void" }
+  ];
+  function invoiceStatusLabel(key, en) {
+    for (var i = 0; i < INVOICE_STATUSES.length; i++) {
+      if (INVOICE_STATUSES[i].key === key) { return en ? INVOICE_STATUSES[i].en : INVOICE_STATUSES[i].pt; }
+    }
+    return key === null || key === undefined ? "" : String(key);
+  }
+  // gm_invoice_payments.method
+  var INVOICE_PAYMENT_METHODS = [
+    { key: "zelle", pt: "Zelle", en: "Zelle" }, { key: "check", pt: "Cheque", en: "Check" }, { key: "cash", pt: "Dinheiro", en: "Cash" },
+    { key: "money_order", pt: "Money order", en: "Money order" }, { key: "bank_transfer", pt: "Transferência / ACH", en: "Bank transfer / ACH" },
+    { key: "card", pt: "Cartão", en: "Card" }, { key: "other", pt: "Outro", en: "Other" }
+  ];
+  function invoicePaymentMethodLabel(key, en) {
+    for (var i = 0; i < INVOICE_PAYMENT_METHODS.length; i++) {
+      if (INVOICE_PAYMENT_METHODS[i].key === key) { return en ? INVOICE_PAYMENT_METHODS[i].en : INVOICE_PAYMENT_METHODS[i].pt; }
+    }
+    return key === null || key === undefined ? "" : String(key);
+  }
+
+  // ── Contract placeholders (F15) ────────────────────────────────────────
+  // The clause library's placeholder KEYS (contract_placeholders.field) with a
+  // Portuguese and an English label for the builder screens. type drives the
+  // editor: date = a date picker that stores the MM/DD/YYYY text the clauses
+  // print; number = a numeric keypad; textarea = several lines.
+  var CONTRACT_FIELDS = {
+    access_instructions: { pt: "Chaves, portão ou código da garagem", en: "Keys, gate or garage codes" , type: "textarea" },
+    access_route: { pt: "Caminho do equipamento até a obra", en: "Equipment path to the work area" },
+    access_width: { pt: "Largura mínima do acesso do equipamento", en: "Minimum equipment access width" },
+    allowance_basis: { pt: "O que cada allowance cobre", en: "What each allowance covers" },
+    allowance_list: { pt: "Itens de allowance e valores", en: "Allowance items and amounts", type: "textarea" },
+    allowance_markup_clause: { pt: "Acréscimo sobre excesso de allowance", en: "Markup on allowance overages" },
+    arbitration_fee_allocation: { pt: "Divisão das custas de arbitragem", en: "Arbitration fee split" },
+    arbitration_rules: { pt: "Regras de arbitragem", en: "Arbitration rules" },
+    attachments_list: { pt: "Documentos anexos", en: "Attached documents" },
+    attic_stock_quantity: { pt: "Sobra de material deixada com o cliente", en: "Spare material left with the owner" },
+    backorder_days: { pt: "Dias de backorder antes de substituir", en: "Backorder days before a substitute", type: "number" },
+    balance_amount: { pt: "Saldo na conclusão", en: "Balance at completion" },
+    business_address: { pt: "Endereço da empresa", en: "Business address" },
+    business_dba_clause: { pt: "Nome fantasia (DBA)", en: "Doing-business-as name" },
+    business_email: { pt: "E-mail da empresa", en: "Business email" },
+    business_entity_type: { pt: "Tipo de empresa", en: "Entity type" },
+    business_legal_name: { pt: "Nome legal da empresa", en: "Business legal name" },
+    business_phone: { pt: "Telefone da empresa", en: "Business phone" },
+    cancellation_deadline_date: { pt: "Prazo de cancelamento", en: "Cancellation deadline" },
+    cancellation_period_clause: { pt: "Frase do prazo de cancelamento", en: "Cancellation period wording" },
+    ch515_doc_version: { pt: "Versão do documento do Capítulo 515", en: "Chapter 515 document version" },
+    co_owner_clause: { pt: "Segundo proprietário", en: "Second owner" },
+    co_response_days: { pt: "Dias úteis para enviar o aditivo", en: "Business days to send a change order", type: "number" },
+    company_signed_at: { pt: "Data da assinatura da empresa", en: "Company signing date" },
+    concealed_notice_days: { pt: "Dias úteis para avisar condição oculta", en: "Business days to notify a concealed condition", type: "number" },
+    contract_date: { pt: "Data do contrato", en: "Contract date", type: "date" },
+    contract_price: { pt: "Preço do contrato", en: "Contract price" },
+    contractor_initials_arbitration: { pt: "Rubrica da empresa (arbitragem)", en: "Contractor initials (arbitration)" },
+    contractor_initials_jury: { pt: "Rubrica da empresa (renúncia a júri)", en: "Contractor initials (jury waiver)" },
+    contractor_termination_days: { pt: "Dias de suspensão antes de rescindir", en: "Days of suspension before termination", type: "number" },
+    convenience_fee_description: { pt: "Valor de rescisão por conveniência", en: "Termination-for-convenience amount" },
+    convenience_fee_percent: { pt: "Percentual de rescisão por conveniência", en: "Termination-for-convenience percent", type: "number" },
+    days_out_of_use: { pt: "Dias em que os cômodos ficam sem uso", en: "Days rooms are out of use", type: "number" },
+    debris_frequency: { pt: "Frequência de retirada de entulho", en: "Debris removal frequency" },
+    debris_staging_area: { pt: "Onde o entulho fica durante a obra", en: "Where debris is kept during the job" },
+    delay_notice_days: { pt: "Dias úteis para avisar atraso", en: "Business days to notify a delay", type: "number" },
+    deposit_amount: { pt: "Sinal (primeiro pagamento)", en: "Deposit (initial payment)" },
+    drowning_pub_version: { pt: "Versão da publicação sobre afogamento", en: "Drowning-prevention publication version" },
+    dumpster_location: { pt: "Local da caçamba ou trailer", en: "Dumpster or trailer location" },
+    estimate_accepted_date: { pt: "Data em que o orçamento foi aceito", en: "Estimate accepted date" },
+    estimate_date: { pt: "Data do orçamento", en: "Estimate date" },
+    estimate_number: { pt: "Número do orçamento", en: "Estimate number" },
+    estimate_valid_until: { pt: "Validade do orçamento", en: "Estimate valid until" },
+    estimate_version: { pt: "Versão do orçamento", en: "Estimate version" },
+    estimated_duration_working_days: { pt: "Duração estimada (dias úteis)", en: "Estimated duration (working days)", type: "number" },
+    estimated_start_date: { pt: "Data estimada de início", en: "Estimated start date", type: "date" },
+    exclusions_list: { pt: "Itens excluídos marcados", en: "Ticked exclusion items", type: "textarea" },
+    extended_permit_days: { pt: "Prazo maior para a licença (dias)", en: "Agreed longer permit period (days)", type: "number" },
+    extended_start_days: { pt: "Prazo maior para o início (dias)", en: "Agreed longer start period (days)", type: "number" },
+    extension_sentence: { pt: "Frase de prorrogação por escrito", en: "Written extension sentence" },
+    fence_sections: { pt: "Trechos de cerca que podem ser retirados", en: "Fence sections that may be removed" },
+    final_inspection_clause: { pt: "Frase da inspeção final", en: "Final inspection wording" },
+    final_payment_days: { pt: "Dias para o pagamento final", en: "Days for the final payment", type: "number" },
+    grace_period_days: { pt: "Dias de tolerância antes do atraso", en: "Grace days before a payment is late", type: "number" },
+    grout_color: { pt: "Cor do rejunte aprovada", en: "Approved grout color" },
+    insurance_carrier: { pt: "Seguradora", en: "Insurance carrier" },
+    insurance_expiry_date: { pt: "Vencimento do seguro", en: "Insurance expiry date", type: "date" },
+    insurance_policy_number: { pt: "Número da apólice", en: "Policy number" },
+    insurance_policy_types: { pt: "Tipos de apólice", en: "Policy types" },
+    insurance_statement: { pt: "Frase do seguro", en: "Insurance sentence" },
+    late_interest_rate: { pt: "Juros anuais por atraso (%)", en: "Annual late interest rate (%)", type: "number" },
+    late_payment_sentence: { pt: "Frase de pagamento em atraso", en: "Late payment sentence" },
+    lead_paint_clause: { pt: "Texto de tinta com chumbo", en: "Lead paint wording" },
+    lead_testing_sentence: { pt: "Frase do teste de chumbo", en: "Lead testing sentence" },
+    leveling_included: { pt: "Nivelamento incluído no preço", en: "Leveling included in the price" },
+    license_number: { pt: "Número da licença", en: "License number" },
+    license_type: { pt: "Tipo de licença", en: "License type" },
+    mediation_days: { pt: "Dias para a mediação", en: "Days for mediation", type: "number" },
+    mutual_cure_days: { pt: "Dias para corrigir (C13-C)", en: "Cure period (C13-C)", type: "number" },
+    mutual_execution_deadline: { pt: "Prazo de 72 horas para o cliente assinar", en: "72-hour signing deadline" },
+    negotiation_days: { pt: "Dias para a negociação", en: "Days for negotiation", type: "number" },
+    noc_first_inspection_sentence: { pt: "Frase da primeira inspeção (NOC)", en: "First inspection sentence (NOC)" },
+    noc_sentence: { pt: "Frase do Notice of Commencement", en: "Notice of Commencement sentence" },
+    offer_expiry_date: { pt: "Proposta válida até", en: "Offer valid until", type: "date" },
+    overage_percent: { pt: "Percentual de material extra", en: "Extra material percentage", type: "number" },
+    owner_agent_name: { pt: "Representante do cliente", en: "Owner's named agent" },
+    owner_cure_days: { pt: "Dias úteis para começar a corrigir", en: "Business days to begin a cure", type: "number" },
+    owner_email: { pt: "E-mail do cliente", en: "Owner email" },
+    owner_entity_name: { pt: "Empresa proprietária", en: "Owner entity name" },
+    owner_full_name: { pt: "Nome completo do cliente", en: "Owner full name" },
+    owner_initials_arbitration: { pt: "Rubrica do cliente (arbitragem)", en: "Owner initials (arbitration)" },
+    owner_initials_jury: { pt: "Rubrica do cliente (renúncia a júri)", en: "Owner initials (jury waiver)" },
+    owner_mailing_address: { pt: "Endereço de correspondência do cliente", en: "Owner mailing address" },
+    owner_marketing_consent_checkbox: { pt: "Autorização de fotos do cliente", en: "Owner photo consent" },
+    owner_materials_due_date: { pt: "Quando o material do cliente deve chegar", en: "Owner-supplied materials due", type: "date" },
+    owner_phone: { pt: "Telefone do cliente", en: "Owner phone" },
+    owner_response_days: { pt: "Dias úteis para o cliente responder", en: "Business days for the owner to answer", type: "number" },
+    owner_signer_name: { pt: "Quem assina pela empresa proprietária", en: "Owner entity signer" },
+    owner_signer_title: { pt: "Cargo de quem assina pela empresa proprietária", en: "Owner entity signer title" },
+    owner_signature_lien_notice: { pt: "Assinatura do cliente no aviso de lien", en: "Owner signature on the lien notice" },
+    owner_signature_lien_notice_date: { pt: "Data da assinatura no aviso de lien", en: "Lien notice signature date" },
+    owner_signature_pool_ack: { pt: "Assinatura do cliente (documentos de piscina)", en: "Owner signature (pool documents)" },
+    owner_signature_pool_ack_date: { pt: "Data (documentos de piscina)", en: "Date (pool documents)" },
+    owner_supplied_items: { pt: "Itens fornecidos pelo cliente", en: "Owner-supplied items", type: "textarea" },
+    owner_title_note: { pt: "Observação sobre a propriedade", en: "Note on title" },
+    payment_account_hint: { pt: "Dado da conta para pagamento", en: "Payment account hint" },
+    payment_methods_list: { pt: "Formas de pagamento aceitas", en: "Accepted payment methods" },
+    payment_schedule_note: { pt: "Observação do cronograma de pagamento", en: "Payment schedule note" },
+    payment_schedule_table: { pt: "Cronograma de pagamento", en: "Payment schedule" },
+    permit_fee_estimate: { pt: "Estimativa da taxa de licença", en: "Permit fee estimate" },
+    permit_fee_treatment: { pt: "Como a taxa de licença é tratada", en: "Permit fee handling" },
+    permit_jurisdiction: { pt: "Cidade ou condado da licença", en: "Permit jurisdiction" },
+    plan_documents_list: { pt: "Plantas e documentos anexos", en: "Plans and documents attached", type: "textarea" },
+    pool_docs_delivered_at: { pt: "Entrega dos documentos de piscina", en: "Pool documents delivered" },
+    pool_docs_delivery_method: { pt: "Como os documentos de piscina foram entregues", en: "Pool documents delivery method" },
+    pool_safety_feature: { pt: "Recurso de segurança da piscina", en: "Pool safety feature" },
+    portable_toilet_location: { pt: "Local do banheiro químico", en: "Portable toilet location" },
+    project_name: { pt: "Nome da obra", en: "Job name" },
+    project_summary: { pt: "Resumo da obra", en: "Job summary" },
+    property_address: { pt: "Endereço do imóvel", en: "Property address" },
+    property_county: { pt: "Condado do imóvel", en: "Property county" },
+    punch_completion_days: { pt: "Dias úteis para terminar pendências", en: "Business days to finish the punch list", type: "number" },
+    punch_holdback_amount: { pt: "Valor retido até as pendências", en: "Punch list holdback amount" },
+    punchlist_submit_days: { pt: "Dias para o cliente entregar a lista de pendências", en: "Days for the owner to give the punch list", type: "number" },
+    qualifier_name: { pt: "Qualificador (qualifying agent)", en: "Qualifying agent" },
+    recording_fee_treatment: { pt: "Quem paga o registro do NOC", en: "Who pays the NOC recording fee" },
+    recovery_fund_contact_block: { pt: "Contato do Recovery Fund", en: "Recovery Fund contact block" },
+    retainage_percent: { pt: "Retenção (%)", en: "Retainage (%)", type: "number" },
+    rooms_out_of_use: { pt: "Cômodos sem uso durante a obra", en: "Rooms out of use" },
+    selection_deadlines_table: { pt: "Escolhas e prazos", en: "Selections and due dates", type: "textarea" },
+    site_contact_name: { pt: "Contato na obra", en: "On-site contact" },
+    site_contact_phone: { pt: "Telefone do contato na obra", en: "On-site contact phone" },
+    spoil_disposition: { pt: "Destino da terra escavada", en: "Excavated soil disposition" },
+    start_hold_until_date: { pt: "Data reservada para o início até", en: "Start date held until", type: "date" },
+    suspension_notice_days: { pt: "Dias úteis de aviso de suspensão", en: "Business days' notice before suspension", type: "number" },
+    suspension_trigger_days: { pt: "Dias de atraso que permitem suspender", en: "Days late before suspension", type: "number" },
+    co_number: { pt: "Número do aditivo", en: "Change order number" },
+    co_date: { pt: "Data do aditivo", en: "Change order date" },
+    co_description: { pt: "Descrição do aditivo", en: "Change order description" },
+    co_price_before: { pt: "Preço antes do aditivo", en: "Price before the change order" },
+    co_amount: { pt: "Valor do aditivo", en: "Change order amount" },
+    co_price_after: { pt: "Preço depois do aditivo", en: "Price after the change order" },
+    co_schedule_days: { pt: "Impacto no prazo (dias)", en: "Schedule impact (days)" },
+    co_payment_change: { pt: "Mudança nas parcelas", en: "Payment schedule change" },
+    surface_prep_included: { pt: "Preparação de superfície incluída", en: "Surface preparation included" },
+    target_completion_date: { pt: "Data prevista de conclusão", en: "Target completion date", type: "date" },
+    tax_statement: { pt: "Frase de impostos", en: "Sales tax sentence" },
+    transaction_date: { pt: "Data em que o cliente assina", en: "Date the owner signs" },
+    unit_price_list: { pt: "Itens com preço por unidade", en: "Unit-priced items", type: "textarea" },
+    urgent_cap_amount: { pt: "Teto do serviço urgente", en: "Urgent work cap" },
+    walkthrough_days: { pt: "Dias úteis para a vistoria final", en: "Business days for the walkthrough", type: "number" },
+    warranty_component_table: { pt: "Componentes e meses de garantia", en: "Components and warranty months", type: "textarea" },
+    warranty_contact: { pt: "Para onde enviar pedidos de garantia", en: "Where warranty claims go" },
+    warranty_inspect_days: { pt: "Dias úteis para inspecionar garantia", en: "Business days to inspect a warranty claim", type: "number" },
+    warranty_months_workmanship: { pt: "Meses de garantia de mão de obra", en: "Workmanship warranty months", type: "number" },
+    warranty_notice_days: { pt: "Dias para o cliente avisar garantia", en: "Days for the owner to report a warranty issue", type: "number" },
+    work_days: { pt: "Dias de trabalho", en: "Work days" },
+    work_hours_end: { pt: "Fim do expediente", en: "Work hours end" },
+    work_hours_start: { pt: "Início do expediente", en: "Work hours start" },
+    year_built: { pt: "Ano de construção da casa", en: "Year the home was built", type: "number" },
+    // Cleaning service agreements (JOB R): the cleaning library's placeholders.
+    acceptance_method: { pt: "Como o cliente aceitou o contrato", en: "How the customer accepted the agreement" },
+    access_change_notice_hours: { pt: "Horas de aviso para mudan\u00e7a de acesso", en: "Hours' notice for a change in access", type: "number" },
+    access_contact_name: { pt: "Quem libera o acesso (nome)", en: "Who arranges access (name)" },
+    access_contact_phone: { pt: "Quem libera o acesso (telefone)", en: "Who arranges access (phone)" },
+    access_method: { pt: "Como a equipe entra (cart\u00e3o, chave ou c\u00f3digo)", en: "How the crew gets in (card, key or code)" },
+    access_wait_minutes: { pt: "Minutos de espera antes de contar como sem acesso", en: "Minutes the crew waits before a no-access visit", type: "number" },
+    alarm_gate_instructions: { pt: "Instru\u00e7\u00f5es de alarme, port\u00e3o e estacionamento (nunca impressas)", en: "Alarm, gate and parking instructions (never printed)" },
+    annual_increase_cap_percent: { pt: "Teto de aumento por ano (%)", en: "Cap on a yearly price increase (%)", type: "number" },
+    approver_name: { pt: "Quem aprova mudan\u00e7as pelo cliente", en: "Person at the customer who approves changes" },
+    arrival_window: { pt: "Janela de chegada (ex.: 8:00 AM to 10:00 AM)", en: "Arrival window (e.g. 8:00 AM to 10:00 AM)" },
+    authorization_date: { pt: "Data da autoriza\u00e7\u00e3o de cart\u00e3o", en: "Date of the card authorization", type: "date" },
+    booking_notice_hours: { pt: "Horas de anteced\u00eancia para avisar reservas", en: "Hours' notice of a booking", type: "number" },
+    booking_notice_method: { pt: "Como o cliente avisa as reservas", en: "How the customer sends bookings" },
+    cancel_contact_methods: { pt: "Como o cliente cancela ou remarca", en: "How the customer cancels or reschedules" },
+    cancel_deadline_date: { pt: "Prazo para cancelar", en: "Cancellation deadline" },
+    cancel_deadline_rule: { pt: "Prazo para cancelar a renova\u00e7\u00e3o (data ou regra)", en: "Deadline to cancel the renewal (date or rule)" },
+    cancel_method: { pt: "Como cancelar", en: "How to cancel" },
+    card_cancel_method: { pt: "Como o cliente cancela a cobran\u00e7a no cart\u00e3o", en: "How the customer cancels the card charge" },
+    checkin_time: { pt: "Hora do check-in (ex.: 4:00 PM)", en: "Check-in time (e.g. 4:00 PM)" },
+    checkout_time: { pt: "Hora do check-out (ex.: 10:00 AM)", en: "Check-out time (e.g. 10:00 AM)" },
+    claim_window_hours: { pt: "Horas para reclamar de dano (24 ou 48)", en: "Hours to report damage (24 or 48)", type: "number" },
+    clean_type: { pt: "Tipo de limpeza", en: "Type of cleaning" },
+    completion_report_description: { pt: "O que vai no relat\u00f3rio de conclus\u00e3o", en: "What the completion report contains" },
+    condition_ack_days: { pt: "Dias para conferir o registro de condi\u00e7\u00e3o", en: "Days to check the condition record", type: "number" },
+    condition_ack_deadline: { pt: "Prazo para confirmar o registro de condi\u00e7\u00e3o", en: "Deadline to acknowledge the condition record", type: "date" },
+    condition_description: { pt: "Condi\u00e7\u00e3o do im\u00f3vel no or\u00e7amento", en: "Condition of the property at the quote" },
+    conversion_fee: { pt: "Taxa de contrata\u00e7\u00e3o direta", en: "Direct-hire conversion fee" },
+    county_surtax_rate: { pt: "Al\u00edquota do condado (%)", en: "County surtax rate (%)" },
+    credit_basis: { pt: "Como o cr\u00e9dito \u00e9 calculado", en: "How a credit is calculated" },
+    crew_size: { pt: "N\u00famero de pessoas na equipe", en: "Number of cleaners", type: "number" },
+    cure_days: { pt: "Dias para corrigir uma viola\u00e7\u00e3o", en: "Days to fix a breach", type: "number" },
+    customer_address: { pt: "Endere\u00e7o do cliente", en: "Customer address" },
+    customer_email: { pt: "Email do cliente", en: "Customer email" },
+    customer_entity_name: { pt: "Nome da empresa cliente", en: "Customer company name" },
+    customer_entity_sentence: { pt: "Frase sobre a empresa do cliente (opcional)", en: "Sentence about the customer's company (optional)" },
+    customer_entity_type: { pt: "Tipo da empresa cliente (ex.: Florida limited liability company)", en: "Customer company type (e.g. Florida limited liability company)" },
+    customer_full_name: { pt: "Nome completo do cliente", en: "Customer full name" },
+    customer_label: { pt: "Como o contrato chama quem paga", en: "What the agreement calls the paying party" },
+    customer_phone: { pt: "Telefone do cliente", en: "Customer phone" },
+    customer_provided_items: { pt: "O que o cliente fornece", en: "What the customer provides", type: "textarea" },
+    customer_signature: { pt: "Assinatura do cliente", en: "Customer signature" },
+    customer_signature_date: { pt: "Data da assinatura do cliente", en: "Customer signature date" },
+    customer_supplies_list: { pt: "Produtos ou equipamentos do cliente", en: "Customer-supplied products or equipment", type: "textarea" },
+    damage_cap_per_visit: { pt: "Teto de danos por visita", en: "Damage cap per visit" },
+    early_fee_cap_percent: { pt: "Teto da taxa de sa\u00edda antecipada (%)", en: "Early termination fee cap (%)", type: "number" },
+    early_termination_fee: { pt: "Taxa de sa\u00edda antecipada", en: "Early termination fee" },
+    early_termination_sentence: { pt: "Frase da sa\u00edda antecipada", en: "Early termination sentence" },
+    end_date: { pt: "Data final do contrato", en: "Agreement end date", type: "date" },
+    entry_method: { pt: "Como a equipe entra (lockbox ou fechadura)", en: "How the crew enters (lockbox or smart lock)" },
+    excuse_notice_hours: { pt: "Horas para avisar um imprevisto", en: "Hours to report an outside cause", type: "number" },
+    fee_exclusions_sentence: { pt: "Quando a taxa de sa\u00edda n\u00e3o vale", en: "When the early termination fee does not apply", type: "textarea" },
+    free_cancel_notice_hours: { pt: "Horas de aviso para cancelar sem taxa", en: "Hours' notice to cancel at no charge", type: "number" },
+    frequency: { pt: "Frequ\u00eancia (ex.: weekly, every two weeks)", en: "Frequency (e.g. weekly, every two weeks)" },
+    glass_limit: { pt: "Limite de vidro quebrado", en: "Broken glass limit" },
+    guest_change_deadline: { pt: "Prazo para avisar mudan\u00e7a do h\u00f3spede", en: "Deadline to report a guest change" },
+    guest_wait_minutes: { pt: "Minutos de espera pelo h\u00f3spede", en: "Minutes to wait for the guest", type: "number" },
+    holiday_list: { pt: "Feriados observados", en: "Holidays observed", type: "textarea" },
+    holiday_price_effect: { pt: "Efeito dos feriados no pre\u00e7o mensal", en: "Effect of holidays on the monthly price" },
+    hours_per_visit: { pt: "Horas de trabalho por visita", en: "Labor-hours per visit", type: "number" },
+    initial_term: { pt: "Prazo inicial (ex.: six months)", en: "Initial term (e.g. six months)" },
+    insurance_claim_sentence: { pt: "Frase sobre o contato da seguradora (opcional)", en: "Insurer claim contact sentence (optional)" },
+    insurance_summary: { pt: "Resumo do seguro", en: "Insurance summary" },
+    invoice_after_hours: { pt: "Horas para enviar a fatura", en: "Hours to send the invoice", type: "number" },
+    invoice_day: { pt: "Dia da fatura mensal", en: "Monthly invoice day" },
+    key_loss_notice_hours: { pt: "Horas para avisar perda de chave", en: "Hours to report a lost key", type: "number" },
+    key_return_days: { pt: "Dias para devolver a chave", en: "Days to return the key", type: "number" },
+    landlord_consent_sentence: { pt: "Frase sobre a autoriza\u00e7\u00e3o do locador (opcional)", en: "Landlord consent sentence (optional)" },
+    late_cancel_fee: { pt: "Taxa de cancelamento tardio ou sem acesso", en: "Late cancellation or no-access fee" },
+    late_tolerance_minutes: { pt: "Toler\u00e2ncia de atraso (minutos)", en: "Lateness tolerance (minutes)", type: "number" },
+    laundry_location: { pt: "Onde a roupa \u00e9 lavada", en: "Where laundry is done" },
+    laundry_option: { pt: "Lavanderia (ex.: on site)", en: "Laundry (e.g. on site)" },
+    liability_limit: { pt: "Limite total de responsabilidade", en: "Total liability limit" },
+    lift_limit_lbs: { pt: "Limite de peso (libras)", en: "Lifting limit (pounds)", type: "number" },
+    linen_supplier: { pt: "Quem fornece roupa de cama e toalhas", en: "Who supplies linens and towels" },
+    monthly_price: { pt: "Pre\u00e7o mensal", en: "Monthly price" },
+    no_access_fee: { pt: "Taxa de visita sem acesso", en: "No-access fee" },
+    nonsolicit_months: { pt: "Meses sem contratar a equipe direto", en: "Months of the direct-hire limit", type: "number" },
+    notice_address_alt: { pt: "Outro endere\u00e7o para avisos (escreva none se n\u00e3o houver)", en: "Other address for notices (write none if there is none)" },
+    observation_report_hours: { pt: "Horas para relatar o que a equipe viu", en: "Hours to report what the crew saw", type: "number" },
+    one_time_price: { pt: "Pre\u00e7o da limpeza \u00fanica", en: "One-time cleaning price" },
+    partial_visit_basis: { pt: "Como cobrar uma visita interrompida", en: "How a stopped visit is charged" },
+    paying_party: { pt: "Quem paga as faturas", en: "Who pays the invoices" },
+    payment_terms_days: { pt: "Dias para pagar a fatura", en: "Days to pay the invoice", type: "number" },
+    pets_list: { pt: "Animais informados pelo cliente", en: "Pets the customer disclosed" },
+    photo_list: { pt: "Fotos de conclus\u00e3o", en: "Completion photos", type: "textarea" },
+    premises_use: { pt: "Uso do local (ex.: general office)", en: "Use of the premises (e.g. general office)" },
+    price_notice_days: { pt: "Dias de aviso para ajuste de pre\u00e7o", en: "Days' notice of a price adjustment", type: "number" },
+    price_review_months: { pt: "Meses entre ajustes de pre\u00e7o", en: "Months between price adjustments", type: "number" },
+    pricing_basis_description: { pt: "Em que o pre\u00e7o se baseia", en: "What the price is based on" },
+    property_owner_name: { pt: "Nome do propriet\u00e1rio do im\u00f3vel", en: "Property owner's name" },
+    ready_by_time: { pt: "Hora em que o im\u00f3vel fica pronto", en: "Time the property is ready" },
+    reclean_return_days: { pt: "Dias \u00fateis para voltar e corrigir", en: "Business days to return and fix", type: "number" },
+    reclean_window_hours: { pt: "Horas para pedir a corre\u00e7\u00e3o", en: "Hours to ask for a re-clean", type: "number" },
+    record_recipients: { pt: "Quem recebe o registro e as fotos", en: "Who receives the record and photos" },
+    renewal_date: { pt: "Data da renova\u00e7\u00e3o", en: "Renewal date" },
+    renewal_notice_sentence: { pt: "Frase do lembrete de renova\u00e7\u00e3o", en: "Renewal reminder sentence" },
+    renewal_reminder_sentence: { pt: "Frase do lembrete de renova\u00e7\u00e3o (cl\u00e1usula)", en: "Renewal reminder sentence (clause)" },
+    renewal_term: { pt: "Prazo de cada renova\u00e7\u00e3o", en: "Renewal term" },
+    report_hours: { pt: "Horas para enviar o relat\u00f3rio", en: "Hours to send the report", type: "number" },
+    report_method: { pt: "Como o relat\u00f3rio \u00e9 enviado", en: "How the report is sent" },
+    reprice_table: { pt: "Pre\u00e7os por intervalo desde a \u00faltima limpeza", en: "Prices by time since the last cleaning", type: "textarea" },
+    reschedule_window_days: { pt: "Dias para remarcar", en: "Days to reschedule", type: "number" },
+    restock_alert_method: { pt: "Como avisar estoque baixo", en: "How low stock is reported" },
+    restock_charge_basis: { pt: "Como cobrar itens de reposi\u00e7\u00e3o", en: "How restock items are charged" },
+    restock_list: { pt: "Itens de reposi\u00e7\u00e3o", en: "Restock items", type: "textarea" },
+    restock_minimum: { pt: "Estoque m\u00ednimo", en: "Minimum stock" },
+    restock_supplier: { pt: "Quem fornece os itens de reposi\u00e7\u00e3o", en: "Who supplies restock items" },
+    rotation_schedule: { pt: "Rod\u00edzio das tarefas peri\u00f3dicas", en: "Rotation of periodic tasks", type: "textarea" },
+    rush_charge_description: { pt: "Cobran\u00e7a de urg\u00eancia, mesmo dia e feriado", en: "Rush, same-day and holiday charge" },
+    schedule_change_notice_hours: { pt: "Horas de aviso para mudar o dia", en: "Hours' notice of a schedule change", type: "number" },
+    scope_checklist: { pt: "Lista do Anexo A", en: "Exhibit A checklist", type: "textarea" },
+    screening_description: { pt: "Triagem feita na equipe", en: "Screening the staff completed" },
+    service_address: { pt: "Endere\u00e7o do servi\u00e7o", en: "Service address" },
+    service_county: { pt: "Condado do servi\u00e7o", en: "Service county" },
+    service_date: { pt: "Data do servi\u00e7o", en: "Service date", type: "date" },
+    service_day: { pt: "Dia do servi\u00e7o (ex.: Tuesdays)", en: "Service day (e.g. Tuesdays)" },
+    service_hours: { pt: "Hor\u00e1rio do servi\u00e7o (ex.: after 6:00 PM)", en: "Service hours (e.g. after 6:00 PM)" },
+    signer_name: { pt: "Quem assina pelo cliente", en: "Person signing for the customer" },
+    signer_title: { pt: "Cargo de quem assina pelo cliente", en: "Title of the person signing for the customer" },
+    size_description: { pt: "Tamanho do im\u00f3vel", en: "Size of the property" },
+    staff_status_description: { pt: "Quem vem: funcion\u00e1rios ou aut\u00f4nomos", en: "Who comes: employees or contractors" },
+    start_time: { pt: "Hora de in\u00edcio (ex.: 9:00 AM)", en: "Start time (e.g. 9:00 AM)" },
+    stool_steps: { pt: "Degraus do banquinho", en: "Step-stool steps", type: "number" },
+    suite_or_floor: { pt: "Sala ou andar", en: "Suite or floor" },
+    suspension_days: { pt: "Dias de atraso antes de suspender", en: "Days late before suspension", type: "number" },
+    tax_line_sentence: { pt: "Frase da linha de imposto", en: "Tax line sentence" },
+    tax_note_short: { pt: "Nota de imposto no pre\u00e7o", en: "Tax note on the price" },
+    team_change_notice_hours: { pt: "Horas para avisar troca na equipe", en: "Hours to report a team change", type: "number" },
+    termination_methods: { pt: "Como encerrar o contrato", en: "How to end the agreement" },
+    termination_notice_days: { pt: "Dias de aviso para encerrar", en: "Days' notice to end", type: "number" },
+    termination_notice_hours: { pt: "Horas de aviso para encerrar", en: "Hours' notice to end", type: "number" },
+    tier2_hours_high: { pt: "Faixa do meio: de quantas horas antes", en: "Middle tier: from how many hours before", type: "number" },
+    tier2_hours_low: { pt: "Faixa do meio: at\u00e9 quantas horas antes", en: "Middle tier: to how many hours before", type: "number" },
+    tier2_percent: { pt: "Faixa do meio: % do pre\u00e7o da visita", en: "Middle tier: % of the visit price", type: "number" },
+    tier3_percent: { pt: "\u00daltima faixa: % do pre\u00e7o da visita", en: "Last tier: % of the visit price", type: "number" },
+    time_change_notice_hours: { pt: "Horas de aviso para pedir mais tempo", en: "Hours' notice to add time", type: "number" },
+    translation_notice_sentence: { pt: "Frase sobre a tradu\u00e7\u00e3o", en: "Translation sentence" },
+    trash_scope: { pt: "Limite da retirada de lixo", en: "Trash removal limit" },
+    turnover_deadline_sentence: { pt: "Frase do hor\u00e1rio de entrega (opcional)", en: "Ready-by sentence (optional)" },
+    turnover_price_table: { pt: "Tabela de pre\u00e7os por turnover", en: "Price table per turnover", type: "textarea" },
+    valuables_threshold: { pt: "O que conta como item valioso", en: "What counts as a valuable item" },
+    visit_count: { pt: "N\u00famero de visitas", en: "Number of visits", type: "number" },
+    visit_price: { pt: "Pre\u00e7o por visita", en: "Price per visit" },
+    visits_per_month: { pt: "Visitas por m\u00eas", en: "Visits per month", type: "number" },
+    waste_location: { pt: "Para onde vai o lixo", en: "Where trash goes" },
+    scope_included: { pt: "Anexo A: tarefas inclu\u00eddas (uma por linha)", en: "Exhibit A: included tasks (one per line)", type: "textarea" },
+    scope_excluded: { pt: "Anexo A: tarefas exclu\u00eddas (uma por linha)", en: "Exhibit A: excluded tasks (one per line)", type: "textarea" },
+    term_remaining_price: { pt: "Pre\u00e7o do prazo restante do contrato (s\u00f3 para conferir o teto; n\u00e3o \u00e9 impresso)", en: "Price of the remaining term (only to check the cap; not printed)" },
+    property_type: { pt: "Tipo do imóvel", en: "Property type" }
+  };
+  function contractFieldLabel(key, en) {
+    var f = CONTRACT_FIELDS[key];
+    if (f) { return en ? f.en : f.pt; }
+    return key === null || key === undefined ? "" : String(key).replace(/_/g, " ");
+  }
+  function contractFieldType(key) { var f = CONTRACT_FIELDS[key]; return (f && f.type) || "text"; }
+
+
+  // ── Contract builder, owner-facing Portuguese (docs PDF build, N2) ──────
+  // Clause-area and option TITLES as the owner sees them on Portuguese
+  // screens. The clause text that PRINTS in the contract stays English and is
+  // never translated; these are screen labels only. A business's own custom
+  // clause has no entry and shows as typed.
+  var CONTRACT_AREA_PT = {
+    C01: "Partes, imóvel e descrição da obra", C02: "Escopo do serviço e exclusões", C03: "Preço do contrato",
+    C04: "Parcelas, formas de pagamento e atraso", C05: "Aditivos", C06: "Prazo, condições de início, atrasos e clima",
+    C07: "Acesso à obra e responsabilidades do cliente", C08: "Condições ocultas e imprevistas", C09: "Licenças, Notice of Commencement e vistorias",
+    C10: "Materiais, escolhas e substituições", C11: "Garantia de mão de obra e garantias dos fabricantes",
+    C12: "Conclusão, pendências, pagamento final, liberação de gravames e declaração de pagamento final",
+    C13: "Suspensão e rescisão", C14: "Solução de conflitos (pacotes definidos pelo advogado)", C15: "Limite de responsabilidade e seguro",
+    C16: "Validade da proposta e aceite", C17: "Limpeza, entulho e proteção da obra", C18: "Fotos e uso em marketing (com aceite)",
+    C19: "Acordo integral, avisos, assinatura eletrônica, independência das cláusulas e lei aplicável"
+  };
+  // Cleaning service agreements: the builder's slots (one choice each).
+  var CONTRACT_CLEANING_AREA_PT = { "CL01": "Partes, im\u00f3vel e quem assina", "CL02": "Servi\u00e7os", "CL03": "Acesso, chaves, c\u00f3digos e visita sem acesso", "CL04": "Animais", "CL04-C": "Animal que foge (opcional)", "CL04-D": "Riscos e condi\u00e7\u00f5es inseguras", "CL04-E": "Limites de altura e peso (opcional)", "CL05": "Produtos e equipamentos", "CL06": "Agenda", "CL06-P": "Pre\u00e7o", "CL06-E": "Pre\u00e7o por frequ\u00eancia depois de visita pulada (opcional)", "CL07": "Pagamento", "CL07-D": "Pagamento com cart\u00e3o (opcional)", "CL07-L": "Atraso no pagamento", "CL08": "Cancelamento, remarca\u00e7\u00e3o e visita sem acesso", "CL09": "Prazo, renova\u00e7\u00e3o e encerramento", "CL09-E": "Encerramento por justa causa (opcional)", "CL09-F": "Sa\u00edda antecipada de prazo fixo", "CL10": "Danos", "CL10-C": "O que n\u00e3o \u00e9 coberto (opcional)", "CL10-D": "Prazo para reclamar e inspe\u00e7\u00e3o", "CL10-E": "Limite de responsabilidade (opcional)", "CL11": "Corre\u00e7\u00e3o do servi\u00e7o (re-clean)", "CL11-C": "Vistoria no fim da visita (opcional)", "CL12": "Registro de condi\u00e7\u00e3o, fotos e lista de conclus\u00e3o", "CL13": "Seguro", "CL14": "Equipe", "CL14-C": "Sem garantia sobre a triagem (opcional)", "CL15": "Contrata\u00e7\u00e3o direta da equipe (opcional)", "CL16": "Temporada: hor\u00e1rios e fotos do turnover", "CL16-B": "Temporada: relatos da equipe n\u00e3o s\u00e3o acusa\u00e7\u00f5es", "CL16-C": "Temporada: lockbox, c\u00f3digos e registro de entrada (opcional)", "CL16-D": "Temporada: taxa de limpeza do h\u00f3spede (opcional)", "CL17": "Escrit\u00f3rio: sigilo e \u00e1reas restritas", "CL17-B": "Escrit\u00f3rio: lixo e regras do pr\u00e9dio", "CL17-C": "Escrit\u00f3rio: subcontratados e exig\u00eancias do locador (opcional)", "CL18": "Solu\u00e7\u00e3o de conflitos", "CL19": "Termos gerais" };
+  Object.keys(CONTRACT_CLEANING_AREA_PT).forEach(function(k) { CONTRACT_AREA_PT[k] = CONTRACT_CLEANING_AREA_PT[k]; });
+  var CONTRACT_OPTION_PT = {
+    "C01-A": "Partes e imóvel: dono ou donos assinam em nome próprio", "C01-B": "Partes e imóvel: dono assina por empresa, trust ou representante", "C01-C": "Partes e imóvel: imóvel alugado ou sem morador",
+    "C02-A": "Escopo: orçamento aceito incorporado, contrato prevalece em conflito", "C02-B": "Escopo: orçamento mais plantas, projetos ou renderizações",
+    "C03-A": "Preço total fechado", "C03-B": "Preço total fechado com verbas (allowances)", "C03-C": "Preço total fechado com preço por unidade para quantidades incertas",
+    "C04-A": "Parcelas por etapa, recibos, sem multa por atraso", "C04-B": "Parcelas por etapa com carência e juros simples", "C04-C": "Sinal para comprar material, saldo na conclusão (obras curtas)",
+    "C05-A": "Aditivo assinado antes de começar o trabalho alterado", "C05-B": "Aditivo assinado; a parte afetada para até a assinatura", "C05-C": "Aditivo assinado, com autorização para condição urgente",
+    "C06-A": "Datas estimadas, sem garantia", "C06-B": "Data alvo de conclusão com prorrogações", "C06-C": "Obra externa: clima, dias de chuva e tempo de cura",
+    "C07-A": "Acesso e responsabilidades gerais do cliente", "C07-B": "Casa ocupada (reforma e obra interna)", "C07-C": "Obra externa com acesso de máquinas",
+    "C08-A": "Condições ocultas gerais", "C08-B": "Subsolo: piscinas e hardscape", "C08-C": "Contrapiso: cerâmica e piso", "C08-D": "Dentro das paredes e casas antigas: reforma e serviços gerais",
+    "C09-A": "A empresa tira as licenças; o cliente registra a Notice of Commencement", "C09-B": "A empresa tira as licenças e registra a Notice of Commencement como representante do cliente", "C09-C": "Sem licença necessária",
+    "C10-A": "Escolhas e substituições gerais", "C10-B": "Cerâmica e pedra natural: lotes, variação, rejunte e sobra de estoque", "C10-C": "Piscinas e hardscape: acabamentos, pavers e produtos naturais", "C10-D": "Material fornecido pelo cliente",
+    "C11-A": "Garantia de mão de obra de um ano", "C11-B": "Garantia de mão de obra de dois anos", "C11-C": "Tabela de garantia por componente",
+    "C12-A": "Pagamento final na conclusão substancial, pequena retenção para pendências", "C12-B": "Pagamento final na conclusão total", "C12-C": "Retenção em cada parcela",
+    "C13-A": "Assimétrica: a empresa pode suspender ou rescindir por falta de pagamento ou acesso; o cliente, por justa causa", "C13-B": "Assimétrica, e o cliente pode rescindir sem motivo pagando uma taxa", "C13-C": "Rescisão só por justa causa, igual para os dois",
+    "C14-A": "Pacote A: negociação, mediação e depois a justiça no condado do imóvel", "C14-B": "Pacote B: negociação, mediação e depois arbitragem obrigatória", "C14-C": "Pacote C: negociação, mediação, justiça, honorários para quem ganhar e renúncia ao júri",
+    "C15-A": "Responsabilidade limitada ao preço do contrato; sem danos indiretos", "C15-B": "Sem limite de responsabilidade; só a declaração do seguro", "C15-C": "Responsabilidade limitada ao valor pago pela parte afetada da obra",
+    "C16-A": "Validade ligada à do orçamento", "C16-B": "Execução mútua em 72 horas do Pr. Rafael", "C16-C": "Validade com data de início reservada",
+    "C17-A": "Arrumação diária e limpeza final, retirada de entulho incluída", "C17-B": "Só limpeza final", "C17-C": "O cliente fornece a caçamba",
+    "C18-A": "Sem uso em marketing", "C18-B": "Uso em marketing sem dados que identifiquem", "C18-C": "Uso em marketing com primeiro nome e cidade, e pedido de avaliação",
+    "C19-A": "Termos gerais padrão", "C19-B": "Termos padrão mais tradução de cortesia em português"
+  };
+  var CONTRACT_CLEANING_OPTION_PT = { "CL01-A": "Pessoa que mora no im\u00f3vel", "CL01-B": "Propriet\u00e1rio ou gerente assina pelo dono do im\u00f3vel", "CL01-C": "Cliente empresa (escrit\u00f3rio)", "CL02-A": "Residencial recorrente: lista fixa de tarefas", "CL02-B": "Residencial recorrente: horas compradas, prioridades em ordem", "CL02-C": "Limpeza \u00fanica ou de mudan\u00e7a: escopo detalhado com limite de condi\u00e7\u00e3o", "CL02-D": "Temporada: lista do turnover", "CL02-E": "Escrit\u00f3rio: escopo com frequ\u00eancia por \u00e1rea", "CL03-A": "Cliente em casa ou casa aberta", "CL03-B": "Chave ou lockbox com a empresa", "CL03-C": "Alarme, port\u00e3o, fechadura inteligente e estacionamento", "CL03-D": "Escrit\u00f3rio: acesso fora do expediente", "CL04-A": "Todos os animais presos fora da \u00e1rea", "CL04-B": "Animais mansos informados podem ficar", "CL04-C": "Animal que foge", "CL04-D": "Riscos e condi\u00e7\u00f5es inseguras", "CL04-E": "Limites de altura e peso", "CL05-A": "A empresa leva produtos e equipamentos", "CL05-B": "Produtos ou equipamentos do cliente, a pedido", "CL05-C": "Escrit\u00f3rio: o cliente fornece descart\u00e1veis e dep\u00f3sito", "CL05-D": "Temporada: roupa de cama, lavanderia e reposi\u00e7\u00e3o", "CL06-A": "Dia fixo com janela de chegada", "CL06-B": "Hora marcada com toler\u00e2ncia de atraso", "CL06-C": "Pre\u00e7o por visita, aviso de 30 dias para mudar", "CL06-D": "Pre\u00e7o por visita com teto de aumento por ano", "CL06-E": "Pre\u00e7o por frequ\u00eancia depois de visita pulada", "CL06-F": "Pre\u00e7o fechado da limpeza \u00fanica", "CL06-G": "Temporada: tabela de pre\u00e7o por turnover", "CL06-H": "Escrit\u00f3rio: pre\u00e7o mensal ajustado pelo escopo", "CL07-A": "Por visita, pago na conclus\u00e3o", "CL07-B": "Fatura mensal", "CL07-C": "Temporada: fatura depois de cada turnover", "CL07-D": "Link de cart\u00e3o ou cart\u00e3o salvo (autoriza\u00e7\u00e3o separada)", "CL07-E": "Atraso: s\u00f3 suspens\u00e3o", "CL07-F": "Atraso: juros simples depois da car\u00eancia", "CL08-A": "Cancelamento gr\u00e1tis com aviso; taxa fixa para aviso tardio ou sem acesso", "CL08-B": "Faixas em porcentagem do pre\u00e7o da visita", "CL08-C": "Sem taxa com aviso; a pr\u00f3xima visita muda de pre\u00e7o", "CL08-D": "Temporada: aviso curto, mudan\u00e7a no mesmo dia e cancelamento do h\u00f3spede", "CL08-E": "Escrit\u00f3rio: cancelar uma visita", "CL09-A": "M\u00eas a m\u00eas, sem renova\u00e7\u00e3o autom\u00e1tica", "CL09-B": "Prazo fixo com renova\u00e7\u00e3o autom\u00e1tica", "CL09-C": "Prazo fixo que termina sozinho", "CL09-D": "Servi\u00e7o \u00fanico, sem compromisso futuro", "CL09-E": "Encerramento por justa causa", "CL09-F": "Sa\u00edda antecipada de prazo fixo: sem taxa ou com taxa definida", "CL09-F:none": "Sem taxa", "CL09-F:fee": "Taxa definida", "CL10-A": "Conserta ou rep\u00f5e pelo valor atual", "CL10-B": "Teto de danos por visita (valores do advogado)", "CL10-C": "Exclus\u00f5es: dano que j\u00e1 existia, itens fr\u00e1geis e valiosos", "CL10-D": "Prazo para reclamar e inspe\u00e7\u00e3o", "CL10-E": "Sem perdas indiretas; limite total", "CL11-A": "Volta e corrige em 24 horas", "CL11-B": "Volta e corrige; cr\u00e9dito se a volta atrasar", "CL11-C": "Vistoria no fim (cliente presente)", "CL12-A": "Fotos de antes confirmadas pelo cliente (primeira visita)", "CL12-B": "Mudan\u00e7a: lista por c\u00f4modo com fotos de antes e depois", "CL12-C": "Temporada: registro-base e fotos depois de cada turnover", "CL12-D": "Lista de conclus\u00e3o em cada visita", "CL13-A": "Seguro como est\u00e1 na proposta", "CL13-B": "Certificado de seguro a pedido", "CL13-C": "Sem promessa sem comprovante (padr\u00e3o)", "CL14-A": "Equipe com triagem (s\u00f3 com registro)", "CL14-B": "Funcion\u00e1rios ou aut\u00f4nomos informados", "CL14-C": "Sem garantia sobre a triagem", "CL15-A": "Limite para contratar a equipe direto", "CL15-B": "Taxa de contrata\u00e7\u00e3o no lugar da proibi\u00e7\u00e3o", "CL15-C": "Sem restri\u00e7\u00e3o, com sigilo dos dados da equipe", "CL16-A": "Turnover no mesmo dia, fotos e h\u00f3spede atrasado", "CL16-B": "Relatos de dano s\u00e3o relatos, n\u00e3o acusa\u00e7\u00f5es", "CL16-C": "Lockbox, troca de c\u00f3digos e registro de entrada", "CL16-D": "Separa\u00e7\u00e3o da taxa de limpeza do h\u00f3spede", "CL17-A": "Sigilo, \u00e1reas restritas e documentos", "CL17-B": "Lixo, reciclagem, res\u00edduos perigosos e regras do pr\u00e9dio", "CL17-C": "Subcontratados e exig\u00eancias do locador", "CL18-A": "Conversa, depois media\u00e7\u00e3o, depois tribunal do condado do im\u00f3vel", "CL18-B": "Arbitragem depois da media\u00e7\u00e3o (definida pelo advogado)", "CL18-C": "Honor\u00e1rios para quem vence e ren\u00fancia a j\u00fari", "CL19-A": "Termos gerais padr\u00e3o", "CL19-B": "Termos padr\u00e3o mais tradu\u00e7\u00e3o de cortesia em portugu\u00eas (bloqueada)" };
+  Object.keys(CONTRACT_CLEANING_OPTION_PT).forEach(function(k) { CONTRACT_OPTION_PT[k] = CONTRACT_CLEANING_OPTION_PT[k]; });
+  var CONTRACT_TRADE_PT = {
+    cleaning: "Limpeza",
+    pools: "Piscinas e spas", tile: "Cerâmica e pisos", remodeling: "Reforma",
+    hardscape: "Hardscape e área externa", general: "Serviços gerais"
+  };
+  // Why each Florida notice (L1-L7) is on or off, as the server sends it.
+  var CONTRACT_NOTICE_WHY_PT = {
+    "every contract": "todo contrato",
+    "sold during a visit to the customer's home": "vendido durante uma visita à casa do cliente",
+    "not sold at the home": "não vendido na casa do cliente",
+    "pool contract": "contrato de piscina",
+    "pool box unchecked": "caixa de piscina desmarcada",
+    "business does not build pools": "a empresa não constrói piscinas",
+    "over $2,500, residential 1-4 family": "acima de $2,500, residencial de 1 a 4 famílias",
+    "over $2,500, residential": "acima de $2,500, residencial",
+    "not a 1-4 family residence": "não é residência de 1 a 4 famílias",
+    "not residential": "não residencial",
+    "property type not answered": "tipo do imóvel não respondido",
+    "contract $2,500 or less": "contrato de $2,500 ou menos",
+    "first payment over 10%": "primeira parcela acima de 10%",
+    "first payment 10% or less": "primeira parcela de 10% ou menos"
+  };
+  // Why each cleaning notice (LC1-LC7) is on or off.
+  var CONTRACT_CLEANING_WHY_PT = {
+    "residential recurring service for an individual": "servi\u00e7o residencial recorrente para pessoa f\u00edsica",
+    "customer is not an individual buying for personal, family or household use": "o cliente n\u00e3o \u00e9 pessoa f\u00edsica comprando para uso pessoal, familiar ou dom\u00e9stico",
+    "one-time job that also promises further visits": "servi\u00e7o \u00fanico que tamb\u00e9m promete outras visitas",
+    "one visit, no further visits promised": "uma visita, sem promessa de outras",
+    "off by default for this template (attorney question: does the rule reach this customer?)": "desligado por padr\u00e3o neste modelo (pergunta ao advogado: a regra alcan\u00e7a este cliente?)",
+    "off until an attorney supplies the official wording": "desligado at\u00e9 um advogado fornecer o texto oficial",
+    "not sold at the home (sold by phone, mail or online, or at the company's own place of business)": "n\u00e3o vendido na casa do cliente (vendido por telefone, correio ou internet, ou no endere\u00e7o da empresa)",
+    "printed with the federal three-day notice": "impresso junto com o aviso federal de tr\u00eas dias",
+    "the federal three-day notice is not printed": "o aviso federal de tr\u00eas dias n\u00e3o \u00e9 impresso",
+    "fixed term with automatic renewal (CL09-B)": "prazo fixo com renova\u00e7\u00e3o autom\u00e1tica (CL09-B)",
+    "no automatic renewal on this agreement": "este contrato n\u00e3o tem renova\u00e7\u00e3o autom\u00e1tica",
+    "reminder messages are not sent by the app yet": "o aplicativo ainda n\u00e3o envia os lembretes",
+    "commercial office": "escrit\u00f3rio comercial",
+    "not a commercial office": "n\u00e3o \u00e9 escrit\u00f3rio comercial",
+    "short-term-rental turnover": "turnover de temporada",
+    "not a short-term-rental turnover": "n\u00e3o \u00e9 turnover de temporada",
+    "builder rule: what the agreement may say about insurance, bonding and screening": "regra do sistema: o que o contrato pode dizer sobre seguro, fian\u00e7a e triagem",
+    "construction notices are not part of a cleaning agreement": "avisos de constru\u00e7\u00e3o n\u00e3o fazem parte de contrato de limpeza"
+  };
+  Object.keys(CONTRACT_CLEANING_WHY_PT).forEach(function(k) { CONTRACT_NOTICE_WHY_PT[k] = CONTRACT_CLEANING_WHY_PT[k]; });
+  var CONTRACT_DISCLAIMER_PT = {
+    "This contract template has not been reviewed by an attorney. Have your attorney review it.": "Este modelo de contrato não foi revisado por um advogado. Peça ao seu advogado para revisar."
+  };
+  function contractAreaTitle(id, title, en) { return (!en && CONTRACT_AREA_PT[id]) ? CONTRACT_AREA_PT[id] : (title || id || ""); }
+  function contractOptionTitle(id, title, en) { return (!en && CONTRACT_OPTION_PT[id]) ? CONTRACT_OPTION_PT[id] : (title || id || ""); }
+  function contractTradeLabel(key, label, en) { return (!en && CONTRACT_TRADE_PT[key]) ? CONTRACT_TRADE_PT[key] : (label || key || ""); }
+  // State riders: a Florida block that is off because the job is in another
+  // state carries the state's name in its reason, so it is matched by pattern.
+  function contractNoticeWhy(why, en) {
+    if (!en && CONTRACT_NOTICE_WHY_PT[why]) { return CONTRACT_NOTICE_WHY_PT[why]; }
+    if (!en) {
+      var m = /^job is in (.+): Florida notice not used$/.exec(why || "");
+      if (m) { return "a obra fica em " + m[1] + ": o aviso da Fl\u00f3rida n\u00e3o \u00e9 usado"; }
+      m = /^service is in (.+): Florida notice not used$/.exec(why || "");
+      if (m) { return "o servi\u00e7o fica em " + m[1] + ": o aviso da Fl\u00f3rida n\u00e3o \u00e9 usado"; }
+      m = /^job is in (.+): state defect process named instead$/.exec(why || "");
+      if (m) { return "a obra fica em " + m[1] + ": o contrato cita o processo de defeitos do estado"; }
+    }
+    return why || "";
+  }
+  // The disclaimer, sentence by sentence (the state sentences carry a state
+  // name; a sentence with no Portuguese version stays as sent).
+  var CONTRACT_DISCLAIMER_CUSTOM_EN = "This contract contains a custom clause that was not reviewed by an attorney.";
+  var CONTRACT_DISCLAIMER_CUSTOM_PT = "Este contrato tem uma cl\u00e1usula personalizada que n\u00e3o foi revisada por um advogado.";
+  function contractDisclaimer(text, en) {
+    var t = text || "";
+    if (en) { return t; }
+    if (CONTRACT_DISCLAIMER_PT[t]) { return CONTRACT_DISCLAIMER_PT[t]; }
+    var out = [], rest = t, m;
+    m = /^Draft rider, not reviewed by a lawyer for (.+?)\. This contract was prepared with state-specific additions that no lawyer has reviewed\. Have your attorney review it\.\s*/.exec(rest);
+    if (m) {
+      out.push("Rascunho de adendo estadual, n\u00e3o revisado por advogado para " + m[1] + ". Este contrato foi preparado com acr\u00e9scimos espec\u00edficos do estado que nenhum advogado revisou. Pe\u00e7a ao seu advogado para revisar.");
+      rest = rest.slice(m[0].length);
+    } else {
+      m = /^Reviewed by (.+) for (.+?) on (\d{2}\/\d{2}\/\d{4})\.\s*/.exec(rest);
+      if (m) { out.push("Revisado por " + m[1] + " para " + m[2] + " em " + m[3] + "."); rest = rest.slice(m[0].length); }
+    }
+    if (!out.length) { return t; }
+    m = /^State-specific rules for (.+?) could not be verified from official sources\. Confirm licensing and notices before signing\.\s*/.exec(rest);
+    if (m) { out.push("As regras espec\u00edficas de " + m[1] + " n\u00e3o puderam ser confirmadas em fontes oficiais. Confirme a licen\u00e7a e os avisos antes de assinar."); rest = rest.slice(m[0].length); }
+    if (rest === CONTRACT_DISCLAIMER_CUSTOM_EN) { out.push(CONTRACT_DISCLAIMER_CUSTOM_PT); rest = ""; }
+    if (rest) { out.push(rest); }
+    return out.join(" ");
+  }
+
+  // ── Invoice / payment step names (N6) ───────────────────────────────────
+  // The stored step names stay English (they print on the English customer
+  // invoice); a Portuguese screen shows these. A name the owner typed shows
+  // as typed.
+  var PAY_STEP_PT = { "Deposit": "Sinal", "Mid-project": "Meio da obra", "Completion": "Conclusão", "Final payment": "Pagamento final", "Balance": "Saldo" };
+  function payStepLabel(name, en) {
+    var s = name === null || name === undefined ? "" : String(name);
+    if (en) { return s; }
+    if (PAY_STEP_PT[s]) { return PAY_STEP_PT[s]; }
+    var m = /^Change order (CO-\d+)$/.exec(s);
+    if (m) { return "Aditivo " + m[1]; }
+    return s;
+  }
+
+  global.GmLabels = {
+    CONTRACT_FIELDS: CONTRACT_FIELDS,
+    contractAreaTitle: contractAreaTitle,
+    contractOptionTitle: contractOptionTitle,
+    contractTradeLabel: contractTradeLabel,
+    contractNoticeWhy: contractNoticeWhy,
+    contractDisclaimer: contractDisclaimer,
+    payStepLabel: payStepLabel,
+    contractFieldLabel: contractFieldLabel,
+    contractFieldType: contractFieldType,
+    INVOICE_STATUSES: INVOICE_STATUSES,
+    invoiceStatusLabel: invoiceStatusLabel,
+    INVOICE_PAYMENT_METHODS: INVOICE_PAYMENT_METHODS,
+    invoicePaymentMethodLabel: invoicePaymentMethodLabel,
+    ESTIMATE_STATUSES: ESTIMATE_STATUSES,
+    estimateStatusLabel: estimateStatusLabel,
+    ESTIMATE_LINE_TYPES: ESTIMATE_LINE_TYPES,
+    estimateLineTypeLabel: estimateLineTypeLabel,
+    DOC_PAYMENT_METHODS: DOC_PAYMENT_METHODS,
+    paymentMethodLabel: paymentMethodLabel,
+    HERO_CATEGORIES: HERO_CATEGORIES,
+    HERO_PRIVATE_CHIP: HERO_PRIVATE_CHIP,
+    valueHistorySourceLabel: function(key, en) { return valueHistoryLabel(VALUE_HISTORY_SOURCES, key, en); },
+    valueHistoryFieldLabel: function(key, en) { return valueHistoryLabel(VALUE_HISTORY_FIELDS, key, en); },
+    heroCategoryLabel: heroCategoryLabel,
+    PRICING_KINDS: PRICING_KINDS,
+    pricingKindLabel: pricingKindLabel,
+    COST_LINE_TYPES: COST_LINE_TYPES,
+    costLineTypeLabel: costLineTypeLabel,
+    DOC_TERMS_PRESETS: DOC_TERMS_PRESETS,
+    termsLabel: termsLabel,
+    STATUS_EN: STATUS_EN,
+    statusLabel: statusLabel,
+    STAGES: STAGES,
+    STAGE_KEYS: STAGE_KEYS,
+    STAGE_BY_KEY: STAGE_BY_KEY,
+    ACTIVE_PIPELINE_STAGE_KEYS: ACTIVE_PIPELINE_STAGE_KEYS,
+    LIVE_STAGE_KEYS: LIVE_STAGE_KEYS,
+    stageKey: stageKey,
+    stageLabel: stageLabel,
+    EVENT_TYPE_EN: EVENT_TYPE_EN,
+    EVENT_TYPE_KEY: EVENT_TYPE_KEY,
+    OUTRO_KEY: OUTRO_KEY,
+    customEventTypeKey: customEventTypeKey,
+    normalizeEventType: normalizeEventType,
+    normalizeEventTypes: normalizeEventTypes,
+    eventTypeLabel: eventTypeLabel
+  };
+})(typeof window !== "undefined" ? window : globalThis);

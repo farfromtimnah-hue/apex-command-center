@@ -15788,7 +15788,7 @@ function clientRequestAllowed(path, method, clientId) {
             // same client_visible predicate as /file -- this exposes no row that
             // /file would not.
             if (/^documents\/[A-Za-z0-9-]+\/preview$/.test(rest)) { return true; }
-            if (/^assessments\/[a-z_]+$/.test(rest)) { return true; }
+            if (/^assessments\/[a-z0-9_]+$/.test(rest)) { return true; }
         }
         if (method === "POST") {
             if (rest === "logo") { return true; }
@@ -15803,7 +15803,7 @@ function clientRequestAllowed(path, method, clientId) {
         if (method === "PUT" && rest === "referral-settings") { return true; }
         if (method === "PUT" && rest === "goals") { return true; }
         if (method === "PUT" && /^entries\/\d{4}-\d{2}-\d{2}\/sections\/[a-z_]+$/.test(rest)) { return true; }
-        if (method === "PUT" && /^assessments\/[a-z_]+\/answers$/.test(rest)) { return true; }
+        if (method === "PUT" && /^assessments\/[a-z0-9_]+\/answers$/.test(rest)) { return true; }
         // Growth Management — the client business's own data (their leads,
         // roadmap, dormant customers, partners, ledger, jobs). Full CRUD for
         // the client's own client_id. PUT gm/config is allowed, but the handler
@@ -36830,7 +36830,7 @@ async function handlePostGmContractRoute(id, cid, request, env) {
         try {
             var isOwnerTarget = ctx.settings.owner_signer_name && target.name.toLowerCase() === String(ctx.settings.owner_signer_name).toLowerCase();
             var pushTo = await gmClientPushTargets(env, id, isOwnerTarget ? { owner: true } : { owner: false, seller_name: target.name });
-            if (pushTo.length) { await pushToUsers(env, pushTo, { title: "Contrato aguardando a sua assinatura", body: contractDisplayNumber(c) + " · " + ((ctx.job && ctx.job.obra) || "") + ": abra Projetos > Contrato > Assinar pela empresa", url: "/portal.html?tab=gmjobs" }); }
+            if (pushTo.length) { var cwEn = (await gmOwnerPushLang(env, cid)) === "en"; await pushToUsers(env, pushTo, { title: cwEn ? "Contract waiting for your signature" : "Contrato aguardando a sua assinatura", body: contractDisplayNumber(c) + " · " + ((ctx.job && ctx.job.obra) || "") + (cwEn ? ": open Projects > Contract > Sign as company" : ": abra Projetos > Contrato > Assinar pela empresa"), url: "/portal.html?tab=gmjobs" }); }
         } catch (eP) { console.error("route push failed", eP && eP.message); }
         return jsonOk({ routed: true, to_name: target.name, to_phone: target.phone, to_email: target.email || null, business_name: ctx.doc.legal_name || (ctx.client && ctx.client.name) || "", message: msg });
     } catch (e) {
@@ -37937,6 +37937,15 @@ async function gmClientPushTargets(env, clientId, who) {
     return out;
 }
 
+// The owner's saved language for push text: 'en' only when an owner login
+// (login_people role 'client') saved English; everything else stays Portuguese.
+async function gmOwnerPushLang(env, clientId) {
+    try {
+        var r = await env.DB.prepare("SELECT 1 AS x FROM login_people WHERE client_id = ? AND role = 'client' AND language = 'en' LIMIT 1").bind(clientId).first();
+        return r ? "en" : "pt";
+    } catch (e) { return "pt"; }
+}
+
 // F18/F28: a homeowner's answer reaches the owner: a row for the Home card
 // "Respostas dos clientes" (with the reason) and a push to the owner login.
 async function gmRecordHomeownerResponse(env, o) {
@@ -37947,6 +37956,8 @@ async function gmRecordHomeownerResponse(env, o) {
         await env.DB.prepare("INSERT INTO gm_homeowner_responses (id, client_id, job_id, lead_id, doc_kind, doc_id, doc_number, response, reason, customer_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
             .bind(crypto.randomUUID(), o.client_id, o.job_id || null, o.lead_id || null, o.doc_kind, o.doc_id, o.doc_number || null, o.response, o.reason || null, who).run();
         var what = { contract: "o contrato", change_order: "o aditivo", ack_before_photos: "as fotos de antes", ack_completion: "o aceite de conclusão", estimate: "o orçamento" }[o.doc_kind] || "o documento";
+        var respEn = (await gmOwnerPushLang(env, o.client_id)) === "en";
+        var whatEn = { contract: "the contract", change_order: "the change order", ack_before_photos: "the before photos", ack_completion: "the completion sign-off", estimate: "the estimate" }[o.doc_kind] || "the document";
         var targets = await gmClientPushTargets(env, o.client_id, { owner: true });
         if (targets.length) {
             // Task 5.3: tap-to-open target, same rule as every other push
@@ -37955,8 +37966,8 @@ async function gmRecordHomeownerResponse(env, o) {
                 ? "/portal.html?tab=gmcrm&lead=" + encodeURIComponent(o.lead_id)
                 : "/portal.html?tab=analytics";
             await pushToUsers(env, targets, {
-                title: o.response === "changes_requested" ? "Cliente pediu mudanças" : "Cliente recusou",
-                body: who + (o.response === "changes_requested" ? " pediu mudanças em " : " recusou ") + what + (o.doc_number ? " " + o.doc_number : "") + (o.reason ? ": " + String(o.reason).slice(0, 140) : ""),
+                title: respEn ? (o.response === "changes_requested" ? "Customer asked for changes" : "Customer declined") : (o.response === "changes_requested" ? "Cliente pediu mudanças" : "Cliente recusou"),
+                body: who + (respEn ? (o.response === "changes_requested" ? " asked for changes to " : " declined ") + whatEn : (o.response === "changes_requested" ? " pediu mudanças em " : " recusou ") + what) + (o.doc_number ? " " + o.doc_number : "") + (o.reason ? ": " + String(o.reason).slice(0, 140) : ""),
                 url: pushUrl
             });
         }

@@ -7960,7 +7960,7 @@ function gmConLoadResponses() {
   if (!gmContractsEnabled() || gmIsSeller()) { return Promise.resolve([]); }
   return gmApi("homeowner-responses").then(function(d) { gmConResponses = d.responses || []; return gmConResponses; }).catch(function(e) { console.error(e); return []; });
 }
-var GM_CON_RESP_DOC = { contract: ["o contrato", "the contract"], change_order: ["o aditivo", "the change order"], ack_before_photos: ["as fotos de antes", "the before-work photos"], ack_completion: ["o aceite de conclusão", "the completion sign-off"] };
+var GM_CON_RESP_DOC = { contract: ["o contrato", "the contract"], change_order: ["o aditivo", "the change order"], ack_before_photos: ["as fotos de antes", "the before-work photos"], ack_completion: ["o aceite de conclusão", "the completion sign-off"], estimate: ["o orçamento", "the estimate"] };
 function gmConResponsesCardHtml() {
   if (!gmConResponses.length) { return ""; }
   return '<div class="card-title" style="margin-top:12px;">' + gmT("Respostas dos clientes", "Customer responses") + ' <span class="goal-pending-badge">' + gmConResponses.length + '</span></div>' +
@@ -8163,8 +8163,8 @@ function gmRenderJobPhotos(jobId, failed) {
       'onclick="document.getElementById(\'gmJobPhotoInput\').click()">' +
     gmT("+ Adicionar foto ou PDF", "+ Add photo or PDF") + '</button>' +
     '<p class="muted" style="font-size:11px;padding:0 12px 8px;">' +
-    gmT("O cliente v\u00ea estes arquivos no portal dele.",
-        "Your client sees these files in their portal.") + '</p>';
+    gmT("Vis\u00edvel no portal do seu neg\u00f3cio, para as pessoas que entram pelo seu neg\u00f3cio.",
+        "Visible in your business portal, to the people who sign in for your business.") + '</p>';
 
   box.innerHTML = gmSheetSection(gmT("Arquivos do projeto", "Project files"), inner);
   // Only images are hydrated: a PDF row has no <img> to fill.
@@ -10660,8 +10660,8 @@ function gmDocServicosHtml() {
   items.forEach(function(v, i) {
     html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">' +
       '<input type="text" maxlength="80" value="' + escHtml(v) + '" ' +
-        'oninput="gmDocServicosSet(' + i + ', this.value)" style="flex:1;">' +
-      '<button type="button" class="gm-btn-secondary" style="min-height:44px;padding:4px 12px;" ' +
+        'oninput="gmDocServicosSet(' + i + ', this.value)" style="flex:1 1 auto;width:auto;min-width:0;">' +
+      '<button type="button" class="gm-btn-secondary" style="flex:0 0 auto;width:auto;min-height:44px;padding:4px 12px;" ' +
         'aria-label="' + gmT("Remover", "Remove") + '" ' +
         'onclick="gmDocServicosRemove(' + i + ')">&times;</button>' +
       '</div>';

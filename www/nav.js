@@ -1,0 +1,1183 @@
+(function () {
+
+  // ── DEV view switcher: ONE list, used by BOTH the desktop sidebar and the
+  // phone dock's group pop-up ───────────────────────────────────────────────
+  // These were previously two hand-maintained arrays. They drifted: "Seller"
+  // was added to the sidebar and never to the mobile menu, so on a phone the
+  // Seller preview was unreachable in portrait and only appeared in landscape
+  // (landscape crosses mobile.css's 769px breakpoint, which swaps the phone
+  // dock for the desktop sidebar). Derive both from here so it cannot recur.
+  //
+  // Client and Seller open a picker rather than switching the nav directly —
+  // Seller takes two steps, because a salesperson only means something inside
+  // one client.
+  var DEV_VIEWS = [
+    { v: "alice",  label: "Alice"  },
+    { v: "rafa",   label: "Rafa"   },
+    { v: "dev",    label: "Dev"    },
+    { v: "client", label: "Client" },
+    { v: "seller", label: "Seller" }
+  ];
+
+  // ── Nav item definitions ────────────────────────────────────────────────
+  var NAV_ITEMS_ALICE = [
+    { key: "dashboard", href: "dashboard.html", icon: "home",
+      labelPt: "Dashboard",                    labelEn: "Dashboard",
+      tipPt: "Dashboard",                      tipEn: "Dashboard" },
+    { key: "clients",   href: "clients.html",   icon: "users",
+      labelPt: "Clientes",                     labelEn: "Clients",
+      tipPt: "Clientes",                       tipEn: "Clients" },
+    { key: "clientanalytics", href: "client-analytics.html", icon: "target",
+      labelPt: "An&aacute;lise de Clientes",   labelEn: "Client Analytics",
+      tipPt: "Analise de Clientes",            tipEn: "Client Analytics" },
+    { key: "sessions",  href: "sessions.html",  icon: "calendar",
+      labelPt: "Sess&otilde;es",               labelEn: "Sessions",
+      tipPt: "Sessoes",                        tipEn: "Sessions" },
+    { key: "calendar",  href: "calendar.html",  icon: "cal-grid",
+      labelPt: "Calend&aacute;rio",            labelEn: "Calendar",
+      tipPt: "Calendario",                     tipEn: "Calendar" },
+    { key: "documents", href: "documents.html", icon: "file",
+      labelPt: "Documentos",                   labelEn: "Documents",
+      tipPt: "Documentos",                     tipEn: "Documents" },
+    { key: "tasks",     href: "tasks.html",     icon: "check-square",
+      labelPt: "Tarefas",                      labelEn: "Tasks",
+      tipPt: "Tarefas",                        tipEn: "Tasks" },
+    // The old finance.html link was removed 2026-08-26: Alice has been sending
+    // real invoices from finance-new.html and the new system is what she uses.
+    // The page still exists and is still reachable by URL -- only the nav entry
+    // is gone -- so nothing breaks for a stale bookmark or an old deep link.
+    // Label drops "(Novo)" because there is no longer an old one to tell it
+    // apart from.
+    { key: "financenew", href: "finance-new.html", icon: "finance",
+      labelPt: "Financeiro",                   labelEn: "Financial",
+      tipPt: "Financeiro",                     tipEn: "Financial" },
+    { key: "vendors",   href: "vendors.html",   icon: "briefcase",
+      labelPt: "Fornecedores",                 labelEn: "Vendors",
+      tipPt: "Fornecedores",                   tipEn: "Vendors" },
+    { key: "apexclub",  href: "apex-club.html", icon: "star",
+      labelPt: "Apex Club",                    labelEn: "Apex Club",
+      tipPt: "Apex Club",                      tipEn: "Apex Club" },
+    { key: "sales",     href: "sales.html",     icon: "trend",
+      labelPt: "Vendas",                       labelEn: "Sales",
+      tipPt: "Vendas",                         tipEn: "Sales" },
+    { key: "settings",  href: "settings.html",  icon: "settings",
+      labelPt: "Configura&ccedil;&otilde;es",  labelEn: "Settings",
+      tipPt: "Configuracoes",                  tipEn: "Settings" }
+  ];
+
+  var NAV_ITEMS_RAFA = [
+    { key: "dashboard", href: "dashboard.html", icon: "home",
+      labelPt: "Vis&atilde;o Geral",           labelEn: "Overview",
+      tipPt: "Visao Geral",                    tipEn: "Overview" },
+    { key: "clients",   href: "clients.html",   icon: "users",
+      labelPt: "Meus Clientes",                labelEn: "My Clients",
+      tipPt: "Meus Clientes",                  tipEn: "My Clients" },
+    { key: "clientanalytics", href: "client-analytics.html", icon: "target",
+      labelPt: "An&aacute;lise de Clientes",   labelEn: "Client Analytics",
+      tipPt: "Analise de Clientes",            tipEn: "Client Analytics" },
+    { key: "sales",     href: "sales.html",     icon: "trend",
+      labelPt: "Vendas",                       labelEn: "Sales",
+      tipPt: "Vendas",                         tipEn: "Sales" },
+    { key: "sessions",  href: "sessions.html",  icon: "calendar",
+      labelPt: "Sess&otilde;es",               labelEn: "Sessions",
+      tipPt: "Sessoes",                        tipEn: "Sessions" },
+    { key: "calendar",  href: "calendar.html",  icon: "cal-grid",
+      labelPt: "Calend&aacute;rio",            labelEn: "Calendar",
+      tipPt: "Calendario",                     tipEn: "Calendar" },
+    { key: "documents", href: "documents.html", icon: "file",
+      labelPt: "Documentos",                   labelEn: "Documents",
+      tipPt: "Documentos",                     tipEn: "Documents" },
+    { key: "tasks",     href: "tasks.html",     icon: "check-square",
+      labelPt: "Tarefas",                      labelEn: "Tasks",
+      tipPt: "Tarefas",                        tipEn: "Tasks" },
+    // The old finance.html link was removed 2026-08-26: Alice has been sending
+    // real invoices from finance-new.html and the new system is what she uses.
+    // The page still exists and is still reachable by URL -- only the nav entry
+    // is gone -- so nothing breaks for a stale bookmark or an old deep link.
+    // Label drops "(Novo)" because there is no longer an old one to tell it
+    // apart from.
+    { key: "financenew", href: "finance-new.html", icon: "finance",
+      labelPt: "Financeiro",                   labelEn: "Financial",
+      tipPt: "Financeiro",                     tipEn: "Financial" },
+    { key: "apexclub",  href: "apex-club.html", icon: "star",
+      labelPt: "Apex Club",                    labelEn: "Apex Club",
+      tipPt: "Apex Club",                      tipEn: "Apex Club" },
+    // Rafa is a co-owner and needs Vendors, but doesn't use it day to day:
+    // placed after the tools he does use, never ahead of them.
+    { key: "vendors",   href: "vendors.html",   icon: "briefcase",
+      labelPt: "Fornecedores",                 labelEn: "Vendors",
+      tipPt: "Fornecedores",                   tipEn: "Vendors" },
+    { key: "settings",  href: "settings.html",  icon: "settings",
+      labelPt: "Configura&ccedil;&otilde;es",  labelEn: "Settings",
+      tipPt: "Configuracoes",                  tipEn: "Settings" }
+  ];
+
+  // ── SVG icon builder ────────────────────────────────────────────────────
+  function navSvg(type) {
+    var open = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
+    var body = "";
+    if (type === "home") {
+      body = '<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>';
+    } else if (type === "users") {
+      body = '<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>';
+    } else if (type === "calendar") {
+      body = '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>';
+    } else if (type === "file") {
+      body = '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>';
+    } else if (type === "check-square") {
+      body = '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>';
+    } else if (type === "settings") {
+      body = '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>';
+    } else if (type === "cal-grid") {
+      body = '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14" stroke-width="3"/><line x1="12" y1="14" x2="12" y2="14" stroke-width="3"/><line x1="16" y1="14" x2="16" y2="14" stroke-width="3"/><line x1="8" y1="18" x2="8" y2="18" stroke-width="3"/><line x1="12" y1="18" x2="12" y2="18" stroke-width="3"/>';
+    } else if (type === "finance") {
+      body = '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>';
+    } else if (type === "trend") {
+      body = '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>';
+    } else if (type === "chevron-left") {
+      body = '<polyline points="15 18 9 12 15 6"/>';
+    } else if (type === "chevron-right") {
+      body = '<polyline points="9 18 15 12 9 6"/>';
+    } else if (type === "user-plus") {
+      body = '<path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/>';
+    } else if (type === "more") {
+      body = '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>';
+    } else if (type === "briefcase") {
+      body = '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/>';
+    } else if (type === "list") {
+      body = '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>';
+    } else if (type === "star") {
+      body = '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>';
+    } else if (type === "target") {
+      body = '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>';
+    } else if (type === "signature") {
+      body = '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M7 17c1.5-2 2.5-2 3 0s1.5 2 3 0 2-1 3 0"/>';
+    } else if (type === "funnel") {
+      body = '<path d="M3 4h18l-7 8.5V19l-4 2v-8.5L3 4z"/>';
+    } else if (type === "clipboard") {
+      body = '<rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>';
+    } else if (type === "receipt") {
+      body = '<path d="M5 2v20l2.5-1.5L10 22l2-1.5 2 1.5 2.5-1.5L19 22V2l-2.5 1.5L14 2l-2 1.5L10 2 7.5 3.5z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/>';
+    } else if (type === "tag") {
+      body = '<path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>';
+    } else if (type === "bar-chart") {
+      body = '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/>';
+    } else if (type === "store") {
+      body = '<path d="M3 9l2-5h14l2 5"/><path d="M4 9v11h16V9"/><line x1="2" y1="9" x2="22" y2="9"/><rect x="9.5" y="14" width="5" height="6"/>';
+    } else if (type === "peak") {
+      body = '<polyline points="2 20 9.5 6 13.5 13"/><polyline points="11 20 16 11 22 20"/><line x1="2" y1="20" x2="22" y2="20"/>';
+    } else if (type === "book") {
+      body = '<path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>';
+    } else if (type === "view") {
+      body = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+    }
+    return open + body + '</svg>';
+  }
+
+  // ── Public: same icon set used by the admin nav rail/dock, for pages that
+  // build their own dock markup instead of calling initNav() (e.g. the
+  // client-role portal, which has no #navSidebar and navigates in-page
+  // instead of across pages) ────────────────────────────────────────────
+  window.apexNavSvg = navSvg;
+
+  // ── Public: icon badge for mobile card action buttons ───────────────────
+  // Pages embed these inside row action buttons; mobile.css hides the text
+  // label and shows this icon at 768px and below. Hidden on desktop.
+  window.apexMcIcon = function (type) {
+    var open = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
+    var body = "";
+    if (type === "view") {
+      body = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+    } else if (type === "edit") {
+      body = '<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>';
+    } else if (type === "check") {
+      body = '<polyline points="20 6 9 17 4 12"/>';
+    } else if (type === "send") {
+      body = '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>';
+    } else if (type === "link") {
+      body = '<path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>';
+    } else if (type === "x") {
+      body = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+    } else if (type === "restore") {
+      body = '<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>';
+    } else if (type === "download") {
+      body = '<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>';
+    }
+    return '<span class="mc-ico" aria-hidden="true">' + open + body + '</svg></span>';
+  };
+
+  // ── CSS injection ────────────────────────────────────────────────────────
+  function injectStyles() {
+    if (document.getElementById("apex-nav-styles")) { return; }
+    var el = document.createElement("style");
+    el.id = "apex-nav-styles";
+    el.textContent =
+      /* Layout wrappers (nav + content) */
+      "#pageWrapper { flex: 1; display: flex; overflow: hidden; }" +
+      "#contentArea { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }" +
+
+      /* Nav sidebar shell */
+      "#appHeader { justify-content: flex-end; }" +
+      /* min-height, not height: the rail used to be exactly one screen minus
+         the header, so on a short screen the list (flex: 1) was squeezed and its
+         last item sat cut off above the DEV switcher. Now the rail is at least
+         that tall and grows to fit its items; align-self keeps it from
+         stretching to the full length of a long page. */
+      "#navSidebar { width: 240px; min-height: calc(100vh - 64px); align-self: flex-start; background: #1a1a1d; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; transition: width 0.2s ease; border-right: 1px solid #2a2a2e; }" +
+      "#navSidebar.apex-nav-collapsed { width: 72px; }" +
+
+      /* Logo row */
+      ".apex-nav-logo { height: 64px; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #2a2a2e; flex-shrink: 0; overflow: hidden; }" +
+      ".apex-nav-logo-img { height: 28px; width: auto; display: block; }" +
+
+      /* Items list */
+      ".apex-nav-items { flex: 1 0 auto; padding: 8px 0; overflow-y: auto; overflow-x: hidden; }" +
+      "a.apex-nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 20px; color: rgba(255,255,255,0.55); font-size: 13px; font-weight: 500; text-decoration: none; position: relative; transition: color 0.15s, background 0.15s; white-space: nowrap; font-family: 'Inter', sans-serif; }" +
+      "a.apex-nav-item:hover { color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.06); }" +
+      "a.apex-nav-item.apex-nav-active { color: #C9A43A; }" +
+      "a.apex-nav-item.apex-nav-active::before { content: ''; position: absolute; left: 0; top: 4px; bottom: 4px; width: 3px; background: #C9A43A; border-radius: 0 2px 2px 0; }" +
+      ".apex-nav-icon { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }" +
+      ".apex-nav-label { overflow: hidden; }" +
+
+      /* Collapsed icon rail */
+      "#navSidebar.apex-nav-collapsed a.apex-nav-item { padding: 12px; justify-content: center; gap: 0; }" +
+      "#navSidebar.apex-nav-collapsed .apex-nav-label { display: none; }" +
+
+      /* Tooltips on collapsed */
+      "#navSidebar.apex-nav-collapsed a.apex-nav-item::after { content: attr(data-tip-pt); display: none; position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); background: #2a2a2e; color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: 6px; white-space: nowrap; z-index: 1000; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,0.35); font-family: 'Inter', sans-serif; }" +
+      "body.lang-en #navSidebar.apex-nav-collapsed a.apex-nav-item::after { content: attr(data-tip-en); }" +
+      "#navSidebar.apex-nav-collapsed a.apex-nav-item:hover::after { display: block; }" +
+
+      /* Dev view switcher */
+      ".apex-nav-switcher { padding: 10px 12px; border-top: 1px solid #2a2a2e; flex-shrink: 0; }" +
+      "#navSidebar.apex-nav-collapsed .apex-nav-switcher { display: none; }" +
+      ".apex-nav-switcher-label { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; color: rgba(255,255,255,0.3); text-transform: uppercase; margin-bottom: 6px; padding: 0 4px; }" +
+      ".apex-nav-switcher-btns { display: flex; gap: 4px; }" +
+      ".apex-nav-view-btn { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.5); font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 500; padding: 4px 6px; border-radius: 12px; cursor: pointer; transition: all 0.15s; flex: 1; }" +
+      ".apex-nav-view-btn:hover { border-color: #C9A43A; color: #C9A43A; }" +
+      ".apex-nav-view-btn.apex-nav-view-active { background: rgba(201,164,58,0.14); border-color: #C9A43A; color: #C9A43A; font-weight: 600; }" +
+
+      /* Footer collapse toggle */
+      ".apex-nav-footer { border-top: 1px solid #2a2a2e; flex-shrink: 0; }" +
+      ".apex-nav-toggle { width: 100%; background: none; border: none; color: rgba(255,255,255,0.3); cursor: pointer; padding: 10px 20px; display: flex; align-items: center; justify-content: flex-end; font-family: 'Inter', sans-serif; transition: color 0.15s; }" +
+      ".apex-nav-toggle:hover { color: rgba(255,255,255,0.7); }" +
+      "#navSidebar.apex-nav-collapsed .apex-nav-toggle { justify-content: center; padding: 10px; }" +
+
+      /* Bilingual (safety net for placeholder pages) */
+      "body.lang-pt .show-en { display: none; }" +
+      "body.lang-en .show-pt { display: none; }" +
+
+      /* Mobile: hide the nav rail entirely */
+      "@media (max-width: 720px) { #navSidebar { display: none; } }";
+
+    document.head.appendChild(el);
+  }
+
+  // ── Active page detection ────────────────────────────────────────────────
+  function getActivePage() {
+    var parts = window.location.pathname.split("/");
+    return parts[parts.length - 1] || "dashboard.html";
+  }
+
+  // ── HTML builder ─────────────────────────────────────────────────────────
+  function buildNavHTML(role, items, devView) {
+    var activePage = getActivePage();
+    var html = "";
+
+    // Logo
+    html += '<div class="apex-nav-logo">';
+    html += '<img src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png" alt="Apex" class="apex-nav-logo-img">';
+    html += '</div>';
+
+    // Nav items
+    html += '<nav class="apex-nav-items">';
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var activeClass = (activePage === item.href) ? " apex-nav-active" : "";
+      html +=
+        '<a class="apex-nav-item' + activeClass + '" href="' + item.href + '"' +
+        ' data-apex-track="nav:' + item.key + '"' +
+        (item.learn ? ' data-apex-learn="1"' : '') +
+        ' data-tip-pt="' + item.tipPt + '" data-tip-en="' + item.tipEn + '">';
+      html += '<span class="apex-nav-icon">' + navSvg(item.icon) + '</span>';
+      html += '<span class="apex-nav-label">';
+      html += '<span class="show-pt">' + item.labelPt + '</span>';
+      html += '<span class="show-en">' + item.labelEn + '</span>';
+      html += '</span>';
+      html += '</a>';
+    }
+    html += '</nav>';
+
+    // Dev view switcher (developer role only)
+    if (role === "developer") {
+      html += '<div class="apex-nav-switcher">';
+      html += '<div class="apex-nav-switcher-label">DEV</div>';
+      html += '<div class="apex-nav-switcher-btns">';
+      var buttons = DEV_VIEWS.map(function (dv) {
+        return { id: "navBtn" + dv.label, v: dv.v, label: dv.label };
+      });
+      for (var j = 0; j < buttons.length; j++) {
+        var b = buttons[j];
+        var ac = (devView === b.v) ? " apex-nav-view-active" : "";
+        html += '<button id="' + b.id + '" class="apex-nav-view-btn' + ac + '" onclick="apexNavSetView(\'' + b.v + '\')">' + b.label + '</button>';
+      }
+      html += '</div></div>';
+    }
+
+    // Collapse toggle
+    html += '<div class="apex-nav-footer">';
+    html += '<button class="apex-nav-toggle" id="apexNavToggle" onclick="apexNavToggle()"></button>';
+    html += '</div>';
+
+    return html;
+  }
+
+  // ── Refresh the collapse arrow icon ──────────────────────────────────────
+  function refreshToggleIcon() {
+    var btn = document.getElementById("apexNavToggle");
+    var sidebar = document.getElementById("navSidebar");
+    if (!btn || !sidebar) { return; }
+    var collapsed = sidebar.classList.contains("apex-nav-collapsed");
+    btn.innerHTML = navSvg(collapsed ? "chevron-right" : "chevron-left");
+  }
+
+  // ── Public: current language ─────────────────────────────────────────────
+  // One definition for every page. Pages historically each declared their own
+  // isEn(); those still work, but new code should call this.
+  window.apexIsEn = function () {
+    return document.body.classList.contains("lang-en");
+  };
+
+  // ── Public: bilingual <title> ────────────────────────────────────────────
+  // A <title> cannot hold .show-pt/.show-en spans, so every page was stuck in
+  // Portuguese. Pages declare both strings once:
+  //     <title data-title-pt="Apex — Clientes" data-title-en="Apex — Clients">
+  // and the toggle swaps them. Pages without the attributes are left alone.
+  function applyTitle() {
+    var el = document.querySelector("title");
+    if (!el) { return; }
+    var pt = el.getAttribute("data-title-pt");
+    var en = el.getAttribute("data-title-en");
+    if (!pt || !en) { return; }
+    el.textContent = window.apexIsEn() ? en : pt;
+  }
+  window.apexApplyTitle = applyTitle;
+
+  // ── Public: language toggle (shared across all pages) ────────────────────
+  // Swapping the class is only half the job. Anything already baked into
+  // innerHTML/textContent by a ternary can never change on its own, so we
+  // announce the change and let each page re-render from ITS CACHED DATA.
+  // Listeners must not refetch — a language toggle is not a reload.
+  window.apexNavToggleLang = function () {
+    var b = document.body;
+    if (b.classList.contains("lang-pt")) {
+      b.classList.remove("lang-pt");
+      b.classList.add("lang-en");
+      sessionStorage.setItem("apex_lang", "en");
+    } else {
+      b.classList.remove("lang-en");
+      b.classList.add("lang-pt");
+      sessionStorage.setItem("apex_lang", "pt");
+    }
+    applyTitle();
+    var lang = window.apexIsEn() ? "en" : "pt";
+    window.apexSaveLanguage(lang);
+    try {
+      document.dispatchEvent(new CustomEvent("apex:langchange", { detail: { lang: lang } }));
+    } catch (e) {
+      // Never let one page's listener throwing leave the toggle half-applied.
+      if (window.console && console.error) { console.error("apex:langchange listener failed", e); }
+    }
+  };
+
+  // ── Public: one shared US-style phone input behavior (task 1.2a) ────────
+  // Formats as the person types: "(123) 456-7890", accepts a leading +1.
+  // Returns the digits-only value (the existing storage format) so a caller
+  // can build "+1" + digits or "+" + digits exactly as it already does.
+  // Call on an <input type="tel"> element's oninput.
+  window.apexFormatPhoneInput = function (el) {
+    try {
+      if (!el) { return ""; }
+      var raw = String(el.value || "");
+      var hadPlus1 = /^\s*\+?1/.test(raw);
+      var digits = raw.replace(/\D/g, "");
+      // Drop a leading "1" country code from the 10-digit US number before
+      // formatting -- the UI's parens-and-dash shape is always 10 digits.
+      if (digits.length === 11 && digits.charAt(0) === "1") { digits = digits.slice(1); }
+      else if (digits.length > 10 && hadPlus1) { digits = digits.slice(digits.length - 10); }
+      digits = digits.slice(0, 10);
+      var out = digits;
+      if (digits.length > 6) {
+        out = "(" + digits.slice(0, 3) + ") " + digits.slice(3, 6) + "-" + digits.slice(6);
+      } else if (digits.length > 3) {
+        out = "(" + digits.slice(0, 3) + ") " + digits.slice(3);
+      } else if (digits.length > 0) {
+        out = "(" + digits;
+      }
+      el.value = out;
+      return digits;
+    } catch (e) { return ""; }
+  };
+
+  // ── Public: apply the server's answer for this person's language ────────
+  // Group 1.1. Call this once, right after /api/role (or /api/portal/me's
+  // own role fetch) answers, with that same JSON body. It is the single
+  // place that turns { language, language_unset } into the page's lang-pt /
+  // lang-en class and the sessionStorage paint cache for the NEXT page.
+  // Returns language_unset so the caller can show the first-sign-in card.
+  window.apexApplyRoleLanguage = function (data) {
+    try {
+      var lang = (data && data.language === "en") ? "en" : "pt";
+      var b = document.body;
+      if (lang === "en") {
+        b.classList.remove("lang-pt"); b.classList.add("lang-en");
+      } else {
+        b.classList.remove("lang-en"); b.classList.add("lang-pt");
+      }
+      sessionStorage.setItem("apex_lang", lang);
+      applyTitle();
+      return !!(data && data.language_unset);
+    } catch (e) { return false; }
+  };
+
+  // ── Public: save the signed-in person's language to the server ──────────
+  // Group 1.1. sessionStorage is still written above as a same-tab paint
+  // cache (so a navigation to the next page shows the right language before
+  // /api/role answers); the server row is the source of truth across
+  // sign-ins and devices. Fire and forget, like apexTrack: a save that fails
+  // never blocks the toggle the person already sees take effect.
+  window.apexSaveLanguage = function (lang) {
+    try {
+      if (lang !== "pt" && lang !== "en") { return; }
+      var workerUrl = window.WORKER_URL || "https://apex-api.farfromtimnah.workers.dev";
+      var body = JSON.stringify({ language: lang });
+      var role = sessionStorage.getItem("apex_role");
+      if (role === "alice" || role === "rafa" || role === "developer") {
+        var fb = window.firebase;
+        if (!fb || !fb.auth || !fb.auth().currentUser) { return; }
+        fb.auth().currentUser.getIdToken().then(function (token) {
+          return fetch(workerUrl + "/api/me/language", {
+            method: "PUT", keepalive: true,
+            headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+            body: body
+          });
+        }).then(function () {}, function () {});
+        return;
+      }
+      // Client-tier (owner/partner/staff_finance/staff/seller): the
+      // client-portal opaque token, same storage key portal.html uses.
+      var clientToken = sessionStorage.getItem("apex_client_token") || localStorage.getItem("apex_client_token");
+      if (!clientToken) { return; }
+      fetch(workerUrl + "/api/me/language", {
+        method: "PUT", keepalive: true,
+        headers: { "Authorization": "Bearer " + clientToken, "Content-Type": "application/json" },
+        body: body
+      }).then(function () {}, function () {});
+    } catch (e) { /* never throws */ }
+  };
+
+  // ── Public: toggle collapse ───────────────────────────────────────────────
+  window.apexNavToggle = function () {
+    var sidebar = document.getElementById("navSidebar");
+    if (!sidebar) { return; }
+    if (sidebar.classList.contains("apex-nav-collapsed")) {
+      sidebar.classList.remove("apex-nav-collapsed");
+      sessionStorage.removeItem("apex_nav_collapsed");
+    } else {
+      sidebar.classList.add("apex-nav-collapsed");
+      sessionStorage.setItem("apex_nav_collapsed", "1");
+    }
+    refreshToggleIcon();
+  };
+
+  // ── Quiet count of what staff click (staff only, never shown) ────────────
+  // window.apexTrack(control, clientId) is a fixed contract: other pages call
+  // it too. Fire and forget: it never throws, never waits, never delays a
+  // click. It does nothing unless the signed-in role is alice, rafa or
+  // developer, and nothing on portal.html. The Worker needs the Authorization
+  // header, which sendBeacon cannot carry, so this is fetch with keepalive.
+  window.apexTrack = function (control, clientId) {
+    try {
+      var role = sessionStorage.getItem("apex_role");
+      if (role !== "alice" && role !== "rafa" && role !== "developer") { return; }
+      var page = getActivePage().replace(/\.html$/, "");
+      if (page === "portal") { return; }
+      var fb = window.firebase;
+      if (!fb || !fb.auth || !fb.auth().currentUser) { return; }
+      var body = { page: String(page), control: String(control) };
+      if (clientId) { body.client_id = String(clientId); }
+      if (role === "developer") {
+        var dv = sessionStorage.getItem("apex_dev_view");
+        if (dv === "alice" || dv === "rafa") { body.preview = true; }
+      }
+      var workerUrl = window.WORKER_URL || "https://apex-api.farfromtimnah.workers.dev";
+      fb.auth().currentUser.getIdToken().then(function (token) {
+        return fetch(workerUrl + "/api/staff/click", {
+          method: "POST",
+          keepalive: true,
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+      }).then(function () {}, function () {});
+    } catch (e) { /* never throws */ }
+  };
+
+  // One listener for every tracked menu item, dock spot, dock tool and the gear.
+  document.addEventListener("click", function (ev) {
+    try {
+      var el = ev.target;
+      while (el && el !== document) {
+        if (el.getAttribute && el.getAttribute("data-apex-track")) {
+          window.apexTrack(el.getAttribute("data-apex-track"));
+          return;
+        }
+        el = el.parentNode;
+      }
+    } catch (e) { /* never throws */ }
+  }, true);
+
+  // ── Public: dev view switcher ─────────────────────────────────────────────
+  window.apexNavSetView = function (v) {
+    // "Client" opens the portal preview picker instead of a cosmetic nav
+    // switch — it does NOT touch apex_dev_view (the admin pages keep their
+    // current view; the preview happens on portal.html?previewAs=<id>).
+    if (v === "client") {
+      openClientPreviewPicker();
+      return;
+    }
+    // Same contract as "client": a preview, not a nav state. Picks a client
+    // first, then one of that client's salespeople.
+    if (v === "seller") {
+      openClientPreviewPicker({ seller: true });
+      return;
+    }
+    sessionStorage.setItem("apex_dev_view", v);
+
+    if (typeof window.setView === "function") {
+      window.setView(v === "dev" ? "alice" : v);
+    }
+
+    window.initNav && window.initNav();
+  };
+
+  // ── Developer client-preview picker (modeled on LTC's preview-as flow) ────
+  // Searchable modal listing every client; picking one opens
+  // portal.html?previewAs=<client_id> (read-only, enforced by the Worker).
+  var pickerClients = null;
+  // When true the client pick is step 1 of the seller flow and hands off to the
+  // seller picker instead of navigating straight into the portal.
+  var pickerSellerMode = false;
+
+  function openClientPreviewPicker(opts) {
+    pickerSellerMode = !!(opts && opts.seller);
+    // Step 1 always starts from the client list, even if a previous run left a
+    // seller list loaded — otherwise the filter box would still be filtering
+    // the old client's salespeople.
+    pickerSellers = null;
+    pickerSellerClientId = null;
+    var overlay = document.getElementById("apexClientPickerOverlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "apexClientPickerOverlay";
+      overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(20,18,16,0.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;";
+      overlay.innerHTML =
+        '<div style="background:#fff;border-radius:14px;padding:20px;width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 12px 48px rgba(0,0,0,0.3);font-family:\'Inter\',sans-serif;">' +
+        '<div style="font-size:15px;font-weight:700;margin-bottom:10px;color:#1a1a1d;" id="apexClientPickerTitle"></div>' +
+        '<input type="text" id="apexClientPickerFilter" placeholder="Filtrar / Filter…" ' +
+        'style="border:1px solid #e8e2d9;border-radius:8px;padding:10px 12px;font-family:\'Inter\',sans-serif;font-size:14px;margin-bottom:10px;outline:none;" ' +
+        'oninput="window.apexClientPickerRender()">' +
+        '<div id="apexClientPickerList" style="overflow-y:auto;flex:1;min-height:120px;"></div>' +
+        '<div style="display:flex;justify-content:flex-end;margin-top:12px;">' +
+        '<button type="button" onclick="apexClientPickerClose()" ' +
+        'style="background:transparent;border:1px solid #e8e2d9;border-radius:8px;padding:9px 16px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:600;cursor:pointer;color:#1a1a1d;">' +
+        '<span class="show-pt">Cancelar</span><span class="show-en">Cancel</span></button>' +
+        '</div></div>';
+      overlay.addEventListener("click", function (ev) {
+        if (ev.target === overlay) { window.apexClientPickerClose(); }
+      });
+      document.body.appendChild(overlay);
+    }
+    overlay.style.display = "flex";
+    var titleEl = document.getElementById("apexClientPickerTitle");
+    if (titleEl) {
+      titleEl.innerHTML = pickerSellerMode
+        ? '<span class="show-pt">Ver como vendedor — escolha o cliente</span>' +
+          '<span class="show-en">Preview as salesperson — pick the client</span>'
+        : '<span class="show-pt">Ver portal como cliente</span>' +
+          '<span class="show-en">Preview portal as client</span>';
+    }
+    document.getElementById("apexClientPickerFilter").value = "";
+    var listEl = document.getElementById("apexClientPickerList");
+    listEl.innerHTML = '<div style="color:#6b6660;font-size:13px;padding:10px;">Carregando… / Loading…</div>';
+
+    if (pickerClients) { window.apexClientPickerRender(); return; }
+    var workerUrl = window.WORKER_URL || "https://apex-api.farfromtimnah.workers.dev";
+    var fb = window.firebase;
+    if (!fb || !fb.auth || !fb.auth().currentUser) {
+      listEl.innerHTML = '<div style="color:#b44040;font-size:13px;padding:10px;">Sessão não encontrada / No session</div>';
+      return;
+    }
+    fb.auth().currentUser.getIdToken().then(function (token) {
+      return fetch(workerUrl + "/api/clients", { headers: { "Authorization": "Bearer " + token } });
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      pickerClients = data.clients || [];
+      window.apexClientPickerRender();
+    }).catch(function (e) {
+      listEl.innerHTML = '<div style="color:#b44040;font-size:13px;padding:10px;">Erro: ' + (e && e.message ? e.message : "?") + '</div>';
+    });
+  }
+
+  window.apexClientPickerRender = function () {
+    // The one filter box serves both steps of the seller flow, so once the
+    // seller list is up, typing filters that instead of the client list.
+    if (pickerSellers) { window.apexSellerPickerRender(); return; }
+    var listEl = document.getElementById("apexClientPickerList");
+    if (!listEl || !pickerClients) { return; }
+    var q = (document.getElementById("apexClientPickerFilter").value || "").toLowerCase();
+    var html = "";
+    for (var i = 0; i < pickerClients.length; i++) {
+      var c = pickerClients[i];
+      var name = c.name || c.id;
+      if (q && name.toLowerCase().indexOf(q) === -1) { continue; }
+      html += '<button type="button" onclick="apexClientPickerGo(\'' + String(c.id).replace(/'/g, "") + '\')" ' +
+        'style="display:block;width:100%;text-align:left;background:transparent;border:none;border-bottom:1px solid #e8e2d9;' +
+        'padding:11px 6px;font-family:\'Inter\',sans-serif;font-size:14px;font-weight:600;color:#1a1a1d;cursor:pointer;">' +
+        name.replace(/&/g, "&amp;").replace(/</g, "&lt;") +
+        (c.status && c.status !== "active" ? ' <span style="font-size:11px;color:#6b6660;font-weight:500;">(' + c.status + ')</span>' : '') +
+        '</button>';
+    }
+    listEl.innerHTML = html || '<div style="color:#6b6660;font-size:13px;padding:10px;">Nenhum cliente / No clients</div>';
+  };
+
+  window.apexClientPickerGo = function (id) {
+    if (pickerSellerMode) { openSellerPreviewPicker(id); return; }
+    window.location.href = "portal.html?previewAs=" + encodeURIComponent(id);
+  };
+
+  // ── Developer salesperson-preview picker (step 2 of the Seller flow) ──────
+  // Lists the client's salespeople and opens the portal scoped to one of them.
+  //
+  // THE LIST COMES FROM gm_seller_login_requests, NOT client_logins. A seat
+  // request is the client saying "this person sells for me"; the seat itself is
+  // paperwork Rafa and Alice work through by hand. JM has four requested and
+  // zero approved, so an approved-only picker would be empty and there would be
+  // nothing to test against. Pending names are listed and visibly marked.
+  //
+  // This is a PREVIEW, exactly like the client preview: it appends
+  // ?previewAs=<client>&previewSeller=<name> and nothing more. No session is
+  // created, no token is minted, no client_logins row is touched, and the
+  // Worker's read-only preview gate still rejects every write. Nobody is logged
+  // in as the salesperson -- the developer's own Google session is what
+  // authenticates, and the extra param only narrows what is displayed.
+  var pickerSellers = null;
+  var pickerSellerClientId = null;
+
+  function openSellerPreviewPicker(clientId) {
+    pickerSellerClientId = clientId;
+    pickerSellers = null;
+    var titleEl = document.getElementById("apexClientPickerTitle");
+    if (titleEl) {
+      titleEl.innerHTML =
+        '<span class="show-pt">Ver como vendedor — escolha a pessoa</span>' +
+        '<span class="show-en">Preview as salesperson — pick the person</span>';
+    }
+    document.getElementById("apexClientPickerFilter").value = "";
+    var listEl = document.getElementById("apexClientPickerList");
+    listEl.innerHTML = '<div style="color:#6b6660;font-size:13px;padding:10px;">Carregando… / Loading…</div>';
+
+    var workerUrl = window.WORKER_URL || "https://apex-api.farfromtimnah.workers.dev";
+    var fb = window.firebase;
+    if (!fb || !fb.auth || !fb.auth().currentUser) {
+      listEl.innerHTML = '<div style="color:#b44040;font-size:13px;padding:10px;">Sessão não encontrada / No session</div>';
+      return;
+    }
+    fb.auth().currentUser.getIdToken().then(function (token) {
+      return fetch(workerUrl + "/api/clients/" + encodeURIComponent(clientId) + "/gm/seller-login-requests",
+        { headers: { "Authorization": "Bearer " + token } });
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      pickerSellers = data.requests || [];
+      window.apexSellerPickerRender();
+    }).catch(function (e) {
+      listEl.innerHTML = '<div style="color:#b44040;font-size:13px;padding:10px;">Erro: ' + (e && e.message ? e.message : "?") + '</div>';
+    });
+  }
+
+  window.apexSellerPickerRender = function () {
+    var listEl = document.getElementById("apexClientPickerList");
+    if (!listEl || !pickerSellers) { return; }
+    var q = (document.getElementById("apexClientPickerFilter").value || "").toLowerCase();
+    var html = "";
+    for (var i = 0; i < pickerSellers.length; i++) {
+      var s = pickerSellers[i];
+      var name = s.seller_name || "";
+      if (!name) { continue; }
+      if (q && name.toLowerCase().indexOf(q) === -1) { continue; }
+      // A pending request is the normal case today, so it is labelled rather
+      // than hidden or disabled — the whole point is being able to preview a
+      // salesperson before their seat exists.
+      var tag = s.status && s.status !== "approved"
+        ? ' <span style="font-size:11px;color:#7a5f18;background:rgba(201,164,58,0.18);' +
+          'border-radius:9px;padding:1px 7px;font-weight:700;">' + s.status + '</span>'
+        : '';
+      html += '<button type="button" onclick="apexSellerPickerGo(' +
+        JSON.stringify(name).replace(/"/g, "&quot;") + ')" ' +
+        'style="display:block;width:100%;text-align:left;background:transparent;border:none;border-bottom:1px solid #e8e2d9;' +
+        'padding:11px 6px;font-family:\'Inter\',sans-serif;font-size:14px;font-weight:600;color:#1a1a1d;cursor:pointer;">' +
+        name.replace(/&/g, "&amp;").replace(/</g, "&lt;") + tag +
+        '</button>';
+    }
+    listEl.innerHTML = html ||
+      '<div style="color:#6b6660;font-size:13px;padding:10px;">' +
+      'Nenhum vendedor solicitado / No salespeople requested</div>';
+  };
+
+  window.apexSellerPickerGo = function (name) {
+    window.location.href = "portal.html?previewAs=" + encodeURIComponent(pickerSellerClientId) +
+      "&previewSeller=" + encodeURIComponent(name);
+  };
+
+  window.apexClientPickerClose = function () {
+    var overlay = document.getElementById("apexClientPickerOverlay");
+    if (overlay) { overlay.style.display = "none"; }
+  };
+
+  // ── Mobile bottom dock: five spots, no "Mais" ────────────────────────────
+  // The #mobile-tab-bar and #mobile-more-menu containers are STATIC HTML in
+  // every page (never created here); this code only fills them in. All of
+  // their positioning and visibility lives in mobile.css behind a max-width
+  // media query.
+  //
+  // The dock used to be a row of tabs plus a "Mais" button that opened a
+  // second, full-screen list. People opened "Mais" looking for something that
+  // was already a tab on the dock. Now every staff role gets five spots and
+  // nothing else: Home, Clients, Agenda, one direct link, Business. A spot is
+  // either a direct link or a group; tapping a group pops a small menu just
+  // above the dock (same look as the client portal's #portalGroupSheet, built
+  // here because portal.html keeps its own dock code). The menu's order is
+  // fixed. Settings is not on the dock: it sits behind a gear in the page
+  // header (placeSettingsGear).
+  //
+  // A group behaves exactly like a client portal group (portalDockTap): with
+  // two or more tools it pops its menu; left with one tool it opens that tool;
+  // and each group remembers the tool used last in it, which is where the
+  // group lands whenever it has to open without a menu.
+  // #mobile-more-menu is reused as the pop-up's container.
+
+  function mobileTabDef(key, href, icon, labelPt, labelEn) {
+    return { key: key, href: href, icon: icon, labelPt: labelPt, labelEn: labelEn };
+  }
+
+  function mobileGroupDef(key, icon, labelPt, labelEn, items) {
+    return { key: key, group: true, icon: icon, labelPt: labelPt, labelEn: labelEn, items: items };
+  }
+
+  // Learn (Aprenda): a direct link to the library page, shown only while the feature is
+  // switched on (the same check the widget uses). The address comes from HelpCore.libraryPath,
+  // so there is one way to build it; the language is read again at the click.
+  var LEARN_ITEM = {
+    key: "learn", learn: true, href: "help.html", icon: "book",
+    labelPt: "Aprenda", labelEn: "Learn", tipPt: "Aprenda", tipEn: "Learn"
+  };
+  function learnOn() {
+    return !!(window.HelpCore && window.HelpCore.isEnabled && window.HelpCore.isEnabled(window));
+  }
+  function learnHref() {
+    return window.HelpCore.libraryPath("admin", document.body.classList.contains("lang-en") ? "en" : "pt");
+  }
+  function learnEntry() {
+    var e = {};
+    for (var k in LEARN_ITEM) { if (Object.prototype.hasOwnProperty.call(LEARN_ITEM, k)) { e[k] = LEARN_ITEM[k]; } }
+    e.href = learnHref();
+    return e;
+  }
+  var learnWired = false;
+  function wireLearn() {
+    if (learnWired) { return; }
+    learnWired = true;
+    document.addEventListener("click", function (ev) {
+      var a = ev.target && ev.target.closest ? ev.target.closest("[data-apex-learn]") : null;
+      if (!a || !learnOn()) { return; }
+      a.href = learnHref();
+      var back = window.HelpCore.safeReturn(getActivePage());
+      if (back) { try { sessionStorage.setItem("apex_learn_return", back); } catch (e) { /* Back is a courtesy */ } }
+    });
+  }
+
+  var MTAB_INICIO     = mobileTabDef("dashboard", "dashboard.html", "home",         "In&iacute;cio",                "Home");
+  var MTAB_CLIENTES   = mobileTabDef("clients",   "clients.html",   "users",        "Clientes",                     "Clients");
+  var MTAB_SESSOES    = mobileTabDef("sessions",  "sessions.html",  "calendar",     "Sess&otilde;es",               "Sessions");
+  var MTAB_VENDAS     = mobileTabDef("sales",     "sales.html",     "trend",        "Vendas",                       "Sales");
+  var MTAB_TAREFAS    = mobileTabDef("tasks",     "tasks.html",     "check-square", "Tarefas",                      "Tasks");
+  var MTAB_FINANCENOVO = mobileTabDef("financenew", "finance-new.html", "finance",   "Financeiro",                   "Financial");
+  var MTAB_CALENDARIO = mobileTabDef("calendar",  "calendar.html",  "cal-grid",     "Calend&aacute;rio",            "Calendar");
+  var MTAB_DOCUMENTOS = mobileTabDef("documents", "documents.html", "file",         "Documentos",                   "Documents");
+  var MTAB_CONFIG     = mobileTabDef("settings",  "settings.html",  "settings",     "Configura&ccedil;&otilde;es",  "Settings");
+  var MTAB_ADDUSER    = mobileTabDef("adduser",   "add-user.html",  "user-plus",    "Adicionar Usu&aacute;rio",     "Add User");
+  var MTAB_CLIENTANALYTICS = mobileTabDef("clientanalytics", "client-analytics.html", "target", "An&aacute;lise de Clientes", "Client Analytics");
+  // Same label and icon as the desktop side menu's CONTRACT_REVIEW_ITEM.
+  var MTAB_CONTRATO   = mobileTabDef("contractreview", "contract-review.html", "file", "Revis&atilde;o do contrato", "Contract review");
+  // Same label and icon as the desktop side menu's Vendors / Apex Club entries.
+  var MTAB_VENDORS    = mobileTabDef("vendors",   "vendors.html",   "briefcase",    "Fornecedores",                 "Vendors");
+  var MTAB_APEXCLUB   = mobileTabDef("apexclub",  "apex-club.html", "star",         "Apex Club",                    "Apex Club");
+
+  // opts.contractReview: whether this person gets the contract review tool.
+  // initNav() passes the same answer it uses for the desktop side menu, so the
+  // phone never offers a page the desktop does not.
+  function getMobileNavConfig(navRole, opts) {
+    var clients = [MTAB_CLIENTES, MTAB_CLIENTANALYTICS];
+    if (opts && opts.contractReview) { clients.push(MTAB_CONTRATO); }
+    if (navRole === "developer") { clients.push(MTAB_ADDUSER); }
+
+    var agenda, fifth, business;
+    if (navRole === "rafa") {
+      agenda   = [MTAB_SESSOES, MTAB_CALENDARIO];
+      fifth    = MTAB_TAREFAS;
+      // Rafa is a co-owner and needs Vendors, but doesn't use it day to day:
+      // Fornecedores goes last, after the tools he does use, matching the
+      // same placement in his desktop menu (NAV_ITEMS_RAFA).
+      business = [MTAB_VENDAS, MTAB_FINANCENOVO, MTAB_DOCUMENTOS, MTAB_APEXCLUB, MTAB_VENDORS];
+    } else {
+      // alice (default) and developer
+      agenda   = [MTAB_CALENDARIO, MTAB_SESSOES, MTAB_TAREFAS];
+      fifth    = mobileGroupDef("finance", "finance", "Financeiro", "Financial",
+        [MTAB_FINANCENOVO, MTAB_VENDORS, MTAB_APEXCLUB]);
+      business = [MTAB_VENDAS, MTAB_DOCUMENTOS];
+    }
+
+    if (opts && opts.learn) { business = [learnEntry()].concat(business); }
+
+    return {
+      spots: [
+        MTAB_INICIO,
+        mobileGroupDef("clients",  "users",     "Clientes",       "Clients",  clients),
+        mobileGroupDef("agenda",   "calendar",  "Agenda",         "Agenda",   agenda),
+        fifth,
+        mobileGroupDef("business", "briefcase", "Neg&oacute;cio", "Business", business)
+      ],
+      gear: MTAB_CONFIG
+    };
+  }
+  // For scripts/test-staff-dock.mjs.
+  window.apexStaffDockConfig = getMobileNavConfig;
+
+  function buildMobileLabelSpan(item) {
+    return '<span class="show-pt">' + item.labelPt + '</span>' +
+           '<span class="show-en">' + item.labelEn + '</span>';
+  }
+
+  // The spots on the dock right now, kept for apexDockGroupToggle().
+  var mobileDockSpots = [];
+  var mobileDockRole = "alice";
+  var mobileDockWired = false;
+
+  function mobileGroupHasPage(group, page) {
+    for (var i = 0; i < group.items.length; i++) {
+      if (group.items[i].href === page) { return true; }
+    }
+    return false;
+  }
+
+  // A group opens the tool used last in it. Kept per role and per browser; a
+  // convenience, so a storage failure just means the first tool. Same rule as
+  // portalGroupLanding / portalRememberTab in portal.html.
+  function mobileGroupLanding(group) {
+    var last = null;
+    try { last = localStorage.getItem("apex_staff_nav_last_" + mobileDockRole + "_" + group.key); } catch (e) { last = null; }
+    for (var i = 0; i < group.items.length; i++) {
+      if (group.items[i].key === last) { return group.items[i]; }
+    }
+    return group.items[0];
+  }
+
+  function mobileRememberPage(page) {
+    for (var i = 0; i < mobileDockSpots.length; i++) {
+      var g = mobileDockSpots[i];
+      if (!g.group || g.items.length < 2) { continue; }
+      for (var j = 0; j < g.items.length; j++) {
+        if (g.items[j].href === page) {
+          try { localStorage.setItem("apex_staff_nav_last_" + mobileDockRole + "_" + g.key, g.items[j].key); } catch (e) {}
+        }
+      }
+    }
+  }
+
+  function populateMobileNav(navRole, contractReview, learn) {
+    var bar  = document.getElementById("mobile-tab-bar");
+    var menu = document.getElementById("mobile-more-menu");
+    if (!bar || !menu) { return; }
+
+    var cfg = getMobileNavConfig(navRole, { contractReview: contractReview, learn: learn });
+    var activePage = getActivePage();
+    var i;
+
+    mobileDockSpots = cfg.spots;
+    mobileDockRole = navRole;
+    mobileRememberPage(activePage);
+
+    var barHtml = "";
+    for (i = 0; i < cfg.spots.length; i++) {
+      var t = cfg.spots[i];
+      if (t.group) {
+        var groupCls = mobileGroupHasPage(t, activePage) ? " m-tab-active" : "";
+        barHtml += '<button type="button" class="m-tab' + groupCls + '" data-dock-group="' + t.key + '"' +
+          ' aria-haspopup="menu" aria-expanded="false" onclick="apexDockGroupToggle(\'' + t.key + '\')">';
+      } else {
+        var activeCls = (activePage === t.href) ? " m-tab-active" : "";
+        barHtml += '<a class="m-tab' + activeCls + '" href="' + t.href + '" data-apex-track="dock:' + t.key + '">';
+      }
+      barHtml += '<span class="m-tab-ico">' + navSvg(t.icon) + '</span>';
+      barHtml += '<span class="m-tab-label">' + buildMobileLabelSpan(t) + '</span>';
+      barHtml += t.group ? '</button>' : '</a>';
+    }
+    bar.innerHTML = barHtml;
+
+    // The pop-up's shell. apexDockGroupToggle() fills the panel per group.
+    menu.classList.remove("mg-open");
+    menu.removeAttribute("data-group");
+    menu.innerHTML = '<div class="mg-backdrop" onclick="apexDockGroupClose()"></div>' +
+                     '<div class="mg-panel" role="menu"></div>';
+
+    if (!mobileDockWired) {
+      mobileDockWired = true;
+      document.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape" || ev.key === "Esc") { window.apexDockGroupClose(); }
+      });
+    }
+
+    placeSettingsGear(cfg.gear, activePage);
+  }
+
+  // ── Settings gear in the page header (phone only; mobile.css shows it) ───
+  // Every staff page carries its own copy of the #appHeader markup, so the
+  // gear is added here, once, into that existing element. Never appended to
+  // <body>: a runtime-appended nav element broke the mobile nav before.
+  function placeSettingsGear(def, activePage) {
+    var header = document.getElementById("appHeader");
+    if (!header) { return; }
+    var host = header.querySelector(".header-right") || header;
+    var gear = document.getElementById("apexNavGear");
+    if (!gear) {
+      gear = document.createElement("a");
+      gear.id = "apexNavGear";
+      gear.href = def.href;
+      gear.setAttribute("data-apex-track", "gear:settings");
+      gear.setAttribute("aria-label", "Configurações / Settings");
+      gear.innerHTML = navSvg(def.icon);
+      var before = host.querySelector(".lang-btn");
+      if (before && before.parentNode === host) { host.insertBefore(gear, before); }
+      else { host.appendChild(gear); }
+    }
+    gear.className = "apex-nav-gear" + (activePage === def.href ? " apex-nav-gear-active" : "");
+  }
+
+  function setDockExpanded(key) {
+    var bar = document.getElementById("mobile-tab-bar");
+    if (!bar) { return; }
+    var btns = bar.querySelectorAll("[data-dock-group]");
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].setAttribute("aria-expanded", btns[i].getAttribute("data-dock-group") === key ? "true" : "false");
+    }
+  }
+
+  // ── Public: close the group pop-up ───────────────────────────────────────
+  window.apexDockGroupClose = function () {
+    var menu = document.getElementById("mobile-more-menu");
+    if (!menu) { return; }
+    menu.classList.remove("mg-open");
+    menu.removeAttribute("data-group");
+    setDockExpanded("");
+  };
+
+  // ── Public: dock tap on a group ──────────────────────────────────────────
+  // Same steps as portalDockTap in portal.html. A group with several tools
+  // pops up its list, in its fixed order; tapping the open group again closes
+  // it. A group left with one tool just opens it. If the pop-up cannot be
+  // shown, the group opens the tool used last. One menu at a time: there is a
+  // single panel.
+  window.apexDockGroupToggle = function (key) {
+    var group = null;
+    var i;
+    for (i = 0; i < mobileDockSpots.length; i++) {
+      if (mobileDockSpots[i].group && mobileDockSpots[i].key === key) { group = mobileDockSpots[i]; }
+    }
+    if (!group || !group.items.length) { return; }
+    var gm = document.getElementById("mobile-more-menu");
+    if (!(gm && gm.classList.contains("mg-open") && gm.getAttribute("data-group") === key)) {
+      window.apexTrack("dockgroup:" + key);
+    }
+    if (group.items.length < 2) {
+      window.apexDockGroupClose();
+      window.location.href = mobileGroupLanding(group).href;
+      return;
+    }
+    var menu = document.getElementById("mobile-more-menu");
+    var panel = menu ? menu.querySelector(".mg-panel") : null;
+    if (!menu || !panel) { window.location.href = mobileGroupLanding(group).href; return; }
+    if (menu.classList.contains("mg-open") && menu.getAttribute("data-group") === key) {
+      window.apexDockGroupClose();
+      return;
+    }
+
+    var activePage = getActivePage();
+    var html = '<div class="mg-title">' + buildMobileLabelSpan(group) + '</div>';
+    for (i = 0; i < group.items.length; i++) {
+      var m = group.items[i];
+      var here = (activePage === m.href);
+      html += '<a class="mg-item' + (here ? " mg-item-active" : "") + '" role="menuitem" href="' + m.href + '"' +
+        ' data-apex-track="docktool:' + m.key + '"' +
+        (m.learn ? ' data-apex-learn="1"' : '') +
+        (here ? ' aria-current="page"' : '') + '>';
+      html += '<span class="mg-item-ico">' + navSvg(m.icon) + '</span>';
+      html += '<span class="mg-item-label">' + buildMobileLabelSpan(m) + '</span>';
+      html += '</a>';
+    }
+
+    // Dev view switcher (developer role only) — the SAME DEV_VIEWS list and
+    // the same apexNavSetView calls as the desktop sidebar switcher, derived
+    // rather than duplicated (see DEV_VIEWS). It lived in the "Mais" menu;
+    // with that gone it sits under every group's list. Checks the REAL role,
+    // not the previewed one: a developer previewing Alice/Rafa still needs
+    // the switcher visible to get back to the Dev view.
+    var realRole = sessionStorage.getItem("apex_role") || "alice";
+    if (realRole === "developer") {
+      var devView = sessionStorage.getItem("apex_dev_view") || "dev";
+      html += '<div class="mg-switcher">';
+      html += '<div class="mg-switcher-label">DEV</div>';
+      html += '<div class="mg-switcher-btns">';
+      for (i = 0; i < DEV_VIEWS.length; i++) {
+        var dv = DEV_VIEWS[i];
+        html += '<button type="button" class="mg-view-btn' + (devView === dv.v ? " mg-view-active" : "") + '"' +
+          ' onclick="apexDockGroupClose();apexNavSetView(\'' + dv.v + '\')">' + dv.label + '</button>';
+      }
+      html += '</div></div>';
+    }
+
+    panel.innerHTML = html;
+    menu.setAttribute("data-group", key);
+    menu.classList.add("mg-open");
+    setDockExpanded(key);
+  };
+
+  // ── Scrollable view-switch tab strips (.m-scroll-tabs) ──────────────────
+  // mobile.css makes these one-row horizontal scrollers at 768px and below;
+  // this only maintains the mst-fade-left/right hint classes and brings the
+  // active tab into view. Inert on desktop: the classes have no CSS effect
+  // outside the mobile media query.
+  function setupTabStrips() {
+    var strips = document.querySelectorAll(".m-scroll-tabs");
+    var i;
+    for (i = 0; i < strips.length; i++) {
+      (function (el) {
+        if (el.getAttribute("data-mst-wired") === "1") { return; }
+        el.setAttribute("data-mst-wired", "1");
+        function updateFade() {
+          var maxScroll = el.scrollWidth - el.clientWidth;
+          if (maxScroll <= 1) {
+            el.classList.remove("mst-fade-left");
+            el.classList.remove("mst-fade-right");
+            return;
+          }
+          if (el.scrollLeft > 1) { el.classList.add("mst-fade-left"); }
+          else { el.classList.remove("mst-fade-left"); }
+          if (el.scrollLeft < maxScroll - 1) { el.classList.add("mst-fade-right"); }
+          else { el.classList.remove("mst-fade-right"); }
+        }
+        el.addEventListener("scroll", updateFade);
+        window.addEventListener("resize", updateFade);
+        // Web fonts change pill widths after first layout
+        if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+          document.fonts.ready.then(updateFade);
+        }
+        setTimeout(updateFade, 600);
+        var active = el.querySelector(".active");
+        if (active && el.scrollWidth > el.clientWidth) {
+          el.scrollLeft = Math.max(0, active.offsetLeft - el.offsetLeft - 16);
+        }
+        updateFade();
+      })(strips[i]);
+    }
+  }
+  window.apexSetupTabStrips = setupTabStrips;
+
+  // ── Public: init ─────────────────────────────────────────────────────────
+  // Called by each page after auth + role are confirmed.
+  window.initNav = function () {
+    var sidebar = document.getElementById("navSidebar");
+    if (!sidebar) { return; }
+
+    injectStyles();
+
+    // Restore language preference across page navigation
+    var savedLang = sessionStorage.getItem("apex_lang");
+    if (savedLang === "en") {
+      document.body.classList.remove("lang-pt");
+      document.body.classList.add("lang-en");
+    } else {
+      document.body.classList.remove("lang-en");
+      document.body.classList.add("lang-pt");
+    }
+    // Landing on a page while EN is active must give an English tab too.
+    applyTitle();
+
+    var role = sessionStorage.getItem("apex_role") || "alice";
+    var devView = (role === "developer") ? (sessionStorage.getItem("apex_dev_view") || "dev") : "";
+
+    var navRole = (role === "developer" && (devView === "alice" || devView === "rafa")) ? devView : role;
+
+    var items = (navRole === "rafa") ? NAV_ITEMS_RAFA : NAV_ITEMS_ALICE;
+    // Contract clause review (contracts build, checkpoint A): always for the
+    // developer; for Rafa only once the developer released it (dashboard.html
+    // stores the flag it reads from /api/contracts/review-status). The API
+    // enforces the same gate, so a stale flag only ever shows a 403 page.
+    var CONTRACT_REVIEW_ITEM = {
+      key: "contractreview", href: "contract-review.html", icon: "file",
+      labelPt: "Revis&atilde;o do contrato", labelEn: "Contract review",
+      tipPt: "Revisao do contrato",           tipEn: "Contract review"
+    };
+    if (navRole === "rafa" && sessionStorage.getItem("apex_contract_review_released") === "1") {
+      items = items.slice();
+      items.push(CONTRACT_REVIEW_ITEM);
+    }
+    if (navRole === "developer") {
+      items = items.slice();
+      items.push(CONTRACT_REVIEW_ITEM);
+      items.push({
+        key: "adduser", href: "add-user.html", icon: "user-plus",
+        labelPt: "Adicionar Usu&aacute;rio", labelEn: "Add User",
+        tipPt: "Adicionar Usuario",           tipEn: "Add User"
+      });
+      // Task 3.2: the read-only login activity / lost-device review screen.
+      items.push({
+        key: "loginactivity", href: "login-activity.html", icon: "file",
+        labelPt: "Atividade", labelEn: "Activity",
+        tipPt: "Atividade",     tipEn: "Activity"
+      });
+    }
+
+    // Learn (Aprenda) sits with the main entries, just above Settings.
+    var showLearn = learnOn();
+    if (showLearn) {
+      items = items.slice();
+      var at = items.length;
+      for (var li = 0; li < items.length; li++) { if (items[li].key === "settings") { at = li; break; } }
+      items.splice(at, 0, learnEntry());
+      wireLearn();
+    }
+
+    sidebar.innerHTML = buildNavHTML(role, items, devView);
+
+    if (sessionStorage.getItem("apex_nav_collapsed") === "1") {
+      sidebar.classList.add("apex-nav-collapsed");
+    }
+
+    refreshToggleIcon();
+
+    // Same gate as the two side-menu pushes above.
+    var showContractReview = (navRole === "developer") ||
+      (navRole === "rafa" && sessionStorage.getItem("apex_contract_review_released") === "1");
+    populateMobileNav(navRole, showContractReview, showLearn);
+
+    setupTabStrips();
+  };
+
+})();

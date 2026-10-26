@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>APEX</title>
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ground: #12120F;
+      --gold:   #C9A43A;
+      --paper:  #f9f7f4;
+      --ink:    #1a1a1d;
+      --ink-soft: #4a4741;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      background: var(--ground);
+      color: var(--paper);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-weight: 400;
+      -webkit-font-smoothing: antialiased;
+      /* Reveal is driven by click / arrow / space, never by scroll. */
+      overflow: hidden;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .stage {
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 20px 20px;
+    }
+
+    .rail {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      gap: 26px;
+      width: 100%;
+      max-width: 1180px;
+    }
+
+    /* One column per package: the card, then its price pill BELOW the card. */
+    .col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: stretch; }
+
+    /* Gold OUTLINE only. A gold fill would swamp the image and the bullets. */
+    .card {
+      flex: 1 1 auto;
+      border: 1px solid var(--gold);
+      border-radius: 14px;
+      background: var(--paper);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Hero image with the title over it. The image feathers out at its lower
+       edge into the off-white body, so there is no hard seam between them. */
+    .hero {
+      position: relative;
+      height: 232px;
+      flex: 0 0 auto;
+      background-size: cover;
+      background-position: center;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; bottom: -1px;
+      height: 38%;
+      background: linear-gradient(to bottom,
+        rgba(249,247,244,0) 0%,
+        rgba(249,247,244,0.45) 42%,
+        rgba(249,247,244,0.88) 76%,
+        var(--paper) 100%);
+    }
+    /* A scrim under the title only, so white type holds over any photo. */
+    .hero::before {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; top: 0;
+      height: 55%;
+      background: linear-gradient(to bottom, rgba(10,10,8,0.52), rgba(10,10,8,0));
+    }
+    .hero-head {
+      position: absolute;
+      top: 15px; left: 18px; right: 18px;
+      z-index: 2;
+    }
+    .hero-title {
+      /* Display serif, large — titles only. Bullets stay sans. */
+      font-family: "Playfair Display", Georgia, serif;
+      font-weight: 600;
+      font-size: 34px;
+      line-height: 1.05;
+      letter-spacing: 0.01em;
+      color: #fff;
+      text-shadow: 0 1px 14px rgba(0,0,0,0.5);
+    }
+    .hero-sub {
+      margin-top: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.92);
+      text-shadow: 0 1px 10px rgba(0,0,0,0.55);
+    }
+
+    .body {
+      background: var(--paper);
+      padding: 4px 20px 22px;
+      flex: 1 1 auto;
+    }
+
+    /* Bullets: Inter, never a serif — a serif blurs under screen-share
+       compression. Solid ink on off-white for contrast, no hairlines. */
+    .bullets { list-style: none; margin: 0; padding: 0; }
+    .bullets li {
+      position: relative;
+      padding: 0 0 0 20px;
+      margin-bottom: 11px;
+      font-size: 14.5px;
+      font-weight: 500;
+      line-height: 1.48;
+      color: var(--ink);
+      opacity: 0;
+      transform: translateY(5px);
+      transition: opacity 0.34s ease, transform 0.34s ease;
+    }
+    .bullets li:last-child { margin-bottom: 0; }
+    .bullets li::before {
+      content: "";
+      position: absolute;
+      left: 2px; top: 8px;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--gold);
+    }
+    .col.show-bullets .bullets li { opacity: 1; transform: none; }
+
+    /* The price sits in a pill BELOW the card, never inside it. */
+    .price-row { height: 86px; flex: 0 0 auto; display: flex; justify-content: center; }
+    .price-pill {
+      margin: 14px auto 0;
+      align-self: flex-start;
+      background: var(--paper);
+      border: 1px solid var(--gold);
+      border-radius: 999px;
+      padding: 11px 26px;
+      text-align: center;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.36s ease, transform 0.36s ease;
+    }
+    .col.show-price .price-pill { opacity: 1; transform: none; }
+    /* Inter 300, charcoal. Deliberately NOT gold, NOT red, NOT bold, and
+       clearly smaller than the title while staying larger than the bullets. */
+    .price {
+      font-family: "Inter", sans-serif;
+      font-weight: 300;
+      font-size: 23px;
+      letter-spacing: 0.01em;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+    .price-alt {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--ink-soft);
+      margin-top: 2px;
+      white-space: nowrap;
+    }
+
+    /* ---- Struck through --------------------------------------------------
+       He says "o Start e para quem esta comecando, entao nao e o seu caso"
+       and moves on. The card DIMS and gets a line through its title and
+       bullets. It is never removed and never hidden: it has to stay on
+       screen, because he brings it back at the end as the downsell. */
+    .col.struck .card { opacity: 0.34; filter: saturate(0.55); }
+    .col.struck .hero-title,
+    .col.struck .hero-sub,
+    .col.struck .bullets li {
+      text-decoration: line-through;
+      text-decoration-thickness: 1.5px;
+    }
+    .card, .price-pill { transition: opacity 0.3s ease, filter 0.3s ease; }
+
+    /* The control. It sits on a screen the PROSPECT is looking at, so it can
+       never read as a button labelled "disqualify". A bare dot in the corner
+       of the hero, no label, no tooltip, barely there until hovered -- and
+       every card also answers to its own number key, which is what he
+       actually uses mid-sentence. */
+    .strike {
+      position: absolute;
+      top: 10px; right: 10px;
+      z-index: 3;
+      width: 22px; height: 22px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.14);
+      cursor: pointer;
+      font: inherit;
+      color: transparent;
+      opacity: 0.5;
+      transition: opacity 0.2s ease, background 0.2s ease;
+    }
+    .strike:hover { opacity: 1; background: rgba(255,255,255,0.3); }
+    .strike:focus { outline: none; }
+    .strike::after {
+      content: "";
+      position: absolute;
+      left: 6px; right: 6px; top: 50%;
+      height: 1.5px;
+      background: rgba(255,255,255,0.9);
+      transform: translateY(-50%);
+    }
+    /* Struck: the dot fills in, so the state is legible to HIM at a glance
+       without ever naming itself. */
+    .col.struck .strike { background: rgba(255,255,255,0.42); opacity: 0.85; }
+
+    .hint {
+      margin-top: 22px;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(249,247,244,0.34);
+      min-height: 14px;
+    }
+
+    #loadMsg {
+      color: rgba(249,247,244,0.6);
+      font-size: 13px;
+      letter-spacing: 0.06em;
+    }
+
+    /* Must stay readable at half width on a shared screen: the rail keeps its
+       three columns and everything steps down together. */
+    @media (max-width: 1080px) {
+      .rail { gap: 16px; }
+      .hero { height: 190px; }
+      .hero-title { font-size: 27px; }
+      .hero-sub { font-size: 11px; }
+      .bullets li { font-size: 13px; padding-left: 17px; }
+      .price { font-size: 20px; }
+      .body { padding: 4px 15px 18px; }
+    }
+    @media (max-width: 820px) {
+      .stage { padding: 16px 10px; }
+      .rail { gap: 10px; }
+      .hero { height: 150px; }
+      .hero-title { font-size: 21px; }
+      .hero-sub { font-size: 9.5px; letter-spacing: 0.1em; }
+      .bullets li { font-size: 12.5px; margin-bottom: 8px; padding-left: 15px; line-height: 1.4; }
+      .bullets li::before { width: 5px; height: 5px; top: 6px; }
+      .price { font-size: 18px; }
+      .price-alt { font-size: 11.5px; }
+      .price-pill { padding: 9px 16px; }
+      .price-row { height: 74px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div id="loadMsg">Carregando...</div>
+    <div class="rail" id="rail" hidden></div>
+    <div class="hint" id="hint" hidden></div>
+  </div>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    var currentUser = null;
+    var auth        = null;
+
+    // Left to right: ADVANCED, GROWTH, START.
+    //
+    // He opens with all three on screen -- "Tres produtos aqui especificos" --
+    // so every card renders from the start. START stays last: it is the
+    // entry point and the downsell, and it is the one most often struck out
+    // early and brought back at the end.
+    var PACKAGES = [
+      {
+        key:    "advanced",
+        title:  "ADVANCED",
+        sub:    "6 meses, quinzenal",
+        image:  "assets/login/Picture4.jpg",
+        legacy: "pkg_premium",
+        omit:   "semanais",
+        price:  "6 x $1397",
+        alt:    ""
+      },
+      {
+        key:    "growth",
+        title:  "GROWTH",
+        sub:    "4 meses, semanal",
+        image:  "assets/login/Picture3.jpg",
+        legacy: "pkg_premium",
+        price:  "$6997",
+        alt:    "ou 4 x $2197"
+      },
+      {
+        key:    "start",
+        title:  "START",
+        sub:    "30 dias",
+        image:  "assets/login/Picture5.jpg",
+        legacy: "pkg_sprint",
+        price:  "$997",
+        alt:    ""
+      }
+    ];
+
+    // Fallback bullets, used only if the packages call fails. Same legacy
+    // content, so a network problem mid-meeting does not blank the screen.
+    var FALLBACK = {
+      pkg_premium: [
+        "Sprint intensivo de 90 dias (APEX Business Sprint\u2122)",
+        "Acompanhamento estrat\u00e9gico por mais 3 meses",
+        "Encontros estrat\u00e9gicos semanais",
+        "Implementa\u00e7\u00e3o de BSC APEX\u2122 e indicadores",
+        "Estrutura\u00e7\u00e3o de processos e vendas",
+        "12 meses de acesso total \u00e0 Plataforma APEX"
+      ],
+      pkg_sprint: [
+        "Sprint estrat\u00e9gico de 90 dias",
+        "Clareza, dire\u00e7\u00e3o e execu\u00e7\u00e3o guiada",
+        "Sess\u00f5es estrat\u00e9gicas recorrentes",
+        "+20 ferramentas pr\u00e1ticas de gest\u00e3o",
+        "M\u00e9todo Avance\u2122 (primeiros 40 dias)",
+        "Acompanhamento e ajustes cont\u00ednuos"
+      ]
+    };
+
+    // Step 1 = all three cards (images and titles only). After that the reveal
+    // walks the LIVE cards only: bullets one card at a time, then prices one
+    // at a time. A struck-through card is skipped in both passes, so its
+    // price never appears -- in the Brax meeting START was named, dismissed
+    // and never priced.
+    //
+    // Because striking changes how many cards are in the walk, the step
+    // numbers are not fixed to a card: step 2 means "the first live card's
+    // bullets" and it re-resolves every time apply() runs. That is what lets
+    // him un-strike a card after prices are already up and have that card
+    // simply become revealable, rather than renumbering the whole deck.
+    var step   = 1;
+    var struck = {};
+
+    function liveKeys() {
+      var out = [];
+      for (var i = 0; i < PACKAGES.length; i++) {
+        if (!struck[PACKAGES[i].key]) { out.push(PACKAGES[i].key); }
+      }
+      return out;
+    }
+
+    // 1 card step + one bullet step and one price step per live card.
+    function stepMax() { return 1 + (liveKeys().length * 2); }
+
+    function escHtml(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function firebaseReady() {
+      return new Promise(function(resolve, reject) {
+        firebase.initializeApp(FIREBASE_CONFIG);
+        auth = firebase.auth();
+        auth.onAuthStateChanged(function(user) {
+          if (user) { currentUser = user; resolve(user); return; }
+          // WAIT, THEN EITHER BOOT OR BAIL -- never neither.
+          //
+          // Firebase reports a momentary null user during a token refresh
+          // and then restores the session. The old code only handled the
+          // bad outcome: if the user came back within the second it did
+          // NOTHING, and because this branch returns, the page never
+          // booted and never navigated. It sat on "Carregando..." forever,
+          // and a refresh replayed the same race -- only retyping the URL
+          // and logging in again cleared it.
+          //
+          // Same fix as dashboard.html; see the comment there.
+          var hadSession = sessionStorage.getItem("apex_role");
+          if (!hadSession) { reject(new Error("Not authenticated")); return; }
+          setTimeout(function() {
+            if (auth.currentUser) { currentUser = auth.currentUser; resolve(auth.currentUser); }
+            else { reject(new Error("Not authenticated")); }
+          }, 1000);
+        });
+      });
+    }
+
+    function apiFetch(path) {
+      return currentUser.getIdToken().then(function(token) {
+        return fetch(WORKER_URL + path, { headers: { "Authorization": "Bearer " + token } });
+      });
+    }
+
+    function render(bulletsBy) {
+      var rail = document.getElementById("rail");
+      var h = "";
+      for (var i = 0; i < PACKAGES.length; i++) {
+        var p = PACKAGES[i];
+        var items = bulletsBy[p.legacy] || FALLBACK[p.legacy] || [];
+        // ADVANCED runs biweekly, so the weekly-cadence line from the shared
+        // legacy content would contradict its own subtitle.
+        if (p.omit) {
+          items = items.filter(function(t) { return String(t).indexOf(p.omit) === -1; });
+        }
+        h += '<div class="col" id="col-' + p.key + '">';
+        h += '<div class="card">';
+        h += '<div class="hero" style="background-image:url(\'' + p.image + '\');">';
+        h += '<div class="hero-head"><div class="hero-title">' + escHtml(p.title) + '</div>';
+        h += '<div class="hero-sub">' + escHtml(p.sub) + '</div></div>';
+        // No label and no title attribute: nothing on this control announces
+        // what it does. aria-hidden + tabindex -1 keep it out of the tab order
+        // and off a screen reader, since it is his control, not the room's.
+        h += '<button type="button" class="strike" aria-hidden="true" tabindex="-1" ' +
+             'onclick="strikeClick(event, \'' + p.key + '\');"></button>';
+        h += '</div>';
+        h += '<div class="body"><ul class="bullets">';
+        for (var j = 0; j < items.length; j++) {
+          h += '<li>' + escHtml(items[j]) + '</li>';
+        }
+        h += '</ul></div></div>';
+        h += '<div class="price-row"><div class="price-pill"><div class="price">' +
+             escHtml(p.price) + '</div>';
+        if (p.alt) { h += '<div class="price-alt">' + escHtml(p.alt) + '</div>'; }
+        h += '</div></div>';
+        h += '</div>';
+      }
+      rail.innerHTML = h;
+      rail.hidden = false;
+      document.getElementById("loadMsg").hidden = true;
+      document.getElementById("hint").hidden = false;
+      apply();
+    }
+
+    function apply() {
+      var live = liveKeys();
+      var max  = stepMax();
+      if (step > max) { step = max; }
+
+      for (var i = 0; i < PACKAGES.length; i++) {
+        var p   = PACKAGES[i];
+        var col = document.getElementById("col-" + p.key);
+        if (!col) { continue; }
+
+        var isStruck = !!struck[p.key];
+        if (isStruck) { col.classList.add("struck"); }
+        else { col.classList.remove("struck"); }
+
+        // Position among the LIVE cards, not among all three. A struck card
+        // has no position, so it is skipped by both passes and, above all,
+        // never reaches its price step.
+        var n = live.indexOf(p.key);
+        var showBullets = !isStruck && n > -1 && step >= 2 + n;
+        var showPrice   = !isStruck && n > -1 && step >= 2 + live.length + n;
+
+        if (showBullets) { col.classList.add("show-bullets"); }
+        else { col.classList.remove("show-bullets"); }
+        if (showPrice) { col.classList.add("show-price"); }
+        else { col.classList.remove("show-price"); }
+      }
+      var hint = document.getElementById("hint");
+      if (hint) { hint.textContent = step >= max ? "" : "→"; }
+    }
+
+    // Strike / un-strike.
+    //
+    // Un-striking re-enters a card into the walk, which lengthens it and would
+    // otherwise push every later price back a step -- so bringing START back
+    // at the end would RETRACT a price already on screen in front of the
+    // prospect. That is the one thing this must never do. The fix is to hold
+    // the revealed set steady: count what is showing before the change and
+    // move `step` so that exactly the same cards keep their bullets and their
+    // prices afterwards. The returning card is then the next thing to reveal.
+    function toggleStrike(key) {
+      var beforeB = 0, beforeP = 0;
+      for (var i = 0; i < PACKAGES.length; i++) {
+        var c = document.getElementById("col-" + PACKAGES[i].key);
+        if (!c) { continue; }
+        if (c.classList.contains("show-bullets")) { beforeB += 1; }
+        if (c.classList.contains("show-price"))   { beforeP += 1; }
+      }
+
+      if (struck[key]) { delete struck[key]; } else { struck[key] = true; }
+
+      // Re-express that same reveal count in the new walk's numbering.
+      var live = liveKeys().length;
+      if (beforeP > 0)      { step = 2 + live + Math.min(beforeP, live) - 1; }
+      else if (beforeB > 0) { step = 2 + Math.min(beforeB, live) - 1; }
+      else                  { step = 1; }
+      apply();
+    }
+
+    // The control sits inside the page-wide click handler that advances the
+    // deck, so its click must not also step forward.
+    function strikeClick(ev, key) {
+      ev.stopPropagation();
+      ev.preventDefault();
+      toggleStrike(key);
+    }
+
+    function next() { if (step < stepMax()) { step += 1; apply(); } }
+    // He will be asked to go back.
+    function back() { if (step > 1) { step -= 1; apply(); } }
+
+    document.addEventListener("click", function() { next(); });
+
+    document.addEventListener("keydown", function(ev) {
+      var k = ev.key;
+      // 1/2/3 strike or un-strike that card, left to right. This is the one he
+      // actually uses: it is silent, needs no pointer travel across a screen
+      // the prospect is watching, and can be hit mid-sentence.
+      if (k === "1" || k === "2" || k === "3") {
+        var idx = parseInt(k, 10) - 1;
+        if (PACKAGES[idx]) {
+          ev.preventDefault();
+          toggleStrike(PACKAGES[idx].key);
+          return;
+        }
+      }
+      if (k === "ArrowRight" || k === "ArrowDown" || k === " " || k === "Spacebar" || k === "Enter" || k === "PageDown") {
+        ev.preventDefault();
+        next();
+      } else if (k === "ArrowLeft" || k === "ArrowUp" || k === "Backspace" || k === "PageUp") {
+        ev.preventDefault();
+        back();
+      }
+    });
+
+    window.onload = function() {
+      firebaseReady()
+        .then(function() { return apiFetch("/api/settings/packages"); })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var by = {};
+          var pkgs = (data && data.packages) || [];
+          for (var i = 0; i < pkgs.length; i++) {
+            if (pkgs[i].included_items && pkgs[i].included_items.length) {
+              by[pkgs[i].id] = pkgs[i].included_items;
+            }
+          }
+          render(by);
+        })
+        .catch(function(err) {
+          if (err && err.message === "Not authenticated") {
+            window.location.href = "index.html";
+            return;
+          }
+          // The legacy content is known; a failed call must not blank the
+          // screen in front of a prospect.
+          render({});
+        });
+    };
+  </script>
+</body>
+</html>

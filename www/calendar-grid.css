@@ -1,0 +1,371 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Shared month-calendar styles — the grid only. Pairs with calendar-grid.js.
+
+   Lifted from calendar.html's own <style> block, which is where the Apex
+   calendar's fixes actually live. Two of them matter enough to name:
+
+     1. EVENT-NAME TRUNCATION. Chips use white-space: normal + word-wrap:
+        break-word, NOT ellipsis. A long name wraps inside the chip and the
+        cell grows; with nowrap/ellipsis a customer called "Piscina
+        Residencial Alvarez - Brandon" renders as "Piscina Res…" in every
+        cell and the calendar becomes unreadable. min-width: 0 on both the
+        cell and the chip is what actually lets a grid child shrink and wrap
+        rather than forcing the column wider.
+
+     2. THE MOBILE PATTERN IS A DIFFERENT LAYOUT, NOT A SMALLER GRID. Below
+        768px the mini month + agenda list takes over. This is why the rules
+        live in a calendar-specific stylesheet: mobile.css carries almost no
+        calendar rules, so relying on it ships a broken mobile calendar.
+
+   Class prefix is cgrid- rather than cal-, so this can be loaded alongside
+   calendar.html's own styles without either overriding the other.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.cgrid-wrap {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 12px);
+  overflow: hidden;
+}
+
+.cgrid-day-headers {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+
+.cgrid-day-header {
+  padding: 10px 8px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cgrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.cgrid-cell {
+  min-height: 100px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 6px;
+  cursor: pointer;
+  transition: background 0.1s;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+  /* Without this a long chip forces the column wider and the seven columns
+     stop being equal. See note 1 in the header. */
+  min-width: 0;
+}
+.cgrid-cell:nth-child(7n) { border-right: none; }
+.cgrid-cell.other-month { background: var(--surface, #fafaf9); }
+.cgrid-cell:hover { background: var(--surface-2, #f6f4f0); }
+.cgrid-cell.today .cgrid-day-num {
+  color: var(--gold);
+  border-bottom: 2px solid var(--gold);
+  font-weight: 700;
+}
+
+.cgrid-day-num {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.6;
+  padding-bottom: 1px;
+  align-self: flex-start;
+}
+.cgrid-cell.other-month .cgrid-day-num { color: #ccc; }
+
+/* ── Event chips ──────────────────────────────────────────────────────── */
+.cgrid-chip {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+  overflow: hidden;
+  /* Wrap, never ellipsis — see note 1. */
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.cgrid-chip:hover { opacity: 0.88; }
+.cgrid-chip-name { font-weight: 600; }
+.cgrid-chip-time { font-weight: 400; font-size: 10px; opacity: 0.85; }
+
+/* The company's OWN events — solid, editable. */
+.cgrid-chip.own {
+  background: rgba(201, 164, 58, 0.18);
+  color: #6b5312;
+}
+/* DERIVED from a job: read-only here, edited on the job itself. Dashed to
+   say "this is a reflection of another record", not a calendar entry. */
+.cgrid-chip.derived {
+  background: var(--surface-2, #f1ede6);
+  color: var(--text);
+  border: 1px dashed var(--border);
+}
+/* A LEAD: an in-home estimate visit or the date the lead arrived. Derived
+   from gm_leads and read-only here, like the job chip, but solid rather than
+   dashed and in a cooler tone — an estimate is an APPOINTMENT somebody has to
+   drive to, not a milestone reflected off another record. */
+.cgrid-chip.lead {
+  background: rgba(58, 106, 160, 0.16);
+  color: #24486f;
+  border: 1px solid rgba(58, 106, 160, 0.34);
+}
+/* Closed and lost leads: kept on the calendar as history, muted so the live
+   pipeline is what the eye lands on. Applied alongside .lead, never alone. */
+.cgrid-chip.is-dim {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+.cgrid-chip.is-dim:hover { opacity: 0.7; }
+
+/* A JOB IN PROGRESS, spanning every day from start to deadline — a BAND, not
+   a single-day marker. Green and solid so it reads as "active" at a glance,
+   distinct from every other chip kind on the grid. Square by default; the
+   start/end day of the span gets rounded OUTER corners only, so the run of
+   chips across the week reads as one continuous shape. */
+.cgrid-chip.job-band {
+  background: #2f7d4f;
+  color: #fff;
+  border: none;
+  border-radius: 0;
+}
+.cgrid-chip.job-band.job-band-start { border-radius: 4px 0 0 4px; }
+.cgrid-chip.job-band.job-band-end   { border-radius: 0 4px 4px 0; }
+.cgrid-chip.job-band.job-band-start.job-band-end { border-radius: 4px; }
+
+/* APEX CLUB — another tier's event, read-only, and deliberately unlike
+   anything the client owns so nobody mistakes it for theirs. */
+.cgrid-chip.club {
+  background: #1a1a1d;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+}
+/* The client's meeting with APEX. Read-only like the club chip, but solid gold
+   rather than the dark club treatment: this is their own recurring commitment,
+   not an invitation to an event, and it should read as the most important
+   thing on the day it falls on. */
+.cgrid-chip.apex {
+  background: var(--gold, #C9A43A);
+  color: #1a1a1d;
+  border: 1px solid var(--gold, #C9A43A);
+}
+
+/* ── Mobile: mini month + agenda ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  .cgrid-mini-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 8px 8px;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .cgrid-mini-dow-row,
+  .cgrid-mini-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+  }
+  .cgrid-mini-dow {
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: 6px;
+  }
+  .cgrid-mini-cell {
+    /* 44px: the same touch target every other tappable row in the portal
+       uses. A 7-column month of smaller cells is a mis-tap generator. */
+    min-height: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: none;
+    border: none;
+    padding: 2px 0;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cgrid-mini-num {
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    font-size: 13px; font-weight: 500;
+    color: var(--text);
+  }
+  .cgrid-mini-cell.is-today .cgrid-mini-num { border: 1.5px solid var(--gold); font-weight: 700; }
+  .cgrid-mini-cell.is-selected .cgrid-mini-num { background: var(--gold); color: #1a1a1d; font-weight: 700; }
+  .cgrid-mini-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: transparent;
+  }
+  .cgrid-mini-dot.has-events { background: var(--gold); }
+
+  .cgrid-agenda-head {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 16px 2px 8px;
+  }
+  .cgrid-agenda-list { display: flex; flex-direction: column; gap: 8px; }
+  /* Roomier than a month-cell chip: the agenda has the width to spend, and
+     this is where a phone user actually reads the day. */
+  .cgrid-agenda-list .cgrid-chip {
+    font-size: 14px;
+    line-height: 1.45;
+    padding: 12px 14px;
+    border-radius: 10px;
+    min-height: 44px;
+  }
+  .cgrid-agenda-list .cgrid-chip-time { font-size: 12px; }
+  .cgrid-empty { font-size: 13px; color: var(--muted); padding: 14px 2px; }
+}
+
+/* ── Week / Day: hour grid + timed-block overlay ─────────────────────────
+   Ported from calendar.html's own week/day styling (.cal-week-*/.cal-day-*),
+   renamed to the cgrid- prefix per the note at the top of this file. */
+
+.cgrid-week-wrap, .cgrid-day-wrap {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 12px);
+  overflow: auto;
+  position: relative;
+}
+
+.cgrid-week-grid {
+  display: grid;
+  grid-template-columns: 52px repeat(7, 1fr);
+  min-width: 600px;
+}
+.cgrid-day-grid {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+}
+
+.cgrid-week-time-gutter {
+  background: var(--surface, #fafaf9);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--muted);
+  padding: 4px 6px 0;
+  text-align: right;
+}
+
+.cgrid-week-day-head {
+  padding: 10px 6px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+.cgrid-week-day-head.today { color: var(--gold); }
+.cgrid-week-day-head:last-child { border-right: none; }
+
+.cgrid-day-head-label {
+  padding: 10px 6px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.cgrid-day-head-label.today { color: var(--gold); }
+
+.cgrid-week-time-label, .cgrid-day-time-label {
+  padding: 4px 6px 0;
+  font-size: 10px;
+  color: var(--muted);
+  text-align: right;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface, #fafaf9);
+  min-height: 52px;
+}
+
+.cgrid-week-slot {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  min-height: 52px;
+  padding: 3px;
+  position: relative;
+  cursor: pointer;
+}
+.cgrid-week-slot:last-child { border-right: none; }
+.cgrid-week-slot:hover { background: var(--surface-2, #f6f4f0); }
+
+.cgrid-day-slot {
+  border-bottom: 1px solid var(--border);
+  min-height: 52px;
+  padding: 4px 8px;
+}
+.cgrid-day-slot:hover { background: var(--surface-2, #f6f4f0); }
+
+/* Timed events are NOT children of the hour slots -- they are absolutely
+   positioned in a per-day overlay stacked on top of the hour grid, sized by
+   real start/end time (see buildTimedOverlay in calendar-grid.js). The hour
+   slots stay as the empty ruled background. */
+.cgrid-day-col-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+}
+
+.cgrid-week-overlay-host {
+  position: absolute;
+  left: 0; right: 0;
+  display: grid;
+  grid-template-columns: 52px repeat(7, 1fr);
+  pointer-events: none;
+}
+.cgrid-week-overlay-col { position: relative; pointer-events: none; }
+
+.cgrid-day-overlay-host {
+  position: absolute;
+  left: 0; right: 0;
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  pointer-events: none;
+}
+.cgrid-day-overlay-col { position: relative; pointer-events: none; }
+
+/* A timed chip positioned by buildTimedOverlay; content/color come from the
+   caller's renderTimedChip, this just makes it behave inside the overlay. */
+.cgrid-week-overlay-col .cgrid-chip,
+.cgrid-day-overlay-col .cgrid-chip {
+  pointer-events: auto;
+  overflow: hidden;
+  box-sizing: border-box;
+  white-space: normal;
+}

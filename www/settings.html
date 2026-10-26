@@ -1,0 +1,3726 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js?v=1788495974, so it is installed before anything that can throw.
+
+       WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
+       with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
+       no replay block, hasListeners=false forever) is consistent with a script
+       dying early. Capacitor only prints that generic string, so the actual
+       message, file, line and stack have to be captured here.
+
+       Buffers into a cookie as well as the console, because the native log is
+       only reachable once the Capacitor plugin exists -- which is exactly what
+       may not have happened yet when the error fires. native-bridge.js?v=1788495974 replays
+       this buffer into the native log once the plugin appears. -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1792442281"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
+  <!-- Shared date/time display helpers. Needed here for the Availability
+       summary line, which renders the stored 24-hour day_start/day_end as
+       12-hour AM/PM -- the site-wide format. NOT deferred: it defines plain
+       functions the inline script calls, so it must be parsed first. -->
+  <script src="datetime.js"></script>
+  <title data-title-pt="Apex &#8212; Configura&#231;&#245;es" data-title-en="Apex &#8212; Settings">Apex &#8212; Configura&#231;&#245;es</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ─── Reset ─────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    :root {
+      --surface  : #f9f7f4;
+      --header   : #1a1a1d;
+      --gold     : #C9A43A;
+      --gold-dim : rgba(201,164,58,0.14);
+      --brown    : #7a5c2e;
+      --text     : #1a1a1d;
+      --muted    : #6b6660;
+      --border   : #e8e2d9;
+      --card     : #ffffff;
+      --radius   : 10px;
+      --shadow   : 0 2px 16px rgba(26,26,29,0.08);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Bilingual toggle ──────────────────────────────────────────────── */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ─── Header ────────────────────────────────────────────────────────── */
+    #appHeader {
+      background: var(--header);
+      height: 64px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.7);
+      font-size: 13px;
+    }
+
+    .role-badge {
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,164,58,0.4);
+      color: var(--gold);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .btn-header {
+      background: transparent;
+      border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+
+    .lang-btn {
+      background: transparent;
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 5px 13px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    /* ─── Loading screen ─────────────────────────────────────────────────── */
+    #loadingScreen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    #loadingScreen[hidden] { display: none !important; }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── App main ───────────────────────────────────────────────────────── */
+    #appMain {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Settings hero section ──────────────────────────────────────────── */
+    .settings-hero-section {
+      position: relative;
+      padding: 24px 28px 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    #settingsHeroBg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+
+    #settingsHeroBg.is-loaded {
+      animation: kenburns 28s ease-in-out infinite alternate;
+    }
+
+    #settingsHeroScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+
+    .settings-hero-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ─── Tile anchor links ─────────────────────────────────────────────── */
+    a.glass-tile-link {
+      text-decoration: none;
+      color: inherit;
+      display: contents;
+    }
+    a.glass-tile-link:hover .glass-tile {
+      border-color: rgba(201,164,58,0.45);
+    }
+
+    /* ─── Glass tiles ────────────────────────────────────────────────────── */
+    .glass-tile-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 16px 20px;
+      flex: 0 0 auto;
+      min-width: 120px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .glass-tile-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .glass-tile-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    /* ─── Page heading (white over photo) ───────────────────────────────── */
+    .page-heading-hero {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* ─── Below hero section ─────────────────────────────────────────────── */
+    .below-hero-section {
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ─── Section heading ────────────────────────────────────────────────── */
+    /* Sticky jump nav. Settings grew long enough that finding a section
+       meant scrolling and guessing; this keeps the map on screen the whole
+       way down. Horizontally scrollable so it never wraps on a phone. */
+    .settings-subnav {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; gap: 6px; overflow-x: auto;
+      padding: 10px 0; margin-bottom: 8px;
+      background: var(--bg, #f9f7f4);
+      border-bottom: 1px solid var(--border);
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .settings-subnav::-webkit-scrollbar { display: none; }
+    .settings-subnav a {
+      flex: none; font-size: 12.5px; font-weight: 600;
+      padding: 7px 13px; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--card);
+      color: var(--muted); text-decoration: none; white-space: nowrap;
+    }
+    .settings-subnav a:hover { color: var(--text); border-color: var(--gold); }
+
+    /* A heading now reads as a real divider rather than slightly bolder
+       text, so section boundaries are visible while scrolling. */
+    .section-heading {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+      padding-top: 10px;
+      border-top: 2px solid var(--gold);
+      letter-spacing: -0.2px;
+    }
+    /* The first section needs no rule above it -- the hero is the divider. */
+    #section-profile .section-heading { border-top: 0; padding-top: 0; }
+
+    /* The anchor targets are the SECTIONS, so the offset that clears the
+       sticky nav belongs on them, not on the heading inside. */
+    #section-profile, #templatesSection, #packagesSection,
+    #paymentDetailsSection, #notificationsSection { scroll-margin-top: 64px; }
+
+    .section-subheading {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* ─── Template card ──────────────────────────────────────────────────── */
+    .template-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .template-card + .template-card {
+      margin-top: 14px;
+    }
+
+    .template-card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .template-textarea {
+      width: 100%;
+      min-height: 130px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--surface);
+      transition: border-color 0.12s;
+      outline: none;
+    }
+    .template-textarea:focus { border-color: var(--gold); }
+
+    .template-hint {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .template-hint code {
+      background: rgba(201,164,58,0.1);
+      border: 1px solid rgba(201,164,58,0.25);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: 'SF Mono', 'Fira Mono', monospace;
+      font-size: 11px;
+      color: var(--brown);
+    }
+
+    .template-meta {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .template-meta strong {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ─── Template card footer ───────────────────────────────────────────── */
+    .template-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* ─── Save button ────────────────────────────────────────────────────── */
+    .btn-save {
+      background: var(--gold);
+      border: none;
+      color: #000;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 20px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: opacity 0.12s;
+      flex-shrink: 0;
+    }
+    .btn-save:hover:not(:disabled) { opacity: 0.88; }
+    .btn-save:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ─── Inline status message ──────────────────────────────────────────── */
+    /* ── Push toggle ──
+       iOS-style switch: Apple's HIG uses a switch for a binary on/off
+       setting, and it shows its state at rest, which a one-shot button
+       cannot. Built on a real <input type=checkbox role=switch> so it stays
+       keyboard- and screen-reader-accessible; only the visuals are custom. */
+    .push-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--card); cursor: pointer;
+    }
+    .push-switch { position: relative; flex: none; width: 51px; height: 31px; }
+    .push-switch input {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      margin: 0; opacity: 0; cursor: pointer; z-index: 2;
+    }
+    .push-track {
+      position: absolute; inset: 0; border-radius: 999px;
+      background: #c9c6c0; transition: background .2s ease;
+      display: block; pointer-events: none;
+    }
+    .push-knob {
+      position: absolute; top: 2px; left: 2px; width: 27px; height: 27px;
+      border-radius: 50%; background: #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,.3); transition: transform .2s ease;
+    }
+    .push-switch input:checked + .push-track { background: var(--gold); }
+    .push-switch input:checked + .push-track .push-knob { transform: translateX(20px); }
+    .push-switch input:disabled + .push-track { opacity: .45; }
+    .push-switch input:disabled { cursor: not-allowed; }
+    .push-switch input:focus-visible + .push-track { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+    .template-status {
+      font-size: 12px;
+      font-weight: 500;
+      min-height: 16px;
+    }
+    .template-status.ok  { color: #2e7d4f; }
+    .template-status.err { color: #b44040; }
+
+    /* ─── Empty / error states ───────────────────────────────────────────── */
+    .settings-empty {
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .settings-empty-icon {
+      font-size: 32px;
+      opacity: 0.45;
+    }
+
+    /* ─── Package card ───────────────────────────────────────────────────── */
+    .pkg-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pkg-card + .pkg-card {
+      margin-top: 14px;
+    }
+
+    .pkg-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pkg-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      flex: 1;
+    }
+
+    .pkg-popular-badge {
+      background: var(--gold);
+      color: #000;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .pkg-field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .pkg-field-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .pkg-input-short {
+      width: 140px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--brown);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-input-short:focus { border-color: var(--gold); }
+
+    .pkg-input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-input:focus { border-color: var(--gold); }
+
+    .pkg-textarea {
+      width: 100%;
+      min-height: 54px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-textarea:focus { border-color: var(--gold); }
+
+    .pkg-items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .pkg-item-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pkg-item-input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-item-input:focus { border-color: var(--gold); }
+
+    .btn-remove-item {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: border-color 0.12s, color 0.12s;
+    }
+    .btn-remove-item:hover { border-color: #b44040; color: #b44040; }
+
+    .btn-add-item {
+      background: none;
+      border: 1.5px dashed var(--border);
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.12s, color 0.12s;
+      align-self: flex-start;
+    }
+    .btn-add-item:hover { border-color: var(--gold); color: var(--brown); }
+
+    .pkg-popular-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pkg-popular-checkbox {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--gold);
+      cursor: pointer;
+    }
+
+    .pkg-popular-label {
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .pkg-sort-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pkg-sort-input {
+      width: 70px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-sort-input:focus { border-color: var(--gold); }
+
+    /* ─── Payment plan toggle ────────────────────────────────────────────── */
+    .pkg-toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pkg-toggle-switch {
+      position: relative;
+      width: 38px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+
+    .pkg-toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .pkg-toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 22px;
+      cursor: pointer;
+      transition: background 0.18s;
+    }
+
+    .pkg-toggle-slider::before {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.18s;
+    }
+
+    .pkg-toggle-switch input:checked + .pkg-toggle-slider {
+      background: var(--gold);
+    }
+
+    .pkg-toggle-switch input:checked + .pkg-toggle-slider::before {
+      transform: translateX(16px);
+    }
+
+    .pkg-toggle-label {
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .pkg-payment-plan-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .pkg-payment-plan-fields[hidden] { display: none !important; }
+
+    .pkg-new-pricing-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+      padding: 10px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+    }
+
+    .pkg-new-pricing-fields[hidden] { display: none !important; }
+
+    .pkg-input-price {
+      width: 160px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    .pkg-input-price:focus { border-color: var(--gold); }
+
+    .pkg-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .pkg-footer-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn-delete {
+      background: transparent;
+      border: 1.5px solid #b44040;
+      color: #b44040;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      flex-shrink: 0;
+    }
+    .btn-delete:hover:not(:disabled) { background: #b44040; color: #fff; }
+    .btn-delete:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ─── Profile upload form ────────────────────────────────────────────── */
+    .profile-upload-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-width: 480px;
+    }
+
+    .profile-field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .profile-field-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .profile-select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.12s;
+      cursor: pointer;
+    }
+    .profile-select:focus { border-color: var(--gold); }
+
+    .profile-file-input {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .profile-upload-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .profile-status { font-size: 12px; font-weight: 500; min-height: 16px; }
+    .profile-status.ok  { color: #2e7d4f; }
+    .profile-status.err { color: #b44040; }
+
+    .profile-avatar-preview {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--border);
+      display: block;
+    }
+    .profile-avatar-placeholder {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: rgba(201,164,58,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--gold);
+      border: 2px solid var(--border);
+    }
+
+    /* ─── Responsive ─────────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .settings-hero-section { padding: 16px; }
+      .below-hero-section { padding: 16px; }
+      .glass-tile-value { font-size: 22px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #settingsHeroBg.is-loaded { animation: none; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <!-- ═══════════════ HEADER ═══════════════════════════════════════════════ -->
+  <header id="appHeader">
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" onclick="apexNavToggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
+
+  <!-- ═══════════════ LOADING SCREEN ═══════════════════════════════════════ -->
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <span class="show-pt">Carregando...</span>
+    <span class="show-en">Loading...</span>
+  </div>
+
+  <!-- ═══════════════ MAIN ═════════════════════════════════════════════════ -->
+  <main id="appMain" hidden>
+
+    <!-- Hero section with background photo and glass tile -->
+    <div class="settings-hero-section">
+      <div id="settingsHeroBg" aria-hidden="true"></div>
+      <div id="settingsHeroScrim" aria-hidden="true"></div>
+      <div class="settings-hero-content">
+
+        <!-- Glass stat tiles — profile + templates + packages -->
+        <div class="glass-tile-row">
+          <a href="#section-profile" class="glass-tile-link">
+            <div class="glass-tile">
+              <div class="glass-tile-label">
+                <span class="show-pt">FOTOS DE PERFIL</span>
+                <span class="show-en">PROFILE PICTURES</span>
+              </div>
+              <div class="glass-tile-value" id="heroTileProfiles">--</div>
+            </div>
+          </a>
+          <a href="#templatesSection" class="glass-tile-link">
+            <div class="glass-tile">
+              <div class="glass-tile-label">
+                <span class="show-pt">MODELOS</span>
+                <span class="show-en">TEMPLATES</span>
+              </div>
+              <div class="glass-tile-value" id="heroTileTemplates">--</div>
+            </div>
+          </a>
+          <a href="#packagesSection" class="glass-tile-link">
+            <div class="glass-tile">
+              <div class="glass-tile-label">
+                <span class="show-pt">PACOTES</span>
+                <span class="show-en">PACKAGES</span>
+              </div>
+              <div class="glass-tile-value" id="heroTilePackages">--</div>
+            </div>
+          </a>
+        </div>
+
+        <!-- Page heading -->
+        <h1 class="page-heading-hero">
+          <span class="show-pt">Configura&#231;&#245;es</span>
+          <span class="show-en">Settings</span>
+        </h1>
+
+      </div><!-- /settings-hero-content -->
+    </div><!-- /settings-hero-section -->
+
+    <!-- Below hero: settings content -->
+    <div class="below-hero-section">
+
+      <!-- ══ Section jump nav ═══════════════════════════════════════════
+           Settings grew long enough that finding anything meant scrolling
+           and guessing where one section ended and the next began. These
+           anchor-jump to each section; the rules and spacing on
+           .section-heading do the rest by making the boundaries visible. -->
+      <nav class="settings-subnav" aria-label="Settings sections">
+        <a href="#section-profile">
+          <span class="show-pt">Fotos de Perfil</span>
+          <span class="show-en">Profile Pictures</span>
+        </a>
+        <a href="#templatesSection">
+          <span class="show-pt">Modelos WhatsApp</span>
+          <span class="show-en">WhatsApp Templates</span>
+        </a>
+        <a href="#packagesSection">
+          <span class="show-pt">Pacotes</span>
+          <span class="show-en">Packages</span>
+        </a>
+        <a href="#paymentDetailsSection">
+          <span class="show-pt">Pagamento</span>
+          <span class="show-en">Payment</span>
+        </a>
+        <!-- The Availability section shipped with NO entry here, so every rule
+             the scheduling link runs on -- day start and end, working days,
+             minimum notice, daily cap, default duration and travel -- was
+             unreachable in the live app despite the markup existing. Listed in
+             document order, so the nav reads top to bottom like the page. -->
+        <a href="#availabilitySection">
+          <span class="show-pt">Disponibilidade</span>
+          <span class="show-en">Availability</span>
+        </a>
+        <a href="#notificationsSection">
+          <span class="show-pt">Notificações</span>
+          <span class="show-en">Notifications</span>
+        </a>
+      </nav>
+
+      <!-- Profile Pictures section -->
+      <div id="section-profile">
+        <div class="section-heading">
+          <span class="show-pt">Fotos de Perfil</span>
+          <span class="show-en">Profile Pictures</span>
+        </div>
+        <div class="section-subheading">
+          <span class="show-pt">Envie uma foto de perfil para qualquer usu&#225;rio.</span>
+          <span class="show-en">Upload a profile picture for any user.</span>
+        </div>
+        <div id="profileContainer">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- WhatsApp Message Templates section -->
+      <div id="templatesSection">
+        <div class="section-heading">
+          <span class="show-pt">Modelos de Mensagem WhatsApp</span>
+          <span class="show-en">WhatsApp Message Templates</span>
+        </div>
+        <div class="section-subheading">
+          <span class="show-pt">Edite os textos enviados automaticamente por WhatsApp ap&#243;s cada sess&#227;o.</span>
+          <span class="show-en">Edit the texts sent automatically via WhatsApp after each session.</span>
+        </div>
+        <div id="templatesContainer">
+          <!-- Rendered by JS -->
+        </div>
+
+        <!-- Apex Club confirmation. Lives HERE, with the other WhatsApp
+             templates, rather than buried at the bottom of Payment Details
+             where it first shipped -- it is a message template, not a
+             payment setting. -->
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px;">
+            <span class="show-pt">Mensagem de confirmação — Apex Club</span>
+            <span class="show-en">Confirmation message — Apex Club</span>
+          </div>
+          <textarea id="bizClubTemplateInput" rows="8" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;line-height:1.6;background:var(--card);color:var(--text);resize:vertical;"></textarea>
+          <div style="margin-top:6px;font-size:12px;color:var(--muted);line-height:1.6;">
+            <span class="show-pt">Use <code>{nome}</code> <code>{evento}</code> <code>{data}</code> <code>{hora}</code> <code>{local}</code> <code>{valor}</code> — são substituídos automaticamente.</span>
+            <span class="show-en">Use <code>{nome}</code> <code>{evento}</code> <code>{data}</code> <code>{hora}</code> <code>{local}</code> <code>{valor}</code> — filled in automatically.</span>
+          </div>
+          <!-- Standing rule, carried from the LTC project: these messages
+               must never offer a direct "no". A hard decline is culturally
+               wrong here; the graceful out is handled on the guest list as
+               "vou na próxima", not by the message text. -->
+          <div style="margin-top:8px;padding:9px 11px;border-radius:7px;background:rgba(201,164,58,0.10);border:1px solid rgba(201,164,58,0.35);font-size:12px;line-height:1.6;">
+            <span class="show-pt"><b>Peça a confirmação</b> — nunca ofereça uma opção de recusa direta. Quem não puder ir é marcado como “vai na próxima” na lista de convidados.</span>
+            <span class="show-en"><b>Ask them to confirm</b> — never offer a direct decline option. Anyone who cannot come is marked “next time” on the guest list instead.</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+            <button onclick="handleSaveBizClubTemplate()" style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap;">
+              <span class="show-pt">Salvar</span>
+              <span class="show-en">Save</span>
+            </button>
+            <div id="bizClubTemplateStatus" style="font-size:13px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Packages section -->
+      <div id="packagesSection">
+        <div class="section-heading">
+          <span class="show-pt">Gerenciar Pacotes</span>
+          <span class="show-en">Manage Packages</span>
+        </div>
+        <div class="section-subheading">
+          <span class="show-pt">Adicione, edite ou remova os pacotes oferecidos aos clientes.</span>
+          <span class="show-en">Add, edit, or remove the packages offered to clients.</span>
+        </div>
+        <div id="packagesContainer">
+          <!-- Rendered by JS -->
+        </div>
+        <div style="margin-top:16px;">
+          <button class="btn-save" id="btnAddPackage" onclick="showAddPackageCard()">
+            <span class="show-pt">+ Adicionar Pacote</span>
+            <span class="show-en">+ Add Package</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Payment Details section -->
+      <div id="paymentDetailsSection" style="margin-top:32px;">
+        <div class="section-heading">
+          <span class="show-pt">Detalhes de Pagamento</span>
+          <span class="show-en">Payment Details</span>
+        </div>
+        <div class="section-subheading">
+          <span class="show-pt">QR Code Zelle e link Stripe usados em todas as faturas da Apex.</span>
+          <span class="show-en">Zelle QR code and Stripe link used on all Apex invoices.</span>
+        </div>
+
+        <div class="template-card" style="display:flex;flex-direction:column;gap:20px;">
+
+          <!-- Zelle QR Code -->
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px;">
+              <span class="show-pt">QR Code Zelle</span>
+              <span class="show-en">Zelle QR Code</span>
+            </div>
+            <div id="bizQrPreviewWrap" style="margin-bottom:10px;display:none;">
+              <img id="bizQrPreviewImg" src="" alt="Zelle QR" style="max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--border);display:block;">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;" id="bizQrUploadRow">
+              <input type="file" id="bizQrFileInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="handleBizQrFileSelected(this)">
+              <button onclick="document.getElementById('bizQrFileInput').click()" style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;">
+                <span class="show-pt" id="bizQrBtnLabelPt">Carregar QR Code</span>
+                <span class="show-en" id="bizQrBtnLabelEn">Upload QR Code</span>
+              </button>
+            </div>
+            <div id="bizQrStatus" style="margin-top:6px;font-size:13px;"></div>
+          </div>
+
+          <!-- Stripe Payment Link -->
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px;">
+              <span class="show-pt">Link de Pagamento Stripe</span>
+              <span class="show-en">Stripe Payment Link</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="url" id="bizStripeLinkInput" placeholder="https://buy.stripe.com/..." style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);">
+              <button onclick="handleSaveBizStripeLink()" style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap;">
+                <span class="show-pt">Salvar</span>
+                <span class="show-en">Save</span>
+              </button>
+            </div>
+            <div id="bizStripeLinkStatus" style="margin-top:6px;font-size:13px;"></div>
+          </div>
+
+          <!-- Zelle handle. Shown as TEXT beside the QR on the invoice and
+               the Apex Club page, because someone reading either on their
+               phone cannot scan a QR on that same screen. There is no
+               tappable Zelle payment link -- see the worker comment on
+               buildInvoicePaymentBlock. -->
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px;">
+              <span class="show-pt">E-mail / Telefone do Zelle</span>
+              <span class="show-en">Zelle Email / Phone</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="text" id="bizZelleHandleInput" placeholder="nome@empresa.com" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--card);color:var(--text);">
+              <button onclick="handleSaveBizZelleHandle()" style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap;">
+                <span class="show-pt">Salvar</span>
+                <span class="show-en">Save</span>
+              </button>
+            </div>
+            <div style="margin-top:6px;font-size:12px;color:var(--muted);">
+              <span class="show-pt">Aparece junto ao QR Code, para quem está lendo pelo celular e não consegue escanear.</span>
+              <span class="show-en">Shown next to the QR code, for anyone reading on a phone who cannot scan it.</span>
+            </div>
+            <div id="bizZelleHandleStatus" style="margin-top:6px;font-size:13px;"></div>
+          </div>
+
+          <!-- Developer only (shown from the caller's role; the gate itself is
+               on the Worker's PATCH routes). Both ship OFF: with a box
+               unticked the system behaves exactly as it did before the public
+               invoice page and the Apex Club payments were built. -->
+          <div id="apxSwitchesBlock" hidden style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border);">
+            <label style="display:flex;align-items:flex-start;gap:9px;font-size:14px;cursor:pointer;">
+              <input type="checkbox" id="apxSwitchInvoiceLink" onchange="apxSaveSwitch('client-invoice-link', this)" style="margin-top:3px;">
+              <span>
+                <span class="show-pt">Enviar o link novo da fatura aos clientes (ativar)</span>
+                <span class="show-en">Send the new invoice link to clients (turn on)</span>
+              </span>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:9px;font-size:14px;cursor:pointer;margin-top:12px;">
+              <input type="checkbox" id="apxSwitchClubPay" onchange="apxSaveSwitch('club-pay', this)" style="margin-top:3px;">
+              <span>
+                <span class="show-pt">Pagamentos do Apex Club (cartão e Zelle com confirmação)</span>
+                <span class="show-en">Apex Club payments (card and Zelle with confirmation)</span>
+              </span>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:9px;font-size:14px;cursor:pointer;margin-top:12px;">
+              <input type="checkbox" id="apxSwitchAutoApply" onchange="apxSaveSwitch('auto-apply', this)" style="margin-top:3px;">
+              <span>
+                <span class="show-pt">Aplicar automaticamente pagamentos de pagadores conhecidos</span>
+                <span class="show-en">Apply payments from known payers automatically</span>
+              </span>
+            </label>
+            <div id="apxSwitchStatus" style="margin-top:8px;font-size:13px;"></div>
+          </div>
+
+          <!-- Group 1.3: SMS usage, developer/alice/rafa only (there is no
+               Apex-staff "partner" role to show this to; the passkey login's
+               "partner" is a client-tier role scoped to one business). -->
+          <div id="smsUsageBlock" hidden style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border);">
+            <div style="font-size:14px;font-weight:600;margin-bottom:10px;">
+              <span class="show-pt">Uso de SMS</span>
+              <span class="show-en">SMS usage</span>
+            </div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">
+              <span class="show-pt">Códigos de acesso (passkey): </span>
+              <span class="show-en">Passkey login codes: </span>
+              <span id="smsUsagePasskeyText">—</span>
+            </div>
+            <div style="font-size:13px;color:var(--muted);">
+              <span class="show-pt">Lembretes de reunião: </span>
+              <span class="show-en">Meeting reminders: </span>
+              <span id="smsUsageReminderText">—</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+
+      <!-- ══ Availability for "Enviar horários" ═════════════════════════════
+           The one place the scheduling link's rules are set. Every open slot a
+           client is ever offered is computed from these numbers, so they live
+           on one screen instead of being scattered through the code. -->
+      <div id="availabilitySection" style="margin-top:32px;">
+        <div class="section-heading">
+          <span class="show-pt">Disponibilidade</span>
+          <span class="show-en">Availability</span>
+        </div>
+        <div class="section-subheading">
+          <span class="show-pt">Regras dos hor&#225;rios que o cliente v&#234; no link de agendamento.</span>
+          <span class="show-en">Rules for the times a client sees on the booking link.</span>
+        </div>
+        <div class="card" style="padding:18px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;">
+            <label style="display:block;">
+              <span style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;">
+                <span class="show-pt">In&#237;cio do dia</span>
+                <span class="show-en">Day starts</span>
+              </span>
+              <input type="time" id="avStart" style="width:100%;" onchange="renderAvSummary()">
+            </label>
+            <label style="display:block;">
+              <span style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;">
+                <span class="show-pt">Fim do dia</span>
+                <span class="show-en">Day ends</span>
+              </span>
+              <input type="time" id="avEnd" style="width:100%;" onchange="renderAvSummary()">
+            </label>
+            <label style="display:block;">
+              <span style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;">
+                <span class="show-pt">Aviso m&#237;nimo (horas)</span>
+                <span class="show-en">Minimum notice (hours)</span>
+              </span>
+              <input type="number" id="avNotice" min="0" max="72" style="width:100%;">
+            </label>
+            <label style="display:block;">
+              <span style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;">
+                <span class="show-pt">M&#225;ximo de reuni&#245;es por dia</span>
+                <span class="show-en">Maximum meetings per day</span>
+              </span>
+              <input type="number" id="avCap" min="1" max="12" style="width:100%;">
+            </label>
+            <label style="display:block;">
+              <span style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;">
+                <span class="show-pt">Dura&#231;&#227;o padr&#227;o (min)</span>
+                <span class="show-en">Default duration (min)</span>
+              </span>
+              <input type="number" id="avDuration" min="15" max="240" step="15" style="width:100%;">
+            </label>
+            <label style="display:block;">
+              <span style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;">
+                <span class="show-pt">Deslocamento padr&#227;o (min)</span>
+                <span class="show-en">Default travel time (min)</span>
+              </span>
+              <input type="number" id="avTravel" min="0" max="180" step="5" style="width:100%;">
+            </label>
+          </div>
+
+          <div style="margin-top:16px;">
+            <span style="display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:8px;">
+              <span class="show-pt">Dias de trabalho</span>
+              <span class="show-en">Working days</span>
+            </span>
+            <div id="avDays" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+          </div>
+
+          <!-- Plain-language read-back of the two time fields in 12-hour
+               format, so an 18:00 start is obvious before it is saved. -->
+          <div id="avSummary" style="margin-top:14px;font-size:13px;color:var(--muted);"></div>
+
+          <button type="button" id="avSaveBtn" onclick="saveAvailability()"
+                  style="margin-top:18px;font-family:inherit;font-size:14px;font-weight:600;padding:11px 18px;border:0;border-radius:9px;background:var(--gold);color:#12100a;cursor:pointer;">
+            <span class="show-pt">Salvar</span>
+            <span class="show-en">Save</span>
+          </button>
+          <span id="avSaved" style="margin-left:12px;font-size:13px;color:var(--muted);"></span>
+        </div>
+      </div>
+
+      <!-- Notifications section. Pulled out of Payment Details, where it was
+           only ever nested because that was the nearest block when it was
+           written -- push has nothing to do with invoicing. This comment had
+           drifted above the Availability block, describing a section two
+           divs away. -->
+      <div id="notificationsSection" style="margin-top:32px;">
+        <div class="section-heading">
+          <span class="show-pt">Notifica&#231;&#245;es</span>
+          <span class="show-en">Notifications</span>
+        </div>
+        <div class="section-subheading">
+          <span class="show-pt">Avisos do Apex direto no seu celular. Precisa do app instalado na tela de in&#237;cio.</span>
+          <span class="show-en">Apex alerts straight to your phone. Requires the app installed to your Home Screen.</span>
+        </div>
+        <div class="card" style="padding:18px;">
+        <!-- ══ Push notifications ═══════════════════════════════════════
+             Web push, which works on an installed home-screen PWA
+             including iPhone (iOS 16.4+) with NO paid Apple account. The
+             Capacitor wrapper would need the $99/yr program and APNs.
+             iOS rules this markup exists to satisfy:
+               - only works when installed via Share > Add to Home Screen
+               - the permission prompt MUST come from a tap, never on load -->
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px;">
+            <span class="show-pt">Notificações</span>
+            <span class="show-en">Notifications</span>
+          </div>
+          <!-- A TOGGLE, not a button. A button that is tapped once and
+               then never again gives no read on whether the thing is
+               currently ON, which is exactly how this first shipped and it
+               read as broken. A switch shows its state at rest.
+
+               Every state line below is a PAIR of .show-pt/.show-en spans,
+               never t(). The language toggle is CSS-driven and is applied
+               after this section renders, so anything built with t() at
+               load time picks the wrong language and stays wrong -- which
+               is why the one line here came out Portuguese on an English
+               page. -->
+          <label class="push-row" for="pushToggle">
+            <span style="flex:1;min-width:0;">
+              <span style="display:block;font-size:14px;font-weight:600;">
+                <span class="show-pt">Notificações neste dispositivo</span>
+                <span class="show-en">Notifications on this device</span>
+              </span>
+              <span id="pushState" style="display:block;font-size:12.5px;line-height:1.55;color:var(--muted);margin-top:3px;"></span>
+            </span>
+            <span class="push-switch">
+              <input type="checkbox" id="pushToggle" role="switch" onchange="handlePushToggle(this)">
+              <span class="push-track"><span class="push-knob"></span></span>
+            </span>
+          </label>
+
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+            <button id="pushTestBtn" onclick="handleTestPush()" hidden style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap;">
+              <span class="show-pt">Enviar teste</span>
+              <span class="show-en">Send test</span>
+            </button>
+          </div>
+          <div id="pushStatus" style="margin-top:6px;font-size:13px;"></div>
+        </div>
+        </div>
+      </div>
+
+    </div><!-- /below-hero-section -->
+
+  </main><!-- /appMain -->
+
+    </div><!-- /contentArea -->
+  </div><!-- /pageWrapper -->
+
+  <!-- ═══════════════ FIREBASE + SCRIPT ════════════════════════════════════ -->
+  <script src="nav.js"></script>
+  <script src="help-config.js"></script>
+  <script src="help-core.js"></script>
+  <script src="help-widget.js"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+
+  <script>
+    // ── Configuration ──────────────────────────────────────────────────────
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    // ── State ──────────────────────────────────────────────────────────────
+    var auth        = null;
+    var currentUser = null;
+
+    // ── Hero background ────────────────────────────────────────────────────
+    function initHeroBg(imgElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx = Math.floor(Math.random() * imgs.length);
+      var bgEl = document.getElementById(imgElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function() {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function() {
+          var next = i + 1;
+          if (next === imgs.length) { return; }
+          if (next % imgs.length === idx) { return; }
+          tryLoadImage(next);
+        };
+        img.src = url;
+      }
+    }
+
+    // ── Auth helpers ───────────────────────────────────────────────────────
+    function handleSignOut() {
+      currentUser = null;
+      sessionStorage.removeItem("apex_role");
+      sessionStorage.removeItem("apex_email");
+      sessionStorage.removeItem("apex_display_name");
+      sessionStorage.removeItem("apex_avatar_url");
+      sessionStorage.removeItem("apex_dev_view");
+      auth.signOut().then(function() {
+        window.location.href = "index.html";
+      });
+    }
+
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    // ── Setup ──────────────────────────────────────────────────────────────
+    function populateHeaderUser(email, displayName, avatarUrl) {
+      var emailEl = document.getElementById("headerEmail");
+      if (!emailEl) { return; }
+      var firstName;
+      if (displayName && displayName.trim()) {
+        var dn = displayName.trim();
+        firstName = dn.indexOf(" ") > -1 ? dn.split(" ")[0] : dn;
+      } else {
+        var atIdx = email ? email.indexOf("@") : -1;
+        firstName = atIdx > -1 ? email.slice(0, atIdx) : (email || "");
+      }
+      var label = firstName || email;
+      var imgHtml = "";
+      if (avatarUrl) {
+        var src = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+        imgHtml = "<img src=\"" + src + "\" alt=\"\" style=\"width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;\">";
+      } else {
+        var initial = (label.charAt(0) || "?").toUpperCase();
+        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + escHtml(initial) + "</span>";
+      }
+      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
+    }
+
+    function fetchAndApplyRole() {
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/role", {
+          headers: { "Authorization": "Bearer " + token },
+          cache: "no-store"
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        sessionStorage.setItem("apex_role",         data.role);
+        sessionStorage.setItem("apex_email",        data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        if (window.apexApplyRoleLanguage) { window.apexApplyRoleLanguage(data); }
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        return data;
+      });
+    }
+
+    function setupPage(role) {
+      var roleEl  = document.getElementById("headerRole");
+      var email = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      var displayName = sessionStorage.getItem("apex_display_name") || null;
+      var avatarUrl = sessionStorage.getItem("apex_avatar_url") || null;
+      populateHeaderUser(email, displayName, avatarUrl);
+      if (roleEl)  { roleEl.textContent  = role; }
+
+      var loadingEl = document.getElementById("loadingScreen");
+      var mainEl    = document.getElementById("appMain");
+      if (loadingEl) { loadingEl.hidden = true; }
+      if (mainEl)    { mainEl.hidden    = false; }
+
+      window.initNav && window.initNav();
+      initHeroBg('settingsHeroBg');
+      loadProfiles();
+      loadTemplates();
+      loadPackages();
+      loadBusinessSettings();
+      loadAvailability();
+      refreshPushState();
+      scrollToHashSection();
+    }
+
+    // Re-apply the URL hash AFTER the page is revealed.
+    //
+    // #appMain is hidden while the role check runs, so when the browser first
+    // resolves the anchor the target section is not laid out yet; the loaders
+    // then fill the page and push it far down. Re-assigning location.hash once
+    // the content exists makes the browser redo its own native anchor jump,
+    // which is the mechanism that actually works here -- setting scrollTop or
+    // calling scrollIntoView() from script is unreliable on this page.
+    //
+    // Bounded and idempotent: it fires once, a moment after the loaders start,
+    // and does nothing at all when there is no hash.
+    function scrollToHashSection() {
+      if (!window.location.hash) { return; }
+      var id = window.location.hash.slice(1);
+      setTimeout(function() {
+        var el = document.getElementById(id);
+        if (!el) { return; }
+        // Re-assigning the SAME hash does not re-trigger the jump, so clear it
+        // and set it back. replace() keeps this out of the history stack, so
+        // Back still returns to the calendar rather than to this page again.
+        window.location.replace("#");
+        window.location.replace("#" + id);
+      }, 600);
+    }
+
+    // ── Availability ("Enviar horários" rules) ─────────────────────────────
+
+    var AV_DAYS = [
+      { n: 1, pt: "Seg", en: "Mon" }, { n: 2, pt: "Ter", en: "Tue" },
+      { n: 3, pt: "Qua", en: "Wed" }, { n: 4, pt: "Qui", en: "Thu" },
+      { n: 5, pt: "Sex", en: "Fri" }, { n: 6, pt: "Sab", en: "Sat" },
+      { n: 0, pt: "Dom", en: "Sun" }
+    ];
+    var AV_SELECTED = [];
+
+    function renderAvDays() {
+      var host = document.getElementById("avDays");
+      if (!host) { return; }
+      var en = document.body.classList.contains("lang-en");
+      host.innerHTML = "";
+      for (var i = 0; i < AV_DAYS.length; i++) {
+        var on = AV_SELECTED.indexOf(AV_DAYS[i].n) !== -1;
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = en ? AV_DAYS[i].en : AV_DAYS[i].pt;
+        b.setAttribute("data-day", AV_DAYS[i].n);
+        b.style.cssText = "font-family:inherit;font-size:13.5px;font-weight:600;padding:9px 14px;" +
+          "border-radius:9px;cursor:pointer;border:1.5px solid " +
+          (on ? "var(--gold)" : "var(--border)") + ";background:" +
+          (on ? "var(--gold)" : "transparent") + ";color:" + (on ? "#12100a" : "var(--text)") + ";";
+        b.onclick = function(ev) {
+          var d = parseInt(ev.currentTarget.getAttribute("data-day"), 10);
+          var at = AV_SELECTED.indexOf(d);
+          if (at === -1) { AV_SELECTED.push(d); } else { AV_SELECTED.splice(at, 1); }
+          renderAvDays();
+          renderAvSummary();
+        };
+        host.appendChild(b);
+      }
+    }
+
+    // Paint the form from a settings row. Shared by the initial load and by
+    // the save response, so what is on screen after a save is what the server
+    // actually stored rather than what was typed at it.
+    function applyAvailability(s) {
+      var start  = document.getElementById("avStart");
+      var end    = document.getElementById("avEnd");
+      var notice = document.getElementById("avNotice");
+      var cap    = document.getElementById("avCap");
+      var dur    = document.getElementById("avDuration");
+      var travel = document.getElementById("avTravel");
+      // <input type="time"> wants 24-hour "HH:MM" and renders it in the
+      // viewer's own locale, which is US 12-hour here -- so the stored 24-hour
+      // string is correct to assign directly. The SUMMARY text below the form
+      // is where formatTime() does the 12-hour rendering.
+      if (start)  { start.value  = String(s.day_start || "09:00").slice(0, 5); }
+      if (end)    { end.value    = String(s.day_end || "18:00").slice(0, 5); }
+      if (notice) { notice.value = s.min_notice_hours; }
+      if (cap)    { cap.value    = s.daily_cap; }
+      if (dur)    { dur.value    = s.default_duration; }
+      if (travel) { travel.value = s.default_travel; }
+
+      AV_SELECTED = [];
+      var parts = String(s.work_days || "1,2,3,4,5").split(",");
+      for (var i = 0; i < parts.length; i++) {
+        var n = parseInt(parts[i], 10);
+        if (!isNaN(n)) { AV_SELECTED.push(n); }
+      }
+      renderAvDays();
+      renderAvSummary();
+    }
+
+    // One plain sentence of what these numbers actually mean, in the site's
+    // 12-hour format via formatTime(). The <input type="time"> controls show
+    // the browser's own widget; this is the line that reads back as English or
+    // Portuguese, so a mistake like an 18:00 start is obvious before saving.
+    function renderAvSummary() {
+      var host = document.getElementById("avSummary");
+      if (!host) { return; }
+      var start = document.getElementById("avStart");
+      var end   = document.getElementById("avEnd");
+      if (!start || !end || !start.value || !end.value) { host.textContent = ""; return; }
+      var en = document.body.classList.contains("lang-en");
+      var dayNames = [];
+      var ordered = AV_SELECTED.slice().sort(function(a, b) { return a - b; });
+      for (var i = 0; i < ordered.length; i++) {
+        for (var j = 0; j < AV_DAYS.length; j++) {
+          if (AV_DAYS[j].n === ordered[i]) { dayNames.push(en ? AV_DAYS[j].en : AV_DAYS[j].pt); }
+        }
+      }
+      var days = dayNames.length
+        ? dayNames.join(", ")
+        : (en ? "no days selected" : "nenhum dia selecionado");
+      host.textContent = (en ? "Clients can book " : "Os clientes podem marcar ")
+        + days + (en ? ", " : ", ")
+        + formatTime(start.value) + (en ? " to " : " às ") + formatTime(end.value) + ".";
+    }
+
+    // NOTE: this page has no apiFetch() helper -- it uses getToken() + fetch
+    // directly, like loadTemplates() and every other loader here. The
+    // Availability code shipped calling apiFetch(), which threw
+    // "apiFetch is not defined" on every load and left the whole form blank.
+    // The empty .catch() it also shipped with meant that ReferenceError never
+    // reached the console, so the section looked merely empty rather than
+    // broken. Same page, same idiom, no new helper.
+    function loadAvailability() {
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/scheduling/settings", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      })
+        .then(function(res) {
+          // Never a bare .json() here. This feature has twice shipped a bug
+          // that was invisible because a failure landed in an empty catch --
+          // a whole missing panel once, a dead button once. A non-OK response
+          // must say so rather than silently leaving every field blank, which
+          // looks identical to "there are no settings yet".
+          if (!res.ok) { throw new Error("scheduling/settings HTTP " + res.status); }
+          return res.json();
+        })
+        .then(function(data) {
+          var s = data.settings;
+          if (!s) { throw new Error("scheduling/settings returned no settings object"); }
+          applyAvailability(s);
+        })
+        .catch(function(e) {
+          console.error("[availability] could not load the scheduling rules:", e.message);
+          var saved = document.getElementById("avSaved");
+          if (saved) {
+            saved.textContent = document.body.classList.contains("lang-en")
+              ? "Could not load these settings. Reload the page."
+              : "Não foi possível carregar estas configurações. Recarregue a página.";
+          }
+        });
+    }
+
+    function saveAvailability() {
+      var start = document.getElementById("avStart");
+      var end = document.getElementById("avEnd");
+      var notice = document.getElementById("avNotice");
+      var cap = document.getElementById("avCap");
+      var dur = document.getElementById("avDuration");
+      var travel = document.getElementById("avTravel");
+      var btn = document.getElementById("avSaveBtn");
+      var saved = document.getElementById("avSaved");
+      if (btn) { btn.disabled = true; }
+
+      AV_SELECTED.sort(function(a, b) { return a - b; });
+      var payload = {
+        day_start: start ? start.value : "09:00",
+        day_end: end ? end.value : "18:00",
+        work_days: AV_SELECTED.join(","),
+        min_notice_hours: notice ? parseInt(notice.value, 10) : 4,
+        daily_cap: cap ? parseInt(cap.value, 10) : 4,
+        default_duration: dur ? parseInt(dur.value, 10) : 60,
+        default_travel: travel ? parseInt(travel.value, 10) : 30
+      };
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/scheduling/settings", {
+          method: "PUT",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      })
+        .then(function(res) {
+          // "Salvo" used to appear whether or not the write succeeded, because
+          // the response was parsed without checking res.ok. Telling Alice her
+          // availability was saved when it was not is worse than any error --
+          // she would go on offering clients times Rafa never agreed to.
+          if (!res.ok) { throw new Error("scheduling/settings PUT HTTP " + res.status); }
+          return res.json();
+        })
+        .then(function(data) {
+          if (btn) { btn.disabled = false; }
+          // Re-seed from what the SERVER stored, not from what was typed. The
+          // handler falls back to the current value for anything it rejects,
+          // so this is where a silently-ignored field becomes visible.
+          if (data && data.settings) { applyAvailability(data.settings); }
+          if (saved) {
+            saved.textContent = document.body.classList.contains("lang-en") ? "Saved" : "Salvo";
+            setTimeout(function() { if (saved) { saved.textContent = ""; } }, 2500);
+          }
+        })
+        .catch(function(e) {
+          console.error("[availability] save failed:", e.message);
+          if (btn) { btn.disabled = false; }
+          if (saved) {
+            saved.textContent = document.body.classList.contains("lang-en")
+              ? "Could not save. Nothing was changed."
+              : "Não foi possível salvar. Nada foi alterado.";
+          }
+        });
+    }
+
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+
+      auth.onAuthStateChanged(function(user) {
+        if (!user) {
+          var hadCachedRole = sessionStorage.getItem("apex_role");
+          if (hadCachedRole) {
+            // WAIT, THEN EITHER BOOT OR BAIL -- never neither.
+            //
+            // Firebase reports a momentary null user during a token refresh
+            // and then restores the session. The old code only handled the
+            // bad outcome: if the user came back within the second it did
+            // NOTHING, and because this branch returns, setupPage() had
+            // already been skipped. The page sat on "Carregando..." with no
+            // navigation, forever, and a refresh replayed the same race --
+            // only retyping the URL and logging in again cleared it.
+            //
+            // Seen live 2026-08-30, on every page at once, right after a
+            // worker deploy forced exactly that token refresh.
+            setTimeout(function() {
+              if (!auth.currentUser) {
+                window.location.href = "index.html";
+                return;
+              }
+              // Session came back. Boot the page the callback skipped.
+              currentUser = auth.currentUser;
+              try { setupPage(hadCachedRole); } catch (e) {}
+              if (typeof fetchAndApplyRole === "function") {
+                fetchAndApplyRole().catch(function() {});
+              }
+            }, 1000);
+            return;
+          }
+          window.location.href = "index.html";
+          return;
+        }
+        currentUser = user;
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) {
+          setupPage(cached);
+        }
+        fetchAndApplyRole().then(function(data) {
+          if (!cached) {
+            setupPage(data.role);
+          }
+        }).catch(function() {
+          if (!cached) {
+            window.location.href = "index.html";
+          }
+        });
+      });
+
+      window.addEventListener("pageshow", function(evt) {
+        if (evt.persisted && currentUser) {
+          fetchAndApplyRole().catch(function() {});
+        }
+      });
+    }
+
+    // ── Profile section state ──────────────────────────────────────────────
+    var profileUsersData = [];
+
+    // ── Friendly name from role ────────────────────────────────────────────
+    function friendlyName(u) {
+      if (u.role === "alice")     { return "Alice"; }
+      if (u.role === "rafa")      { return "Rafa"; }
+      if (u.role === "developer") { return "Nicole"; }
+      return u.email;
+    }
+
+    // ── Load profiles ──────────────────────────────────────────────────────
+    function loadProfiles() {
+      var container = document.getElementById("profileContainer");
+      if (!container) { return; }
+
+      container.innerHTML =
+        '<div class="settings-empty">' +
+        '<div class="spinner"></div>' +
+        '</div>';
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/users", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        profileUsersData = data.users || [];
+        renderProfileUploadForm(profileUsersData);
+      }).catch(function(e) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#9888;</div>' +
+          '<span class="show-pt">Erro ao carregar usu&#225;rios: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error loading users: ' + escHtml(e.message) + '</span>' +
+          '</div>';
+      });
+    }
+
+    // ── Cache-bust the avatar preview for the given email ─────────────────
+    function updateProfileAvatarPreview(email) {
+      var previewEl = document.getElementById("profileAvatarPreview");
+      if (!previewEl) { return; }
+      var url = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+      previewEl.src = url + "?t=" + Date.now();
+    }
+
+    // ── Render the upload form ─────────────────────────────────────────────
+    function renderProfileUploadForm(users) {
+      var container = document.getElementById("profileContainer");
+      if (!container) { return; }
+
+      var tileEl = document.getElementById("heroTileProfiles");
+      if (tileEl) {
+        var withAvatar = 0;
+        for (var k = 0; k < users.length; k++) {
+          if (users[k].avatar_url) { withAvatar++; }
+        }
+        tileEl.textContent = withAvatar + " / " + users.length;
+      }
+
+      if (users.length === 0) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#128100;</div>' +
+          '<span class="show-pt">Nenhum usu&#225;rio encontrado.</span>' +
+          '<span class="show-en">No users found.</span>' +
+          '</div>';
+        return;
+      }
+
+      container.innerHTML = "";
+
+      var card = document.createElement("div");
+      card.className = "profile-upload-card";
+
+      // User dropdown
+      var selectRow = document.createElement("div");
+      selectRow.className = "profile-field-row";
+
+      var selectLabel = document.createElement("div");
+      selectLabel.className = "profile-field-label";
+      selectLabel.innerHTML =
+        '<span class="show-pt">Usu&#225;rio</span>' +
+        '<span class="show-en">User</span>';
+      selectRow.appendChild(selectLabel);
+
+      var userSelect = document.createElement("select");
+      userSelect.className = "profile-select";
+      userSelect.id = "profileUserSelect";
+      for (var i = 0; i < users.length; i++) {
+        var opt = document.createElement("option");
+        opt.value = users[i].email;
+        opt.textContent = friendlyName(users[i]);
+        userSelect.appendChild(opt);
+      }
+      selectRow.appendChild(userSelect);
+      card.appendChild(selectRow);
+
+      // Current avatar preview
+      var previewRow = document.createElement("div");
+      previewRow.className = "profile-field-row";
+      var previewLabel = document.createElement("div");
+      previewLabel.className = "profile-field-label";
+      previewLabel.innerHTML =
+        '<span class="show-pt">Foto atual</span>' +
+        '<span class="show-en">Current photo</span>';
+      previewRow.appendChild(previewLabel);
+      var avatarPreviewImg = document.createElement("img");
+      avatarPreviewImg.id = "profileAvatarPreview";
+      avatarPreviewImg.className = "profile-avatar-preview";
+      avatarPreviewImg.alt = "";
+      if (users.length > 0) {
+        var initEmail = users[0].email;
+        avatarPreviewImg.src = WORKER_URL + "/api/users/" + encodeURIComponent(initEmail) + "/avatar-image?t=" + Date.now();
+      }
+      previewRow.appendChild(avatarPreviewImg);
+      card.appendChild(previewRow);
+
+      userSelect.onchange = function() {
+        updateProfileAvatarPreview(userSelect.value);
+      };
+
+      // File input
+      var fileRow = document.createElement("div");
+      fileRow.className = "profile-field-row";
+
+      var fileLabel = document.createElement("div");
+      fileLabel.className = "profile-field-label";
+      fileLabel.innerHTML =
+        '<span class="show-pt">Imagem</span>' +
+        '<span class="show-en">Image</span>';
+      fileRow.appendChild(fileLabel);
+
+      var fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.id = "profileFileInput";
+      fileInput.className = "profile-file-input";
+      fileInput.accept = "image/jpeg,image/png,image/gif,image/webp";
+      fileRow.appendChild(fileInput);
+      card.appendChild(fileRow);
+
+      // Upload button + status
+      var uploadRow = document.createElement("div");
+      uploadRow.className = "profile-upload-row";
+
+      var uploadBtn = document.createElement("button");
+      uploadBtn.className = "btn-save";
+      uploadBtn.id = "profileUploadBtn";
+      uploadBtn.innerHTML =
+        '<span class="show-pt">Enviar Foto</span>' +
+        '<span class="show-en">Upload Picture</span>';
+
+      var statusEl = document.createElement("div");
+      statusEl.className = "profile-status";
+      statusEl.id = "profileStatus";
+
+      uploadRow.appendChild(uploadBtn);
+      uploadRow.appendChild(statusEl);
+      card.appendChild(uploadRow);
+
+      container.appendChild(card);
+
+      uploadBtn.onclick = function() { doProfileUpload(userSelect, fileInput, uploadBtn, statusEl); };
+    }
+
+    // ── Upload avatar ──────────────────────────────────────────────────────
+    function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+    // ── Shared image validation ───────────────────────────────────────────
+    //
+    // The avatar upload and the business-QR upload were validating the same
+    // two rules with two separate copies of the messages, and only one copy
+    // was bilingual — so the QR uploader spoke Portuguese to an English user.
+    // One validator, one set of strings, both callers.
+    var IMAGE_TYPES_ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+    var IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+
+    // Returns null when the file is acceptable, otherwise the message to show.
+    function validateImageFile(file) {
+      if (!file) { return t("Selecione uma imagem primeiro.", "Please select an image first."); }
+      if (IMAGE_TYPES_ALLOWED.indexOf(file.type) === -1) {
+        return t("Tipo inválido. Use JPG, PNG, GIF ou WebP.",
+                 "Invalid type. Use JPG, PNG, GIF, or WebP.");
+      }
+      if (file.size > IMAGE_MAX_BYTES) {
+        return t("Arquivo muito grande. Máximo 2 MB.", "File too large. Maximum 2 MB.");
+      }
+      return null;
+    }
+
+    function doProfileUpload(userSelect, fileInput, btn, statusEl) {
+      statusEl.className = "profile-status";
+      statusEl.textContent = "";
+
+      var email = userSelect.value;
+      if (!email) {
+        statusEl.className = "profile-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Selecione um usu&#225;rio.</span>' +
+          '<span class="show-en">Please select a user.</span>';
+        return;
+      }
+
+      if (!fileInput.files || !fileInput.files[0]) {
+        statusEl.className = "profile-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Selecione uma imagem primeiro.</span>' +
+          '<span class="show-en">Please select an image first.</span>';
+        return;
+      }
+
+      var file = fileInput.files[0];
+      var invalid = validateImageFile(file);
+      if (invalid) {
+        statusEl.className = "profile-status err";
+        statusEl.textContent = invalid;
+        return;
+      }
+
+      btn.disabled = true;
+
+      var formData = new FormData();
+      formData.append("avatar", file);
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: formData
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+        fileInput.value = "";
+        for (var i = 0; i < profileUsersData.length; i++) {
+          if (profileUsersData[i].email === email) {
+            profileUsersData[i].avatar_url = data.avatar_key || null;
+          }
+        }
+        var tileEl = document.getElementById("heroTileProfiles");
+        if (tileEl) {
+          var withAvatar = 0;
+          for (var j = 0; j < profileUsersData.length; j++) {
+            if (profileUsersData[j].avatar_url) { withAvatar++; }
+          }
+          tileEl.textContent = withAvatar + " / " + profileUsersData.length;
+        }
+        updateProfileAvatarPreview(email);
+        statusEl.className = "profile-status ok";
+        statusEl.innerHTML =
+          '<span class="show-pt">Foto enviada com sucesso.</span>' +
+          '<span class="show-en">Picture uploaded successfully.</span>';
+        setTimeout(function() {
+          statusEl.className = "profile-status";
+          statusEl.textContent = "";
+        }, 3000);
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "profile-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao enviar: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error uploading: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Load templates ─────────────────────────────────────────────────────
+    function loadTemplates() {
+      var container = document.getElementById("templatesContainer");
+      if (!container) { return; }
+
+      container.innerHTML =
+        '<div class="settings-empty">' +
+        '<div class="spinner"></div>' +
+        '</div>';
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/templates", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        var templates = data.templates || [];
+        renderTemplates(templates);
+      }).catch(function(e) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#9888;</div>' +
+          '<span class="show-pt">Erro ao carregar modelos: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error loading templates: ' + escHtml(e.message) + '</span>' +
+          '</div>';
+      });
+    }
+
+    // ── Render templates ───────────────────────────────────────────────────
+    function renderTemplates(templates) {
+      var container = document.getElementById("templatesContainer");
+      if (!container) { return; }
+
+      var tilEl = document.getElementById("heroTileTemplates");
+      if (tilEl) { tilEl.textContent = templates.length; }
+
+      if (templates.length === 0) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#128203;</div>' +
+          '<span class="show-pt">Nenhum modelo encontrado.</span>' +
+          '<span class="show-en">No templates found.</span>' +
+          '</div>';
+        return;
+      }
+
+      container.innerHTML = "";
+
+      for (var i = 0; i < templates.length; i++) {
+        container.appendChild(makeTemplateCard(templates[i]));
+      }
+    }
+
+    // ── Make a single template card ────────────────────────────────────────
+    // Bilingual title per known template key; unknown keys fall back to the
+    // raw key name.
+    var TEMPLATE_TITLES = {
+      session_in_person: { pt: "Sess&#227;o Presencial", en: "In-Person Session" },
+      session_online: { pt: "Sess&#227;o Online", en: "Online Session" },
+      client_login: { pt: "Acesso ao Portal do Cliente", en: "Client Portal Access" },
+      invoice_send: { pt: "Envio de Fatura", en: "Invoice Send" },
+      portal_help_request: { pt: "Pedido de Ajuda (Portal)", en: "Help Request (Portal)" },
+      resource_send: { pt: "Envio de Recurso", en: "Resource Send" },
+      partner_referral_share: { pt: "Compartilhar Link de Indica&#231;&#227;o", en: "Referral Link Share" },
+      seller_login: { pt: "Acesso do Vendedor", en: "Seller Access" },
+      app_download: { pt: "Link do App (iPhone)", en: "App Link (iPhone)" },
+      // Migrated out of worker source constants: these two are the messages
+      // Alice sends most often, and were the only ones she could not edit.
+      scheduling_send: { pt: "Enviar hor&#225;rios", en: "Send times" },
+      scheduling_followup: { pt: "Cobrar hor&#225;rios", en: "Scheduling follow-up" },
+      // Meeting reminders. Two keys, because an online meeting carries the
+      // Meet link and an in-person one carries the street address.
+      reminder_online: { pt: "Lembrete Online", en: "Online Reminder" },
+      reminder_in_person: { pt: "Lembrete Presencial", en: "In-Person Reminder" },
+      // The same message minus the address sentence, for an in-person meeting
+      // with no address on file. The card offers it as the "send anyway" path.
+      reminder_in_person_no_address: { pt: "Lembrete Presencial (sem endere&#231;o)", en: "In-Person Reminder (no address)" },
+      // ONE message listing everything non-Apex Rafa has today and
+      // tomorrow, sent from calendar.html straight to his own number.
+      rafa_non_apex_reminder: { pt: "Lembrete n&#227;o-Apex (Rafa)", en: "Non-Apex reminder (Rafa)" }
+    };
+
+    // Per-key token hint — only the tokens that key actually substitutes.
+    var TEMPLATE_TOKEN_HINTS = {
+      session_in_person: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>. Estas s&#227;o preenchidas automaticamente ao enviar a mensagem.',
+        en: 'Available tokens: <code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>. These are filled in automatically when the message is sent.'
+      },
+      session_online: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>, <code>{meetLink}</code>. Estas s&#227;o preenchidas automaticamente ao enviar a mensagem.',
+        en: 'Available tokens: <code>{weekday}</code>, <code>{date}</code>, <code>{time}</code>, <code>{meetLink}</code>. These are filled in automatically when the message is sent.'
+      },
+      client_login: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{loginUrl}</code>, <code>{appUrl}</code> (App Store), <code>{username}</code>, <code>{tempPassword}</code>.',
+        en: 'Available tokens: <code>{loginUrl}</code>, <code>{appUrl}</code> (App Store), <code>{username}</code>, <code>{tempPassword}</code>.'
+      },
+      app_download: {
+        pt: 'Vari&#225;vel dispon&#237;vel: <code>{appUrl}</code> (link da App Store).',
+        en: 'Available token: <code>{appUrl}</code> (App Store link).'
+      },
+      invoice_send: {
+        pt: 'Vari&#225;vel dispon&#237;vel: <code>{invoiceLink}</code>.',
+        en: 'Available token: <code>{invoiceLink}</code>.'
+      },
+      portal_help_request: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{clientName}</code>, <code>{label}</code>.',
+        en: 'Available tokens: <code>{clientName}</code>, <code>{label}</code>.'
+      },
+      resource_send: {
+        pt: 'Esta mensagem n&#227;o usa vari&#225;veis — o t&#237;tulo e o link do recurso s&#227;o anexados automaticamente.',
+        en: 'This message has no tokens — the resource title and link are appended automatically.'
+      },
+      partner_referral_share: {
+        pt: 'Vari&#225;vel dispon&#237;vel: <code>{referralUrl}</code>.',
+        en: 'Available token: <code>{referralUrl}</code>.'
+      },
+      seller_login: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{sellerName}</code>, <code>{loginUrl}</code>, <code>{appUrl}</code> (App Store), <code>{username}</code>, <code>{tempPassword}</code>.',
+        en: 'Available tokens: <code>{sellerName}</code>, <code>{loginUrl}</code>, <code>{appUrl}</code> (App Store), <code>{username}</code>, <code>{tempPassword}</code>.'
+      },
+      // {name} is the OWNER name, both owners when there are two -- never the
+      // company name. The greeting used to read "Ol&#225;, PERFECT!" to paying
+      // clients; editing this text must not change which name is used.
+      scheduling_send: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{name}</code> (nome do dono), <code>{link}</code>.',
+        en: 'Available tokens: <code>{name}</code> (owner name), <code>{link}</code>.'
+      },
+      scheduling_followup: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{name}</code> (nome do dono), <code>{link}</code>.',
+        en: 'Available tokens: <code>{name}</code> (owner name), <code>{link}</code>.'
+      },
+      // {when} is the WORD "hoje"/"amanh&#227;", never a calendar date -- that is
+      // the point of the message, and there is deliberately no {date} token
+      // to put one back in. There is deliberately NO {name} token either: the
+      // reminder goes to the client's WhatsApp group and nobody knows which
+      // owner is attending, so it greets no one by name.
+      reminder_online: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>, <code>{meetLink}</code>.',
+        en: 'Available tokens: <code>{when}</code> (today/tomorrow), <code>{time}</code>, <code>{meetLink}</code>.'
+      },
+      reminder_in_person: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>, <code>{location}</code>.',
+        en: 'Available tokens: <code>{when}</code> (today/tomorrow), <code>{time}</code>, <code>{location}</code>.'
+      },
+      // Deliberately no <code>{location}</code> here. This is the version sent
+      // when there is no address to give, so that token would have nothing to
+      // fill it and would go out to the client as literal text.
+      reminder_in_person_no_address: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{when}</code> (hoje/amanh&#227;), <code>{time}</code>. Esta &#233; a vers&#227;o enviada quando a reuni&#227;o presencial n&#227;o tem endere&#231;o cadastrado — por isso n&#227;o existe <code>{location}</code> aqui.',
+        en: 'Available tokens: <code>{when}</code> (today/tomorrow), <code>{time}</code>. This is the version sent when an in-person meeting has no address on file, which is why there is no <code>{location}</code> token.'
+      },
+      // {items} is the generated list (one line per meeting, with the Hoje:/
+      // Amanh&#227;: subheadings). There is deliberately no {date} or {time}
+      // token -- those belong to the individual rows inside that list.
+      rafa_non_apex_reminder: {
+        pt: 'Vari&#225;veis dispon&#237;veis: <code>{greeting}</code> (Bom dia / Boa tarde / Boa noite, conforme a hora do envio) e <code>{items}</code> (a lista de compromissos, uma linha por reuni&#227;o). O texto ao redor &#233; seu.',
+        en: 'Available tokens: <code>{greeting}</code> (Bom dia / Boa tarde / Boa noite, by the hour it is sent) and <code>{items}</code> (the list of items, one line per meeting). The wording around it is yours.'
+      }
+    };
+
+    function makeTemplateCard(tpl) {
+      var key = tpl.template_key || "";
+
+      var card = document.createElement("div");
+      card.className = "template-card";
+
+      // Title — bilingual for known keys; raw key fallback for unknown
+      var titleEl = document.createElement("div");
+      titleEl.className = "template-card-title";
+      var titles = TEMPLATE_TITLES[key];
+      if (titles) {
+        titleEl.innerHTML =
+          '<span class="show-pt">' + titles.pt + '</span>' +
+          '<span class="show-en">' + titles.en + '</span>';
+      } else {
+        titleEl.textContent = key;
+      }
+      card.appendChild(titleEl);
+
+      // Textarea
+      var textarea = document.createElement("textarea");
+      textarea.className = "template-textarea";
+      textarea.value = tpl.template_text || "";
+      card.appendChild(textarea);
+
+      // Placeholder hint — per-key tokens only; unknown keys get no hint.
+      var hints = TEMPLATE_TOKEN_HINTS[key];
+      if (hints) {
+        var hint = document.createElement("div");
+        hint.className = "template-hint";
+        hint.innerHTML =
+          '<span class="show-pt">' + hints.pt + '</span>' +
+          '<span class="show-en">' + hints.en + '</span>';
+        card.appendChild(hint);
+      }
+
+      // Meta line (updated_at / updated_by) — use a container so it can be refreshed
+      var metaEl = document.createElement("div");
+      metaEl.className = "template-meta";
+      renderMeta(metaEl, tpl);
+      card.appendChild(metaEl);
+
+      // Footer: status message + save button
+      var footer = document.createElement("div");
+      footer.className = "template-card-footer";
+
+      var statusEl = document.createElement("div");
+      statusEl.className = "template-status";
+      footer.appendChild(statusEl);
+
+      var saveBtn = document.createElement("button");
+      saveBtn.className = "btn-save";
+      saveBtn.innerHTML =
+        '<span class="show-pt">Salvar</span>' +
+        '<span class="show-en">Save</span>';
+
+      // Capture variables for the click handler
+      (function(k, ta, btn, st, meta) {
+        btn.onclick = function() { saveTemplate(k, ta, btn, st, meta); };
+      })(key, textarea, saveBtn, statusEl, metaEl);
+
+      footer.appendChild(saveBtn);
+      card.appendChild(footer);
+
+      return card;
+    }
+
+    // ── Render meta line ───────────────────────────────────────────────────
+    function renderMeta(el, tpl) {
+      var updatedAt = tpl.updated_at || "--";
+      var updatedBy = tpl.updated_by || "--";
+      el.innerHTML =
+        '<span class="show-pt">' +
+          '<strong>Atualizado em:</strong> ' + escHtml(updatedAt) +
+          ' &nbsp;|&nbsp; <strong>Por:</strong> ' + escHtml(updatedBy) +
+        '</span>' +
+        '<span class="show-en">' +
+          '<strong>Updated:</strong> ' + escHtml(updatedAt) +
+          ' &nbsp;|&nbsp; <strong>By:</strong> ' + escHtml(updatedBy) +
+        '</span>';
+    }
+
+    // ── Save a template ────────────────────────────────────────────────────
+    function saveTemplate(key, textarea, btn, statusEl, metaEl) {
+      var text = textarea.value;
+
+      statusEl.className = "template-status";
+      statusEl.textContent = "";
+
+      if (!text || !text.trim()) {
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">O modelo n&#227;o pode estar vazio.</span>' +
+          '<span class="show-en">Template text cannot be empty.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/templates/" + encodeURIComponent(key), {
+          method: "PUT",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ template_text: text })
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+
+        statusEl.className = "template-status ok";
+        statusEl.innerHTML =
+          '<span class="show-pt">Salvo com sucesso.</span>' +
+          '<span class="show-en">Saved successfully.</span>';
+
+        // Refresh meta line from returned row
+        var row = data.template || data;
+        if (row && (row.updated_at || row.updated_by)) {
+          renderMeta(metaEl, row);
+        }
+
+        // Auto-clear success message after 3s
+        setTimeout(function() {
+          statusEl.className = "template-status";
+          statusEl.textContent = "";
+        }, 3000);
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao salvar: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error saving: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Utilities ──────────────────────────────────────────────────────────
+    function escHtml(str) {
+      return (str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    // ── Load packages ─────────────────────────────────────────────────────
+    function loadPackages() {
+      var container = document.getElementById("packagesContainer");
+      if (!container) { return; }
+
+      container.innerHTML =
+        '<div class="settings-empty">' +
+        '<div class="spinner"></div>' +
+        '</div>';
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/packages", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        var pkgs = data.packages || [];
+        renderPackages(pkgs);
+      }).catch(function(e) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#9888;</div>' +
+          '<span class="show-pt">Erro ao carregar pacotes: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error loading packages: ' + escHtml(e.message) + '</span>' +
+          '</div>';
+      });
+    }
+
+    // ── Render packages ────────────────────────────────────────────────────
+    function renderPackages(pkgs) {
+      var container = document.getElementById("packagesContainer");
+      if (!container) { return; }
+
+      var tileEl = document.getElementById("heroTilePackages");
+      if (tileEl) { tileEl.textContent = pkgs.length; }
+
+      if (pkgs.length === 0) {
+        container.innerHTML =
+          '<div class="settings-empty">' +
+          '<div class="settings-empty-icon">&#128230;</div>' +
+          '<span class="show-pt">Nenhum pacote encontrado.</span>' +
+          '<span class="show-en">No packages found.</span>' +
+          '</div>';
+        return;
+      }
+
+      container.innerHTML = "";
+      for (var i = 0; i < pkgs.length; i++) {
+        container.appendChild(makePackageCard(pkgs[i], false));
+      }
+    }
+
+    // ── Make a single package card ─────────────────────────────────────────
+    function makePackageCard(pkg, isNew) {
+      var card = document.createElement("div");
+      card.className = "pkg-card";
+      if (!isNew && pkg.id) { card.setAttribute("data-pkg-id", pkg.id); }
+
+      // Header: title + popular badge
+      var headerEl = document.createElement("div");
+      headerEl.className = "pkg-card-header";
+
+      var titleEl = document.createElement("div");
+      titleEl.className = "pkg-card-title";
+      if (isNew) {
+        titleEl.innerHTML =
+          '<span class="show-pt">Novo Pacote</span>' +
+          '<span class="show-en">New Package</span>';
+      } else {
+        titleEl.textContent = pkg.full_name || pkg.short_name || "";
+      }
+      headerEl.appendChild(titleEl);
+
+      var badgeEl = document.createElement("span");
+      badgeEl.className = "pkg-popular-badge";
+      badgeEl.innerHTML =
+        '<span class="show-pt">Mais Popular</span>' +
+        '<span class="show-en">Most Popular</span>';
+      badgeEl.style.display = (pkg.is_popular) ? "" : "none";
+      headerEl.appendChild(badgeEl);
+
+      card.appendChild(headerEl);
+
+      // short_name
+      var shortRow = document.createElement("div");
+      shortRow.className = "pkg-field-row";
+      var shortLabel = document.createElement("div");
+      shortLabel.className = "pkg-field-label";
+      shortLabel.innerHTML =
+        '<span class="show-pt">R&#243;tulo curto</span>' +
+        '<span class="show-en">Short label</span>';
+      var shortInput = document.createElement("input");
+      shortInput.type = "text";
+      shortInput.className = "pkg-input-short";
+      shortInput.value = pkg.short_name || "";
+      shortRow.appendChild(shortLabel);
+      shortRow.appendChild(shortInput);
+      card.appendChild(shortRow);
+
+      // full_name
+      var fullRow = document.createElement("div");
+      fullRow.className = "pkg-field-row";
+      var fullLabel = document.createElement("div");
+      fullLabel.className = "pkg-field-label";
+      fullLabel.innerHTML =
+        '<span class="show-pt">Nome completo</span>' +
+        '<span class="show-en">Full name</span>';
+      var fullInput = document.createElement("input");
+      fullInput.type = "text";
+      fullInput.className = "pkg-input";
+      fullInput.value = pkg.full_name || "";
+      fullRow.appendChild(fullLabel);
+      fullRow.appendChild(fullInput);
+      card.appendChild(fullRow);
+
+      // audience
+      var audRow = document.createElement("div");
+      audRow.className = "pkg-field-row";
+      var audLabel = document.createElement("div");
+      audLabel.className = "pkg-field-label";
+      audLabel.innerHTML =
+        '<span class="show-pt">P&#250;blico-alvo</span>' +
+        '<span class="show-en">Audience</span>';
+      var audTextarea = document.createElement("textarea");
+      audTextarea.className = "pkg-textarea";
+      audTextarea.rows = 2;
+      audTextarea.value = pkg.audience || "";
+      audRow.appendChild(audLabel);
+      audRow.appendChild(audTextarea);
+      card.appendChild(audRow);
+
+      // included_items
+      var itemsRow = document.createElement("div");
+      itemsRow.className = "pkg-field-row";
+      var itemsLabel = document.createElement("div");
+      itemsLabel.className = "pkg-field-label";
+      itemsLabel.innerHTML =
+        '<span class="show-pt">Itens inclu&#237;dos</span>' +
+        '<span class="show-en">Included items</span>';
+      itemsRow.appendChild(itemsLabel);
+
+      var itemsList = document.createElement("div");
+      itemsList.className = "pkg-items-list";
+
+      var initialItems = pkg.included_items || [];
+      for (var j = 0; j < initialItems.length; j++) {
+        itemsList.appendChild(makeItemRow(itemsList, initialItems[j]));
+      }
+
+      var addItemBtn = document.createElement("button");
+      addItemBtn.type = "button";
+      addItemBtn.className = "btn-add-item";
+      addItemBtn.innerHTML =
+        '<span class="show-pt">+ Adicionar item</span>' +
+        '<span class="show-en">+ Add item</span>';
+      (function(list) {
+        addItemBtn.onclick = function() { list.appendChild(makeItemRow(list, "")); };
+      })(itemsList);
+
+      itemsRow.appendChild(itemsList);
+      itemsRow.appendChild(addItemBtn);
+      card.appendChild(itemsRow);
+
+      // ── Pricing section ──────────────────────────────────────────────────
+
+      // base_price
+      var priceRow = document.createElement("div");
+      priceRow.className = "pkg-field-row";
+      var priceLabel = document.createElement("div");
+      priceLabel.className = "pkg-field-label";
+      priceLabel.innerHTML =
+        '<span class="show-pt">Pre&#231;o Base</span>' +
+        '<span class="show-en">Base Price</span>';
+      var priceInput = document.createElement("input");
+      priceInput.type = "number";
+      priceInput.min = "0";
+      priceInput.step = "0.01";
+      priceInput.className = "pkg-input-price";
+      priceInput.placeholder = "0.00";
+      priceInput.value = (pkg.base_price !== null && pkg.base_price !== undefined) ? pkg.base_price : "";
+      priceRow.appendChild(priceLabel);
+      priceRow.appendChild(priceInput);
+      card.appendChild(priceRow);
+
+      // ── New list-price fields (upfront_price / installment_total_price / defaults) ──
+      // Only shown (non-hidden) when populated, so legacy cards stay uncluttered;
+      // still fully present/editable so pricing can be set later if needed.
+      var hasNewPricing = (pkg.upfront_price !== null && pkg.upfront_price !== undefined) ||
+                           (pkg.installment_total_price !== null && pkg.installment_total_price !== undefined) ||
+                           (pkg.default_installment_count !== null && pkg.default_installment_count !== undefined) ||
+                           (pkg.default_installment_amount !== null && pkg.default_installment_amount !== undefined);
+
+      var newPricingWrap = document.createElement("div");
+      newPricingWrap.className = "pkg-new-pricing-fields";
+      newPricingWrap.hidden = !hasNewPricing && !isNew;
+
+      var upfrontRow = document.createElement("div");
+      upfrontRow.className = "pkg-field-row";
+      var upfrontLabel = document.createElement("div");
+      upfrontLabel.className = "pkg-field-label";
+      upfrontLabel.innerHTML =
+        '<span class="show-pt">Pre&#231;o &#192; Vista</span>' +
+        '<span class="show-en">Upfront Price</span>';
+      var upfrontInput = document.createElement("input");
+      upfrontInput.type = "number";
+      upfrontInput.min = "0";
+      upfrontInput.step = "0.01";
+      upfrontInput.className = "pkg-input-price";
+      upfrontInput.placeholder = "0.00";
+      upfrontInput.value = (pkg.upfront_price !== null && pkg.upfront_price !== undefined) ? pkg.upfront_price : "";
+      upfrontRow.appendChild(upfrontLabel);
+      upfrontRow.appendChild(upfrontInput);
+      newPricingWrap.appendChild(upfrontRow);
+
+      var instTotalRow = document.createElement("div");
+      instTotalRow.className = "pkg-field-row";
+      var instTotalLabel = document.createElement("div");
+      instTotalLabel.className = "pkg-field-label";
+      instTotalLabel.innerHTML =
+        '<span class="show-pt">Total Parcelado</span>' +
+        '<span class="show-en">Installment Total</span>';
+      var instTotalInput = document.createElement("input");
+      instTotalInput.type = "number";
+      instTotalInput.min = "0";
+      instTotalInput.step = "0.01";
+      instTotalInput.className = "pkg-input-price";
+      instTotalInput.placeholder = "0.00";
+      instTotalInput.value = (pkg.installment_total_price !== null && pkg.installment_total_price !== undefined) ? pkg.installment_total_price : "";
+      instTotalRow.appendChild(instTotalLabel);
+      instTotalRow.appendChild(instTotalInput);
+      newPricingWrap.appendChild(instTotalRow);
+
+      var defCountRow = document.createElement("div");
+      defCountRow.className = "pkg-field-row";
+      var defCountLabel = document.createElement("div");
+      defCountLabel.className = "pkg-field-label";
+      defCountLabel.innerHTML =
+        '<span class="show-pt">Parcelas Padr&#227;o (N&#250;mero)</span>' +
+        '<span class="show-en">Default Installment Count</span>';
+      var defCountInput = document.createElement("input");
+      defCountInput.type = "number";
+      defCountInput.min = "1";
+      defCountInput.step = "1";
+      defCountInput.className = "pkg-input-price";
+      defCountInput.placeholder = "0";
+      defCountInput.value = (pkg.default_installment_count !== null && pkg.default_installment_count !== undefined) ? pkg.default_installment_count : "";
+      defCountRow.appendChild(defCountLabel);
+      defCountRow.appendChild(defCountInput);
+      newPricingWrap.appendChild(defCountRow);
+
+      var defAmtRow = document.createElement("div");
+      defAmtRow.className = "pkg-field-row";
+      var defAmtLabel = document.createElement("div");
+      defAmtLabel.className = "pkg-field-label";
+      defAmtLabel.innerHTML =
+        '<span class="show-pt">Parcelas Padr&#227;o (Valor)</span>' +
+        '<span class="show-en">Default Installment Amount</span>';
+      var defAmtInput = document.createElement("input");
+      defAmtInput.type = "number";
+      defAmtInput.min = "0";
+      defAmtInput.step = "0.01";
+      defAmtInput.className = "pkg-input-price";
+      defAmtInput.placeholder = "0.00";
+      defAmtInput.value = (pkg.default_installment_amount !== null && pkg.default_installment_amount !== undefined) ? pkg.default_installment_amount : "";
+      defAmtRow.appendChild(defAmtLabel);
+      defAmtRow.appendChild(defAmtInput);
+      newPricingWrap.appendChild(defAmtRow);
+
+      var toggleNewPricingBtn = document.createElement("button");
+      toggleNewPricingBtn.type = "button";
+      toggleNewPricingBtn.className = "btn-add-item";
+      toggleNewPricingBtn.innerHTML =
+        '<span class="show-pt">' + (hasNewPricing || isNew ? "Ocultar preços novos" : "+ Preços novos (à vista / parcelado)") + '</span>' +
+        '<span class="show-en">' + (hasNewPricing || isNew ? "Hide new pricing" : "+ New pricing (upfront / installment)") + '</span>';
+      toggleNewPricingBtn.hidden = hasNewPricing || isNew;
+      (function(wrap, btn) {
+        btn.onclick = function() { wrap.hidden = !wrap.hidden; btn.hidden = true; };
+      })(newPricingWrap, toggleNewPricingBtn);
+
+      card.appendChild(toggleNewPricingBtn);
+      card.appendChild(newPricingWrap);
+
+      // has_payment_plan toggle
+      var toggleId = "ppToggle_" + (pkg.id || "new");
+      var toggleRow = document.createElement("div");
+      toggleRow.className = "pkg-toggle-row";
+
+      var toggleLabel = document.createElement("label");
+      toggleLabel.className = "pkg-toggle-switch";
+      var toggleChk = document.createElement("input");
+      toggleChk.type = "checkbox";
+      toggleChk.id = toggleId;
+      toggleChk.checked = !!pkg.has_payment_plan;
+      var toggleSlider = document.createElement("span");
+      toggleSlider.className = "pkg-toggle-slider";
+      toggleLabel.appendChild(toggleChk);
+      toggleLabel.appendChild(toggleSlider);
+
+      var toggleTextLabel = document.createElement("label");
+      toggleTextLabel.setAttribute("for", toggleId);
+      toggleTextLabel.className = "pkg-toggle-label";
+      toggleTextLabel.innerHTML =
+        '<span class="show-pt">Plano de Pagamento</span>' +
+        '<span class="show-en">Payment Plan</span>';
+
+      toggleRow.appendChild(toggleLabel);
+      toggleRow.appendChild(toggleTextLabel);
+      card.appendChild(toggleRow);
+
+      // Installment fields (hidden when toggle off)
+      var ppFields = document.createElement("div");
+      ppFields.className = "pkg-payment-plan-fields";
+      ppFields.hidden = !pkg.has_payment_plan;
+
+      var instCountRow = document.createElement("div");
+      instCountRow.className = "pkg-field-row";
+      var instCountLabel = document.createElement("div");
+      instCountLabel.className = "pkg-field-label";
+      instCountLabel.innerHTML =
+        '<span class="show-pt">N&#250;mero de Parcelas</span>' +
+        '<span class="show-en">Number of Installments</span>';
+      var instCountInput = document.createElement("input");
+      instCountInput.type = "number";
+      instCountInput.min = "1";
+      instCountInput.step = "1";
+      instCountInput.className = "pkg-input-price";
+      instCountInput.placeholder = "0";
+      instCountInput.value = (pkg.installment_count !== null && pkg.installment_count !== undefined) ? pkg.installment_count : "";
+      instCountRow.appendChild(instCountLabel);
+      instCountRow.appendChild(instCountInput);
+      ppFields.appendChild(instCountRow);
+
+      var instAmtRow = document.createElement("div");
+      instAmtRow.className = "pkg-field-row";
+      var instAmtLabel = document.createElement("div");
+      instAmtLabel.className = "pkg-field-label";
+      instAmtLabel.innerHTML =
+        '<span class="show-pt">Valor da Parcela</span>' +
+        '<span class="show-en">Amount per Installment</span>';
+      var instAmtInput = document.createElement("input");
+      instAmtInput.type = "number";
+      instAmtInput.min = "0";
+      instAmtInput.step = "0.01";
+      instAmtInput.className = "pkg-input-price";
+      instAmtInput.placeholder = "0.00";
+      instAmtInput.value = (pkg.installment_amount !== null && pkg.installment_amount !== undefined) ? pkg.installment_amount : "";
+      instAmtRow.appendChild(instAmtLabel);
+      instAmtRow.appendChild(instAmtInput);
+      ppFields.appendChild(instAmtRow);
+
+      card.appendChild(ppFields);
+
+      (function(chk, fields) {
+        chk.onchange = function() { fields.hidden = !chk.checked; };
+      })(toggleChk, ppFields);
+
+      // is_popular checkbox
+      var popRow = document.createElement("div");
+      popRow.className = "pkg-popular-row";
+      var popChkId = "popChk_" + (pkg.id || "new");
+      var popChk = document.createElement("input");
+      popChk.type = "checkbox";
+      popChk.className = "pkg-popular-checkbox";
+      popChk.id = popChkId;
+      popChk.checked = !!pkg.is_popular;
+      var popLbl = document.createElement("label");
+      popLbl.className = "pkg-popular-label";
+      popLbl.setAttribute("for", popChkId);
+      popLbl.innerHTML =
+        '<span class="show-pt">Mais Popular</span>' +
+        '<span class="show-en">Most Popular</span>';
+
+      (function(badge, chk) {
+        chk.onchange = function() { badge.style.display = chk.checked ? "" : "none"; };
+      })(badgeEl, popChk);
+
+      popRow.appendChild(popChk);
+      popRow.appendChild(popLbl);
+      card.appendChild(popRow);
+
+      // sort_order
+      var sortRow = document.createElement("div");
+      sortRow.className = "pkg-sort-row pkg-field-row";
+      var sortLabel = document.createElement("div");
+      sortLabel.className = "pkg-field-label";
+      sortLabel.innerHTML =
+        '<span class="show-pt">Ordem</span>' +
+        '<span class="show-en">Sort order</span>';
+      var sortInput = document.createElement("input");
+      sortInput.type = "number";
+      sortInput.className = "pkg-sort-input";
+      sortInput.value = (pkg.sort_order !== undefined && pkg.sort_order !== null) ? pkg.sort_order : "";
+      sortRow.appendChild(sortLabel);
+      sortRow.appendChild(sortInput);
+      card.appendChild(sortRow);
+
+      // Footer: status + save + delete
+      var footer = document.createElement("div");
+      footer.className = "pkg-card-footer";
+
+      var statusEl = document.createElement("div");
+      statusEl.className = "template-status";
+      footer.appendChild(statusEl);
+
+      var actions = document.createElement("div");
+      actions.className = "pkg-footer-actions";
+
+      var saveBtn = document.createElement("button");
+      saveBtn.className = "btn-save";
+      saveBtn.innerHTML =
+        '<span class="show-pt">Salvar</span>' +
+        '<span class="show-en">Save</span>';
+
+      if (!isNew) {
+        var delBtn = document.createElement("button");
+        delBtn.className = "btn-delete";
+        delBtn.innerHTML =
+          '<span class="show-pt">Excluir</span>' +
+          '<span class="show-en">Delete</span>';
+
+        (function(c, btn, st, id) {
+          btn.onclick = function() { deletePackage(id, c, btn, st); };
+        })(card, delBtn, statusEl, pkg.id);
+
+        actions.appendChild(delBtn);
+      }
+
+      actions.appendChild(saveBtn);
+      footer.appendChild(actions);
+      card.appendChild(footer);
+
+      if (isNew) {
+        (function(c, btn, st, sn, fn, au, il, pc, so, ti, bpi, ppChk, icInput, iaInput, upI, itI, dcI, daI) {
+          btn.onclick = function() { createPackage(c, btn, st, sn, fn, au, il, pc, so, ti, bpi, ppChk, icInput, iaInput, upI, itI, dcI, daI); };
+        })(card, saveBtn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, titleEl, priceInput, toggleChk, instCountInput, instAmtInput, upfrontInput, instTotalInput, defCountInput, defAmtInput);
+      } else {
+        (function(c, btn, st, sn, fn, au, il, pc, so, id, bpi, ppChk, icInput, iaInput, upI, itI, dcI, daI) {
+          btn.onclick = function() { savePackage(id, c, btn, st, sn, fn, au, il, pc, so, bpi, ppChk, icInput, iaInput, upI, itI, dcI, daI); };
+        })(card, saveBtn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, pkg.id, priceInput, toggleChk, instCountInput, instAmtInput, upfrontInput, instTotalInput, defCountInput, defAmtInput);
+      }
+
+      return card;
+    }
+
+    // ── Make a single item row ─────────────────────────────────────────────
+    function makeItemRow(list, value) {
+      var row = document.createElement("div");
+      row.className = "pkg-item-row";
+
+      var inp = document.createElement("input");
+      inp.type = "text";
+      inp.className = "pkg-item-input";
+      inp.value = value || "";
+
+      var rmBtn = document.createElement("button");
+      rmBtn.type = "button";
+      rmBtn.className = "btn-remove-item";
+      rmBtn.innerHTML = "&#10005;";
+      rmBtn.setAttribute("aria-label", "Remove item");
+      (function(r) {
+        rmBtn.onclick = function() { r.parentNode && r.parentNode.removeChild(r); };
+      })(row);
+
+      row.appendChild(inp);
+      row.appendChild(rmBtn);
+      return row;
+    }
+
+    // ── Collect item inputs from a list container ──────────────────────────
+    function collectItems(itemsList) {
+      var inputs = itemsList.querySelectorAll(".pkg-item-input");
+      var result = [];
+      for (var i = 0; i < inputs.length; i++) {
+        var v = inputs[i].value.trim();
+        if (v) { result.push(v); }
+      }
+      return result;
+    }
+
+    // ── Save (PUT) a package ───────────────────────────────────────────────
+    function savePackage(id, card, btn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, priceInput, ppChk, icInput, iaInput, upfrontInput, instTotalInput, defCountInput, defAmtInput) {
+      var shortName = shortInput.value.trim();
+      var fullName  = fullInput.value.trim();
+
+      statusEl.className = "template-status";
+      statusEl.textContent = "";
+
+      if (!shortName || !fullName) {
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Nome curto e nome completo s&#227;o obrigat&#243;rios.</span>' +
+          '<span class="show-en">Short name and full name are required.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+
+      var hasPaymentPlan = ppChk.checked;
+      var payload = {
+        short_name:         shortName,
+        full_name:          fullName,
+        audience:           audTextarea.value.trim(),
+        included_items:     collectItems(itemsList),
+        is_popular:         popChk.checked,
+        sort_order:         sortInput.value !== "" ? parseInt(sortInput.value, 10) : null,
+        base_price:         priceInput.value !== "" ? parseFloat(priceInput.value) : null,
+        has_payment_plan:   hasPaymentPlan,
+        installment_count:  (hasPaymentPlan && icInput.value !== "") ? parseInt(icInput.value, 10) : null,
+        installment_amount: (hasPaymentPlan && iaInput.value !== "") ? parseFloat(iaInput.value) : null,
+        upfront_price:              upfrontInput.value  !== "" ? parseFloat(upfrontInput.value)  : null,
+        installment_total_price:    instTotalInput.value !== "" ? parseFloat(instTotalInput.value) : null,
+        default_installment_count:  defCountInput.value !== "" ? parseInt(defCountInput.value, 10) : null,
+        default_installment_amount: defAmtInput.value    !== "" ? parseFloat(defAmtInput.value)    : null
+      };
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/packages/" + encodeURIComponent(id), {
+          method: "PUT",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function() {
+        btn.disabled = false;
+        statusEl.className = "template-status ok";
+        statusEl.innerHTML =
+          '<span class="show-pt">Salvo com sucesso.</span>' +
+          '<span class="show-en">Saved successfully.</span>';
+        setTimeout(function() {
+          statusEl.className = "template-status";
+          statusEl.textContent = "";
+        }, 3000);
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao salvar: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error saving: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Create (POST) a package ────────────────────────────────────────────
+    function createPackage(card, btn, statusEl, shortInput, fullInput, audTextarea, itemsList, popChk, sortInput, titleEl, priceInput, ppChk, icInput, iaInput, upfrontInput, instTotalInput, defCountInput, defAmtInput) {
+      var shortName = shortInput.value.trim();
+      var fullName  = fullInput.value.trim();
+
+      statusEl.className = "template-status";
+      statusEl.textContent = "";
+
+      if (!shortName || !fullName) {
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Nome curto e nome completo s&#227;o obrigat&#243;rios.</span>' +
+          '<span class="show-en">Short name and full name are required.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+
+      var hasPaymentPlan = ppChk.checked;
+      var payload = {
+        short_name:         shortName,
+        full_name:          fullName,
+        audience:           audTextarea.value.trim(),
+        included_items:     collectItems(itemsList),
+        is_popular:         popChk.checked,
+        sort_order:         sortInput.value !== "" ? parseInt(sortInput.value, 10) : null,
+        base_price:         priceInput.value !== "" ? parseFloat(priceInput.value) : null,
+        has_payment_plan:   hasPaymentPlan,
+        installment_count:  (hasPaymentPlan && icInput.value !== "") ? parseInt(icInput.value, 10) : null,
+        installment_amount: (hasPaymentPlan && iaInput.value !== "") ? parseFloat(iaInput.value) : null,
+        upfront_price:              upfrontInput.value  !== "" ? parseFloat(upfrontInput.value)  : null,
+        installment_total_price:    instTotalInput.value !== "" ? parseFloat(instTotalInput.value) : null,
+        default_installment_count:  defCountInput.value !== "" ? parseInt(defCountInput.value, 10) : null,
+        default_installment_amount: defAmtInput.value    !== "" ? parseFloat(defAmtInput.value)    : null
+      };
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/packages", {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+        var newPkg = data.package || data;
+        var container = document.getElementById("packagesContainer");
+        if (container && newPkg && newPkg.id) {
+          var savedCard = makePackageCard(newPkg, false);
+          container.replaceChild(savedCard, card);
+          var tileEl = document.getElementById("heroTilePackages");
+          if (tileEl) { tileEl.textContent = container.querySelectorAll(".pkg-card").length; }
+        }
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao criar: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error creating: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Delete a package ───────────────────────────────────────────────────
+    function deletePackage(id, card, btn, statusEl) {
+      var en = document.body.classList.contains("lang-en");
+      pageDialog({
+        message: en
+          ? "Delete this package? This cannot be undone."
+          : "Excluir este pacote? Esta ação não pode ser desfeita.",
+        yes: en ? "Yes, delete the package" : "Sim, excluir o pacote",
+        keep: en ? "Keep the package" : "Manter o pacote",
+        onYes: function() { runDeletePackage(id, card, btn, statusEl); }
+      });
+    }
+
+    function runDeletePackage(id, card, btn, statusEl) {
+      btn.disabled = true;
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/settings/packages/" + encodeURIComponent(id), {
+          method: "DELETE",
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(body) {
+            throw new Error(body.error || ("HTTP " + res.status));
+          });
+        }
+        return res.json();
+      }).then(function() {
+        var container = document.getElementById("packagesContainer");
+        if (container && card.parentNode === container) {
+          container.removeChild(card);
+          var remaining = container.querySelectorAll(".pkg-card").length;
+          var tileEl = document.getElementById("heroTilePackages");
+          if (tileEl) { tileEl.textContent = remaining; }
+          if (remaining === 0) {
+            container.innerHTML =
+              '<div class="settings-empty">' +
+              '<div class="settings-empty-icon">&#128230;</div>' +
+              '<span class="show-pt">Nenhum pacote encontrado.</span>' +
+              '<span class="show-en">No packages found.</span>' +
+              '</div>';
+          }
+        }
+      }).catch(function(e) {
+        btn.disabled = false;
+        statusEl.className = "template-status err";
+        statusEl.innerHTML =
+          '<span class="show-pt">Erro ao excluir: ' + escHtml(e.message) + '</span>' +
+          '<span class="show-en">Error deleting: ' + escHtml(e.message) + '</span>';
+      });
+    }
+
+    // ── Show blank add-package card ────────────────────────────────────────
+    function showAddPackageCard() {
+      var container = document.getElementById("packagesContainer");
+      if (!container) { return; }
+      var blankCard = makePackageCard({
+        short_name: "", full_name: "", audience: "",
+        included_items: [], is_popular: false, sort_order: null,
+        base_price: null, has_payment_plan: false, installment_count: null, installment_amount: null,
+        upfront_price: null, installment_total_price: null,
+        default_installment_count: null, default_installment_amount: null
+      }, true);
+      container.appendChild(blankCard);
+      blankCard.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    // ── Business settings (Zelle QR + Stripe link) ────────────────────────
+
+    function loadBusinessSettings() {
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/business/settings", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { return; }
+          var s = data.settings || {};
+          if (s.zelle_qr_r2_key) {
+            var wrap = document.getElementById("bizQrPreviewWrap");
+            var img  = document.getElementById("bizQrPreviewImg");
+            if (wrap && img) {
+              img.src = WORKER_URL + "/api/business/qr-image?t=" + Date.now();
+              img.onerror = function() { wrap.style.display = "none"; };
+              wrap.style.display = "";
+            }
+            var lblPt = document.getElementById("bizQrBtnLabelPt");
+            var lblEn = document.getElementById("bizQrBtnLabelEn");
+            if (lblPt) { lblPt.textContent = "Alterar QR Code"; }
+            if (lblEn) { lblEn.textContent = "Change QR Code"; }
+          }
+          if (s.stripe_payment_link) {
+            var inp = document.getElementById("bizStripeLinkInput");
+            if (inp) { inp.value = s.stripe_payment_link; }
+          }
+          if (s.zelle_handle) {
+            var zh = document.getElementById("bizZelleHandleInput");
+            if (zh) { zh.value = s.zelle_handle; }
+          }
+          var tpl = document.getElementById("bizClubTemplateInput");
+          if (tpl) { tpl.value = s.club_confirm_template || ""; }
+        })
+        .catch(function() {});
+      loadApxSwitches();
+    }
+
+    // The two master switches (public invoice link, Apex Club payments).
+    // The block is shown to the developer only; anyone else never sees it and
+    // the Worker refuses their PATCH anyway.
+    function loadApxSwitches() {
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/finance-new/settings/switches", { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(res) { return res.json(); })
+        .then(function(d) {
+          var block = document.getElementById("apxSwitchesBlock");
+          if (!block || !d || d.error || d.role !== "developer") { return; }
+          var a = document.getElementById("apxSwitchInvoiceLink");
+          var b = document.getElementById("apxSwitchClubPay");
+          if (a) { a.checked = d.client_invoice_link_enabled === true; }
+          if (b) { b.checked = d.club_pay_enabled === true; }
+          block.hidden = false;
+          loadAutoApplySwitch();
+          loadSmsUsage();
+        })
+        .catch(function() {});
+    }
+    // Group 1.3: today/this-month counts against both caps, for the
+    // developer and the other admin roles (alice, rafa) that already pass
+    // this block's own role check above.
+    function loadSmsUsage() {
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/gm/sms-usage", { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(res) { return res.json(); })
+        .then(function(d) {
+          var block = document.getElementById("smsUsageBlock");
+          if (!block || !d || d.error) { return; }
+          var pk = document.getElementById("smsUsagePasskeyText");
+          var rm = document.getElementById("smsUsageReminderText");
+          if (pk && d.passkey_sms) {
+            pk.textContent = d.passkey_sms.today + "/" + d.passkey_sms.today_cap + " today, " +
+              d.passkey_sms.month + "/" + d.passkey_sms.month_cap + " this month";
+          }
+          if (rm && d.reminder_sms) {
+            rm.textContent = d.reminder_sms.today + "/" + d.reminder_sms.today_cap + " today, " +
+              d.reminder_sms.month + "/" + d.reminder_sms.month_cap + " this month";
+          }
+          block.hidden = false;
+        })
+        .catch(function() {});
+    }
+    // The stored value of the known-payer auto-apply switch (ships ON).
+    function loadAutoApplySwitch() {
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/finance-new/settings/auto-apply", { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(res) { return res.json(); })
+        .then(function(d) {
+          var c = document.getElementById("apxSwitchAutoApply");
+          if (c && d && !d.error) { c.checked = d.auto_apply_known_payers === true; }
+        })
+        .catch(function() {});
+    }
+    function apxSaveSwitch(which, box) {
+      var want = box.checked;
+      var en = document.body.classList.contains("lang-en");
+      var statusEl = document.getElementById("apxSwitchStatus");
+      if (statusEl) { statusEl.textContent = en ? "Saving..." : "Salvando..."; statusEl.className = ""; }
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/finance-new/settings/" + which, {
+          method: "PATCH",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: want })
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(d) {
+          if (d.error) { throw new Error(d.error); }
+          if (statusEl) {
+            statusEl.textContent = en ? "Saved." : "Salvo.";
+            statusEl.className = "template-status ok";
+            setTimeout(function() { statusEl.textContent = ""; statusEl.className = ""; }, 2000);
+          }
+        })
+        .catch(function(e) {
+          // Back to what is stored: the box never shows a state the Worker does not have.
+          box.checked = !want;
+          if (statusEl) { statusEl.textContent = (en ? "Error: " : "Erro: ") + e.message; statusEl.className = "template-status err"; }
+        });
+    }
+
+    function handleBizQrFileSelected(input) {
+      if (!input.files || !input.files[0]) { return; }
+      var file = input.files[0];
+      var statusEl = document.getElementById("bizQrStatus");
+
+      var invalid = validateImageFile(file);
+      if (invalid) {
+        statusEl.textContent = invalid;
+        statusEl.className = "template-status err";
+        input.value = "";
+        return;
+      }
+
+      statusEl.textContent = t("Enviando...", "Uploading...");
+      statusEl.className = "";
+
+      var formData = new FormData();
+      formData.append("qr", file);
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/business/qr", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: formData
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          statusEl.textContent = "QR Code salvo.";
+          statusEl.className = "template-status ok";
+          var wrap = document.getElementById("bizQrPreviewWrap");
+          var img  = document.getElementById("bizQrPreviewImg");
+          if (wrap && img) {
+            img.src = WORKER_URL + "/api/business/qr-image?t=" + Date.now();
+            img.onerror = function() { wrap.style.display = "none"; };
+            wrap.style.display = "";
+          }
+          var lblPt = document.getElementById("bizQrBtnLabelPt");
+          var lblEn = document.getElementById("bizQrBtnLabelEn");
+          if (lblPt) { lblPt.textContent = "Alterar QR Code"; }
+          if (lblEn) { lblEn.textContent = "Change QR Code"; }
+          input.value = "";
+          setTimeout(function() { statusEl.textContent = ""; statusEl.className = ""; }, 3000);
+        })
+        .catch(function(e) {
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className = "template-status err";
+          input.value = "";
+        });
+    }
+
+    // Shared saver for the plain business_settings text fields.
+    function saveBizField(payload, statusId) {
+      var statusEl = document.getElementById(statusId);
+      statusEl.textContent = "Salvando...";
+      statusEl.className = "";
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/business/settings", {
+          method: "PATCH",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          statusEl.textContent = "Salvo.";
+          statusEl.className = "template-status ok";
+          setTimeout(function() { statusEl.textContent = ""; statusEl.className = ""; }, 2000);
+        })
+        .catch(function(e) {
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className = "template-status err";
+        });
+    }
+
+    // ── Web push ────────────────────────────────────────────────────────
+    //
+    // iOS will only deliver push to a PWA that was installed via
+    // Share > Add to Home Screen, and will only show the permission prompt in
+    // response to a real tap. Both are enforced by the OS -- this code just
+    // has to not violate them, and has to SAY so when the requirements are
+    // not met, or "Enable" silently does nothing and looks broken.
+
+    function pushSupported() {
+      return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    }
+
+    function isStandalonePwa() {
+      return window.matchMedia("(display-mode: standalone)").matches ||
+             window.navigator.standalone === true;
+    }
+
+    function isIos() {
+      return /iphone|ipad|ipod/i.test(navigator.userAgent);
+    }
+
+    // Every message here is a PAIR of spans, not t(). The language toggle is
+    // CSS-driven (.show-pt/.show-en) and runs after this section renders, so
+    // a string chosen by t() at load time locks in the wrong language -- that
+    // is exactly why this line came out Portuguese on an English page.
+    function bilingual(pt, en) {
+      return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + "</span>";
+    }
+
+    function setPushState(pt, en) {
+      var el = document.getElementById("pushState");
+      // No JS needed to switch language: nav.js drives .show-pt/.show-en
+      // purely from body.lang-en / body.lang-pt in CSS.
+      if (el) { el.innerHTML = bilingual(pt, en); }
+    }
+
+    function setPushStatus(pt, en, cls) {
+      var el = document.getElementById("pushStatus");
+      if (!el) { return; }
+      el.innerHTML = pt ? bilingual(pt, en) : "";
+      el.className = cls || "";
+    }
+
+    function refreshPushState() {
+      var stateEl = document.getElementById("pushState");
+      var toggle  = document.getElementById("pushToggle");
+      var testBtn = document.getElementById("pushTestBtn");
+      if (!stateEl || !toggle) { return; }
+
+      function lock(pt, en) {
+        setPushState(pt, en);
+        toggle.checked = false;
+        toggle.disabled = true;
+        testBtn.hidden = true;
+      }
+
+      if (!pushSupported()) {
+        lock("Este navegador não suporta notificações.",
+             "This browser does not support notifications.");
+        return;
+      }
+
+      // The single most common reason push "doesn't work" on iPhone: the site
+      // is open in Safari rather than installed. Say it plainly, because the
+      // toggle is disabled here and would otherwise just look broken.
+      if (isIos() && !isStandalonePwa()) {
+        lock("Só funciona com o app instalado. Toque em <b>Compartilhar &rarr; Adicionar à Tela de Início</b>, abra por lá e volte aqui.",
+             "Only works with the app installed. Tap <b>Share &rarr; Add to Home Screen</b>, open it from there, and come back.");
+        return;
+      }
+
+      if (Notification.permission === "denied") {
+        lock("Bloqueado. Libere nas configurações do sistema para este app.",
+             "Blocked. Allow notifications in your system settings for this app.");
+        return;
+      }
+
+      toggle.disabled = false;
+
+      if (Notification.permission === "granted") {
+        navigator.serviceWorker.ready.then(function(reg) {
+          return reg.pushManager.getSubscription();
+        }).then(function(sub) {
+          if (sub) {
+            setPushState("Ativado neste dispositivo.", "On for this device.");
+            toggle.checked = true;
+            testBtn.hidden = false;
+          } else {
+            setPushState("Permissão concedida. Ligue para ativar.",
+                         "Permission granted. Switch on to activate.");
+            toggle.checked = false;
+            testBtn.hidden = true;
+          }
+        }).catch(function() {
+          // serviceWorker.ready can hang if no SW controls the page. Say so
+          // rather than leaving the row blank.
+          setPushState("Não foi possível falar com o service worker. Recarregue a página.",
+                       "Could not reach the service worker. Reload the page.");
+        });
+        return;
+      }
+
+      setPushState("Receba avisos do Apex neste dispositivo.",
+                   "Get Apex alerts on this device.");
+      toggle.checked = false;
+      testBtn.hidden = true;
+    }
+
+    function handlePushToggle(el) {
+      if (!el.checked) { return disablePush(); }
+
+      setPushStatus("", "", "");
+      // Must run inside the change handler -- iOS only shows the prompt in
+      // response to a real interaction, and it cannot be asked again later.
+      Notification.requestPermission().then(function(perm) {
+        if (perm !== "granted") {
+          setPushStatus("Permissão negada.", "Permission denied.", "template-status err");
+          refreshPushState();
+          return;
+        }
+        return subscribeForPush().then(function() {
+          setPushStatus("Pronto!", "Done!", "template-status ok");
+          refreshPushState();
+        });
+      }).catch(function(e) {
+        setPushStatus("Erro: " + e.message, "Error: " + e.message, "template-status err");
+        refreshPushState();
+      });
+    }
+
+    function disablePush() {
+      navigator.serviceWorker.ready.then(function(reg) {
+        return reg.pushManager.getSubscription();
+      }).then(function(sub) {
+        if (!sub) { return; }
+        var endpoint = sub.endpoint;
+        return sub.unsubscribe().then(function() {
+          return getToken().then(function(token) {
+            return fetch(WORKER_URL + "/api/push/subscribe", {
+              method: "POST",
+              headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+              body: JSON.stringify({ unsubscribe: true, endpoint: endpoint })
+            });
+          });
+        });
+      }).then(function() {
+        setPushStatus("Desativado.", "Turned off.", "template-status ok");
+        refreshPushState();
+      }).catch(function() { refreshPushState(); });
+    }
+
+    function urlB64ToUint8Array(base64String) {
+      var padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+      var base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+      var raw = atob(base64);
+      var out = new Uint8Array(raw.length);
+      for (var i = 0; i < raw.length; i++) { out[i] = raw.charCodeAt(i); }
+      return out;
+    }
+
+    function subscribeForPush() {
+      return fetch(WORKER_URL + "/api/push/key")
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d || !d.key) { throw new Error("No VAPID key"); }
+          return navigator.serviceWorker.ready.then(function(reg) {
+            return reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlB64ToUint8Array(d.key)
+            });
+          });
+        })
+        .then(function(sub) {
+          return getToken().then(function(token) {
+            return fetch(WORKER_URL + "/api/push/subscribe", {
+              method: "POST",
+              headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+              body: JSON.stringify({ subscription: sub.toJSON(), user_agent: navigator.userAgent })
+            });
+          });
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(d) { if (d.error) { throw new Error(d.error); } });
+    }
+
+    function handleTestPush() {
+      setPushStatus("Enviando...", "Sending...", "");
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/push/test", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.error) { throw new Error(d.error); }
+          setPushStatus("Enviado para " + d.sent + " dispositivo(s).",
+                        "Sent to " + d.sent + " device(s).", "template-status ok");
+        })
+        .catch(function(e) {
+          setPushStatus("Erro: " + e.message, "Error: " + e.message, "template-status err");
+        });
+    }
+
+    function handleSaveBizZelleHandle() {
+      var v = (document.getElementById("bizZelleHandleInput").value || "").trim();
+      saveBizField({ zelle_handle: v || null }, "bizZelleHandleStatus");
+    }
+
+    function handleSaveBizClubTemplate() {
+      var v = (document.getElementById("bizClubTemplateInput").value || "").trim();
+      saveBizField({ club_confirm_template: v || null }, "bizClubTemplateStatus");
+    }
+
+    function handleSaveBizStripeLink() {
+      var input    = document.getElementById("bizStripeLinkInput");
+      var statusEl = document.getElementById("bizStripeLinkStatus");
+      var value    = input ? input.value.trim() : "";
+
+      if (value && !/^https?:\/\/.+/.test(value)) {
+        statusEl.textContent = t("URL inválida. Deve começar com http:// ou https://", "Invalid URL. It must start with http:// or https://");
+        statusEl.className = "template-status err";
+        return;
+      }
+
+      statusEl.textContent = "Salvando...";
+      statusEl.className = "";
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/business/settings", {
+          method: "PATCH",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ stripe_payment_link: value || null })
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          statusEl.textContent = "Salvo.";
+          statusEl.className = "template-status ok";
+          setTimeout(function() { statusEl.textContent = ""; statusEl.className = ""; }, 2000);
+        })
+        .catch(function(e) {
+          statusEl.textContent = "Erro: " + e.message;
+          statusEl.className = "template-status err";
+        });
+    }
+
+    // ── Bootstrap ──────────────────────────────────────────────────────────
+    // ── Language toggle ────────────────────────────────────────────────────
+    // Most of this page is .show-pt / .show-en span pairs, which CSS swaps by
+    // body class with no JS at all. The Availability section is the exception:
+    // its weekday chips and its plain-language summary line are BUILT IN JS,
+    // so they were frozen in whatever language the page loaded in and a toggle
+    // moved everything around them but not them.
+    //
+    // Replays from state already in memory (AV_SELECTED and the two time
+    // inputs) -- nav.js's own comment asks listeners not to refetch, and a
+    // language toggle must not silently discard an unsaved edit by reloading
+    // the saved values over it.
+    document.addEventListener("apex:langchange", function() {
+      renderAvDays();
+      renderAvSummary();
+    });
+
+    window.onload = function() { init(); };
+
+
+    // BEGIN PAGE DIALOG
+    // In-page replacement for the browser's confirm box, alert box and prompt box.
+    // One helper, called from every place that used to open a browser box.
+    //   message  text shown (already in the page's language; \n is kept)
+    //   title    optional heading
+    //   yes      label of the button that does the action ("Yes, delete")
+    //   keep     label of the button that walks away ("Keep it")
+    //   field    optional {value, placeholder, readonly}: an input in the same card
+    //   onYes    called ONCE, synchronously inside the tap, with the field text
+    //   onKeep   optional, called when Keep, Escape or a tap outside closes it
+    // With no `yes` it is a plain note with one button (used to show a link
+    // that must be copied by hand). Escape and a tap outside both mean keep.
+    var PAGE_DIALOG_CLASSES = {"overlay": "", "overlayStyle": "position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(26,26,29,0.45);display:flex;align-items:center;justify-content:center;padding:20px;", "box": "", "boxStyle": "background:#fff;border-radius:12px;box-shadow:0 8px 48px rgba(26,26,29,0.22);width:100%;max-width:420px;max-height:90vh;overflow-y:auto;padding:22px 24px;box-sizing:border-box;", "body": "", "title": "", "titleStyle": "font-size:16px;font-weight:700;margin-bottom:8px;color:#1a1a1d;", "text": "", "textStyle": "font-size:14px;line-height:1.5;color:#1a1a1d;", "actionsStyle": "display:flex;flex-direction:column;gap:10px;margin-top:16px;", "yes": "", "yesStyle": "background:#C9A43A;color:#fff;border:none;border-radius:7px;padding:10px 16px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;", "keep": "", "keepStyle": "background:transparent;color:#1a1a1d;border:1px solid #e8e2d9;border-radius:7px;padding:10px 16px;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;cursor:pointer;", "keepFirst": false};
+    var pageDialogOpen = null;
+    function pageDialog(o) {
+      if (pageDialogOpen) { return false; }
+      var C = PAGE_DIALOG_CLASSES;
+      var prevFocus = document.activeElement;
+      var done = false;
+      var ov = document.createElement("div");
+      ov.className = C.overlay;
+      ov.style.zIndex = "10000";
+      if (C.overlayStyle) { ov.style.cssText += ";" + C.overlayStyle; }
+      ov.setAttribute("role", "dialog");
+      ov.setAttribute("aria-modal", "true");
+      var box = document.createElement("div");
+      box.className = C.box;
+      if (C.boxStyle) { box.style.cssText = C.boxStyle; }
+      box.addEventListener("click", function(e) { e.stopPropagation(); });
+      var holder = box;
+      if (C.body) {
+        holder = document.createElement("div");
+        holder.className = C.body;
+        box.appendChild(holder);
+      }
+      if (o.title) {
+        var h = document.createElement("div");
+        h.className = C.title;
+        if (C.titleStyle) { h.style.cssText = C.titleStyle; }
+        h.textContent = o.title;
+        holder.appendChild(h);
+      }
+      var p = document.createElement("div");
+      p.className = C.text;
+      p.style.cssText = (C.textStyle || "") + ";white-space:pre-line;";
+      p.textContent = o.message || "";
+      holder.appendChild(p);
+      var input = null;
+      if (o.field) {
+        input = document.createElement("input");
+        input.type = "text";
+        input.value = o.field.value || "";
+        if (o.field.placeholder) { input.placeholder = o.field.placeholder; }
+        if (o.field.readonly) { input.readOnly = true; }
+        input.style.cssText = "width:100%;box-sizing:border-box;padding:10px;border:1px solid #d8d2c8;border-radius:8px;font-family:inherit;font-size:14px;margin-top:12px;";
+        holder.appendChild(input);
+      }
+      var row = document.createElement("div");
+      row.style.cssText = C.actionsStyle;
+      var yesBtn = null;
+      var keepBtn = null;
+      if (o.yes) {
+        yesBtn = document.createElement("button");
+        yesBtn.type = "button";
+        yesBtn.className = C.yes;
+        if (C.yesStyle) { yesBtn.style.cssText = C.yesStyle; }
+        yesBtn.textContent = o.yes;
+      }
+      if (o.keep) {
+        keepBtn = document.createElement("button");
+        keepBtn.type = "button";
+        keepBtn.className = C.keep;
+        if (C.keepStyle) { keepBtn.style.cssText = C.keepStyle; }
+        keepBtn.textContent = o.keep;
+      }
+      var order = C.keepFirst ? [keepBtn, yesBtn] : [yesBtn, keepBtn];
+      for (var i = 0; i < order.length; i++) { if (order[i]) { row.appendChild(order[i]); } }
+      holder.appendChild(row);
+      ov.appendChild(box);
+
+      function finish(isYes) {
+        if (done) { return; }
+        done = true;
+        document.removeEventListener("keydown", onKey, true);
+        if (ov.parentNode) { ov.parentNode.removeChild(ov); }
+        pageDialogOpen = null;
+        if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
+        if (isYes) {
+          if (o.onYes) { o.onYes(input ? input.value : ""); }
+        } else if (o.onKeep) {
+          o.onKeep();
+        }
+      }
+      function onKey(e) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          finish(false);
+        } else if (e.key === "Enter" && input && yesBtn && e.target === input) {
+          e.preventDefault();
+          finish(true);
+        }
+      }
+      if (yesBtn) { yesBtn.addEventListener("click", function() { finish(true); }); }
+      if (keepBtn) { keepBtn.addEventListener("click", function() { finish(false); }); }
+      ov.addEventListener("click", function(e) { if (e.target === ov) { finish(false); } });
+      document.addEventListener("keydown", onKey, true);
+      pageDialogOpen = { finish: finish };
+      document.body.appendChild(ov);
+      // Focus lands inside: the input when there is one, otherwise the safe
+      // button (Keep), never the one that does the action.
+      var first = input || keepBtn || yesBtn;
+      if (first && first.focus) { first.focus(); }
+      return true;
+    }
+    // END PAGE DIALOG
+
+    // In-page message for what used to be an alert box. Same wording, shown as a
+    // pill at the bottom of the screen that goes away by itself.
+    function pageNotice(msg) {
+      var el = document.getElementById("pageNotice");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "pageNotice";
+        el.setAttribute("role", "alert");
+        el.style.cssText = "position:fixed;left:50%;bottom:26px;transform:translateX(-50%);max-width:92vw;background:#1a1a1d;color:#fff;font-family:'Inter',sans-serif;font-size:13px;line-height:1.4;padding:11px 18px;border-radius:24px;box-shadow:0 4px 20px rgba(0,0,0,0.24);z-index:10001;display:none;";
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+      el.style.display = "block";
+      clearTimeout(el._timer);
+      el._timer = setTimeout(function() { el.style.display = "none"; }, 8000);
+    }
+  </script>
+
+  <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
+       injected fixed-position nav broke the desktop flex layout, so these
+       must exist in the markup from page load. nav.js only fills them in;
+       mobile.css alone controls their visibility and positioning. -->
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
+</body>
+</html>

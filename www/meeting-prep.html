@@ -1,0 +1,3605 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-pt="Prepara&#231;&#227;o da Reuni&#227;o" data-en="Meeting Prep">Prepara&#231;&#227;o da Reuni&#227;o</title>
+<script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1792442281"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <script src="datetime.js"></script>
+  <link rel="stylesheet" href="gm.css?v=1792866258">
+  <script src="data/us-br-states.js?v=1791950001"></script>
+  <script src="client-places.js?v=1791950001"></script>
+  <script src="apex-contract.js?v=1793026397"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --surface: #f9f7f4;
+      --header: #1a1a1d;
+      --gold: #C9A43A;
+      --gold-dim: rgba(201,164,58,0.14);
+      --text: #1a1a1d;
+      --muted: #6b6660;
+      --border: #e8e2d9;
+      --card: #ffffff;
+      --radius: 10px;
+      --shadow: 0 2px 16px rgba(26,26,29,0.08);
+      --navy: #14243D;
+      --good: #2d6a4f;
+      --warn: #8a6d1d;
+      --crit: #b44040;
+    }
+
+    * { box-sizing: border-box; }
+
+    /* The language toggle. Without these two rules every ptEn() pair renders
+       both languages at once and the PT/EN button appears to do nothing. */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* Without this the page renders black text on a dark ground. */
+    body {
+      margin: 0;
+      background: var(--surface);
+      color: var(--text);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-weight: 400;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      background: var(--header);
+      color: #fff;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .header-logo { height: 26px; width: auto; display: block; }
+    .header-title {
+      font-size: 13px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #fff; white-space: nowrap;
+    }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+    .hdr-btn {
+      background: transparent; border: 1px solid rgba(255,255,255,0.28);
+      color: #fff; font-family: inherit; font-size: 12px; font-weight: 500;
+      padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    }
+    .hdr-btn:hover { background: rgba(255,255,255,0.1); }
+
+    main { max-width: 940px; margin: 0 auto; padding: 24px 20px 80px; }
+
+    #stateMsg { padding: 40px 0; text-align: center; color: var(--muted); font-size: 14px; }
+
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 20px; margin-bottom: 16px;
+    }
+
+    .sec-title {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--muted); margin: 0 0 14px;
+    }
+
+    /* 1 Header block */
+    .prep-name { font-size: 26px; font-weight: 800; margin: 0 0 4px; letter-spacing: -0.02em; }
+    .prep-meta { font-size: 14px; color: var(--muted); margin: 0 0 10px; }
+    .prep-confid {
+      font-size: 12px; color: var(--muted); border-top: 1px solid var(--border);
+      padding-top: 10px; margin-top: 12px;
+    }
+
+    /* example=1 label: one quiet line, muted, no banner and no colour block. */
+    .example-line { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+
+    .kv { display: flex; flex-wrap: wrap; gap: 10px 28px; }
+    .kv-item { min-width: 130px; }
+    .kv-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 2px;
+    }
+    .kv-value { font-size: 15px; font-weight: 600; }
+
+    .constraint {
+      border-left: 3px solid var(--warn); padding: 8px 0 8px 12px;
+      margin-bottom: 10px; font-size: 14px;
+    }
+    .constraint:last-child { margin-bottom: 0; }
+    .constraint-src { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+    textarea.bottleneck {
+      width: 100%; min-height: 110px; resize: vertical;
+      font-family: inherit; font-size: 15px; line-height: 1.55; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px;
+    }
+    textarea.bottleneck:focus { outline: none; border-color: var(--gold); background: #fff; }
+    .ask-line {
+      font-size: 15px; font-weight: 500; color: var(--text);
+      background: var(--gold-dim); border-radius: 8px;
+      padding: 10px 12px; margin: 0 0 10px;
+    }
+    .save-state { font-size: 11px; color: var(--muted); margin-top: 6px; min-height: 14px; }
+
+    /* Owner load */
+    .load-line { font-size: 17px; font-weight: 600; line-height: 1.45; margin: 0 0 10px; }
+    .load-line .num { color: var(--navy); font-weight: 800; }
+    .load-sub { font-size: 12px; color: var(--muted); margin: 0; }
+    .load-bar { height: 10px; background: var(--surface); border-radius: 5px; overflow: hidden; margin: 12px 0 8px; }
+    .load-bar span { display: block; height: 100%; background: var(--navy); border-radius: 5px; }
+
+    /* Scores */
+    details.block { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow); margin-bottom: 16px; }
+    details.block > summary {
+      list-style: none; cursor: pointer; padding: 16px 20px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    details.block > summary::-webkit-details-marker { display: none; }
+    .sum-title { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+    .sum-hint { font-size: 11px; color: var(--muted); font-weight: 500; }
+    .block-body { padding: 0 20px 20px; }
+
+    .area { padding: 14px 0; border-top: 1px solid var(--border); }
+    .area:first-child { border-top: none; padding-top: 0; }
+    .area-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .area-name { font-size: 15px; font-weight: 700; }
+    .area-score { font-size: 14px; font-weight: 700; white-space: nowrap; }
+    .bar { height: 8px; background: var(--surface); border-radius: 4px; overflow: hidden; }
+    .bar span { display: block; height: 100%; border-radius: 4px; }
+    .area-ev { font-size: 13px; color: var(--muted); line-height: 1.55; margin-top: 8px; }
+    .s-good { color: var(--good); } .fill-good { background: var(--good); }
+    .s-warn { color: var(--warn); } .fill-warn { background: var(--warn); }
+    .s-crit { color: var(--crit); } .fill-crit { background: var(--crit); }
+    .positive {
+      margin-top: 16px; padding: 14px; background: var(--gold-dim);
+      border-radius: 8px; font-size: 14px; line-height: 1.6;
+    }
+    .positive-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--warn); display: block; margin-bottom: 4px;
+    }
+
+    /* Area drill-down, from score_json.action_plan */
+    details.area-d { border: none; }
+    details.area-d > summary { list-style: none; cursor: pointer; }
+    details.area-d > summary::-webkit-details-marker { display: none; }
+    .area-more {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      margin-top: 8px; display: inline-block;
+    }
+    details.area-d[open] > summary .area-more-shut { display: none; }
+    details.area-d:not([open]) > summary .area-more-open { display: none; }
+    .plan { margin-top: 12px; padding: 14px; background: var(--surface); border-radius: 8px; }
+    .plan-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .plan-tag {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 20px; color: #fff; background: var(--crit);
+    }
+    .plan-tag.t-warn { background: var(--warn); }
+    .plan-tag.t-good { background: var(--good); }
+    .plan-frac { font-size: 12px; font-weight: 700; color: var(--text); }
+    .plan-when { font-size: 12px; color: var(--muted); }
+    .plan-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); margin: 0 0 5px;
+    }
+    .plan ul { margin: 0 0 12px; padding-left: 18px; }
+    .plan li { font-size: 13px; line-height: 1.6; margin-bottom: 4px; }
+    .plan-succ {
+      font-size: 13px; line-height: 1.55; border-left: 3px solid var(--good);
+      padding-left: 10px; color: var(--text);
+    }
+
+    /* 62 questions */
+    .q-area-name { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--navy); margin: 16px 0 6px; }
+    .q-row { display: flex; gap: 10px; padding: 5px 0; border-top: 1px solid var(--border); font-size: 13px; }
+    .q-mark { flex: 0 0 22px; font-weight: 700; }
+    .q-yes { color: var(--good); } .q-no { color: var(--crit); }
+    .q-text { color: var(--text); }
+
+    /* Stories */
+    .story { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: var(--card); }
+    .story > summary { list-style: none; cursor: pointer; padding: 12px 14px; }
+    .story > summary::-webkit-details-marker { display: none; }
+    .story-line { font-size: 14px; font-weight: 600; line-height: 1.45; }
+    .story-why { font-size: 11px; color: var(--muted); margin-top: 5px; }
+    .tag {
+      display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+      background: var(--gold-dim); color: var(--warn);
+      padding: 2px 7px; border-radius: 20px; margin-right: 5px;
+    }
+    .story-body { padding: 0 14px 14px; }
+    .story-narr { font-size: 14px; line-height: 1.65; margin-bottom: 12px; }
+    .story-narr p { margin: 0 0 10px; }
+    .story-narr p:last-child { margin-bottom: 0; }
+    .story-more { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 6px; display: inline-block; }
+    details.story[open] > summary .story-more-shut { display: none; }
+    details.story:not([open]) > summary .story-more-open { display: none; }
+    .story-note {
+      font-size: 12px; line-height: 1.55; color: var(--text);
+      border-left: 3px solid var(--crit); background: var(--surface);
+      padding: 9px 12px; border-radius: 0 6px 6px 0;
+    }
+    .story-note b { color: var(--crit); }
+    .divider {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted); margin: 18px 0 10px;
+    }
+    .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+    /* Assets */
+    .asset-row { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; }
+    .asset-row:first-child { border-top: none; }
+    .asset-label { flex: 0 0 150px; font-size: 12px; font-weight: 600; color: var(--muted); }
+    .asset-gap { color: var(--crit); font-size: 12px; font-weight: 600; }
+
+    /* Meeting type picker, shown when no ?type= is present. */
+    .pick-name { font-size: 22px; font-weight: 800; margin: 0 0 2px; letter-spacing: -0.02em; }
+    .pick-ask { font-size: 14px; color: var(--muted); margin: 0 0 18px; }
+    .pick-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; padding: 14px 0; border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .pick-row:first-of-type { border-top: none; }
+    /* The picker is the first thing he touches in the meeting, so each type
+       is a button rather than a word to aim at. */
+    .pick-go {
+      display: inline-block; font-family: inherit; font-size: 15px; font-weight: 700;
+      color: var(--text); text-decoration: none; cursor: pointer;
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 13px 18px;
+    }
+    .pick-go:hover { border-color: var(--gold); }
+    /* Unbuilt types stay visible so he can see the shape of what is coming,
+       but must not read as live buttons that lead nowhere. */
+    .pick-soon { font-size: 15px; font-weight: 600; color: var(--muted); opacity: 0.65; }
+    .pick-soon-tag {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); border: 1px solid var(--border); border-radius: 20px;
+      padding: 3px 9px; white-space: nowrap;
+    }
+    .pick-example {
+      display: inline-block; font-family: inherit; font-size: 13px; font-weight: 600;
+      color: var(--muted); text-decoration: none; cursor: pointer;
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 11px 16px;
+    }
+    .pick-example:hover { color: var(--text); border-color: var(--gold); }
+
+    /* Resultado: the lead outcome, the last thing on the page. */
+    /* Stacked, each the full width of the card: the lead outcome is decided
+       out loud with the client there, and these are the primary actions on
+       the page. Side-by-side they were two small targets. */
+    .out-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+    .out-btn {
+      display: block; width: 100%; text-align: center;
+      font-family: inherit; font-size: 15px; font-weight: 600;
+      padding: 13px 18px; border-radius: 8px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--card); color: var(--text);
+    }
+    .out-btn:hover { border-color: var(--gold); }
+    .out-btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+    .out-btn.primary:hover { opacity: 0.9; }
+    .out-sub { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+    .out-pick { margin-top: 12px; }
+    .out-pick select {
+      font-family: inherit; font-size: 14px; padding: 9px 12px;
+      border: 1px solid var(--border); border-radius: 8px; background: var(--card);
+      color: var(--text); min-width: 200px;
+    }
+    .out-state { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 15px; }
+    .out-done {
+      font-size: 14px; line-height: 1.55; padding: 12px 14px;
+      background: var(--gold-dim); border-radius: 8px;
+    }
+
+    /* ---- Kickoff / weekly RDE / cycle close ---------------------------- */
+
+    /* The kickoff steps. A numbered step, one line of context, and the link
+       to the screen the thing is actually entered on. */
+    .step { display: flex; gap: 12px; padding: 14px 0; border-top: 1px solid var(--border); }
+    .step:first-of-type { border-top: none; padding-top: 0; }
+    .step-n {
+      flex: 0 0 26px; height: 26px; border-radius: 50%;
+      background: var(--navy); color: #fff;
+      font-size: 12px; font-weight: 700; text-align: center; line-height: 26px;
+    }
+    .step-main { min-width: 0; flex: 1; }
+    .step-title { font-size: 15px; font-weight: 700; margin: 0 0 3px; }
+    .step-ctx { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0 0 8px; }
+    /* Every action on this page is a real button with a real hit area. He is
+       talking and reading with a client in front of him, and a 13px gold text
+       link is the wrong target for that. Secondary actions -- the links out to
+       other screens and the checklist items -- are bordered; the primary ones
+       (packages, lead outcome) carry the navy fill. */
+    .step-link {
+      display: inline-block; font-family: inherit; font-size: 14px; font-weight: 600;
+      color: var(--text); text-decoration: none; cursor: pointer;
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 11px 18px; margin: 0 10px 8px 0;
+    }
+    .step-link:hover { border-color: var(--gold); }
+    /* Full width of its card, for the one action a step exists to launch. */
+    .step-link.primary {
+      display: block; width: 100%; text-align: center;
+      background: var(--navy); border-color: var(--navy); color: #fff;
+    }
+    .step-link.primary:hover { opacity: 0.9; border-color: var(--navy); }
+    .step-note { font-size: 11px; color: var(--muted); display: block; margin-top: 5px; }
+    /* Package picker. Buttons sit inline so the three read as one row of
+       choices rather than three separate actions. .pkg-arm is the armed state
+       between the first and second tap -- gold border, no fill, so it reads as
+       "waiting on you" and not as "done". */
+    .pkg-btn { display: inline-block; width: auto; margin: 0 6px 6px 0; }
+    .pkg-btn.pkg-cur { border-color: var(--navy); font-weight: 600; }
+    .pkg-btn.pkg-arm { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(191,159,84,0.22); }
+
+    /* Custom agenda: a plain checklist. He is scanning this mid-call, so it is
+       one column of readable rows, not a dense grid. */
+    .agenda-list { margin: 10px 0 14px; }
+    .agenda-item {
+      display: flex; align-items: flex-start; gap: 9px;
+      padding: 8px 2px; border-bottom: 1px solid var(--border);
+      font-size: 14px; cursor: pointer;
+    }
+    .agenda-item:last-child { border-bottom: none; }
+    .agenda-item input { margin-top: 2px; flex: 0 0 auto; }
+    .agenda-mine {
+      font-style: normal; font-size: 11px; color: var(--gold);
+      border: 1px solid var(--gold); border-radius: 999px; padding: 1px 7px; margin-left: 6px;
+    }
+    .agenda-tpl { display: inline-block; width: auto; margin: 0 6px 6px 0; }
+
+    /* Builder */
+    .builder-title, .builder-label, .builder-opts {
+      width: 100%; padding: 10px 12px; margin: 6px 0;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: inherit; font-size: 14px; background: var(--paper); color: var(--text);
+    }
+    .builder-field {
+      position: relative; padding: 10px 34px 10px 10px; margin: 8px 0;
+      border: 1px solid var(--border); border-radius: 10px;
+    }
+    .builder-type {
+      width: 100%; padding: 9px 12px; margin: 6px 0;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: inherit; font-size: 14px; background: var(--paper); color: var(--text);
+    }
+    .builder-del {
+      position: absolute; top: 8px; right: 8px;
+      width: 24px; height: 24px; line-height: 1;
+      border: none; border-radius: 50%; background: transparent;
+      color: var(--muted); font-size: 17px; cursor: pointer;
+    }
+    .builder-del:hover { background: var(--border); color: var(--text); }
+
+    /* A block he built, rendered for real */
+    .cb-field { margin: 12px 0; }
+    .cb-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+    .cb-in {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: inherit; font-size: 14px; background: var(--paper); color: var(--text);
+    }
+    textarea.cb-in { min-height: 80px; resize: vertical; }
+    .cb-opt { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 14px; cursor: pointer; }
+    /* An unrecorded value, stated as data and nothing more. No colour block,
+       no rule down the side: it is a fact about the client's records, not a
+       warning, and this page is read with the client in the room. */
+    .step-gap {
+      font-size: 13px; line-height: 1.55; color: var(--muted);
+      padding: 2px 0;
+    }
+    /* Item / value pair for an absence stated plainly. */
+    .step-fact { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; padding: 3px 0; }
+    .step-fact-label { font-weight: 600; }
+    .step-fact-value { color: var(--muted); }
+    .step-done { font-size: 13px; color: var(--good); font-weight: 600; }
+
+    /* Indicator lines, in his own sentence shape. */
+    .ind-row { padding: 9px 0; border-top: 1px solid var(--border); font-size: 14px; line-height: 1.5; }
+    .ind-row:first-child { border-top: none; }
+    .ind-name { font-weight: 700; }
+    .ind-num { font-weight: 700; color: var(--navy); }
+    .ind-miss { font-weight: 700; color: var(--crit); }
+    .ind-ok { font-size: 14px; color: var(--good); font-weight: 600; }
+
+    /* The week, day by day. Reused from the client page verbatim, so the
+       eight states keep the same colours he already reads there. */
+    .wk-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .wk-nav { display: flex; align-items: center; gap: 6px; }
+    .wk-btn {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      font-family: inherit; font-size: 12px; font-weight: 500;
+      padding: 4px 10px; border-radius: 6px; cursor: pointer;
+    }
+    .wk-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .wk-range { font-size: 12px; color: var(--muted); font-weight: 600; }
+    .wk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(58px, 1fr)); gap: 6px; }
+    .wk-day {
+      text-align: center; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 2px; font-family: inherit; background: transparent;
+    }
+    .wk-day.is-today { border-color: var(--gold); }
+    .wk-dow { font-size: 10px; color: var(--muted); font-weight: 700; }
+    .wk-num { font-size: 14px; font-weight: 700; margin: 2px 0; }
+    .wk-state { font-size: 9px; font-weight: 700; line-height: 1.2; }
+    .wk-reasons { margin-top: 10px; font-size: 12px; color: var(--muted); }
+    .wk-blind {
+      font-size: 12px; color: var(--muted); line-height: 1.55;
+      margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--border);
+    }
+
+    /* Before and after, at the close. */
+    .ba-row {
+      display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+      padding: 9px 0; border-top: 1px solid var(--border); font-size: 14px;
+    }
+    .ba-row:first-child { border-top: none; }
+    .ba-name { flex: 1 1 180px; font-weight: 600; }
+    .ba-now { font-weight: 700; white-space: nowrap; }
+    .ba-prev { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+    /* What was built. Assets, never revenue. */
+    .built-n { font-size: 22px; font-weight: 800; color: var(--navy); }
+    .built-row { padding: 9px 0; border-top: 1px solid var(--border); font-size: 14px; }
+    .built-row:first-child { border-top: none; }
+    .built-label { font-size: 12px; color: var(--muted); }
+    .built-list { margin: 6px 0 0; padding-left: 18px; }
+    .built-list li { font-size: 13px; line-height: 1.6; }
+
+    /* Kickoff target sequence */
+    .seq-row { padding: 11px 0; border-top: 1px solid var(--border); }
+    .seq-row:first-child { border-top: none; }
+    .seq-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .seq-name { font-size: 14px; font-weight: 700; }
+    .tag.t-asked   { background: rgba(20,36,61,0.10); color: var(--navy); }
+    .tag.t-derived { background: rgba(45,106,79,0.12); color: var(--good); }
+    .tag.t-imposed { background: rgba(107,102,96,0.12); color: var(--muted); }
+    .tag.t-ext     { background: rgba(180,64,64,0.10); color: var(--crit); }
+    .seq-ask { font-size: 14px; font-style: italic; color: var(--text); margin: 5px 0 0; }
+    .seq-formula { font-size: 12px; color: var(--muted); margin: 5px 0 0; }
+    /* The arithmetic he reads aloud, with the real numbers in it. */
+    .seq-work {
+      font-size: 15px; font-weight: 700; color: var(--navy);
+      font-variant-numeric: tabular-nums; margin: 3px 0 0;
+    }
+    .seq-val { font-size: 13px; margin: 4px 0 0; }
+    .seq-std { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+    .seq-pending { font-size: 12px; color: var(--muted); font-style: italic; margin: 4px 0 0; }
+    .seq-lookup { font-size: 13px; margin: 4px 0 0; }
+
+    /* Daily-log walkthrough */
+    .wt-row { display: flex; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border); font-size: 13.5px; }
+    .wt-row:first-child { border-top: none; }
+    .wt-n { flex: 0 0 22px; color: var(--muted); font-weight: 700; font-size: 12px; }
+
+    /* Tasks: three states, never a checkbox. */
+    .task-row { display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); }
+    .task-row:first-child { border-top: none; }
+    .task-mark { flex: 0 0 20px; font-weight: 700; font-size: 15px; text-align: center; }
+    .task-main { flex: 1; min-width: 0; }
+    .task-desc { font-size: 14px; line-height: 1.45; }
+    .task-meta { display: flex; gap: 10px; align-items: baseline; margin-top: 3px; }
+    .task-state { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+    .task-due { font-size: 11px; color: var(--muted); }
+    .task-note {
+      font-size: 12px; line-height: 1.5; color: var(--text); margin-top: 5px;
+      border-left: 3px solid var(--border); padding-left: 9px;
+    }
+    .ts-done { color: var(--good); }
+    .ts-not  { color: var(--crit); }
+    .ts-pend { color: var(--muted); }
+
+    /* Cycle close */
+    .voice-row { padding: 10px 0; border-top: 1px solid var(--border); }
+    .voice-row:first-of-type { border-top: none; }
+    .voice-name { font-size: 15px; font-weight: 700; }
+    .voice-space { display: block; height: 34px; border-bottom: 1px dashed var(--border); margin-top: 6px; }
+    .doc-row { display: flex; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; }
+    .doc-row:first-of-type { border-top: none; }
+    .doc-n { flex: 0 0 20px; color: var(--muted); font-weight: 700; font-size: 12px; }
+    .ba-growth { font-size: 13px; font-weight: 700; white-space: nowrap; }
+
+    /* Checklist */
+    .check-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); }
+    .check-row:first-child { border-top: none; }
+    .check-row input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--gold); flex: 0 0 auto; }
+    .check-row label { font-size: 14px; line-height: 1.45; display: block; }
+    /* Label above, action button below at full size -- the row is read and
+       tapped mid-meeting, so the target is a button and not a word. */
+    .check-main { min-width: 0; flex: 1; }
+    .check-main .step-link { margin-top: 8px; }
+
+    @media (max-width: 620px) {
+      main { padding: 16px 12px 60px; }
+      .card, .block-body { padding: 16px; }
+      .asset-label { flex-basis: 110px; }
+      .prep-name { font-size: 21px; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+  <header>
+    <div class="header-left">
+      <img src="assets/apex-logo.png" alt="APEX" class="header-logo">
+      <div class="header-title"><span class="show-pt">Prepara&#231;&#227;o da Reuni&#227;o</span><span class="show-en">Meeting Prep</span></div>
+    </div>
+    <div class="header-right">
+      <button class="hdr-btn" onclick="goBack()"><span class="show-pt">Voltar</span><span class="show-en">Back</span></button>
+      <button class="hdr-btn" onclick="toggleLang()">PT / EN</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="stateMsg"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
+    <!-- One tab per company on a shared meeting. Rendered only when the
+         session actually links more than one; a single-client meeting is
+         untouched and shows no strip at all. -->
+    <div id="prepTabs" hidden></div>
+    <style>
+      #prepTabs { margin: 0 0 14px; }
+      .prep-tab {
+        font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+        padding: 8px 14px; margin: 0 6px 6px 0; cursor: pointer;
+        border: 1px solid var(--line, #d8d2c4); border-radius: 6px;
+        background: transparent; color: var(--muted, #6b6459);
+      }
+      .prep-tab.active { background: var(--navy, #1c2b46); color: #fff; border-color: var(--navy, #1c2b46); }
+      .prep-noprep-row { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+    </style>
+    <div id="prepBody" hidden></div>
+  </main>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    var params       = new URLSearchParams(window.location.search);
+    var CLIENT_ID    = params.get("client");
+    // MULTI-CLIENT MEETINGS. One meeting can be about two companies (Marcelo
+    // Diniz owns both GATOR OUTDOOR LIVING and MY PURE FILTER, and Rafa holds
+    // a single weekly block covering both). With ?session= present, this page
+    // renders ONE TAB PER COMPANY and each tab asks its own meeting type
+    // independently -- the two businesses are not prepared for in the same way
+    // just because they share an hour.
+    var SESSION_ID   = params.get("session");
+    var SESSION_CLIENTS = [];
+    var MEETING_TYPE = params.get("type") || "xray_results";
+    var IS_EXAMPLE   = params.get("example") === "1";
+    // No ?type= means he has not chosen a meeting type yet: show the picker.
+    var HAS_TYPE     = !!params.get("type");
+    // Perfect Square, the one client whose X-Ray results page renders in full:
+    // the current 62-question instrument across all six areas, a complete
+    // action plan, all 12 practice activities, and a recorded X-Ray meeting on
+    // 2026-07-27 to check every section against.
+    var EXAMPLE_URL  = "meeting-prep.html?client=mazinho-001"
+                     + "&type=xray_results&example=1";
+
+    var currentUser = null;
+    var auth        = null;
+    var prepData    = null;
+    var saveTimer   = null;
+    var lastSaved   = null;
+
+    // Every string in this file is plain ASCII. Portuguese accented text lives
+    // in the HTML the renderers emit, never in a JS string literal.
+    var PATTERN_LABELS = {
+      medo_de_prospectar:     "medo de prospectar",
+      espera_o_cliente_vir:   "espera o cliente vir",
+      sem_clareza_financeira: "sem clareza financeira",
+      dependencia_do_dono:    "dependência do dono",
+      tudo_na_cabeca:         "tudo na cabeça",
+      zona_de_conforto:       "zona de conforto",
+      recomeco_apos_fracasso: "recomeço após fracasso",
+      risco_sem_conselho:     "risco sem conselho"
+    };
+
+    // The after-meeting checklist. Every type ends on one.
+    //
+    // These are the three things that actually happen. The old list was
+    // invented: "Enviar o Raio-X", "Enviar acesso ao sistema" and "Enviar a
+    // comparacao de planos" are not steps anybody performs after a session.
+    //
+    // Approving the summary is the real one, and it has a consequence he
+    // states to clients: once approved the session's report is filed against
+    // the client and he tells them they will have it within 24 hours.
+    var AFTER_MEETING = [
+      { id: "chk_summary",  kind: "summary",
+        pt: "Gerar e aprovar o resumo da sess&#227;o", en: "Generate and approve the session summary" },
+      { id: "chk_next",     kind: "calendar",
+        pt: "Combinar a pr&#243;xima sess&#227;o",          en: "Agree the next session" }
+    ];
+
+    // Kickoff adds one: the targets were built live, so they get confirmed.
+    var AFTER_MEETING_KICKOFF = [
+      { id: "chk_summary",  kind: "summary",
+        pt: "Gerar e aprovar o resumo da sess&#227;o", en: "Generate and approve the session summary" },
+      { id: "chk_goals",    kind: "goals",
+        pt: "Confirmar as metas lan&#231;adas",        en: "Confirm the targets that were entered" },
+      { id: "chk_next",     kind: "calendar",
+        pt: "Combinar a pr&#243;xima sess&#227;o",          en: "Agree the next session" }
+    ];
+
+    function escHtml(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function isEn() { return document.body.classList.contains("lang-en"); }
+
+    // Owners/location display (job 2026-10-14_client_owners_state_city, C7).
+    // "City, XX" when the structured fields exist, otherwise the legacy
+    // text exactly as today. owners_json displays "First Last, First Last",
+    // otherwise the legacy owners string, exactly as today.
+    function clientOwnersText(c) {
+      if (c.owners_json) {
+        try {
+          var list = JSON.parse(c.owners_json);
+          if (Array.isArray(list) && list.length) {
+            return list.map(function(o) { return (o.first + " " + o.last).trim(); }).join(", ");
+          }
+        } catch (e) { /* fall through to legacy */ }
+      }
+      return c.owners || "";
+    }
+    function clientLocationText(c) {
+      if (c.location_city || c.location_state) {
+        var two = c.location_state && c.location_state.indexOf("-") !== -1 ? c.location_state.split("-")[1] : "";
+        return [c.location_city || "", two].filter(Boolean).join(", ");
+      }
+      return c.location || "";
+    }
+
+    function ptEn(pt, en) {
+      return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span>';
+    }
+
+    // ptEn emits two spans and can never go inside an attribute. Placeholders
+    // and titles need the plain string for the language actually showing.
+    function ptEnAttr(pt, en) {
+      var t = isEn() ? en : pt;
+      var d = document.createElement("textarea");
+      d.innerHTML = t;
+      return d.value.replace(/"/g, "&quot;");
+    }
+
+    function toggleLang() {
+      var b = document.body;
+      if (b.classList.contains("lang-pt")) { b.classList.remove("lang-pt"); b.classList.add("lang-en"); }
+      else { b.classList.remove("lang-en"); b.classList.add("lang-pt"); }
+      if (window.apexApplyTitle) { window.apexApplyTitle(); }
+      if (prepData) { render(prepData); }
+      // The company tab strip is NOT built by render(), so a toggle never
+      // rebuilt it and its "(sem preparacao)" suffix -- appended onto a client
+      // name, so it cannot be a show-pt/show-en span -- kept whatever language
+      // it was drawn in. Rebuild it explicitly.
+      renderPrepTabs();
+    }
+
+    function goBack() {
+      if (window.history.length > 1) { window.history.back(); }
+      else { window.location.href = "dashboard.html"; }
+    }
+
+    function firebaseUser() {
+      if (currentUser) { return Promise.resolve(currentUser); }
+      return new Promise(function(resolve, reject) {
+        if (!auth) {
+          firebase.initializeApp(FIREBASE_CONFIG);
+          auth = firebase.auth();
+        }
+        auth.onAuthStateChanged(function(user) {
+          if (user) { currentUser = user; resolve(user); return; }
+          // Momentary null during a token refresh: wait, then decide. See the
+          // comment on the boot path in init().
+          var hadSession = sessionStorage.getItem("apex_role");
+          if (!hadSession) { reject(new Error("Not authenticated")); return; }
+          setTimeout(function() {
+            if (auth.currentUser) { currentUser = auth.currentUser; resolve(auth.currentUser); }
+            else { reject(new Error("Not authenticated")); }
+          }, 1000);
+        });
+      });
+    }
+
+    function getToken() {
+      if (currentUser) { return currentUser.getIdToken(); }
+      return Promise.reject(new Error("Not authenticated"));
+    }
+
+    // Rafa's contract tool: the builder sheet calls the API through this page's session.
+    if (window.ApexContract) {
+      ApexContract.init({ api: function(path, method, body) { return apiFetch(path, { method: method, body: body ? JSON.stringify(body) : undefined }); } });
+    }
+
+    function apiFetch(path, opts) {
+      return getToken().then(function(token) {
+        var o = opts || {};
+        var headers = { "Authorization": "Bearer " + token };
+        if (o.body) { headers["Content-Type"] = "application/json"; }
+        return fetch(WORKER_URL + path, {
+          method:  o.method || "GET",
+          headers: headers,
+          body:    o.body || undefined
+        });
+      });
+    }
+
+    // showMsg ESCAPES its text, so callers pass plain accented Portuguese,
+    // never HTML entities (they printed literally: "n&#227;o", F51).
+    function showMsg(pt, en) {
+      var el = document.getElementById("stateMsg");
+      if (!el) { return; }
+      el.hidden = false;
+      el.innerHTML = ptEn(escHtml(pt), escHtml(en));
+      var body = document.getElementById("prepBody");
+      if (body) { body.hidden = true; }
+    }
+
+    // Status -> semantic colour. Accented and unaccented spellings both appear
+    // in score_json depending on which instrument wrote the row, so both are
+    // handled. Anything unrecognised falls through to the neutral warn tone
+    // rather than being asserted as good or critical.
+    function statusClass(status) {
+      var s = String(status || "");
+      if (s === "Bom") { return "good"; }
+      if (s === "Moderado") { return "warn"; }
+      if (s === "Critico" || s === "Cr\u00edtico") { return "crit"; }
+      return "warn";
+    }
+
+    // Meeting type -> the line under the client's name. Falls back to the raw
+    // key rather than to the X-Ray label, so an unknown type never claims to
+    // be a meeting it is not.
+    function typeLabelHtml(type) {
+      if (type === "xray_results") {
+        return ptEn("Reuni&#227;o de resultados do Raio-X", "X-Ray results meeting");
+      }
+      if (type === "kickoff") {
+        return ptEn("Kickoff", "Kickoff");
+      }
+      if (type === "rde_semanal") {
+        return ptEn("RDE semanal", "Weekly RDE");
+      }
+      if (type === "fechamento") {
+        return ptEn("Fechamento de ciclo, 30 dias", "Cycle close, 30 days");
+      }
+      if (type === "custom") {
+        return ptEn("Outra reuni&#227;o", "Another meeting");
+      }
+      return escHtml(type || "");
+    }
+
+    // A number as he would say it. Currency and percent carry their mark;
+    // everything else is a plain count. Nulls never reach here.
+    function fmtInd(v, type) {
+      var n = Number(v);
+      if (!isFinite(n)) { return escHtml(String(v)); }
+      var r = Math.round(n * 100) / 100;
+      if (type === "currency") { return "$" + r; }
+      if (type === "percent" || type === "computed" || type === "computed_month") {
+        // margem_lucro / taxa_conversao / metas_batidas are all percentages.
+        return r + "%";
+      }
+      if (type === "hours") { return r + "h"; }
+      return String(r);
+    }
+
+    // ---- 1 Header ---------------------------------------------------------
+    function renderHead(d) {
+      var c = d.client || {};
+      var bits = [];
+      var ownersText = clientOwnersText(c), locationText = clientLocationText(c);
+      if (ownersText)  { bits.push(escHtml(ownersText)); }
+      if (locationText) { bits.push(escHtml(locationText)); }
+      if (c.industry) { bits.push(escHtml(c.industry)); }
+
+      var typeLabel = typeLabelHtml(d.meeting_type);
+
+      var h = '<div class="card">';
+      if (IS_EXAMPLE) {
+        h += '<p class="example-line">' +
+             ptEn("Exemplo, com dados reais da Perfect Square.",
+                  "Example, with real Perfect Square data.") + '</p>';
+      }
+      h += '<h1 class="prep-name">' + escHtml(c.name || "") + '</h1>';
+      if (bits.length) { h += '<p class="prep-meta">' + bits.join(" &middot; ") + '</p>'; }
+      h += '<p class="prep-meta">' + typeLabel + '</p>';
+      h += '<p class="prep-confid">' +
+           ptEn("Esta p&#225;gina &#233; apenas para o consultor. Qualquer material mostrado ao cliente abre em separado.",
+                "This page is consultant-only. Anything shown on screen opens separately.") +
+           '</p>';
+      // Rafa's contract tool (2026-09-29): the X-Ray results meeting is where
+      // the package is chosen, so the contract is built right here, from the
+      // lead's data. Opens the existing contract when there is one.
+      if (d.meeting_type === "xray_results" && !IS_EXAMPLE && window.ApexContract) {
+        h += '<button type="button" class="gm-btn-primary" style="max-width:320px;" onclick="ApexContract.start(CLIENT_ID)">' +
+             ptEn("Montar contrato", "Build contract") + '</button>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // ---- 2 Before you start ----------------------------------------------
+    // Money or timing constraints surfaced at the TOP. In the real Brax meeting
+    // the cash objection did not appear until minute 55 and the deal did not
+    // close. Renders nothing at all when there is nothing true to show.
+    function renderBefore(d) {
+      var c = d.client || {};
+      var rows = [];
+
+      var sc = d.assessment && d.assessment.score;
+      var areas = (sc && sc.areas) || [];
+      for (var i = 0; i < areas.length; i++) {
+        var a = areas[i];
+        if (!a.evidencePt) { continue; }
+        var cls = statusClass(a.status);
+        if (cls !== "crit" && cls !== "warn") { continue; }
+        var ev = String(a.evidencePt);
+        // Only the money-and-timing evidence belongs at the top of the page.
+        if (!/margem|preco|preço|custo|receita|financ|DRE|caixa|pagamento|dinheiro/i.test(ev)) { continue; }
+        rows.push(
+          '<div class="constraint">' + escHtml(ev) +
+          '<span class="constraint-src">' + escHtml(a.namePt || a.key || "") + '</span></div>'
+        );
+      }
+
+      var side = [];
+      var ownersTextB = clientOwnersText(c);
+      if (ownersTextB) {
+        side.push('<div class="kv-item"><div class="kv-label">' +
+          ptEn("Quem participa", "Attending") + '</div><div class="kv-value">' +
+          escHtml(ownersTextB) + '</div></div>');
+      }
+      if (c.package) {
+        side.push('<div class="kv-item"><div class="kv-label">' +
+          ptEn("Multiplicador do pipeline", "Pipeline multiplier") + '</div><div class="kv-value">' +
+          escHtml(c.package) + '</div></div>');
+      }
+
+      if (!rows.length && !side.length) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Antes de come&#231;ar", "Before you start") + '</p>';
+      h += rows.join("");
+      if (side.length) {
+        h += '<div class="kv" style="margin-top:' + (rows.length ? "14px" : "0") + ';">' + side.join("") + '</div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // ---- 3 What he says the bottleneck is --------------------------------
+    function renderBottleneck(d) {
+      var txt = (d.bottleneck && d.bottleneck.text) || "";
+      lastSaved = txt;
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O gargalo, na palavra dele", "What he says the bottleneck is") + '</p>';
+      h += '<p class="ask-line">' +
+           ptEn("Me fala um pouquinho, o que voc&#234; mais percebe aqui, na sua empresa, de gargalo?",
+                "Tell me a little: what do you notice most here in your company as a bottleneck?") +
+           '</p>';
+      h += '<textarea id="bottleneckBox" class="bottleneck">' + escHtml(txt) + '</textarea>';
+      h += '<div class="save-state" id="saveState"></div>';
+      h += '</div>';
+      return h;
+    }
+
+    // ---- 4 Owner dependency, precomputed ---------------------------------
+    // The arithmetic the X-Ray can actually prove. Renders nothing when no
+    // practice activity was answered: "0 activities" and "never filled in"
+    // are not the same claim, and only one of them is true here.
+    function renderOwnerLoad(d) {
+      var o = d.ownerLoad;
+      if (!o || !o.answered) { return ""; }
+
+      var pct = o.answered ? Math.round((o.owner_count / o.answered) * 100) : 0;
+      var lowTxt  = String(o.hours_low);
+      var highTxt = String(o.hours_high);
+
+      var linePt = 'O dono faz <span class="num">' + o.owner_count + '</span> das ' +
+                   o.total_activities + ' atividades, cerca de <span class="num">' +
+                   lowTxt + ' a ' + highTxt + '</span> horas por semana antes de tocar no trabalho em si.';
+      var lineEn = 'The owner personally does <span class="num">' + o.owner_count + '</span> of ' +
+                   o.total_activities + ' activities, about <span class="num">' +
+                   lowTxt + ' to ' + highTxt + '</span> hours a week before touching the work itself.';
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("A depend&#234;ncia do dono", "Owner dependency") + '</p>';
+      h += '<p class="load-line">' + ptEn(linePt, lineEn) + '</p>';
+      h += '<div class="load-bar"><span style="width:' + pct + '%;"></span></div>';
+      h += '<p class="load-sub">' +
+           ptEn(escHtml(o.answered + " de " + o.total_activities + " atividades foram respondidas."),
+                escHtml(o.answered + " of " + o.total_activities + " activities were answered.")) +
+           '</p>';
+      if (o.allOwner) {
+        h += '<p class="load-sub" style="margin-top:6px;">' +
+             ptEn("Todas as atividades respondidas s&#227;o feitas pelo dono.",
+                  "Every answered activity is done by the owner.") + '</p>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // One area's entry from score_json.action_plan. Every field is optional:
+    // a plan missing its timeframe or success criterion renders without them
+    // rather than showing an empty row.
+    function renderPlan(p) {
+      var tagCls = "";
+      var st = String(p.status || "");
+      if (st === "Moderado" || st === "Aten\u00e7\u00e3o") { tagCls = " t-warn"; }
+      else if (st === "Bom") { tagCls = " t-good"; }
+
+      var h = '<div class="plan"><div class="plan-head">';
+      if (p.tag)      { h += '<span class="plan-tag' + tagCls + '">' + escHtml(p.tag) + '</span>'; }
+      if (p.fraction) { h += '<span class="plan-frac">' + escHtml(p.fraction) + '</span>'; }
+      var when = isEn() ? (p.timeframeEn || p.timeframePt) : (p.timeframePt || p.timeframeEn);
+      if (when)       { h += '<span class="plan-when">' + escHtml(when) + '</span>'; }
+      h += '</div>';
+
+      var acts = (isEn() ? (p.actionsEn || p.actionsPt) : (p.actionsPt || p.actionsEn)) || [];
+      if (acts.length) {
+        h += '<p class="plan-label">' + ptEn("O que fazer", "What to do") + '</p><ul>';
+        for (var i = 0; i < acts.length; i++) {
+          h += '<li>' + escHtml(acts[i]) + '</li>';
+        }
+        h += '</ul>';
+      }
+
+      var succ = isEn() ? (p.criterioSucessoEn || p.criterioSucessoPt)
+                        : (p.criterioSucessoPt || p.criterioSucessoEn);
+      if (succ) {
+        h += '<p class="plan-label">' + ptEn("Crit&#233;rio de sucesso", "Success criterion") + '</p>';
+        h += '<p class="plan-succ">' + escHtml(succ) + '</p>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // ---- 5 X-Ray scores, expandable, open by default ---------------------
+    // Never assumes six areas: BRAX carries the legacy four. Ends on the
+    // genuine positive, which is how he always closes that block.
+    function renderScores(d) {
+      var sc = d.assessment && d.assessment.score;
+      if (!sc) { return ""; }
+      var areas = sc.areas || [];
+      if (!areas.length) { return ""; }
+
+      var h = '<details class="block" open><summary><span class="sum-title">' +
+              ptEn("As notas do Raio-X", "The X-Ray scores") + '</span>';
+      if (typeof sc.pct === "number") {
+        h += '<span class="sum-hint">' + sc.pct + '%';
+        if (typeof sc.score === "number" && typeof sc.max_score === "number") {
+          h += ' &middot; ' + sc.score + '/' + sc.max_score;
+        }
+        h += '</span>';
+      }
+      h += '</summary><div class="block-body">';
+
+      // action_plan is keyed by areaKey. A client whose score_json predates the
+      // plan simply has none, and those areas render flat rather than opening
+      // onto an empty drawer.
+      var planBy = {};
+      var plans = sc.action_plan || [];
+      for (var pi = 0; pi < plans.length; pi++) {
+        if (plans[pi] && plans[pi].areaKey) { planBy[plans[pi].areaKey] = plans[pi]; }
+      }
+
+      // Worst first: that is the order he reads them in. Sorted on a copy so
+      // the stored order is left alone.
+      var ordered = areas.slice().sort(function(x, y) {
+        var xp = typeof x.pct === "number" ? x.pct : 101;
+        var yp = typeof y.pct === "number" ? y.pct : 101;
+        return xp - yp;
+      });
+
+      for (var i = 0; i < ordered.length; i++) {
+        var a = ordered[i];
+        var cls = statusClass(a.status);
+        // Score out of 10, as the section specifies, derived from the area's
+        // own percentage so a 4-area and a 6-area instrument read alike.
+        var outOf10 = typeof a.pct === "number" ? Math.round(a.pct / 10) : null;
+        var name = isEn() ? (a.nameEn || a.namePt || a.key) : (a.namePt || a.nameEn || a.key);
+        var plan = planBy[a.key];
+
+        var head = '<div class="area-head">';
+        head += '<span class="area-name">' + escHtml(name) + '</span>';
+        if (outOf10 !== null) {
+          head += '<span class="area-score s-' + cls + '">' + outOf10 + '/10</span>';
+        }
+        head += '</div>';
+        if (typeof a.pct === "number") {
+          head += '<div class="bar"><span class="fill-' + cls + '" style="width:' + a.pct + '%;"></span></div>';
+        }
+        if (a.evidencePt) {
+          head += '<p class="area-ev">' + escHtml(a.evidencePt) + '</p>';
+        }
+
+        h += '<div class="area">';
+        if (plan) {
+          h += '<details class="area-d"><summary>' + head +
+               '<span class="area-more">' +
+               '<span class="area-more-shut">' + ptEn("Ver o plano", "See the plan") + '</span>' +
+               '<span class="area-more-open">' + ptEn("Fechar", "Close") + '</span>' +
+               '</span></summary>' + renderPlan(plan) + '</details>';
+        } else {
+          h += head;
+        }
+        h += '</div>';
+      }
+
+      if (sc.positivoPt) {
+        h += '<div class="positive"><span class="positive-label">' +
+             ptEn("O ponto positivo", "The genuine positive") + '</span>' +
+             escHtml(sc.positivoPt) + '</div>';
+      }
+      h += '</div></details>';
+      return h;
+    }
+
+    // ---- 6 The 62 questionnaire answers, collapsed -----------------------
+    function renderQuestions(d) {
+      if (!d.answeredCount) { return ""; }
+      var groups = d.areaQuestions || [];
+      var h = '<details class="block"><summary><span class="sum-title">' +
+              ptEn("As 62 respostas do question&#225;rio", "The 62 questionnaire answers") +
+              '</span><span class="sum-hint">' + d.answeredCount + '</span></summary>' +
+              '<div class="block-body">';
+      for (var i = 0; i < groups.length; i++) {
+        var g = groups[i];
+        var qs = g.questions || [];
+        var shown = [];
+        for (var j = 0; j < qs.length; j++) {
+          if (qs[j].answer === 0 || qs[j].answer === 1) { shown.push(qs[j]); }
+        }
+        if (!shown.length) { continue; }
+        h += '<p class="q-area-name">' + escHtml(isEn() ? (g.nameEn || g.namePt) : (g.namePt || g.nameEn)) + '</p>';
+        for (var k = 0; k < shown.length; k++) {
+          var q = shown[k];
+          var yes = q.answer === 1;
+          h += '<div class="q-row"><span class="q-mark ' + (yes ? "q-yes" : "q-no") + '">' +
+               (yes ? ptEn("Sim", "Yes") : ptEn("N&#227;o", "No")) + '</span><span class="q-text">' +
+               escHtml(isEn() ? (q.labelEn || q.labelPt) : (q.labelPt || q.labelEn)) +
+               '</span></div>';
+        }
+      }
+      h += '</div></details>';
+      return h;
+    }
+
+    // ---- 7 Stories, ranked -----------------------------------------------
+    // The system ranks. He picks. Never auto-select, never hide the rest:
+    // a meeting turns and he needs the others in his back pocket.
+    // Names the patterns, in the page's own words, as a readable list:
+    // "medo de prospectar e zona de conforto" / "a and b" -- never a bare id.
+    // Takes the joiner rather than calling ptEn() itself: the result is built
+    // into one side of a ptEn() pair, and a nested pair would leak the
+    // Portuguese joiner into the English sentence.
+    function patternList(keys, joiner) {
+      var out = [];
+      for (var i = 0; i < keys.length; i++) {
+        out.push(escHtml(PATTERN_LABELS[keys[i]] || keys[i]));
+      }
+      if (out.length === 1) { return out[0]; }
+      var last = out.pop();
+      return out.join(", ") + joiner + last;
+    }
+
+    // The real reason THIS story ranked where it did. A story that matched
+    // nothing gets no line at all: the same generic sentence on all sixteen
+    // rows tells him nothing and is worse than silence.
+    function storyReason(mb, mp) {
+      if (mb.length) {
+        // The bottleneck he just typed is the stronger signal, so that is the
+        // source named when a story hits both.
+        return ptEn(
+          "Casa com o gargalo que ele descreveu: " + patternList(mb, " e "),
+          "Matches the bottleneck he described: " + patternList(mb, " and ")
+        );
+      }
+      if (mp.length) {
+        return ptEn(
+          "Casa com o Raio-X: " + patternList(mp, " e "),
+          "Matches the X-Ray: " + patternList(mp, " and ")
+        );
+      }
+      return "";
+    }
+
+    // A narrative is now full prose, several paragraphs long. Blank lines are
+    // paragraph breaks and render as such; one undivided block is unreadable
+    // mid-meeting.
+    function narrativeHtml(text) {
+      var paras = String(text).split(/\n\s*\n/);
+      var out = "";
+      for (var i = 0; i < paras.length; i++) {
+        var t = paras[i].replace(/^\s+|\s+$/g, "");
+        if (!t) { continue; }
+        out += '<p>' + escHtml(t) + '</p>';
+      }
+      return out;
+    }
+
+    function storyCard(s) {
+      var why = [];
+      var mb = s.matched_bottleneck || [];
+      var mp = s.matched_patterns || [];
+      for (var i = 0; i < mb.length; i++) {
+        why.push('<span class="tag">' + escHtml(PATTERN_LABELS[mb[i]] || mb[i]) + '</span>');
+      }
+      for (var j = 0; j < mp.length; j++) {
+        if (mb.indexOf(mp[j]) > -1) { continue; }
+        why.push('<span class="tag">' + escHtml(PATTERN_LABELS[mp[j]] || mp[j]) + '</span>');
+      }
+
+      var reason = storyReason(mb, mp);
+
+      var h = '<details class="story"><summary>';
+      h += '<div class="story-line">' + escHtml(s.one_liner || "") + '</div>';
+      if (why.length || reason) {
+        h += '<div class="story-why">' + why.join("") +
+             (reason ? '<span>' + reason + '</span>' : "") + '</div>';
+      }
+      h += '<span class="story-more">' +
+           '<span class="story-more-shut">' + ptEn("Ver a hist&#243;ria", "See the story") + '</span>' +
+           '<span class="story-more-open">' + ptEn("Fechar", "Close") + '</span>' +
+           '</span>';
+      h += '</summary><div class="story-body">';
+      // narrative_en is filled in row by row; falling back to the Portuguese
+      // keeps the body from rendering blank while that work is in flight.
+      var narr = isEn() ? (s.narrative_en || s.narrative) : s.narrative;
+      if (narr) {
+        h += '<div class="story-narr">' + narrativeHtml(narr) + '</div>';
+      }
+      // telling_note is ALWAYS rendered: it says what must not be claimed.
+      if (s.telling_note) {
+        h += '<div class="story-note"><b>' +
+             ptEn("Ao contar:", "When telling it:") + '</b> ' +
+             escHtml(s.telling_note) + '</div>';
+      }
+      h += '</div></details>';
+      return h;
+    }
+
+    // He tells stories in EVERY kind of meeting, so this section is on all
+    // four types, not just the X-Ray one. With a completed X-Ray the ranking
+    // uses score_json and profile_json as before; without one it falls back to
+    // the typed bottleneck alone; with neither, the stories are simply shown
+    // unranked rather than the section disappearing.
+    function renderStories(d) {
+      var list = d.stories || [];
+      if (!list.length) { return ""; }
+      var matched = [];
+      var rest    = [];
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].matched) { matched.push(list[i]); } else { rest.push(list[i]); }
+      }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Hist&#243;rias", "Stories") + '</p>';
+      for (var m = 0; m < matched.length; m++) { h += storyCard(matched[m]); }
+      if (matched.length && rest.length) {
+        h += '<div class="divider">' + ptEn("As demais", "The rest") + '</div>';
+      }
+      for (var r = 0; r < rest.length; r++) { h += storyCard(rest[r]); }
+      h += '</div>';
+      return h;
+    }
+
+    // ---- 8 What he already has -------------------------------------------
+    function renderAssets(d) {
+      var c = d.client || {};
+      var dp = {};
+      if (c.digital_presence) {
+        try { dp = JSON.parse(c.digital_presence) || {}; } catch (e) { dp = {}; }
+      }
+
+      var items = [
+        { pt: "Site",       en: "Website",                 val: dp.website || dp.site || null },
+        { pt: "Google",     en: "Google Business Profile", val: dp.google || dp.google_business || null },
+        { pt: "Instagram",  en: "Instagram",               val: c.instagram_handle || dp.instagram || null },
+        { pt: "E-mail",     en: "Email",                   val: c.email || null },
+        { pt: "Equipe",     en: "Team size",               val: dp.team_size || dp.equipe || null }
+      ];
+
+      var rows = [];
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        var has = it.val !== null && it.val !== undefined && String(it.val).trim() !== "";
+        rows.push(
+          '<div class="asset-row"><span class="asset-label">' + ptEn(it.pt, it.en) + '</span>' +
+          (has
+            ? '<span>' + escHtml(String(it.val)) + '</span>'
+            : '<span class="asset-gap">' + ptEn("n&#227;o consta", "not on record") + '</span>') +
+          '</div>'
+        );
+      }
+
+      return '<div class="card"><p class="sec-title">' +
+             ptEn("O que ele j&#225; tem", "What he already has") + '</p>' +
+             rows.join("") + '</div>';
+    }
+
+    // ---- KICKOFF ----------------------------------------------------------
+    // The meeting where targets do not exist yet. He builds about twenty of
+    // them live with the client and fills in the first daily log with them,
+    // teaching the tool as he goes. So this is NOT a report: it is a checklist
+    // where every step links to the screen that thing is actually entered on.
+
+    // Every link out of prep carries where it came from, so the destination can
+    // offer a way back. He runs these mid-meeting while talking: without this
+    // he lands on a long client page, loses the prep he was reading from, and
+    // has to find it again in front of the client.
+    function clientHref(extra) {
+      return "client.html?id=" + encodeURIComponent(CLIENT_ID) + (extra || "") +
+             "&from=prep&prepType=" + encodeURIComponent(MEETING_TYPE);
+    }
+
+    // What the system already knows, so he does not open the meeting asking
+    // for things it can already tell him.
+    function renderKickoffKnown(d) {
+      var c = d.client || {};
+      var k = d.kickoff || {};
+      var items = [];
+
+      function kv(labelHtml, valueHtml) {
+        items.push('<div class="kv-item"><div class="kv-label">' + labelHtml +
+                   '</div><div class="kv-value">' + valueHtml + '</div></div>');
+      }
+
+      if (c.package)            { kv(ptEn("Pacote", "Package"), escHtml(c.package)); }
+      if (c.package_started_at) { kv(ptEn("In&#237;cio", "Started"), escHtml(c.package_started_at)); }
+      if (c.industry)           { kv(ptEn("Setor", "Industry"), escHtml(c.industry)); }
+      var kickoffLocationText = clientLocationText(c), kickoffOwnersText = clientOwnersText(c);
+      if (kickoffLocationText) { kv(ptEn("Local", "Location"), escHtml(kickoffLocationText)); }
+      if (kickoffOwnersText)   { kv(ptEn("Donos", "Owners"), escHtml(kickoffOwnersText)); }
+      kv(ptEn("Raio-X", "X-Ray"), k.has_xray
+        ? ptEn("conclu&#237;do", "completed")
+        : ptEn("sem Raio-X conclu&#237;do", "no completed X-Ray"));
+
+      if (!items.length) { return ""; }
+      return '<div class="card"><p class="sec-title">' +
+             ptEn("O que o sistema j&#225; sabe", "What the system already knows") +
+             '</p><div class="kv">' + items.join("") + '</div></div>';
+    }
+
+    function renderKickoff(d) {
+      var k = d.kickoff;
+      if (!k) { return ""; }
+      var g = k.goals || {};
+
+      var h = renderKickoffKnown(d);
+
+      h += '<div class="card"><p class="sec-title">' +
+           ptEn("A reuni&#227;o, passo a passo", "The meeting, step by step") + '</p>';
+
+      // --- 1 the goals -----------------------------------------------------
+      h += '<div class="step"><div class="step-n">1</div><div class="step-main">';
+      h += '<p class="step-title">' +
+           ptEn("Definir as metas do m&#234;s", "Set the month's targets") + '</p>';
+
+      if (g.all_set) {
+        // Do not send him to set what is already set.
+        h += '<p class="step-done">' +
+             ptEn(escHtml("As " + g.goalable + " metas do mês já estão definidas."),
+                  escHtml("All " + g.goalable + " targets for the month are already set.")) +
+             '</p>';
+      } else {
+        h += '<p class="step-ctx">' +
+             ptEn(escHtml(g.with_meta + " de " + g.goalable + " indicadores com meta definida para o mes."),
+                  escHtml(g.with_meta + " of " + g.goalable + " indicators have a target for the month.")) +
+             '</p>';
+      }
+
+      // The metas editor on the CLIENT page, not the portal: it PUTs
+      // /field-config without previewAs, so it is the only place he can
+      // actually write the targets. The portal's goals screen is read-only
+      // for staff and would fail on save.
+      h += '<a class="step-link" href="' + clientHref("&modal=fieldconfig") +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Definir as metas na ficha do cliente", "Set the targets on the client page") + '</a>';
+      h += '<span class="step-note">' +
+           ptEn("Esta &#233; a tela onde ele consegue gravar. Se quiser que o cliente preencha, o cliente faz no login dele.",
+                "This is the screen he can actually save on. If the client is to fill it in, they do it on their own login.") +
+           '</span>';
+      h += '</div></div>';
+
+      // --- 2 the first daily log -------------------------------------------
+      h += '<div class="step"><div class="step-n">2</div><div class="step-main">';
+      h += '<p class="step-title">' +
+           ptEn("Preencher o primeiro registro di&#225;rio COM o cliente",
+                "Fill in the first daily log WITH the client") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("O objetivo aqui &#233; ensinar a ferramenta, n&#227;o coletar o dado.",
+                "The point here is teaching the tool, not collecting the data.") + '</p>';
+      h += '<a class="step-link" href="' + clientHref("&day=" + encodeURIComponent(k.today)) +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Abrir o registro de hoje", "Open today's entry") + '</a>';
+      // The staff view of a day is read-only: entries are only writable from
+      // the client's own portal login. He teaches, the client types.
+      h += '<span class="step-note">' +
+           ptEn("A ficha mostra o dia, mas quem digita &#233; o cliente, no login dele.",
+                "The client page shows the day, but the client types, on their own login.") +
+           '</span>';
+      h += '</div></div>';
+
+      // --- 3 the price table -----------------------------------------------
+      // An ordinary step now that gm_pricing exists: a line of context, the
+      // counts, and the two screens the work happens on.
+      var kp = k.pricing || { total: 0, with_costs: 0 };
+      h += '<div class="step"><div class="step-n">3</div><div class="step-main">';
+      h += '<p class="step-title">' +
+           ptEn("Tabela de pre&#231;os e custos", "Pricing & costs table") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("O que cada item custa contra o que ele cobra &#233; o que transforma faturamento em margem de verdade.",
+                "What each item costs against what they charge is what turns revenue into real margin.") + '</p>';
+      h += '<div class="step-gap">' +
+           ptEn(kp.total + " itens registrados &#183; " + kp.with_costs + " com custos preenchidos",
+                kp.total + " items recorded &#183; " + kp.with_costs + " with costs filled in") +
+           '</div>';
+      h += '<a class="step-link" href="' + clientHref("&section=gmpricing") +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Abrir a tabela de pre&#231;os", "Open the pricing table") + '</a>';
+      h += '<a class="step-link" href="' + clientHref("&section=gmpricing") +
+           '&import=1" target="_blank" rel="noopener">' +
+           ptEn("Importar CSV", "Import CSV") + '</a>';
+      h += '</div></div>';
+
+      // --- 4 digital presence ----------------------------------------------
+      h += '<div class="step"><div class="step-n">4</div><div class="step-main">';
+      h += '<p class="step-title">' + ptEn("Presen&#231;a digital", "Digital presence") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("O que a empresa j&#225; tem no ar, e o que falta.",
+                "What the business already has live, and what is missing.") + '</p>';
+      h += '<a class="step-link" href="' + clientHref("&section=dp") +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Abrir a presen&#231;a digital", "Open digital presence") + '</a>';
+      h += '</div></div>';
+
+      h += '</div>';
+      return h;
+    }
+    // ---- WEEKLY RDE -------------------------------------------------------
+    // His actual meeting order, beat by beat, so he can move down the page as
+    // the meeting moves. The order is his, not a redesign of it.
+
+    // 1 Last session: what was agreed, and what is marked done.
+    function renderLastSession(d) {
+      var w = d.weekly;
+      var ls = w && w.last_session;
+      if (!ls) { return ""; }
+
+      var actions = isEn() ? (ls.client_action_items_en || ls.client_action_items_pt)
+                           : (ls.client_action_items_pt || ls.client_action_items_en);
+      var follow  = isEn() ? (ls.rafa_followups_en || ls.rafa_followups_pt)
+                           : (ls.rafa_followups_pt || ls.rafa_followups_en);
+
+      var tasks = ls.tasks || [];
+      var clientTasks = [];
+      var rafaTasks   = [];
+      for (var i = 0; i < tasks.length; i++) {
+        if (tasks[i].type === "consultant") { rafaTasks.push(tasks[i]); }
+        else { clientTasks.push(tasks[i]); }
+      }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("A &#250;ltima sess&#227;o", "Last session") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn(escHtml("Sessão de " + ls.date + "."),
+                escHtml("Session of " + ls.date + ".")) + '</p>';
+
+      // The live task rows carry a real done flag, so they are shown as the
+      // record of what was agreed. The prose blocks below are the write-up.
+      if (clientTasks.length || rafaTasks.length) {
+        h += taskBlock(ptEn("O que o cliente ficou de fazer", "What the client agreed to do"), clientTasks);
+        h += taskBlock(ptEn("O que ele ficou de fazer", "What he agreed to do"), rafaTasks);
+      }
+
+      if (actions) {
+        h += '<p class="plan-label" style="margin-top:14px;">' +
+             ptEn("Combinado com o cliente", "Agreed with the client") + '</p>';
+        h += '<div class="story-narr">' + narrativeHtml(actions) + '</div>';
+      }
+      if (follow) {
+        h += '<p class="plan-label">' + ptEn("Os retornos dele", "His follow-ups") + '</p>';
+        h += '<div class="story-narr">' + narrativeHtml(follow) + '</div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // Three states, never a checkbox. "Nao fez" and "ainda nao chegamos nisso"
+    // are different facts, and an unchecked box read as an accusation for a
+    // task that was never due. Nothing ever defaults to done.
+    function taskState(t) {
+      if (t.status === "done") {
+        return { cls: "ts-done", mark: "&#10003;", pt: "feito", en: "done" };
+      }
+      if (t.status === "not_done") {
+        return { cls: "ts-not", mark: "&#215;", pt: "n&#227;o fez", en: "not done" };
+      }
+      return { cls: "ts-pend", mark: "&#8212;", pt: "pendente", en: "pending" };
+    }
+
+    function taskBlock(labelHtml, rows) {
+      if (!rows.length) { return ""; }
+      var h = '<p class="plan-label" style="margin-top:12px;">' + labelHtml + '</p>';
+      for (var i = 0; i < rows.length; i++) {
+        var t = rows[i];
+        var st = taskState(t);
+        h += '<div class="task-row">';
+        h += '<span class="task-mark ' + st.cls + '">' + st.mark + '</span>';
+        h += '<div class="task-main"><div class="task-desc">' + escHtml(t.description || "") + '</div>';
+        h += '<div class="task-meta"><span class="task-state ' + st.cls + '">' +
+             ptEn(st.pt, st.en) + '</span>';
+        if (t.due_date) { h += '<span class="task-due">' + escHtml(t.due_date) + '</span>'; }
+        h += '</div>';
+        if (t.nota) { h += '<div class="task-note">' + escHtml(t.nota) + '</div>'; }
+        h += '</div></div>';
+      }
+      return h;
+    }
+
+    // 2 Indicators, worst first. Capped on purpose -- see the note in the
+    // section itself. Zeros and behind-pace only; the rest expand.
+    function renderWeeklyIndicators(d) {
+      var w = d.weekly;
+      if (!w) { return ""; }
+      var behind = w.behind || [];
+      var onPace = w.on_pace || [];
+      if (!behind.length && !onPace.length) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Os indicadores, pior primeiro", "Indicators, worst first") + '</p>';
+
+      if (!behind.length) {
+        h += '<p class="ind-ok">' +
+             ptEn(escHtml("Todos os " + onPace.length + " indicadores com meta estão no ritmo do mês."),
+                  escHtml("All " + onPace.length + " indicators with a target are on pace for the month.")) +
+             '</p>';
+      } else {
+        for (var i = 0; i < behind.length; i++) { h += indicatorLine(behind[i]); }
+      }
+
+      if (onPace.length && behind.length) {
+        h += '<details class="area-d" style="margin-top:12px;"><summary>' +
+             '<span class="area-more">' +
+             '<span class="area-more-shut">' +
+             ptEn(escHtml("Ver os outros " + onPace.length + " indicadores"),
+                  escHtml("See the other " + onPace.length + " indicators")) +
+             '</span>' +
+             '<span class="area-more-open">' + ptEn("Fechar", "Close") + '</span>' +
+             '</span></summary><div style="margin-top:8px;">';
+        for (var j = 0; j < onPace.length; j++) { h += indicatorLine(onPace[j]); }
+        h += '</div></details>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // His own sentence shape: done N, goal M, N missing.
+    function indicatorLine(x) {
+      var name = isEn() ? (x.label_en || x.label_pt) : (x.label_pt || x.label_en);
+      var done = (x.realizado === null || x.realizado === undefined)
+        ? null : fmtInd(x.realizado, x.type);
+      var goal = fmtInd(x.meta_mensal, x.type);
+
+      var h = '<div class="ind-row"><span class="ind-name">' + escHtml(name) + '</span> &middot; ';
+      if (done === null) {
+        h += ptEn("sem registro", "nothing logged") + ', ' +
+             ptEn("meta ", "goal ") + '<span class="ind-num">' + goal + '</span>';
+      } else {
+        var missTxt = "";
+        if (x.falta !== null && x.falta !== undefined && x.falta > 0) {
+          missTxt = ', <span class="ind-miss">' + fmtInd(x.falta, x.type) + ' ' +
+                    (isEn() ? "missing" : "faltando") + '</span>';
+        }
+        h += ptEn("feito ", "done ") + '<span class="ind-num">' + done + '</span>, ' +
+             ptEn("meta ", "goal ") + '<span class="ind-num">' + goal + '</span>' + missTxt;
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // 3 The week, day by day. The client page's component, same endpoint and
+    // same eight states -- deliberately NOT a simplified version, and never
+    // collapsed to "5 of 7 days": a client answers "I think I did it all", and
+    // the point is to be able to name the days.
+    var WEEK_START = null;
+
+    var WK_STATES = {
+      completed:     { color: "#3f7d4e", bg: "rgba(63,125,78,0.12)",  pt: "Completo",          en: "Completed" },
+      filled_late:   { color: "#8a6d1d", bg: "rgba(201,164,58,0.18)", pt: "Preenchido depois", en: "Filled late" },
+      day_off:       { color: "#6b6660", bg: "rgba(107,102,96,0.12)", pt: "Folga",             en: "Day off" },
+      not_scheduled: { color: "#b8b2a8", bg: "transparent",           pt: "N&#227;o trabalha", en: "Not scheduled" },
+      partial:       { color: "#8a6d1d", bg: "rgba(201,164,58,0.18)", pt: "Parcial",           en: "Partial" },
+      missing:       { color: "#b44040", bg: "rgba(180,64,64,0.1)",   pt: "Sem registro",      en: "Missing" },
+      future:        { color: "#b8b2a8", bg: "transparent",           pt: "&#8212;",           en: "&#8212;" },
+      not_tracked:   { color: "#b8b2a8", bg: "transparent",           pt: "&#8212;",           en: "&#8212;" }
+    };
+
+    function mondayOf(d) {
+      var t = new Date(d.getTime());
+      var dow = (t.getUTCDay() + 6) % 7;
+      t.setUTCDate(t.getUTCDate() - dow);
+      return t.toISOString().slice(0, 10);
+    }
+
+    function shiftWeek(days) {
+      var base = WEEK_START || mondayOf(new Date());
+      var dt = new Date(base + "T12:00:00Z");
+      dt.setUTCDate(dt.getUTCDate() + days);
+      WEEK_START = mondayOf(dt);
+      loadWeek();
+    }
+
+    function thisWeek() { WEEK_START = null; loadWeek(); }
+
+    function loadWeek() {
+      var box = document.getElementById("weekBody");
+      if (!box) { return; }
+      var qs = WEEK_START ? "?start=" + encodeURIComponent(WEEK_START) : "";
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/weekly-summary" + qs)
+        .then(function(res) { return res.json(); })
+        .then(function(data) { renderWeek(data); })
+        .catch(function() {
+          var el = document.getElementById("weekBody");
+          if (el) { el.innerHTML = ""; }
+        });
+    }
+
+    function renderWeek(data) {
+      var el = document.getElementById("weekBody");
+      if (!el) { return; }
+      var days = data.days || [];
+      if (!days.length) { el.innerHTML = ""; return; }
+
+      var dayNames = isEn()
+        ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        : ["Seg", "Ter", "Qua", "Qui", "Sex", "S&#225;b", "Dom"];
+
+      var first = days[0].date;
+      var last  = days[days.length - 1].date;
+      var today = new Date().toISOString().slice(0, 10);
+      var isCurrent = today >= first && today <= last;
+
+      var h = '<div class="wk-head"><div class="wk-nav">';
+      h += '<button type="button" class="wk-btn" onclick="shiftWeek(-7)">&#8249;</button>';
+      h += '<button type="button" class="wk-btn" onclick="shiftWeek(7)">&#8250;</button>';
+      // "Esta semana" only when he is not already on it.
+      if (!isCurrent) {
+        h += '<button type="button" class="wk-btn" onclick="thisWeek()">' +
+             ptEn("Esta semana", "This week") + '</button>';
+      }
+      h += '</div><div class="wk-range">' + escHtml(first) + ' &#8211; ' + escHtml(last) + '</div></div>';
+
+      h += '<div class="wk-grid">';
+      for (var i = 0; i < days.length; i++) {
+        var dday = days[i];
+        var m = WK_STATES[dday.status] || WK_STATES.missing;
+        var clickable = dday.status !== "future" && dday.status !== "not_tracked" &&
+                        dday.status !== "not_scheduled";
+        var cls = "wk-day" + (dday.date === today ? " is-today" : "");
+        var open = clickable
+          ? '<a class="' + cls + '" style="display:block;text-decoration:none;color:inherit;background:' + m.bg +
+            ';" href="' + clientHref("&day=" + encodeURIComponent(dday.date)) +
+            '" target="_blank" rel="noopener"'
+          : '<div class="' + cls + '" style="background:' + m.bg + ';"';
+        if (dday.reason) { open += ' title="' + escHtml(dday.reason) + '"'; }
+        h += open + '>';
+        h += '<div class="wk-dow">' + dayNames[i] + '</div>';
+        h += '<div class="wk-num">' + escHtml(dday.date.split("-")[2]) + '</div>';
+        h += '<div class="wk-state" style="color:' + m.color + ';">' + ptEn(m.pt, m.en) + '</div>';
+        h += clickable ? '</a>' : '</div>';
+      }
+      h += '</div>';
+
+      var reasons = days.filter(function(x) { return x.reason; });
+      if (reasons.length) {
+        h += '<div class="wk-reasons">';
+        for (var r = 0; r < reasons.length; r++) {
+          h += '<div>' + escHtml(reasons[r].date) + ': ' + escHtml(reasons[r].reason) + '</div>';
+        }
+        h += '</div>';
+      }
+
+      h += '<p class="wk-blind">' +
+           ptEn("Um zero registrado e um dia n&#227;o preenchido n&#227;o s&#227;o a mesma coisa, e a diferen&#231;a est&#225; nomeada aqui dia a dia.",
+                "A logged zero and a day nobody filled in are not the same thing, and the difference is named here day by day.") +
+           '</p>';
+      el.innerHTML = h;
+    }
+
+    // Contracts build (checkpoint C2): a job over $2,500 with no signed
+    // contract, unresolved for 7+ days, is raised in the weekly meeting. Own
+    // copy of the loader here (meeting-prep keeps its own shared code).
+    function renderContractNoticesCard() {
+      return '<div class="card" id="prepContractNotices" hidden></div>';
+    }
+    function loadPrepContractNotices() {
+      var box = document.getElementById("prepContractNotices");
+      if (!box || !CLIENT_ID) { return; }
+      apiFetch("/api/contracts/stale-notices?client_id=" + encodeURIComponent(CLIENT_ID))
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          var rows = (d && d.notices) || [];
+          if (!rows.length) { box.hidden = true; return; }
+          var h = '<p class="sec-title">' + ptEn("Obras sem contrato assinado (7+ dias)", "Jobs without a signed contract (7+ days)") + '</p>';
+          rows.forEach(function(n) {
+            var days = Math.floor((Date.now() - Date.parse(String(n.created_at).replace(" ", "T") + "Z")) / 86400000);
+            var val = Number(n.valor) || 0;
+            h += '<p style="margin:0 0 8px;font-size:14px;"><strong>' + escHtml(n.job_name || "") + '</strong> &middot; $' + val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' &middot; ' +
+              ptEn("aberto h\u00e1 " + days + " dias", "open for " + days + " days") + (n.opened_by ? ' &middot; ' + escHtml(n.opened_by) : '') +
+              // N1: a project made by hand can never get a contract; same
+              // explanation the owner sees on the project (F12).
+              '<br><span style="font-size:12px;color:var(--muted);">' + (Number(n.accepted_estimates) === 0
+                ? ptEn("Levantar na reuni\u00e3o: este projeto n\u00e3o veio de um lead com or\u00e7amento aceito; o contrato \u00e9 montado a partir do or\u00e7amento.", "Raise in the meeting: this project did not come from a lead with an accepted estimate; the contract is built from the estimate.")
+                : ptEn("Levantar na reuni\u00e3o: o contrato pode ser enviado pelo projeto no Apex.", "Raise in the meeting: the contract can be sent from the project in Apex.")) + '</span></p>';
+            // F53: closed right here when it is resolved in the meeting. The
+            // same inline pattern as the lead "Resultado" card (out-btn choices
+            // opening a hidden panel, out-state for the answer).
+            h += '<button type="button" class="out-btn" style="margin:0 0 10px;" onclick="openPrepNoticeResolve(\'' + escHtml(n.id) + '\')">' + ptEn("Resolvido na reuni\u00e3o", "Resolved in the meeting") + '</button>';
+            h += '<div class="out-pick" id="prepNoticePanel_' + escHtml(n.id) + '" hidden style="margin:0 0 16px;"></div>';
+          });
+          box.innerHTML = h;
+          box.hidden = false;
+        })
+        .catch(function() {});
+    }
+
+    // F53: "Resolvido na reunião": one decision, an optional note, Save closes
+    // the warning (POST /api/contracts/stale-notices/:id/resolve) and the row
+    // leaves this list and the dashboard card.
+    var PREP_NOTICE_DECISIONS = [["contract_will_be_sent", "Contrato ser\u00e1 enviado", "Contract will be sent"],
+      ["continue_without_contract", "Seguir sem contrato (decis\u00e3o do dono)", "Continue without a contract (owner's decision)"],
+      ["other", "Outro", "Other"]];
+    var prepNoticeDecision = {};
+    function openPrepNoticeResolve(id) {
+      var panel = document.getElementById("prepNoticePanel_" + id);
+      if (!panel) { return; }
+      if (!panel.hidden) { panel.hidden = true; return; }
+      prepNoticeDecision[id] = null;
+      renderPrepNoticePanel(id);
+      panel.hidden = false;
+    }
+    function renderPrepNoticePanel(id) {
+      var panel = document.getElementById("prepNoticePanel_" + id);
+      if (!panel) { return; }
+      var noteEl = document.getElementById("prepNoticeNote_" + id);
+      var noteVal = noteEl ? noteEl.value : "";
+      var h = '<p class="out-sub" style="margin-bottom:6px;">' + ptEn("O que foi decidido?", "What was decided?") + '</p><div class="out-actions">';
+      PREP_NOTICE_DECISIONS.forEach(function(dc) {
+        h += '<button type="button" class="out-btn' + (prepNoticeDecision[id] === dc[0] ? " primary" : "") + '" onclick="pickPrepNoticeDecision(\'' + escHtml(id) + '\', \'' + dc[0] + '\')">' + ptEn(dc[1], dc[2]) + '</button>';
+      });
+      h += '</div><div class="cb-field"><label class="cb-label" for="prepNoticeNote_' + escHtml(id) + '">' + ptEn("Observa\u00e7\u00e3o (opcional)", "Note (optional)") + '</label>' +
+        '<textarea class="cb-in" id="prepNoticeNote_' + escHtml(id) + '">' + escHtml(noteVal) + '</textarea></div>' +
+        '<button type="button" class="out-btn primary" id="prepNoticeSave_' + escHtml(id) + '" onclick="savePrepNoticeResolve(\'' + escHtml(id) + '\')">' + ptEn("Salvar", "Save") + '</button>' +
+        '<div class="out-state" id="prepNoticeState_' + escHtml(id) + '"></div>';
+      panel.innerHTML = h;
+    }
+    function pickPrepNoticeDecision(id, key) { prepNoticeDecision[id] = key; renderPrepNoticePanel(id); }
+    function savePrepNoticeResolve(id) {
+      var st = document.getElementById("prepNoticeState_" + id);
+      var btn = document.getElementById("prepNoticeSave_" + id);
+      var note = document.getElementById("prepNoticeNote_" + id);
+      if (!prepNoticeDecision[id]) { if (st) { st.innerHTML = ptEn("Escolha o que foi decidido.", "Choose what was decided."); } return; }
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/contracts/stale-notices/" + encodeURIComponent(id) + "/resolve", { method: "POST", body: JSON.stringify({ decision: prepNoticeDecision[id], note: note && note.value.trim() ? note.value.trim() : null }) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, d: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.d.error_pt ? ptEn(escHtml(r.d.error_pt), escHtml(r.d.error_en)) : escHtml(r.d.error || "Error")); }
+          loadPrepContractNotices();
+        })
+        .catch(function(e) { if (btn) { btn.disabled = false; } if (st) { st.innerHTML = e.message; } console.error(e); });
+    }
+
+    // The container. The week itself loads after render(), since it has its
+    // own endpoint and its own navigation.
+    function renderWeekCard(d) {
+      if (!d.weekly) { return ""; }
+      return '<div class="card"><p class="sec-title">' +
+             ptEn("A semana, dia a dia", "The week, day by day") + '</p>' +
+             '<div id="weekBody"></div></div>';
+    }
+
+    // 4 Pipeline, then projects and margin. "O ouro" -- never summarised
+    // here, because he needs to drill into the actual leads and the real
+    // per-project margin, not read a number off this page.
+    function renderGold(d) {
+      if (!d.weekly) { return ""; }
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Pipeline, projetos e margem", "Pipeline, projects and margin") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("Abre nas telas reais, para entrar lead a lead e projeto a projeto.",
+                "Opens the real screens, to go lead by lead and project by project.") + '</p>';
+      h += '<a class="step-link" href="' + clientHref("&section=gmcrm") + '" target="_blank" rel="noopener">' +
+           ptEn("Abrir o pipeline", "Open the pipeline") + '</a>';
+      h += '<a class="step-link" href="' + clientHref("&section=gmjobs") + '" target="_blank" rel="noopener">' +
+           ptEn("Abrir os projetos", "Open the projects") + '</a>';
+      // There is no staff-side pipeline or jobs screen at all -- gm.js loads
+      // only inside the portal -- so these links are read-only and say so.
+      h += '<span class="step-note">' + linkNoteReadOnly() + ' ' +
+           ptEn("N&#227;o existe tela da equipe para pipeline e projetos: para alterar, o cliente faz no login dele.",
+                "There is no staff screen for pipeline and projects: to change anything, the client does it on their own login.") +
+           '</span>';
+      h += '</div>';
+
+      // 5 Financeiro, a fixed beat of his meeting.
+      h += '<div class="card"><p class="sec-title">' +
+           ptEn("Financeiro", "Finances") + '</p>';
+      h += '<a class="step-link" href="' + clientHref("&section=gmfinance") + '" target="_blank" rel="noopener">' +
+           ptEn("Abrir o financeiro", "Open the finances") + '</a>';
+      h += '<span class="step-note">' + linkNoteReadOnly() + '</span>';
+      h += '</div>';
+      return h;
+    }
+
+    // 6 Relatorio estrategico. He reads this out at the end, so last
+    // session's three lines are carried forward for him to build on.
+    function renderStrategic(d) {
+      var w = d.weekly;
+      var ls = w && w.last_session;
+      if (!ls) { return ""; }
+
+      var focus = isEn() ? (ls.next_session_focus_en || ls.next_session_focus_pt)
+                         : (ls.next_session_focus_pt || ls.next_session_focus_en);
+      var summ  = isEn() ? (ls.summary_en || ls.summary_pt)
+                         : (ls.summary_pt || ls.summary_en);
+      if (!focus && !summ) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Relat&#243;rio estrat&#233;gico", "Strategic report") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("Da &#250;ltima sess&#227;o, para levar adiante.",
+                "From last session, to carry forward.") + '</p>';
+      if (focus) {
+        h += '<p class="plan-label">' + ptEn("O foco da pr&#243;xima sess&#227;o", "Next session's focus") + '</p>';
+        h += '<div class="story-narr">' + narrativeHtml(focus) + '</div>';
+      }
+      if (summ) {
+        h += '<p class="plan-label">' + ptEn("O resumo", "The summary") + '</p>';
+        h += '<div class="story-narr">' + narrativeHtml(summ) + '</div>';
+      }
+      h += '<a class="step-link" href="sessions.html?from=prep&prepClient=' + encodeURIComponent(CLIENT_ID) + '&prepType=' + encodeURIComponent(MEETING_TYPE) + '&open=' + encodeURIComponent(ls.session_id) +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Abrir onde o resumo desta sess&#227;o ser&#225; escrito",
+                "Open where this session's summary gets written") + '</a>';
+      h += '</div>';
+      return h;
+    }
+
+    // 7 Where the engagement stands. Week 2 of 4 and week 2 of 26 are the
+    // same number and opposite situations; that framing is the whole point.
+    function renderEngagement(d) {
+      var e = d.engagement;
+      if (!e) { return ""; }
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Onde o contrato est&#225;", "Where the engagement stands") + '</p>';
+      h += '<p class="load-line">' +
+           ptEn('Semana <span class="num">' + e.week + '</span> de ' + e.total_weeks +
+                ', no pacote ' + escHtml(e.package) + '.',
+                'Week <span class="num">' + e.week + '</span> of ' + e.total_weeks +
+                ', on the ' + escHtml(e.package) + ' package.') + '</p>';
+      h += '<p class="load-sub">' +
+           ptEn(escHtml("Começou em " + e.started_at + ". Faltam " + e.days_left + " dias."),
+                escHtml("Started " + e.started_at + ". " + e.days_left + " days remaining.")) +
+           '</p>';
+      var pct = e.duration_days ? Math.round((e.day / e.duration_days) * 100) : 0;
+      if (pct > 100) { pct = 100; }
+      h += '<div class="load-bar"><span style="width:' + pct + '%;"></span></div>';
+      h += '</div>';
+      return h;
+    }
+    // ---- CYCLE CLOSE ------------------------------------------------------
+    // The formal 30-day close, read aloud. It runs at 30 days even inside a
+    // 180-day programme, so it is a checkpoint, not the end of the engagement.
+
+    // Before and after: this month against the previous one where it exists.
+    function renderBeforeAfter(d) {
+      var cy = d.cycle;
+      if (!cy) { return ""; }
+      var list = cy.indicators || [];
+      if (!list.length) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Antes e depois", "Before and after") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn(escHtml(cy.month + (cy.prev_month ? ", ao lado de " + cy.prev_month + "." : ".")),
+                escHtml(cy.month + (cy.prev_month ? ", alongside " + cy.prev_month + "." : "."))) +
+           '</p>';
+
+      for (var i = 0; i < list.length; i++) {
+        var x = list[i];
+        var name = isEn() ? (x.label_en || x.label_pt) : (x.label_pt || x.label_en);
+        var done = (x.realizado === null || x.realizado === undefined)
+          ? null : fmtInd(x.realizado, x.type);
+
+        h += '<div class="ba-row"><span class="ba-name">' + escHtml(name) + '</span>';
+        h += '<span class="ba-now">' +
+             (done === null ? ptEn("sem registro", "nothing logged")
+                            : ptEn("feito ", "done ") + done) +
+             ' / ' + ptEn("meta ", "goal ") + fmtInd(x.meta_mensal, x.type) + '</span>';
+        // The previous month only where it exists. No zero stands in for a
+        // month that was never tracked.
+        if (x.prev_realizado !== null && x.prev_realizado !== undefined) {
+          h += '<span class="ba-prev">' +
+               ptEn("m&#234;s anterior: ", "previous month: ") +
+               fmtInd(x.prev_realizado, x.type) + '</span>';
+        }
+        h += '</div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // What was built: assets the business now HAS. Explicitly not revenue --
+    // a month of real structural work can sit beside a flat month of sales,
+    // and a revenue scoreboard at the close would call that a failure.
+    function renderBuilt(d) {
+      var cy = d.cycle;
+      var a = cy && cy.assets;
+      if (!a) { return ""; }
+
+      var docs = a.documents || [];
+      var asmts = a.assessments || [];
+      var rows = [];
+
+      if (a.goals_set) {
+        rows.push(numRow(a.goals_set,
+          ptEn("metas definidas no m&#234;s", "targets set this month")));
+      }
+      if (a.processos_documentados) {
+        rows.push(numRow(a.processos_documentados,
+          ptEn("processos documentados", "processes documented")));
+      }
+      if (a.completed_days) {
+        rows.push(numRow(a.completed_days,
+          ptEn("dias de registro completos", "complete log days")));
+      }
+      if (docs.length) {
+        var dl = '<div class="built-row"><span class="built-n">' + docs.length + '</span> ' +
+                 '<span class="built-label">' +
+                 ptEn("documentos criados", "documents created") + '</span><ul class="built-list">';
+        for (var i = 0; i < docs.length; i++) {
+          dl += '<li>' + escHtml(docs[i].title || "") + '</li>';
+        }
+        dl += '</ul></div>';
+        rows.push(dl);
+      }
+      if (asmts.length) {
+        var al = '<div class="built-row"><span class="built-n">' + asmts.length + '</span> ' +
+                 '<span class="built-label">' +
+                 ptEn("avalia&#231;&#245;es conclu&#237;das", "assessments completed") +
+                 '</span><ul class="built-list">';
+        for (var j = 0; j < asmts.length; j++) {
+          al += '<li>' + escHtml(isEn() ? asmts[j].labelEn : asmts[j].labelPt) + '</li>';
+        }
+        al += '</ul></div>';
+        rows.push(al);
+      }
+
+      // Nothing to show rather than an empty state.
+      if (!rows.length) { return ""; }
+
+      return '<div class="card"><p class="sec-title">' +
+             ptEn("O que foi constru&#237;do", "What was built") + '</p>' +
+             '<p class="step-ctx">' +
+             ptEn("O que a empresa passou a ter, e que n&#227;o tinha antes.",
+                  "What the business now has that it did not have before.") +
+             '</p>' + rows.join("") + '</div>';
+    }
+
+    function numRow(n, labelHtml) {
+      return '<div class="built-row"><span class="built-n">' + n + '</span> ' +
+             '<span class="built-label">' + labelHtml + '</span></div>';
+    }
+
+    // What is still weak: the indicators that ended the month furthest behind,
+    // plus any X-Ray area still critical.
+    function renderStillWeak(d) {
+      var cy = d.cycle;
+      if (!cy) { return ""; }
+      var weak = cy.weak || [];
+      var areas = cy.critical_areas || [];
+      if (!weak.length && !areas.length) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O que ainda est&#225; fraco", "What is still weak") + '</p>';
+
+      for (var i = 0; i < weak.length; i++) { h += indicatorLine(weak[i]); }
+
+      if (areas.length) {
+        h += '<div class="divider">' + ptEn("No Raio-X", "In the X-Ray") + '</div>';
+        for (var j = 0; j < areas.length; j++) {
+          var a = areas[j];
+          var name = isEn() ? (a.nameEn || a.namePt || a.key) : (a.namePt || a.nameEn || a.key);
+          h += '<div class="ind-row"><span class="ind-name">' + escHtml(name) + '</span>';
+          if (typeof a.pct === "number") {
+            h += ' &middot; <span class="s-crit">' + Math.round(a.pct / 10) + '/10</span>';
+          }
+          h += '</div>';
+        }
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // Next cycle: the monthly cycle repeats here, on the same portal goals
+    // screen the kickoff uses, with the same read-only note.
+    function renderNextCycle(d) {
+      if (!d.cycle) { return ""; }
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O pr&#243;ximo ciclo", "Next cycle") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("As metas do m&#234;s que vem.", "Next month's targets.") + '</p>';
+      h += '<a class="step-link" href="' + clientHref("&modal=fieldconfig") +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Definir as metas do pr&#243;ximo m&#234;s", "Set next month's targets") + '</a>';
+      h += '<span class="step-note">' +
+           ptEn("Na ficha do cliente, que &#233; onde grava.",
+                "On the client page, which is where it saves.") + '</span>';
+      h += '</div>';
+      return h;
+    }
+
+    // ---- KICKOFF: the target sequence -------------------------------------
+    // 26 fields in his fixed order, grouped by pillar, each labelled with
+    // where its number comes from. The derived ones carry the WORKING, not
+    // just the answer: he says these out loud and has miscalculated in front
+    // of a client.
+    function kindTag(kind) {
+      if (kind === "asked") {
+        return '<span class="tag t-asked">' + ptEn("perguntado", "asked") + '</span>';
+      }
+      if (kind === "derived") {
+        return '<span class="tag t-derived">' + ptEn("derivado", "derived") + '</span>';
+      }
+      if (kind === "external") {
+        return '<span class="tag t-ext">' + ptEn("buscar fora", "look up") + '</span>';
+      }
+      return '<span class="tag t-imposed">' + ptEn("padr&#227;o Apex", "Apex standard") + '</span>';
+    }
+
+    function seqRow(f) {
+      var name = isEn() ? (f.label_en || f.label_pt) : (f.label_pt || f.label_en);
+      var h = '<div class="seq-row">';
+      h += '<div class="seq-head"><span class="seq-name">' + escHtml(name) + '</span>' +
+           kindTag(f.kind) + '</div>';
+
+      if (f.kind === "asked") {
+        // The anchor is always the client's own number. Never suggest one.
+        h += '<p class="seq-ask">&#8220;' +
+             escHtml(isEn() ? (f.ask_en || f.ask_pt) : (f.ask_pt || f.ask_en)) + '&#8221;</p>';
+        if (f.current !== null && f.current !== undefined) {
+          h += '<p class="seq-val">' + ptEn("j&#225; definido: ", "already set: ") +
+               '<span class="ind-num">' + fmtInd(f.current, f.type) + '</span></p>';
+        }
+      } else if (f.kind === "derived") {
+        var formula = isEn() ? (f.formula_en || f.formula_pt) : (f.formula_pt || f.formula_en);
+        h += '<p class="seq-formula">' + escHtml(formula) + '</p>';
+        if (f.working_pt) {
+          // The arithmetic with the real numbers in it, which is the line he
+          // reads aloud.
+          h += '<p class="seq-work">' + escHtml(f.working_pt) + '</p>';
+        } else {
+          h += '<p class="seq-pending">' +
+               ptEn("Depende dos n&#250;meros que o cliente ainda vai dar.",
+                    "Depends on numbers the client has not given yet.") + '</p>';
+        }
+      } else if (f.kind === "external") {
+        // Google Reviews: he currently leaves the app to look this up.
+        if (f.current !== null && f.current !== undefined) {
+          h += '<p class="seq-val">' + ptEn("meta atual: ", "current target: ") +
+               '<span class="ind-num">' + fmtInd(f.current, f.type) + '</span></p>';
+        }
+        h += '<p class="seq-lookup">' +
+             escHtml(isEn() ? (f.lookup_en || f.lookup_pt) : (f.lookup_pt || f.lookup_en)) +
+             '</p>';
+        h += '<p class="seq-pending">' +
+             ptEn("Avalia&#231;&#245;es do Google: n&#227;o registrado.",
+                  "Google reviews: not recorded.") +
+             '</p>';
+      } else {
+        h += '<p class="seq-std">' +
+             escHtml(isEn() ? (f.standard_en || f.standard_pt) : (f.standard_pt || f.standard_en)) +
+             ' &middot; <span class="ind-num">' + fmtInd(f.value, f.type) + '</span></p>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    function renderKickoffSequence(d) {
+      var k = d.kickoff;
+      if (!k || !k.sequence || !k.sequence.length) { return ""; }
+      var pillars = k.pillars || [];
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("As metas, na ordem", "The targets, in order") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("Vinte e seis campos, na ordem em que ele preenche. A &#226;ncora de receita &#233; sempre o n&#250;mero do cliente.",
+                "Twenty-six fields, in the order he fills them. The revenue anchor is always the client's own number.") +
+           '</p>';
+
+      for (var p = 0; p < pillars.length; p++) {
+        var pil = pillars[p];
+        var rows = [];
+        for (var i = 0; i < k.sequence.length; i++) {
+          if (k.sequence[i].pillar === pil.key) { rows.push(k.sequence[i]); }
+        }
+        if (!rows.length) { continue; }
+        h += '<div class="divider">' +
+             escHtml(isEn() ? pil.nameEn : pil.namePt) + '</div>';
+        for (var r = 0; r < rows.length; r++) { h += seqRow(rows[r]); }
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // The daily-log walkthrough: the most scriptable beat in the meeting. He
+    // walks every indicator asking today's value and enforces entering zeros.
+    function renderWalkthrough(d) {
+      var k = d.kickoff;
+      if (!k || !k.walkthrough || !k.walkthrough.length) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O primeiro registro, indicador por indicador",
+                   "The first daily log, indicator by indicator") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("Ele pergunta o valor de hoje para cada um. Zero &#233; um valor: precisa ser digitado, n&#227;o pulado.",
+                "He asks today's value for each. Zero is a value: it gets typed, not skipped.") +
+           '</p>';
+      h += '<a class="step-link" href="' + clientHref("&day=" + encodeURIComponent(k.today)) +
+           '" target="_blank" rel="noopener">' +
+           ptEn("Abrir o registro de hoje", "Open today's entry") + '</a>';
+      h += '<span class="step-note">' + linkNoteReadOnly() + '</span>';
+
+      h += '<div style="margin-top:12px;">';
+      for (var i = 0; i < k.walkthrough.length; i++) {
+        var w = k.walkthrough[i];
+        h += '<div class="wt-row"><span class="wt-n">' + (i + 1) + '</span>' +
+             escHtml(isEn() ? (w.label_en || w.label_pt) : (w.label_pt || w.label_en)) +
+             '</div>';
+      }
+      h += '</div></div>';
+      return h;
+    }
+
+    // What he asks that the system already knows, so the meeting does not open
+    // with questions the screen can answer.
+    function renderKnownToday(d) {
+      var k = d.kickoff;
+      var s = k && k.snapshot;
+      if (!s) { return ""; }
+      var g = k.goals || {};
+      var rows = [];
+
+      rows.push(kvItem(ptEn("Metas do m&#234;s", "Targets for the month"),
+        g.all_set
+          ? ptEn(escHtml("todas as " + g.goalable + " definidas"), escHtml("all " + g.goalable + " set"))
+          : ptEn(escHtml(g.with_meta + " de " + g.goalable), escHtml(g.with_meta + " of " + g.goalable))));
+
+      if (s.has_entry) {
+        if (s.receita !== null) {
+          rows.push(kvItem(ptEn("Entrou hoje", "In today"), fmtInd(s.receita, "currency")));
+        }
+        if (s.saida !== null) {
+          rows.push(kvItem(ptEn("Saiu hoje", "Out today"), fmtInd(s.saida, "currency")));
+        }
+        if (s.leads_gerados !== null) {
+          rows.push(kvItem(ptEn("Leads hoje", "Leads today"), String(s.leads_gerados)));
+        }
+      } else {
+        rows.push(kvItem(ptEn("Registro de hoje", "Today's entry"),
+          ptEn("ainda n&#227;o preenchido", "not filled in yet")));
+      }
+
+      rows.push(kvItem(ptEn("Pipeline aberto", "Open pipeline"),
+        s.pipeline_count
+          ? escHtml(s.pipeline_count + " / $" + Math.round(s.pipeline_total))
+          : ptEn("nenhum lead aberto", "no open leads")));
+
+      rows.push(kvItem(ptEn("Raio-X", "X-Ray"), k.has_xray
+        ? ptEn("conclu&#237;do", "completed")
+        : ptEn("sem Raio-X conclu&#237;do", "none completed")));
+
+      // Two more facts, in the same list and the same shape as the rest. An
+      // unrecorded value is stated as unrecorded and nothing more -- this page
+      // is read with the client in the room, and a line about what the system
+      // cannot do would be about us rather than about them.
+      rows.push(kvItem(ptEn("Tabela de pre&#231;os", "Price table"),
+        ptEn("n&#227;o registrada", "not recorded")));
+      rows.push(kvItem(ptEn("App na tela inicial", "App on home screen"),
+        ptEn("n&#227;o registrado", "not recorded")));
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O que o sistema j&#225; responde", "What the system already answers") + '</p>';
+      h += '<div class="kv">' + rows.join("") + '</div>';
+      h += '</div>';
+      return h;
+    }
+
+    function kvItem(labelHtml, valueHtml) {
+      return '<div class="kv-item"><div class="kv-label">' + labelHtml +
+             '</div><div class="kv-value">' + valueHtml + '</div></div>';
+    }
+
+    // Every portal link is READ-ONLY for staff. Any non-GET carrying
+    // previewAs is rejected by the Worker before it reaches a route, which is
+    // exactly what bit Rafa live: "eu nao vou dar, so a leitura, voce so
+    // consigo ler." Where a writable staff screen exists the link goes there
+    // instead; where none exists the link still goes to the portal, and says
+    // so on the link so he knows BEFORE he clicks.
+    function linkNoteReadOnly() {
+      return ptEn("Somente leitura. Para alterar, use a tela da equipe.",
+                  "Read-only. To change anything, use the staff screen.");
+    }
+
+    // ---- CYCLE CLOSE: the client speaks first ------------------------------
+    // Both closings invert the agenda for it: the client speaks first, by
+    // name, one at a time.
+    function renderVoiceFirst(d) {
+      var cy = d.cycle;
+      if (!cy) { return ""; }
+      var names = cy.attendees || [];
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Primeiro, eles falam", "First, they speak") + '</p>';
+      h += '<p class="ask-line">' +
+           ptEn("&#8220;Quero come&#231;ar ouvindo de voc&#234;s como que foi para voc&#234;s essa jornada.&#8221;",
+                "&#8220;I want to start by hearing from you how this journey was for you.&#8221;") +
+           '</p>';
+      if (names.length) {
+        h += '<p class="step-ctx">' +
+             ptEn("Um de cada vez, pelo nome.", "One at a time, by name.") + '</p>';
+        for (var i = 0; i < names.length; i++) {
+          h += '<div class="voice-row"><span class="voice-name">' + escHtml(names[i]) + '</span>' +
+               '<span class="voice-space"></span></div>';
+        }
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // The document he reads aloud, section by section, in Mariel's order.
+    function renderCloseDoc(d) {
+      var cy = d.cycle;
+      if (!cy || !cy.sections || !cy.sections.length) { return ""; }
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O documento, na ordem", "The document, in order") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("Ele l&#234; em voz alta, se&#231;&#227;o por se&#231;&#227;o.",
+                "He reads it aloud, section by section.") + '</p>';
+      for (var i = 0; i < cy.sections.length; i++) {
+        var s = cy.sections[i];
+        h += '<div class="doc-row"><span class="doc-n">' + (i + 1) + '</span>' +
+             escHtml(isEn() ? s.nameEn : s.namePt) + '</div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // The before/after number, PRE-FETCHED. In every closing he stops and asks
+    // for it and the client digs through their phone while the room waits.
+    function renderGrowth(d) {
+      var cy = d.cycle;
+      var ba = cy && cy.before_after;
+      if (!ba || !ba.rows || !ba.rows.length) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O antes e o depois, j&#225; calculado", "Before and after, already computed") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn(escHtml("Base: " + ba.baseline_month + ", início do contrato em " + ba.baseline_date + ". Comparado com " + ba.current_month + "."),
+                escHtml("Baseline: " + ba.baseline_month + ", engagement started " + ba.baseline_date + ". Compared with " + ba.current_month + ".")) +
+           '</p>';
+      for (var i = 0; i < ba.rows.length; i++) {
+        var r = ba.rows[i];
+        var name = isEn() ? (r.label_en || r.label_pt) : (r.label_pt || r.label_en);
+        h += '<div class="ba-row"><span class="ba-name">' + escHtml(name) + '</span>';
+        h += '<span class="ba-prev">' + fmtInd(r.was, r.type) + '</span>';
+        h += '<span class="ba-now">&#8594; ' + fmtInd(r.now, r.type) + '</span>';
+        if (r.growth_pct !== null && r.growth_pct !== undefined) {
+          var up = r.inverse ? (r.growth_pct < 0) : (r.growth_pct > 0);
+          h += '<span class="ba-growth ' + (up ? "s-good" : "s-crit") + '">' +
+               (r.growth_pct > 0 ? "+" : "") + r.growth_pct + '%</span>';
+        }
+        h += '</div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // A shortfall on Apex's side. He does acknowledge these, so there is a
+    // slot for it rather than a page that pretends the cycle was flawless.
+    function renderShortfall(d) {
+      if (!d.cycle) { return ""; }
+      return '<div class="card"><p class="sec-title">' +
+             ptEn("O que ficou devendo do nosso lado", "Where we fell short") + '</p>' +
+             '<p class="ask-line">' +
+             ptEn("&#8220;Tivemos alguns dessabores que talvez n&#227;o foi como voc&#234;s gostariam. A gente pede desculpa mais uma vez.&#8221;",
+                  "&#8220;There were some rough patches that maybe were not how you would have wanted. We apologise again.&#8221;") +
+             '</p><p class="step-ctx">' +
+             ptEn("Nomear o que foi, antes que eles precisem trazer.",
+                  "Name what it was, before they have to raise it.") +
+             '</p><div class="voice-row"><span class="voice-space"></span></div></div>';
+    }
+
+    // The financial settlement, read verbatim.
+    function renderSettlement(d) {
+      var cy = d.cycle;
+      var st = cy && cy.settlement;
+      if (!st) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("O acerto financeiro", "The financial settlement") + '</p>';
+      if (!st.known) {
+        h += '<div class="step-fact">' +
+             '<span class="step-fact-label">' + ptEn("Termos do contrato", "Engagement terms") + '</span>' +
+             '<span class="step-fact-value">' + ptEn("n&#227;o registrados", "not recorded") + '</span>' +
+             '</div></div>';
+        return h;
+      }
+      var rows = [];
+      if (st.total !== null && st.total !== undefined) {
+        rows.push(kvItem(ptEn("Valor", "Amount"), "$" + st.total));
+      }
+      if (st.installment_count && st.installment_amount) {
+        rows.push(kvItem(ptEn("Parcelas", "Instalments"),
+          escHtml(st.installment_count + " x $" + st.installment_amount)));
+      }
+      if (st.first_due_date) {
+        rows.push(kvItem(ptEn("Data", "Date"), escHtml(st.first_due_date)));
+      }
+      if (st.method) { rows.push(kvItem(ptEn("Forma", "Method"), escHtml(st.method))); }
+      if (st.payee)  { rows.push(kvItem(ptEn("Para", "Payee"), escHtml(st.payee))); }
+      h += '<div class="kv">' + rows.join("") + '</div></div>';
+      return h;
+    }
+
+    // The forward plan for a period he will NOT be present for, with the
+    // arithmetic already done rather than worked out aloud in the room.
+    function renderForward(d) {
+      var cy = d.cycle;
+      if (!cy) { return ""; }
+      var list = cy.indicators || [];
+      if (!list.length) { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Os pr&#243;ximos 90 dias", "The next 90 days") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("Tr&#234;s meses no ritmo do m&#234;s que fechou. A conta j&#225; est&#225; feita.",
+                "Three months at the pace of the month just closed. The arithmetic is already done.") +
+           '</p>';
+      for (var i = 0; i < list.length; i++) {
+        var x = list[i];
+        if (x.realizado === null || x.realizado === undefined) { continue; }
+        var name = isEn() ? (x.label_en || x.label_pt) : (x.label_pt || x.label_en);
+        var three = Math.round(x.realizado * 3 * 100) / 100;
+        h += '<div class="ind-row"><span class="ind-name">' + escHtml(name) + '</span> &middot; ' +
+             escHtml(String(x.realizado)) + ' x 3 = <span class="ind-num">' +
+             fmtInd(three, x.type) + '</span></div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // ---- Os planos --------------------------------------------------------
+    // On the two types where a package actually gets sold, and nowhere else:
+    // the X-Ray results meeting, and the 30-day close. A Start client
+    // finishing 30 days is exactly who upgrades, and the gap between $997 and
+    // the six-month programme is where Apex loses people. Kickoff and the
+    // weekly RDE are clients who have already bought.
+    //
+    // No checkboxes. WHICH packages he shows is decided live on the packages
+    // screen itself, by striking cards through in front of the client -- not
+    // committed to here, hours earlier, in preparation.
+    function renderPlans(d) {
+      var t = d.meeting_type;
+      if (t !== "xray_results" && t !== "fechamento") { return ""; }
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Os planos", "The plans") + '</p>';
+      h += '<p class="step-ctx">' +
+           (t === "fechamento"
+             ? ptEn("Os tr&#234;s pacotes, na tela que o cliente v&#234;. Quem termina 30 dias &#233; exatamente quem sobe de pacote.",
+                    "The three packages, on the screen the client sees. A client finishing 30 days is exactly who moves up a package.")
+             : ptEn("Os tr&#234;s pacotes, na tela que o cliente v&#234;.",
+                    "The three packages, on the screen the client sees.")) +
+           '</p>';
+      h += '<a class="step-link primary" href="packages.html" target="_blank" rel="noopener">' +
+           ptEn("Abrir a tela de pacotes", "Open the packages screen") + '</a>';
+      h += '<span class="step-note">' +
+           ptEn("Abre em outra aba, para mostrar ao cliente.",
+                "Opens in a new tab, to show the client.") + '</span>';
+
+      // Recording WHICH package was sold happens here, after the deck -- never
+      // on packages.html, which the client is watching. A control there would
+      // read as ringing him up mid-conversation, and every click on that page
+      // already advances the reveal.
+      //
+      // Two steps on purpose: assigning a package re-stamps package_started_at
+      // in the Worker, which restarts the engagement clock. That is not
+      // something a single mis-tap should do while he is talking.
+      var cur = (d.client && d.client.package) || "";
+      h += '<div class="pkg-pick">';
+      h += '<p class="sec-title" style="margin-top:18px;">' +
+           ptEn("Fechou?", "Closed?") + '</p>';
+      h += '<p class="step-ctx">' +
+           (cur
+             ? ptEn("Pacote atual: <strong>" + escHtml(cur) + "</strong>.",
+                    "Current package: <strong>" + escHtml(cur) + "</strong>.")
+             : ptEn("Nenhum pacote definido ainda.", "No package set yet.")) +
+           '</p>';
+      for (var pi = 0; pi < PACKAGE_NAMES.length; pi++) {
+        var nm = PACKAGE_NAMES[pi];
+        var isCur = (cur === nm);
+        h += '<button type="button" class="step-link pkg-btn' + (isCur ? ' pkg-cur' : '') +
+             '" data-pkg="' + escHtml(nm) + '" onclick="pkgPick(this);">' +
+             escHtml(nm) + (isCur ? ' &#10003;' : '') + '</button>';
+      }
+      h += '<span class="step-note" id="pkgNote">' +
+           ptEn("Toque para escolher. Ele pergunta antes de gravar.",
+                "Tap to choose. It asks before saving.") + '</span>';
+      h += '</div>';
+      h += '</div>';
+      return h;
+    }
+
+    // The three current names, matching what the clients table already holds
+    // (START / GROWTH / ADVANCED). Legacy values on older rows -- Sprint,
+    // Raio-X, Premium -- are left alone rather than migrated.
+    var PACKAGE_NAMES = ["ADVANCED", "GROWTH", "START"];
+    var pkgPending = null;
+
+    function pkgPick(btn) {
+      var name = btn.getAttribute("data-pkg");
+      var note = document.getElementById("pkgNote");
+      if (pkgPending !== name) {
+        // First tap arms it and says plainly what the second tap will do.
+        pkgPending = name;
+        var all = document.querySelectorAll(".pkg-btn");
+        for (var i = 0; i < all.length; i++) { all[i].classList.remove("pkg-arm"); }
+        btn.classList.add("pkg-arm");
+        if (note) {
+          note.innerHTML = ptEn(
+            "Toque em <strong>" + escHtml(name) + "</strong> de novo para gravar. Isso reinicia a contagem do pacote.",
+            "Tap <strong>" + escHtml(name) + "</strong> again to save. This restarts the package clock.");
+        }
+        return;
+      }
+      pkgPending = null;
+      btn.classList.remove("pkg-arm");
+      if (note) { note.innerHTML = ptEn("Gravando...", "Saving..."); }
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID), {
+        method: "PATCH",
+        body: JSON.stringify({ package: name })
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function() {
+        if (note) { note.innerHTML = ptEn("Gravado.", "Saved."); }
+        return loadPrep(true);
+      }).catch(function() {
+        if (note) {
+          note.innerHTML = ptEn("N&#227;o foi poss&#237;vel gravar.", "Could not save.");
+        }
+      });
+    }
+
+    // ---- Custom agenda ------------------------------------------------------
+    // The picker screen for "Outra reuniao": every block we have, ticked on or
+    // off, plus whatever he has built himself. Rendered above the meeting so he
+    // can change his mind mid-call without leaving the page.
+    function renderAgendaPicker() {
+      var chosen = (prepAgenda && prepAgenda.blocks) || [];
+      var h = '<div class="card">';
+      h += '<p class="sec-title">' + ptEn("Monte a reuni&#227;o", "Build the meeting") + '</p>';
+      h += '<p class="step-ctx">' +
+           ptEn("Marque o que voc&#234; vai usar. Muda a qualquer momento, at&#233; durante a reuni&#227;o.",
+                "Tick what you will use. Change it any time, even mid-meeting.") + '</p>';
+
+      if (prepTemplates.length) {
+        h += '<p class="sec-title" style="margin-top:14px;">' +
+             ptEn("Modelos salvos", "Saved templates") + '</p>';
+        for (var t = 0; t < prepTemplates.length; t++) {
+          h += '<button type="button" class="step-link agenda-tpl" onclick="agendaUseTemplate(' + t + ');">' +
+               escHtml(prepTemplates[t].name || "-") + '</button>';
+        }
+      }
+
+      h += '<div class="agenda-list">';
+      for (var i = 0; i < BLOCK_REGISTRY.length; i++) {
+        var b = BLOCK_REGISTRY[i];
+        var on = chosen.indexOf(b.key) > -1;
+        h += '<label class="agenda-item"><input type="checkbox" data-block="' +
+             escHtml(b.key) + '"' + (on ? ' checked' : '') +
+             ' onchange="agendaToggle(this);"> <span>' + ptEn(b.pt, b.en) + '</span></label>';
+      }
+      // His own blocks sit in the same list as ours -- once it works, it is not
+      // a lesser kind of block.
+      for (var j = 0; j < customBlocks.length; j++) {
+        var cb = customBlocks[j];
+        var ck = "custom:" + cb.id;
+        var con = chosen.indexOf(ck) > -1;
+        h += '<label class="agenda-item"><input type="checkbox" data-block="' +
+             escHtml(ck) + '"' + (con ? ' checked' : '') +
+             ' onchange="agendaToggle(this);"> <span>' + escHtml(cb.title) +
+             ' <em class="agenda-mine">' + ptEn("seu", "yours") + '</em></span></label>';
+      }
+      h += '</div>';
+
+      h += '<button type="button" class="step-link primary" onclick="builderOpen();">' +
+           ptEn("N&#227;o achou? Crie o bloco", "Not there? Build the block") + '</button>';
+      h += '<span class="step-note">' +
+           ptEn("Funciona agora, nesta reuni&#227;o. Depois a gente constr&#243;i direito.",
+                "It works now, in this meeting. We build it properly afterwards.") + '</span>';
+      h += '<span class="step-note" id="agendaNote"></span>';
+      h += '</div>';
+      return h;
+    }
+
+    function agendaToggle(el) {
+      var key = el.getAttribute("data-block");
+      if (!prepAgenda) { prepAgenda = { blocks: [] }; }
+      var i = prepAgenda.blocks.indexOf(key);
+      if (el.checked && i === -1) { prepAgenda.blocks.push(key); }
+      if (!el.checked && i > -1)  { prepAgenda.blocks.splice(i, 1); }
+      saveAgenda(false, null);
+      renderCustomBody();
+    }
+
+    function agendaUseTemplate(idx) {
+      var t = prepTemplates[idx];
+      if (!t) { return; }
+      prepAgenda = { blocks: (t.blocks || []).slice() };
+      saveAgenda(false, null);
+      loadPrep(true);
+    }
+
+    function saveAgenda(asTemplate, name) {
+      var note = document.getElementById("agendaNote");
+      return apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/prep-agenda", {
+        method: "PUT",
+        body: JSON.stringify({
+          blocks: (prepAgenda && prepAgenda.blocks) || [],
+          save_as_template: !!asTemplate,
+          name: name || null
+        })
+      }).then(function (res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        if (note && asTemplate) {
+          note.innerHTML = ptEn("Modelo salvo.", "Template saved.");
+        }
+        return true;
+      }).catch(function () {
+        if (note) { note.innerHTML = ptEn("N&#227;o foi poss&#237;vel salvar.", "Could not save."); }
+      });
+    }
+
+    // ---- The block builder --------------------------------------------------
+    // Google Forms, cut down to what a consultant needs mid-meeting: a title, a
+    // field, a type, and options when the type needs them.
+    function builderOpen() {
+      builderFields = [{ label: "", type: "text", options: [] }];
+      builderTitleVal = "";
+      builderRender();
+    }
+
+    function builderRender() {
+      var wrap = document.getElementById("builderWrap");
+      if (!wrap) { return; }
+      var h = '<div class="card builder">';
+      h += '<p class="sec-title">' + ptEn("Novo bloco", "New block") + '</p>';
+      h += '<input class="builder-title" id="builderTitle" placeholder="' +
+           ptEnAttr("T&#237;tulo do bloco", "Block title") + '" value="' +
+           escHtml(builderTitleVal) + '" oninput="builderTitleVal = this.value;">';
+
+      for (var i = 0; i < builderFields.length; i++) {
+        var f = builderFields[i];
+        h += '<div class="builder-field">';
+        h += '<input class="builder-label" data-i="' + i + '" placeholder="' +
+           ptEnAttr("Pergunta", "Question") + '" value="' + escHtml(f.label) +
+             '" oninput="builderSetLabel(this);">';
+        h += '<select class="builder-type" data-i="' + i + '" onchange="builderSetType(this);">';
+        for (var t = 0; t < FIELD_TYPES.length; t++) {
+          h += '<option value="' + FIELD_TYPES[t].key + '"' +
+               (f.type === FIELD_TYPES[t].key ? ' selected' : '') + '>' +
+               // <option> text is not markup either -- the two-span trick
+               // concatenates both languages into "Texto curtoShort text".
+               ptEnAttr(FIELD_TYPES[t].pt, FIELD_TYPES[t].en) + '</option>';
+        }
+        h += '</select>';
+        if (f.type === "choice" || f.type === "multichoice" || f.type === "checkbox") {
+          h += '<input class="builder-opts" data-i="' + i + '" placeholder="' +
+           ptEnAttr("Op&#231;&#245;es, separadas por v&#237;rgula", "Options, comma separated") +
+               '" value="' + escHtml((f.options || []).join(", ")) +
+               '" oninput="builderSetOptions(this);">';
+        }
+        h += '<button type="button" class="builder-del" onclick="builderRemove(' + i + ');">&#215;</button>';
+        h += '</div>';
+      }
+
+      h += '<button type="button" class="step-link" onclick="builderAdd();">' +
+           ptEn("+ Campo", "+ Field") + '</button>';
+      h += '<button type="button" class="step-link primary" onclick="builderSave();">' +
+           ptEn("Usar nesta reuni&#227;o", "Use in this meeting") + '</button>';
+      h += '<span class="step-note" id="builderNote"></span>';
+      h += '</div>';
+      wrap.innerHTML = h;
+      wrap.hidden = false;
+      var ti = document.getElementById("builderTitle");
+      if (ti) { ti.focus(); }
+    }
+
+    function builderAdd() {
+      builderFields.push({ label: "", type: "text", options: [] });
+      builderRender();
+    }
+    function builderRemove(i) {
+      builderFields.splice(i, 1);
+      if (!builderFields.length) { builderFields.push({ label: "", type: "text", options: [] }); }
+      builderRender();
+    }
+    function builderSetLabel(el) {
+      builderFields[Number(el.getAttribute("data-i"))].label = el.value;
+    }
+    function builderSetType(el) {
+      builderFields[Number(el.getAttribute("data-i"))].type = el.value;
+      builderRender();
+    }
+    function builderSetOptions(el) {
+      var parts = el.value.split(",");
+      var out = [];
+      for (var i = 0; i < parts.length; i++) {
+        var v = parts[i].replace(/^\s+|\s+$/g, "");
+        if (v) { out.push(v); }
+      }
+      builderFields[Number(el.getAttribute("data-i"))].options = out;
+    }
+
+    function builderSave() {
+      var note  = document.getElementById("builderNote");
+      var title = ((document.getElementById("builderTitle") || {}).value || builderTitleVal || "").replace(/^\s+|\s+$/g, "");
+      var fields = [];
+      for (var i = 0; i < builderFields.length; i++) {
+        if (builderFields[i].label) { fields.push(builderFields[i]); }
+      }
+      if (!title) {
+        if (note) { note.innerHTML = ptEn("Falta o t&#237;tulo.", "Needs a title."); }
+        return;
+      }
+      if (!fields.length) {
+        if (note) { note.innerHTML = ptEn("Adicione pelo menos uma pergunta.", "Add at least one question."); }
+        return;
+      }
+      if (note) { note.innerHTML = ptEn("Gravando...", "Saving..."); }
+
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/prep-blocks", {
+        method: "POST",
+        body: JSON.stringify({ title: title, fields: fields })
+      }).then(function (res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function (d) {
+        var wrap = document.getElementById("builderWrap");
+        if (wrap) { wrap.hidden = true; wrap.innerHTML = ""; }
+        // Straight into the agenda -- he built it because he needs it NOW.
+        if (!prepAgenda) { prepAgenda = { blocks: [] }; }
+        prepAgenda.blocks.push("custom:" + d.block.id);
+        // loadPrep re-renders the page, which rebuilds #builderWrap and would
+        // wipe the prompt if it were asked first. Reload, THEN ask -- the one
+        // question we get to ask has to survive to be seen.
+        return saveAgenda(false, null).then(function () {
+          return loadPrep(true);
+        }).then(function () {
+          askTemplate(d.block.title);
+        });
+      }).catch(function () {
+        if (note) { note.innerHTML = ptEn("N&#227;o foi poss&#237;vel gravar.", "Could not save."); }
+      });
+    }
+
+    // One question, and only one. A second -- who is this template for -- is
+    // the friction that loses him mid-meeting.
+    function askTemplate(name) {
+      var wrap = document.getElementById("builderWrap");
+      if (!wrap) { return; }
+      wrap.innerHTML =
+        '<div class="card">' +
+        '<p class="sec-title">' + ptEn("Guardar?", "Keep it?") + '</p>' +
+        '<p class="step-ctx">' +
+        ptEn("Foi s&#243; para hoje, ou &#233; uma reuni&#227;o que se repete?",
+             "Was this just for today, or is it a meeting you run again?") + '</p>' +
+        '<button type="button" class="step-link" onclick="templateAnswer(false);">' +
+        ptEn("S&#243; hoje", "Just today") + '</button>' +
+        '<button type="button" class="step-link primary" onclick="templateAnswer(true);">' +
+        ptEn("Salvar como modelo", "Save as a template") + '</button>' +
+        '</div>';
+      wrap.hidden = false;
+      window.__tplName = name || "";
+    }
+
+    function templateAnswer(yes) {
+      var wrap = document.getElementById("builderWrap");
+      if (!yes) {
+        if (wrap) { wrap.hidden = true; wrap.innerHTML = ""; }
+        return;
+      }
+      saveAgenda(true, window.__tplName || "Sem nome").then(function () {
+        if (wrap) { wrap.hidden = true; wrap.innerHTML = ""; }
+        return loadPrep(true);
+      });
+    }
+
+    // ---- Rendering a block he built ----------------------------------------
+    function renderCustomBlock(cb) {
+      var a = cb.answers || {};
+      var h = '<div class="card"><p class="sec-title">' + escHtml(cb.title) + '</p>';
+      for (var i = 0; i < cb.fields.length; i++) {
+        var f = cb.fields[i];
+        var v = a[f.key];
+        h += '<div class="cb-field">';
+        h += '<label class="cb-label">' + escHtml(f.label) + '</label>';
+        if (f.type === "textarea") {
+          h += '<textarea class="cb-in" data-b="' + escHtml(cb.id) + '" data-f="' + escHtml(f.key) +
+               '" onchange="customAnswer(this);">' + escHtml(v || "") + '</textarea>';
+        } else if (f.type === "choice" || f.type === "yesno") {
+          var opts = f.type === "yesno" ? ["sim", "não"] : (f.options || []);
+          h += '<select class="cb-in" data-b="' + escHtml(cb.id) + '" data-f="' + escHtml(f.key) +
+               '" onchange="customAnswer(this);"><option value="">&#8212;</option>';
+          for (var o = 0; o < opts.length; o++) {
+            h += '<option' + (v === opts[o] ? ' selected' : '') + '>' + escHtml(opts[o]) + '</option>';
+          }
+          h += '</select>';
+        } else if (f.type === "multichoice" || f.type === "checkbox") {
+          var picked = String(v || "").split(", ");
+          for (var m = 0; m < (f.options || []).length; m++) {
+            var opt = f.options[m];
+            h += '<label class="cb-opt"><input type="checkbox" data-b="' + escHtml(cb.id) +
+                 '" data-f="' + escHtml(f.key) + '" value="' + escHtml(opt) + '"' +
+                 (picked.indexOf(opt) > -1 ? ' checked' : '') +
+                 ' onchange="customAnswerMulti(this);"> ' + escHtml(opt) + '</label>';
+          }
+        } else {
+          h += '<input class="cb-in" type="' + (f.type === "number" ? "number" : "text") +
+               '" data-b="' + escHtml(cb.id) + '" data-f="' + escHtml(f.key) +
+               '" value="' + escHtml(v || "") + '" onchange="customAnswer(this);">';
+        }
+        h += '</div>';
+      }
+      h += '<span class="step-note" id="cbNote-' + escHtml(cb.id) + '"></span>';
+      h += '</div>';
+      return h;
+    }
+
+    function customAnswer(el) {
+      var bid = el.getAttribute("data-b");
+      var key = el.getAttribute("data-f");
+      var cb = null;
+      for (var i = 0; i < customBlocks.length; i++) {
+        if (customBlocks[i].id === bid) { cb = customBlocks[i]; }
+      }
+      if (!cb) { return; }
+      cb.answers = cb.answers || {};
+      cb.answers[key] = el.value;
+      saveCustomAnswers(cb);
+    }
+
+    function customAnswerMulti(el) {
+      var bid = el.getAttribute("data-b");
+      var key = el.getAttribute("data-f");
+      var boxes = document.querySelectorAll('input[type=checkbox][data-b="' + bid + '"][data-f="' + key + '"]');
+      var on = [];
+      for (var i = 0; i < boxes.length; i++) {
+        if (boxes[i].checked) { on.push(boxes[i].value); }
+      }
+      var cb = null;
+      for (var j = 0; j < customBlocks.length; j++) {
+        if (customBlocks[j].id === bid) { cb = customBlocks[j]; }
+      }
+      if (!cb) { return; }
+      cb.answers = cb.answers || {};
+      cb.answers[key] = on.join(", ");
+      saveCustomAnswers(cb);
+    }
+
+    function saveCustomAnswers(cb) {
+      var note = document.getElementById("cbNote-" + cb.id);
+      if (note) { note.innerHTML = ptEn("Salvando...", "Saving..."); }
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) +
+               "/prep-blocks/" + encodeURIComponent(cb.id) + "/answers", {
+        method: "PUT",
+        body: JSON.stringify({ answers: cb.answers || {} })
+      }).then(function (res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        if (note) { note.innerHTML = ptEn("Salvo.", "Saved."); }
+      }).catch(function () {
+        if (note) { note.innerHTML = ptEn("N&#227;o foi poss&#237;vel salvar.", "Could not save."); }
+      });
+    }
+
+    // Re-render only the meeting body when a checkbox changes, so ticking a
+    // block does not throw away anything he has already typed elsewhere.
+    function renderCustomBody() {
+      var el = document.getElementById("customBody");
+      if (!el || !prepData) { return; }
+      el.innerHTML = renderCustomBlocks(prepData);
+    }
+
+    function renderCustomBlocks(d) {
+      var chosen = (prepAgenda && prepAgenda.blocks) || [];
+      var h = "";
+      for (var i = 0; i < chosen.length; i++) {
+        var key = chosen[i];
+        if (key.indexOf("custom:") === 0) {
+          var id = key.slice(7);
+          for (var c = 0; c < customBlocks.length; c++) {
+            if (customBlocks[c].id === id) { h += renderCustomBlock(customBlocks[c]); }
+          }
+          continue;
+        }
+        for (var r = 0; r < BLOCK_REGISTRY.length; r++) {
+          if (BLOCK_REGISTRY[r].key === key) {
+            var fn = window[BLOCK_REGISTRY[r].fn];
+            if (typeof fn === "function") {
+              try { h += fn(d); } catch (e) { /* a block that cannot render must not take the meeting down */ }
+            }
+          }
+        }
+      }
+      return h;
+    }
+
+    // ---- 9 After the meeting ---------------------------------------------
+    function renderChecklist(type, d) {
+      var list = (type === "kickoff") ? AFTER_MEETING_KICKOFF : AFTER_MEETING;
+      var ls = d && d.weekly && d.weekly.last_session;
+
+      var h = '<div class="card"><p class="sec-title">' +
+              ptEn("Depois da reuni&#227;o", "After the meeting") + '</p>';
+      for (var i = 0; i < list.length; i++) {
+        var it = list[i];
+        // The <label> wraps the TEXT ONLY. A button inside a label toggles
+        // the checkbox as well as following the link, so the action sits
+        // after the label, on its own line, at full button size.
+        h += '<div class="check-row"><input type="checkbox" id="' + it.id + '">' +
+             '<div class="check-main">' +
+             '<label for="' + it.id + '">' + ptEn(it.pt, it.en) + '</label>';
+
+        if (it.kind === "summary") {
+          // sessions.html is staff-side and fully writable: generate, edit and
+          // approve all POST without previewAs.
+          var href = ls && ls.session_id
+            ? "sessions.html?from=prep&prepClient=" + encodeURIComponent(CLIENT_ID) + "&prepType=" + encodeURIComponent(MEETING_TYPE) + "&open=" + encodeURIComponent(ls.session_id)
+            : "sessions.html?from=prep&prepClient=" + encodeURIComponent(CLIENT_ID) + "&prepType=" + encodeURIComponent(MEETING_TYPE);
+          h += '<a class="step-link" href="' + href +
+               '" target="_blank" rel="noopener">' +
+               ptEn("Abrir a sess&#227;o", "Open the session") + '</a>';
+          h += '<span class="step-note">' +
+               ptEn("Aprovado, o relat&#243;rio fica arquivado na sess&#227;o. Ele diz ao cliente que chega em 24 horas.",
+                    "Once approved the report is filed against the session. He tells the client it arrives within 24 hours.") +
+               '</span>';
+        } else if (it.kind === "calendar") {
+          h += '<a class="step-link" href="calendar.html?from=prep&prepClient=' + encodeURIComponent(CLIENT_ID) + '&prepType=' + encodeURIComponent(MEETING_TYPE) + '"' +
+               ' target="_blank" rel="noopener">' + ptEn("Abrir a agenda", "Open the calendar") + '</a>';
+        } else if (it.kind === "goals") {
+          h += '<a class="step-link" href="' +
+               clientHref("&modal=fieldconfig") + '" target="_blank" rel="noopener">' +
+               ptEn("Conferir as metas", "Check the goals") + '</a>';
+        }
+        h += '</div></div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    // ---- 0 Meeting type picker -------------------------------------------
+    // A client meeting is not one thing: kickoff, weekly RDE, 30-day close and
+    // X-Ray results each need different prep. Only the X-Ray one is built, so
+    // the other three are shown as unavailable rather than as live buttons.
+    // Reached only when the URL carries no ?type=; existing typed links skip it.
+    // ---- Custom meeting -----------------------------------------------------
+    // Every block we have already built, in the order they read best. He ticks
+    // what he wants and prep renders exactly those. The label is what HE sees,
+    // so it names the thing on screen, not the function.
+    //
+    // This registry is the single source of truth for the custom picker. A new
+    // block gets one line here and is immediately available to him -- nothing
+    // else to remember.
+    var BLOCK_REGISTRY = [
+      { key: "renderKnownToday",      fn: "renderKnownToday",      pt: "O que o sistema j&#225; responde", en: "What the system already answers" },
+      { key: "renderBefore",          fn: "renderBefore",          pt: "Antes de come&#231;ar",           en: "Before you start" },
+      { key: "renderBottleneck",      fn: "renderBottleneck",      pt: "O gargalo, na palavra dele",      en: "The bottleneck, in his words" },
+      { key: "renderLastSession",     fn: "renderLastSession",     pt: "A sess&#227;o passada",           en: "Last session" },
+      { key: "renderWeeklyIndicators",fn: "renderWeeklyIndicators",pt: "Indicadores, pior primeiro",      en: "Indicators, worst first" },
+      { key: "renderWeekCard",        fn: "renderWeekCard",        pt: "A semana, dia a dia",             en: "The week, day by day" },
+      { key: "renderGold",            fn: "renderGold",            pt: "Pipeline e projetos",             en: "Pipeline and projects" },
+      { key: "renderStrategic",       fn: "renderStrategic",       pt: "Relat&#243;rio estrat&#233;gico", en: "Strategic report" },
+      { key: "renderEngagement",      fn: "renderEngagement",      pt: "O contrato",                      en: "The engagement" },
+      { key: "renderOwnerLoad",       fn: "renderOwnerLoad",       pt: "A depend&#234;ncia do dono",      en: "Owner dependency" },
+      { key: "renderScores",          fn: "renderScores",          pt: "As notas do Raio-X",              en: "X-Ray scores" },
+      { key: "renderQuestions",       fn: "renderQuestions",       pt: "Perguntas do Raio-X",             en: "X-Ray questions" },
+      { key: "renderStories",         fn: "renderStories",         pt: "Hist&#243;rias",                  en: "Stories" },
+      { key: "renderAssets",          fn: "renderAssets",          pt: "Presen&#231;a digital",           en: "Digital presence" },
+      { key: "renderKickoff",         fn: "renderKickoff",         pt: "O que o sistema j&#225; sabe",    en: "What the system already knows" },
+      { key: "renderKickoffSequence", fn: "renderKickoffSequence", pt: "A reuni&#227;o, passo a passo",   en: "The meeting, step by step" },
+      { key: "renderWalkthrough",     fn: "renderWalkthrough",     pt: "Passeio pelo sistema",            en: "System walkthrough" },
+      { key: "renderVoiceFirst",      fn: "renderVoiceFirst",      pt: "A voz dele primeiro",             en: "His voice first" },
+      { key: "renderCloseDoc",        fn: "renderCloseDoc",        pt: "Documento de fechamento",         en: "Closing document" },
+      { key: "renderGrowth",          fn: "renderGrowth",          pt: "Crescimento",                     en: "Growth" },
+      { key: "renderBeforeAfter",     fn: "renderBeforeAfter",     pt: "Antes e depois",                  en: "Before and after" },
+      { key: "renderBuilt",           fn: "renderBuilt",           pt: "O que foi constru&#237;do",       en: "What was built" },
+      { key: "renderStillWeak",       fn: "renderStillWeak",       pt: "O que ainda est&#225; fraco",     en: "What is still weak" },
+      { key: "renderShortfall",       fn: "renderShortfall",       pt: "O que faltou",                    en: "The shortfall" },
+      { key: "renderSettlement",      fn: "renderSettlement",      pt: "Acerto final",                    en: "Settlement" },
+      { key: "renderForward",         fn: "renderForward",         pt: "Daqui para frente",               en: "Going forward" },
+      { key: "renderNextCycle",       fn: "renderNextCycle",       pt: "Pr&#243;ximo ciclo",              en: "Next cycle" },
+      { key: "renderPlans",           fn: "renderPlans",           pt: "Os planos",                       en: "The plans" }
+    ];
+
+    // Field types he can choose when building a block, Google Forms style.
+    var FIELD_TYPES = [
+      { key: "text",        pt: "Texto curto",        en: "Short text" },
+      { key: "textarea",    pt: "Texto longo",        en: "Long text" },
+      { key: "choice",      pt: "Escolha &#250;nica", en: "Single choice" },
+      { key: "multichoice", pt: "M&#250;ltipla escolha", en: "Multiple choice" },
+      { key: "checkbox",    pt: "Caixas de sele&#231;&#227;o", en: "Checkboxes" },
+      { key: "number",      pt: "N&#250;mero",        en: "Number" },
+      { key: "yesno",       pt: "Sim / N&#227;o",     en: "Yes / No" }
+    ];
+
+    var prepAgenda   = null;   // { blocks: [] }
+    var prepTemplates = [];
+    var customBlocks = [];     // [{id,title,fields,answers}]
+    var builderFields = [];    // fields being assembled right now
+    var builderTitleVal = "";  // kept in state: every re-render rebuilds the DOM
+
+    var MEETING_TYPES = [
+      { type: "xray_results", built: true,
+        pt: "Raio-X - Resultados",  en: "X-Ray - Results" },
+      { type: "kickoff",      built: true,
+        pt: "Kickoff",              en: "Kickoff" },
+      { type: "rde_semanal",  built: true,
+        pt: "RDE semanal",          en: "Weekly RDE" },
+      { type: "fechamento",   built: true,
+        pt: "Fechamento de ciclo",  en: "Cycle close" },
+      // Everything he does that is not one of the four. He assembles it from
+      // blocks we already built, and builds what is missing himself.
+      { type: "custom",       built: true,
+        pt: "Outra reuni&#227;o",   en: "Another meeting" }
+    ];
+
+    function renderPicker(d) {
+      var c = (d && d.client) || {};
+      var h = '<div class="card">';
+      h += '<h1 class="pick-name">' + escHtml(c.name || "") + '</h1>';
+      h += '<p class="pick-ask">' +
+           ptEn("Qual &#233; esta reuni&#227;o?", "Which meeting is this?") + '</p>';
+
+      for (var i = 0; i < MEETING_TYPES.length; i++) {
+        var t = MEETING_TYPES[i];
+        h += '<div class="pick-row">';
+        if (t.built) {
+          h += '<a class="pick-go" href="meeting-prep.html?client=' +
+               encodeURIComponent(CLIENT_ID) + '&type=' + encodeURIComponent(t.type) + '">' +
+               ptEn(t.pt, t.en) + '</a>';
+          // The example belongs here, next to the type it is an example of --
+          // and ONLY next to that type: the Perfect Square example is an X-Ray
+          // results meeting, so offering it on the kickoff row would be a lie.
+          if (t.type === "xray_results") {
+            h += '<a class="pick-example" href="' + EXAMPLE_URL + '">' +
+                 ptEn("Ver exemplo", "See example") + '</a>';
+          }
+        } else {
+          h += '<span class="pick-soon">' + ptEn(t.pt, t.en) + '</span>';
+          h += '<span class="pick-soon-tag">' + ptEn("em breve", "not yet") + '</span>';
+        }
+        h += '</div>';
+      }
+
+      h += '</div>';
+      return h;
+    }
+
+    // ---- 10 Resultado ----------------------------------------------------
+    // The moment he actually resolves the lead, so the decision belongs here
+    // as well as on the client page. Reuses POST /api/clients/:id/lead-outcome
+    // -- the same single handler the client page posts to, not a second path.
+    // Shown only while status is 'lead': on an active client it makes no sense.
+    function renderOutcome(d) {
+      var c = d.client || {};
+      if (String(c.status || "") !== "lead") { return ""; }
+
+      var h = '<div class="card" id="outcomeCard"><p class="sec-title">' +
+              ptEn("Resultado", "Outcome") + '</p>';
+      h += '<p class="out-sub">' +
+           ptEn("Como esta reuni&#227;o terminou?", "How did this meeting end?") + '</p>';
+      h += '<div class="out-actions">';
+      h += '<button type="button" class="out-btn primary" onclick="openConvert()">' +
+           ptEn("Virou cliente", "Became a client") + '</button>';
+      // NOT "lost": Rafa works this list to revive them, so it is worded as a
+      // return-to later, not as a rejection.
+      h += '<button type="button" class="out-btn" onclick="markDormant()">' +
+           ptEn("Ainda n&#227;o, retomar depois", "Not yet, come back to them") + '</button>';
+      h += '</div>';
+
+      // The package picker, hidden until "became a client" is chosen: a
+      // package is required for the converted outcome.
+      h += '<div class="out-pick" id="outPick" hidden>';
+      h += '<p class="out-sub" style="margin-bottom:6px;">' +
+           ptEn("Qual pacote?", "Which package?") + '</p>';
+      h += '<select id="outPackage"><option value="">' +
+           ptEnAttr("-- Pacote --", "-- Package --") + '</option></select> ';
+      h += '<button type="button" class="out-btn primary" onclick="confirmConvert()">' +
+           ptEn("Confirmar", "Confirm") + '</button>';
+      h += '</div>';
+
+      h += '<div class="out-state" id="outState"></div>';
+      h += '</div>';
+      return h;
+    }
+
+    var outPackagesLoaded = false;
+
+    function openConvert() {
+      var pick = document.getElementById("outPick");
+      if (pick) { pick.hidden = false; }
+      setOutState("", "");
+      if (outPackagesLoaded) { return; }
+      // Same live package source the client page's convert modal uses.
+      apiFetch("/api/settings/packages")
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var pkgs = data.packages || [];
+          if (!pkgs.length) { return; }
+          outPackagesLoaded = true;
+          var newPkgs    = pkgs.filter(function(p) { return p.sort_order !== null && p.sort_order < 1; });
+          var legacyPkgs = pkgs.filter(function(p) { return !(p.sort_order !== null && p.sort_order < 1); });
+          var html = '<option value="">' + ptEnAttr("-- Pacote --", "-- Package --") + '</option>';
+          for (var i = 0; i < newPkgs.length; i++) {
+            html += '<option value="' + escHtml(newPkgs[i].short_name) + '">' +
+                    escHtml(newPkgs[i].short_name) + '</option>';
+          }
+          if (newPkgs.length && legacyPkgs.length) {
+            html += '<option value="" disabled>----- Legacy / Legado -----</option>';
+          }
+          for (var j = 0; j < legacyPkgs.length; j++) {
+            html += '<option value="' + escHtml(legacyPkgs[j].short_name) + '">' +
+                    escHtml(legacyPkgs[j].short_name) + '</option>';
+          }
+          var sel = document.getElementById("outPackage");
+          if (sel) { sel.innerHTML = html; }
+        })
+        .catch(function() { /* the static placeholder option stays in the DOM */ });
+    }
+
+    function setOutState(pt, en) {
+      var el = document.getElementById("outState");
+      if (!el) { return; }
+      el.innerHTML = (pt || en) ? ptEn(pt, en) : "";
+    }
+
+    function confirmConvert() {
+      var sel = document.getElementById("outPackage");
+      var pkg = sel ? sel.value : "";
+      if (!pkg) {
+        setOutState("Escolha um pacote.", "Choose a package.");
+        return;
+      }
+      postOutcome({ outcome: "converted", "package": pkg });
+    }
+
+    function markDormant() {
+      postOutcome({ outcome: "dormant" });
+    }
+
+    // Reports what happened and leaves the page usable. Deliberately no
+    // redirect: he is mid-meeting and moving him elsewhere would lose the prep.
+    function postOutcome(payload) {
+      setOutState("Salvando...", "Saving...");
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/lead-outcome", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) { throw new Error(data.error); }
+          var card = document.getElementById("outcomeCard");
+          if (!card) { return; }
+          var msg;
+          if (payload.outcome === "converted") {
+            msg = ptEn(
+              "Virou cliente, no pacote " + escHtml(payload["package"]) + ".",
+              "Now a client, on the " + escHtml(payload["package"]) + " package."
+            );
+          } else {
+            msg = ptEn(
+              "Marcado para retomar depois. Fica em Consolidados, em Leads para reativar.",
+              "Marked to come back to. It sits under Consolidados, in leads to reactivate."
+            );
+          }
+          card.innerHTML = '<p class="sec-title">' + ptEn("Resultado", "Outcome") +
+                           '</p><div class="out-done">' + msg + '</div>';
+          // Keep the cached copy honest so a language toggle re-render, which
+          // rebuilds from prepData, does not resurrect the buttons.
+          if (prepData && prepData.client) {
+            prepData.client.status = (payload.outcome === "converted") ? "active" : "lead_dormant";
+          }
+        })
+        .catch(function(e) {
+          setOutState("N&#227;o foi poss&#237;vel salvar: " + escHtml(e.message),
+                      "Could not save: " + escHtml(e.message));
+        });
+    }
+
+    function render(d) {
+      var body = document.getElementById("prepBody");
+      if (!body) { return; }
+      var h = "";
+      if (!HAS_TYPE) {
+        body.innerHTML = renderPicker(d);
+        body.hidden = false;
+        var pm = document.getElementById("stateMsg");
+        if (pm) { pm.hidden = true; }
+        return;
+      }
+      // Every type opens on the same header. What sits between differs, and
+      // three things are now scoped to the meetings they belong to:
+      //
+      //   bottleneck  xray_results only. It is the opener for a PROSPECT,
+      //               asked before a diagnosis is revealed. Asking an existing
+      //               client what their bottleneck is, in week 6, is a
+      //               question he should already be able to answer.
+      //   stories     xray_results and fechamento. They help someone decide to
+      //               buy; that work is done once they are a client, and the
+      //               close is the other moment a package is sold.
+      //   Os planos   the same two, for the same reason.
+      h += renderHead(d);
+
+      if (d.meeting_type === "kickoff") {
+        h += renderKnownToday(d);
+        h += renderKickoff(d);
+        h += renderKickoffSequence(d);
+        h += renderWalkthrough(d);
+      } else if (d.meeting_type === "rde_semanal") {
+        h += renderLastSession(d);
+        h += renderWeeklyIndicators(d);
+        h += renderWeekCard(d);
+        h += renderContractNoticesCard();
+        h += renderGold(d);
+        h += renderStrategic(d);
+        h += renderEngagement(d);
+      } else if (d.meeting_type === "fechamento") {
+        h += renderVoiceFirst(d);
+        h += renderCloseDoc(d);
+        h += renderGrowth(d);
+        h += renderBeforeAfter(d);
+        h += renderBuilt(d);
+        h += renderStillWeak(d);
+        h += renderShortfall(d);
+        h += renderSettlement(d);
+        h += renderForward(d);
+        h += renderNextCycle(d);
+        h += renderEngagement(d);
+        h += renderStories(d);
+      } else if (d.meeting_type === "custom") {
+        // He picks the blocks; we render exactly those and nothing else. The
+        // picker stays on the page so he can change it mid-call.
+        h += renderAgendaPicker();
+        h += '<div id="builderWrap" hidden></div>';
+        h += '<div id="customBody">' + renderCustomBlocks(d) + '</div>';
+      } else {
+        h += renderBefore(d);
+        h += renderBottleneck(d);
+        h += renderOwnerLoad(d);
+        h += renderScores(d);
+        h += renderQuestions(d);
+        h += renderStories(d);
+        h += renderAssets(d);
+      }
+
+      // The foot of the page, in the order the meeting ends: he shows the
+      // packages, closes, records the answer, and only THEN is there anything
+      // to do afterwards.
+      if (d.meeting_type !== "custom") {
+        h += renderPlans(d);
+        if (d.meeting_type === "xray_results") {
+          h += renderOutcome(d);
+        }
+        h += renderChecklist(d.meeting_type, d);
+      }
+      body.innerHTML = h;
+      body.hidden = false;
+      var msg = document.getElementById("stateMsg");
+      if (msg) { msg.hidden = true; }
+      wireBottleneck();
+      // The week has its own endpoint and its own navigation, so it loads
+      // after the page is in the DOM.
+      if (d.meeting_type === "rde_semanal") { loadWeek(); }
+      loadPrepContractNotices();
+    }
+
+    // Autosave on blur, debounced. A save that changes the text re-ranks the
+    // stories, so the page reloads its data rather than leaving stale order.
+    function wireBottleneck() {
+      var box = document.getElementById("bottleneckBox");
+      if (!box) { return; }
+      box.addEventListener("blur", function() {
+        if (saveTimer) { clearTimeout(saveTimer); }
+        saveTimer = setTimeout(saveBottleneck, 400);
+      });
+    }
+
+    function setSaveState(pt, en) {
+      var el = document.getElementById("saveState");
+      if (!el) { return; }
+      el.innerHTML = ptEn(escHtml(pt), escHtml(en));
+    }
+
+    function saveBottleneck() {
+      var box = document.getElementById("bottleneckBox");
+      if (!box) { return; }
+      var txt = box.value;
+      if (txt === lastSaved) { return; }
+      setSaveState("Salvando...", "Saving...");
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/meeting-prep/bottleneck", {
+        method: "PUT",
+        body: JSON.stringify({ bottleneck: txt, meeting_type: MEETING_TYPE })
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function() {
+        lastSaved = txt;
+        setSaveState("Salvo. As hist&#243;rias foram reordenadas.", "Saved. Stories reordered.");
+        return loadPrep(true);
+      }).catch(function() {
+        setSaveState("N&#227;o foi poss&#237;vel salvar.", "Could not save.");
+      });
+    }
+
+    // The custom type needs its agenda before it can render anything, so that
+    // fetch is chained ahead of the prep load rather than racing it.
+    function loadAgenda() {
+      if (MEETING_TYPE !== "custom") { return Promise.resolve(); }
+      return apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/prep-agenda")
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (d) {
+          if (!d) { return; }
+          prepAgenda    = d.agenda || { blocks: [] };
+          prepTemplates = d.templates || [];
+          customBlocks  = d.custom_blocks || [];
+        })
+        .catch(function () { prepAgenda = prepAgenda || { blocks: [] }; });
+    }
+
+    // ── One tab per company on a shared meeting ───────────────────────────
+    //
+    // "sem preparacao" is a REAL choice on a tab, not an empty state: Rafa can
+    // legitimately decide one of the two businesses needs no prep this week,
+    // and the tab must be able to say so rather than sit there looking
+    // unfinished. It is stored per client+session in this page's URL, so
+    // switching tabs never loses the other tab's answer.
+    var NO_PREP_KEY = "apex_noprep";
+
+    function noPrepMap() {
+      // sessionStorage, not localStorage: the project forbids localStorage for
+      // state, and this is a decision about ONE meeting being prepared right
+      // now, not a durable preference.
+      try {
+        var raw = window.sessionStorage.getItem(NO_PREP_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) { return {}; }
+    }
+
+    function noPrepSet(sessionId, clientId, on) {
+      try {
+        var m = noPrepMap();
+        m[sessionId + "|" + clientId] = !!on;
+        window.sessionStorage.setItem(NO_PREP_KEY, JSON.stringify(m));
+      } catch (e) { /* a failed write must never block the page */ }
+    }
+
+    function noPrepGet(sessionId, clientId) {
+      var m = noPrepMap();
+      return !!m[sessionId + "|" + clientId];
+    }
+
+    function renderPrepTabs() {
+      var strip = document.getElementById("prepTabs");
+      if (!strip) { return; }
+      // A single-company meeting shows no strip: there is nothing to switch
+      // between, and a one-tab tab bar is just noise.
+      if (!SESSION_ID || SESSION_CLIENTS.length < 2) { strip.hidden = true; return; }
+      strip.hidden = false;
+      strip.innerHTML = "";
+
+      for (var i = 0; i < SESSION_CLIENTS.length; i++) {
+        var c = SESSION_CLIENTS[i];
+        var b = document.createElement("button");
+        b.className = "prep-tab" + (c.client_id === CLIENT_ID ? " active" : "");
+        b.textContent = c.client_name || c.client_id;
+        if (noPrepGet(SESSION_ID, c.client_id)) {
+          b.textContent += isEn() ? "  (no prep)" : "  (sem preparacao)";
+        }
+        b.setAttribute("data-client-id", c.client_id);
+        b.onclick = function() {
+          var id = this.getAttribute("data-client-id");
+          // Each tab asks its own meeting type INDEPENDENTLY, so switching
+          // company drops ?type= and lands on that company's own picker.
+          window.location.href = "meeting-prep.html?client=" + encodeURIComponent(id) +
+                                 "&session=" + encodeURIComponent(SESSION_ID);
+        };
+        strip.appendChild(b);
+      }
+
+      var wrap = document.createElement("div");
+      wrap.style.marginTop = "8px";
+      var lbl = document.createElement("label");
+      lbl.className = "prep-noprep-row";
+      var ck = document.createElement("input");
+      ck.type = "checkbox";
+      ck.checked = noPrepGet(SESSION_ID, CLIENT_ID);
+      ck.onchange = function() {
+        noPrepSet(SESSION_ID, CLIENT_ID, this.checked);
+        renderPrepTabs();
+        applyNoPrepState();
+      };
+      lbl.appendChild(ck);
+      // Two spans, not one isEn() text node. The language toggle flips
+      // show-pt/show-en with CSS on a live page; a string baked in at render
+      // time keeps whatever language it was built in and silently stops
+      // translating, which is exactly what this label did. Same pattern as
+      // the stateMsg copy a few lines below.
+      var spPt = document.createElement("span");
+      spPt.className = "show-pt";
+      spPt.textContent = "Sem preparacao para esta empresa desta vez";
+      lbl.appendChild(spPt);
+      var spEn = document.createElement("span");
+      spEn.className = "show-en";
+      spEn.textContent = "No prep for this company this time";
+      lbl.appendChild(spEn);
+      wrap.appendChild(lbl);
+      strip.appendChild(wrap);
+    }
+
+    // Marking a company "sem preparacao" hides its prep body rather than
+    // clearing anything: the decision is about THIS meeting, and unticking it
+    // must bring the same prep back untouched.
+    function applyNoPrepState() {
+      var body = document.getElementById("prepBody");
+      if (!body || !SESSION_ID) { return; }
+      var off = noPrepGet(SESSION_ID, CLIENT_ID);
+      body.hidden = off;
+      var msg = document.getElementById("stateMsg");
+      if (off && msg) {
+        msg.hidden = false;
+        msg.innerHTML = '<span class="show-pt">Sem preparacao para esta empresa desta vez.</span>' +
+                        '<span class="show-en">No prep for this company this time.</span>';
+      } else if (msg && !off) {
+        msg.hidden = true;
+      }
+    }
+
+    // The companies on this meeting, straight from session_clients.
+    function loadSessionClients() {
+      if (!SESSION_ID) { return Promise.resolve(); }
+      return apiFetch("/api/sessions/" + encodeURIComponent(SESSION_ID) + "/clients")
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          SESSION_CLIENTS = (d && d.clients) || [];
+          // Landing without ?client= on a shared meeting opens the primary.
+          if (!CLIENT_ID && SESSION_CLIENTS.length) {
+            CLIENT_ID = SESSION_CLIENTS[0].client_id;
+          }
+        })
+        .catch(function() { SESSION_CLIENTS = []; });
+    }
+
+    function loadPrep(quiet) {
+      return loadAgenda().then(function () {
+      return apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) +
+                      "/meeting-prep?type=" + encodeURIComponent(MEETING_TYPE))
+        .then(function(res) {
+          if (res.status === 403) { throw new Error("forbidden"); }
+          if (!res.ok) { throw new Error("HTTP " + res.status); }
+          return res.json();
+        })
+        .then(function(data) {
+          prepData = data;
+          renderPrepTabs();
+          // Preserve what he is typing: a background reload after a save must
+          // never overwrite the textarea under his cursor.
+          var box = document.getElementById("bottleneckBox");
+          var live = box ? box.value : null;
+          render(data);
+          if (quiet && live !== null) {
+            var nb = document.getElementById("bottleneckBox");
+            if (nb) { nb.value = live; }
+          }
+          applyNoPrepState();
+        })
+        .catch(function(err) {
+          if (quiet) { return; }
+          if (err && err.message === "forbidden") {
+            showMsg("Esta página é apenas para a equipe.", "This page is staff only.");
+          } else {
+            showMsg("Não foi possível carregar a preparação.", "Could not load the meeting prep.");
+          }
+        });
+      });
+    }
+
+    function init() {
+      if (!CLIENT_ID && !SESSION_ID) {
+        showMsg("Cliente não informado.", "No client specified.");
+        return;
+      }
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+      auth.onAuthStateChanged(function(user) {
+        if (!user) {
+          var hadSession = sessionStorage.getItem("apex_role");
+          if (hadSession) {
+            // WAIT, THEN EITHER BOOT OR BAIL -- never neither.
+            //
+            // Firebase reports a momentary null user during a token refresh
+            // and then restores the session. The old code only handled the
+            // bad outcome: if the user came back within the second it did
+            // NOTHING, and because this branch returns, the page never
+            // booted and never navigated. It sat on "Carregando..." forever,
+            // and a refresh replayed the same race -- only retyping the URL
+            // and logging in again cleared it.
+            //
+            // Same fix as dashboard.html; see the comment there.
+            setTimeout(function() {
+              if (!auth.currentUser) {
+                window.location.href = "index.html";
+                return;
+              }
+              // Session came back. Boot the page the callback skipped.
+              currentUser = auth.currentUser;
+              loadSessionClients().then(function() { loadPrep(false); });
+            }, 1000);
+            return;
+          }
+          window.location.href = "index.html";
+          return;
+        }
+        currentUser = user;
+        loadSessionClients().then(function() { loadPrep(false); });
+      });
+    }
+
+    window.onload = function() {
+      init();
+    };
+
+
+    // BEGIN PAGE DIALOG
+    // In-page replacement for the browser's confirm box, alert box and prompt box.
+    // One helper, called from every place that used to open a browser box.
+    //   message  text shown (already in the page's language; \n is kept)
+    //   title    optional heading
+    //   yes      label of the button that does the action ("Yes, delete")
+    //   keep     label of the button that walks away ("Keep it")
+    //   field    optional {value, placeholder, readonly}: an input in the same card
+    //   onYes    called ONCE, synchronously inside the tap, with the field text
+    //   onKeep   optional, called when Keep, Escape or a tap outside closes it
+    // With no `yes` it is a plain note with one button (used to show a link
+    // that must be copied by hand). Escape and a tap outside both mean keep.
+    var PAGE_DIALOG_CLASSES = {"overlay": "", "overlayStyle": "position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(26,26,29,0.45);display:flex;align-items:center;justify-content:center;padding:20px;", "box": "", "boxStyle": "background:#fff;border-radius:12px;box-shadow:0 8px 48px rgba(26,26,29,0.22);width:100%;max-width:420px;max-height:90vh;overflow-y:auto;padding:22px 24px;box-sizing:border-box;", "body": "", "title": "", "titleStyle": "font-size:16px;font-weight:700;margin-bottom:8px;color:#1a1a1d;", "text": "", "textStyle": "font-size:14px;line-height:1.5;color:#1a1a1d;", "actionsStyle": "display:flex;flex-direction:column;gap:10px;margin-top:16px;", "yes": "", "yesStyle": "background:#C9A43A;color:#fff;border:none;border-radius:7px;padding:10px 16px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;", "keep": "", "keepStyle": "background:transparent;color:#1a1a1d;border:1px solid #e8e2d9;border-radius:7px;padding:10px 16px;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;cursor:pointer;", "keepFirst": false};
+    var pageDialogOpen = null;
+    function pageDialog(o) {
+      if (pageDialogOpen) { return false; }
+      var C = PAGE_DIALOG_CLASSES;
+      var prevFocus = document.activeElement;
+      var done = false;
+      var ov = document.createElement("div");
+      ov.className = C.overlay;
+      ov.style.zIndex = "10000";
+      if (C.overlayStyle) { ov.style.cssText += ";" + C.overlayStyle; }
+      ov.setAttribute("role", "dialog");
+      ov.setAttribute("aria-modal", "true");
+      var box = document.createElement("div");
+      box.className = C.box;
+      if (C.boxStyle) { box.style.cssText = C.boxStyle; }
+      box.addEventListener("click", function(e) { e.stopPropagation(); });
+      var holder = box;
+      if (C.body) {
+        holder = document.createElement("div");
+        holder.className = C.body;
+        box.appendChild(holder);
+      }
+      if (o.title) {
+        var h = document.createElement("div");
+        h.className = C.title;
+        if (C.titleStyle) { h.style.cssText = C.titleStyle; }
+        h.textContent = o.title;
+        holder.appendChild(h);
+      }
+      var p = document.createElement("div");
+      p.className = C.text;
+      p.style.cssText = (C.textStyle || "") + ";white-space:pre-line;";
+      p.textContent = o.message || "";
+      holder.appendChild(p);
+      var input = null;
+      if (o.field) {
+        input = document.createElement("input");
+        input.type = "text";
+        input.value = o.field.value || "";
+        if (o.field.placeholder) { input.placeholder = o.field.placeholder; }
+        if (o.field.readonly) { input.readOnly = true; }
+        input.style.cssText = "width:100%;box-sizing:border-box;padding:10px;border:1px solid #d8d2c8;border-radius:8px;font-family:inherit;font-size:14px;margin-top:12px;";
+        holder.appendChild(input);
+      }
+      var row = document.createElement("div");
+      row.style.cssText = C.actionsStyle;
+      var yesBtn = null;
+      var keepBtn = null;
+      if (o.yes) {
+        yesBtn = document.createElement("button");
+        yesBtn.type = "button";
+        yesBtn.className = C.yes;
+        if (C.yesStyle) { yesBtn.style.cssText = C.yesStyle; }
+        yesBtn.textContent = o.yes;
+      }
+      if (o.keep) {
+        keepBtn = document.createElement("button");
+        keepBtn.type = "button";
+        keepBtn.className = C.keep;
+        if (C.keepStyle) { keepBtn.style.cssText = C.keepStyle; }
+        keepBtn.textContent = o.keep;
+      }
+      var order = C.keepFirst ? [keepBtn, yesBtn] : [yesBtn, keepBtn];
+      for (var i = 0; i < order.length; i++) { if (order[i]) { row.appendChild(order[i]); } }
+      holder.appendChild(row);
+      ov.appendChild(box);
+
+      function finish(isYes) {
+        if (done) { return; }
+        done = true;
+        document.removeEventListener("keydown", onKey, true);
+        if (ov.parentNode) { ov.parentNode.removeChild(ov); }
+        pageDialogOpen = null;
+        if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
+        if (isYes) {
+          if (o.onYes) { o.onYes(input ? input.value : ""); }
+        } else if (o.onKeep) {
+          o.onKeep();
+        }
+      }
+      function onKey(e) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          finish(false);
+        } else if (e.key === "Enter" && input && yesBtn && e.target === input) {
+          e.preventDefault();
+          finish(true);
+        }
+      }
+      if (yesBtn) { yesBtn.addEventListener("click", function() { finish(true); }); }
+      if (keepBtn) { keepBtn.addEventListener("click", function() { finish(false); }); }
+      ov.addEventListener("click", function(e) { if (e.target === ov) { finish(false); } });
+      document.addEventListener("keydown", onKey, true);
+      pageDialogOpen = { finish: finish };
+      document.body.appendChild(ov);
+      // Focus lands inside: the input when there is one, otherwise the safe
+      // button (Keep), never the one that does the action.
+      var first = input || keepBtn || yesBtn;
+      if (first && first.focus) { first.focus(); }
+      return true;
+    }
+    // END PAGE DIALOG
+
+    // In-page message for what used to be an alert box. Same wording, shown as a
+    // pill at the bottom of the screen that goes away by itself.
+    function pageNotice(msg) {
+      var el = document.getElementById("pageNotice");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "pageNotice";
+        el.setAttribute("role", "alert");
+        el.style.cssText = "position:fixed;left:50%;bottom:26px;transform:translateX(-50%);max-width:92vw;background:#1a1a1d;color:#fff;font-family:'Inter',sans-serif;font-size:13px;line-height:1.4;padding:11px 18px;border-radius:24px;box-shadow:0 4px 20px rgba(0,0,0,0.24);z-index:10001;display:none;";
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+      el.style.display = "block";
+      clearTimeout(el._timer);
+      el._timer = setTimeout(function() { el.style.display = "none"; }, 8000);
+    }
+  </script>
+</body>
+</html>

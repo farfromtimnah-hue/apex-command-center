@@ -1,0 +1,21 @@
+// Learn (Aprenda): the switch and the address.
+// enabled is ON for everyone since 2026-10-26. While it is false the "?" button is not added, long press and
+// right click do nothing, and the widget makes no network call. Turn it on by
+// changing false to true here (and in ios/App/App/public/help-config.js).
+// Guides and pictures are fetched from the live site, never from the app
+// bundle, so a new guide never needs an iPhone build. The address matches CNAME.
+(function () {
+  var HELP_BASE = "https://apex.resonateai.online/";
+  // Preview switch: only the browser that holds aprenda-preview = on sees the feature.
+  // Used to test it on the real site before it is turned on for everyone.
+  var preview = false;
+  // A link ending in ?aprenda=on turns the preview on in that browser; ?aprenda=off turns it off.
+  try {
+    var m = /[?&]aprenda=(on|off)(&|$)/.exec(window.location.search);
+    if (m) { if (m[1] === "on") { window.localStorage.setItem("aprenda-preview", "on"); } else { window.localStorage.removeItem("aprenda-preview"); } }
+  } catch (e) { /* works without storage */ }
+  try { preview = window.localStorage.getItem("aprenda-preview") === "on"; } catch (e) { preview = false; }
+  // 2026-10-26: switched ON for everyone (Nicole: "Website live now and test flight").
+  // preview stays read so a browser can still be inspected, but it no longer gates the feature.
+  window.APEX_HELP = { enabled: true, base: HELP_BASE };
+}());

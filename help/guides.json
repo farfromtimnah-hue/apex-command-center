@@ -5889,6 +5889,397 @@
           "step": 1
         }
       ]
+    },
+    {
+      "id": "win-back-past-customers",
+      "audience": "client",
+      "title": {
+        "pt": "Base de Ouro: reconquiste clientes antigos",
+        "en": "Golden Base: win back past customers"
+      },
+      "summary": {
+        "pt": "Guarde clientes antigos, anote o contato e crie um lead quando eles voltarem.",
+        "en": "Keep past customers, note your contact and create a lead when they come back."
+      },
+      "keywords": {
+        "pt": [
+          "base de ouro",
+          "clientes antigos",
+          "cliente antigo",
+          "reativar",
+          "reativado",
+          "reconquistar",
+          "voltar a falar",
+          "novo cliente antigo",
+          "oferta apresentada",
+          "serviço anterior",
+          "não contatado",
+          "contatado",
+          "base de clientes"
+        ],
+        "en": [
+          "golden base",
+          "base de ouro",
+          "past customers",
+          "old customers",
+          "reactivate",
+          "reactivated",
+          "win back",
+          "dormant customer",
+          "new dormant customer",
+          "offer presented",
+          "previous service",
+          "not contacted",
+          "contacted"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "winback",
+          "title": {
+            "pt": "Clientes antigos, passo a passo",
+            "en": "Past customers, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra a Base de Ouro. Toque em Negócio e depois em Base de Ouro, ao lado de Parceiros. A lista guarda clientes antigos que você quer reconquistar. A linha no alto (1) diz o que acontece quando você reativa um. Cada linha (2) mostra o nome, o telefone, o status e o último contato. Toque em + Novo cliente antigo (3) para adicionar um.",
+                "en": "Open Golden Base. Tap Business, then tap Golden Base (called Base de Ouro in Portuguese) next to Partners. The list holds past customers you want to win back. The line at the top (1) says what happens when you reactivate one. Each row (2) shows the name, the phone, the status and the last contact. Tap + New dormant customer (3) to add one."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-01.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Adicione um cliente antigo. Digite o nome (1) e toque em Salvar (2). Só o nome é obrigatório. Você preenche os outros campos depois de salvar.",
+                "en": "Add a past customer. Type the name (1) and tap Save (2). Only the name is required. You fill in the other fields after saving."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-02.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Fale com o cliente e anote. Toque em um cliente para abrir a ficha. No alto, toque em Ligar ou WhatsApp (1). Toque em uma linha para preencher: Telefone, Serviço anterior / ano, Data do contato, Oferta apresentada e Observações. Toque em Status (2) para passar o cliente de Não contatado para Contatado, e assim por diante.",
+                "en": "Reach out and keep notes. Tap a customer to open the sheet. At the top, tap Call or WhatsApp (1). Tap a row to fill it in: Phone, Previous service / year, Contact date, Offer presented and Notes. Tap Status (2) to move the customer from Not contacted to Contacted, and so on."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-03.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Reative quando o cliente voltar. Na ficha, toque em Reativar, criar lead no CRM (3 no passo anterior). O Apex cria um novo lead no seu pipeline com a origem Base de Clientes e marca o cliente como Reativado. Daí em diante você trabalha o lead como sempre: veja o guia Leads e o pipeline.",
+                "en": "Reactivate when the customer comes back. On the sheet, tap Reactivate, create CRM lead (3 in the step before). Apex creates a new lead in your pipeline with the source Base de Clientes and marks the customer as Reactivated. From there you work the lead as usual: see the Leads and the pipeline guide."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "+ Novo cliente antigo"
+            ],
+            "en": [
+              "+ New dormant customer"
+            ]
+          },
+          "section": "winback",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Reativar → criar lead no CRM"
+            ],
+            "en": [
+              "Reactivate → create CRM lead"
+            ]
+          },
+          "section": "winback",
+          "step": 4
+        }
+      ]
+    },
+    {
+      "id": "ask-for-google-review",
+      "audience": "client",
+      "title": {
+        "pt": "Peça uma avaliação no Google",
+        "en": "Ask a customer for a Google review"
+      },
+      "summary": {
+        "pt": "Salve o seu link de avaliação e mande o pedido ao cliente por WhatsApp, texto ou email.",
+        "en": "Save your review link and send the request to the customer by WhatsApp, text or email."
+      },
+      "keywords": {
+        "pt": [
+          "avaliação",
+          "avaliação no google",
+          "pedir avaliação",
+          "link de avaliação",
+          "google",
+          "perfil da empresa",
+          "estrelas",
+          "review",
+          "como encontrar",
+          "marketing"
+        ],
+        "en": [
+          "review",
+          "google review",
+          "ask for a review",
+          "review link",
+          "google",
+          "business profile",
+          "stars",
+          "reviews",
+          "how to find it",
+          "marketing"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "review",
+          "title": {
+            "pt": "Avaliação no Google, passo a passo",
+            "en": "Google review, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Salve o seu link de avaliação uma vez. Toque em Negócio, depois em Orçamentos, depois em Configurações, e role até Marketing. Cole o seu link de avaliação do Google na primeira caixa (1). No seu Perfil da Empresa no Google, escolha Pedir avaliações e copie o link. Toque em Como encontrar (2) se precisar de ajuda. A caixa embaixo (3) é o link da sua página, veja o guia Link na bio. O Apex salva o que você digitou quando você sai da caixa.",
+                "en": "Save your review link once. Tap Business, then Estimates, then Settings, and scroll to Marketing. Paste your Google review link in the first box (1). In your Google Business Profile, choose Ask for reviews and copy the link. Tap How to find it (2) if you need help. The box under it (3) is your own page link, see the Link in bio guide. Apex saves what you typed when you leave the box."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-01.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Abra o projeto. Toque em Negócio e depois em Projetos, e toque no projeto. Perto do topo da ficha, toque em Pedir avaliação no Google (2). O botão ao lado, Enviar cartão de contato (1), é explicado no guia do cartão de contato.",
+                "en": "Open the project. Tap Business, then Projects, and tap the project. Near the top of the sheet, tap Ask for a Google review (2). The button next to it, Send contact card (1), is explained in the contact card guide."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-02.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Envie o pedido. Escolha como: Mensagem de texto ou WhatsApp (1), ou Abrir meu email ou Copiar para enviar pelo navegador (2). A mensagem (3) já vem escrita com o nome do cliente, o nome da sua empresa e o seu link de avaliação. Toque em Copiar mensagem (4) para colar em outro lugar. A linha acima da mensagem mostra qual número o WhatsApp vai abrir.",
+                "en": "Send the request. Choose how: Text message or WhatsApp (1), or Open my email app or Copy to send from a web email (2). The message (3) is already written with the customer's name, your business name and your review link. Tap Copy message (4) to paste it somewhere else. The line above the message shows which number WhatsApp will open."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-03.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Pedir avaliação no Google"
+            ],
+            "en": [
+              "Ask for a Google review"
+            ]
+          },
+          "section": "review",
+          "step": 2
+        }
+      ]
+    },
+    {
+      "id": "contact-card",
+      "audience": "client",
+      "title": {
+        "pt": "Envie o seu cartão de contato ao cliente",
+        "en": "Send your contact card to the customer"
+      },
+      "summary": {
+        "pt": "Mande um link que salva o seu contato no celular do cliente, com o link de indicação dele.",
+        "en": "Send a link that saves your contact on the customer's phone, with their own referral link."
+      },
+      "keywords": {
+        "pt": [
+          "cartão de contato",
+          "enviar cartão",
+          "salvar contato",
+          "meu contato no celular do cliente",
+          "ver o cartão",
+          "cartão digital",
+          "link de indicação do cliente",
+          "foto do vendedor"
+        ],
+        "en": [
+          "contact card",
+          "send card",
+          "save contact",
+          "my contact on the customer's phone",
+          "view the card",
+          "digital card",
+          "customer referral link",
+          "salesperson photo"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "card",
+          "title": {
+            "pt": "O cartão de contato, passo a passo",
+            "en": "The contact card, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o projeto ou o lead. Toque no projeto (Negócio e depois Projetos) ou no lead (Negócio e depois Pipeline). Toque em Enviar cartão de contato (1). Em um lead, o botão fica perto do topo da ficha, embaixo de Ligar e WhatsApp.",
+                "en": "Open the project or the lead. Tap the project (Business, then Projects) or the lead (Business, then Pipeline). Tap Send contact card (1). On a lead, the button is near the top of the sheet, under Call and WhatsApp."
+              },
+              "image": {
+                "pt": "help/img/guides/contact-card/card-01.pt.jpg",
+                "en": "help/img/guides/contact-card/card-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Envie. Toque em Mensagem de texto ou WhatsApp (1). A mensagem (2) diz quem é você e pede para o cliente tocar em Salvar nos contatos e depois em Criar Novo Contato. O cartão salva o seu contato no celular do cliente, com o link de indicação dele dentro. Toque em Ver o cartão (3) para ver como o cliente vê.",
+                "en": "Send it. Tap Text message or WhatsApp (1). The message (2) says who you are and tells the customer to tap Save to contacts, then Create New Contact. The card saves your contact on the customer's phone, with their own referral link inside. Tap View the card (3) to see it the way the customer does."
+              },
+              "image": {
+                "pt": "help/img/guides/contact-card/card-02.pt.jpg",
+                "en": "help/img/guides/contact-card/card-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Prepare o que o cartão mostra. O cartão usa a foto, o telefone, o email e o cargo do vendedor, e usa o telefone, o email e o logo da empresa quando faltam. Você ajusta em Ajustes, em Suas listas, com o botão Cartão. Veja o guia Vendedores e listas.",
+                "en": "Set up what the card shows. The card uses the photo, phone, email and title of the salesperson, and falls back to the business phone, email and logo. You set them in Settings, under Your lists, with the Card button. See the Salespeople and lists guide."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Enviar cartão de contato"
+            ],
+            "en": [
+              "Send contact card"
+            ]
+          },
+          "section": "card",
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "link-in-bio-page",
+      "audience": "client",
+      "title": {
+        "pt": "Sua página para a bio do Instagram",
+        "en": "Your link in bio page"
+      },
+      "summary": {
+        "pt": "Copie o link da sua página e receba leads direto no seu pipeline.",
+        "en": "Copy your page link and get leads straight into your pipeline."
+      },
+      "keywords": {
+        "pt": [
+          "link na bio",
+          "link da bio",
+          "bio do instagram",
+          "página da bio",
+          "copiar link",
+          "link da sua página",
+          "serviços",
+          "origem link da bio",
+          "página pública",
+          "formulário"
+        ],
+        "en": [
+          "link in bio",
+          "bio link",
+          "instagram bio",
+          "bio page",
+          "copy link",
+          "your page link",
+          "services",
+          "source link da bio",
+          "public page",
+          "form"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "page",
+          "title": {
+            "pt": "A página da bio, passo a passo",
+            "en": "The bio page, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Copie o link da sua página. Toque em Negócio, depois em Orçamentos, depois em Configurações, e role até Marketing. A caixa Link da sua página (link na bio) (3) guarda o link da sua página pública. Toque em Copiar link (4) e cole na sua bio do Instagram ou onde você publicar.",
+                "en": "Copy your page link. Tap Business, then Estimates, then Settings, and scroll to Marketing. The Your page link (link in bio) box (3) holds the link of your public page. Tap Copy link (4) and paste it in your Instagram bio or anywhere you post."
+              },
+              "image": {
+                "pt": "help/img/guides/link-in-bio-page/page-01.pt.jpg",
+                "en": "help/img/guides/link-in-bio-page/page-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Veja o que o visitante vê. A página mostra o seu logo e o seu nome, um formulário curto com Seu nome e Telefone, e os seus serviços como botões que o visitante marca, mais de um se quiser. O visitante toca em Enviar. A página abre em português ou inglês, e o visitante troca com o botão no alto à direita.",
+                "en": "See what a visitor sees. The page shows your logo and name, a short form with Your name and Phone, and the services you offer as buttons the visitor can tick, more than one if they want. The visitor taps Send. The page opens in Portuguese or English, and the visitor can switch with the button at the top right."
+              },
+              "image": {
+                "pt": "help/img/guides/link-in-bio-page/page-02.pt.jpg",
+                "en": "help/img/guides/link-in-bio-page/page-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Ache o lead novo. Cada visitante que envia o formulário vira um lead novo no seu Pipeline, com a origem Link da bio. Ninguém é creditado como quem indicou. Os serviços da sua lista nas configurações são os que aparecem como botões.",
+                "en": "Find the new lead. Every visitor who sends the form becomes a new lead in your Pipeline, with the source Link da bio. No one is credited as the referrer. The services you list in your settings are the ones that appear as buttons."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
     }
   ],
   "pages": {
@@ -5905,7 +6296,8 @@
         "business-setup",
         "payments-and-terms",
         "edit-send-messages",
-        "revise-or-void-estimate"
+        "revise-or-void-estimate",
+        "link-in-bio-page"
       ],
       "overview": {
         "pt": "Aqui você cria e envia orçamentos.",
@@ -5967,7 +6359,10 @@
         "lead-notes-files-history",
         "referral-partners",
         "referral-page-settings",
-        "salespeople-and-lists"
+        "salespeople-and-lists",
+        "win-back-past-customers",
+        "contact-card",
+        "link-in-bio-page"
       ],
       "overview": {
         "pt": "Aqui você vê a lista dos seus leads no Pipeline, filtra por estágio e cadastra um novo lead.",
@@ -5997,7 +6392,9 @@
       "guides": [
         "projects",
         "contract",
-        "change-order"
+        "change-order",
+        "ask-for-google-review",
+        "contact-card"
       ],
       "overview": {
         "pt": "Aqui ficam os seus projetos, com os números de margem. Toque em um projeto para abrir a ficha dele.",

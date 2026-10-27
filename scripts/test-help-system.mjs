@@ -224,6 +224,9 @@ function mkWorker(o) {
   const logs = [];
   const stubs = {
     authenticate: async () => (o.user === undefined ? CLIENT : o.user),
+    // The daily caps have their own test (test-claude-budget.mjs); here they let everything through.
+    claudeBudgetGate: async () => null,
+    claudeBudgetMissAllowed: async () => true,
     jsonOk: (d) => ({ status: 200, data: d }),
     jsonErr: (m, s) => ({ status: s || 400, error: m }),
     CLAUDE_API_URL: "https://api.anthropic.com/v1/messages",

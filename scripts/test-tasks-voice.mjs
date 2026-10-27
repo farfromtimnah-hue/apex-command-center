@@ -78,6 +78,7 @@ function harness(d, opts) {
   const stubs = Object.assign({}, baseStubs, {
     jsonErr2: (pt, en, status, extra) => Object.assign({ status: status || 400, error: en, error_pt: pt, error_en: en }, extra || {}),
     authenticate: async () => (o.role ? { role: o.role, display_name: o.name } : null),
+    claudeBudgetGate: async () => null, // daily caps: see test-claude-budget.mjs
     actorName: (u) => (u && (u.display_name || u.role)) || null,
     crypto: globalThis.crypto, Response: globalThis.Response, Intl: globalThis.Intl,
     // Stand-in for the real push sender. It records what it was asked to send

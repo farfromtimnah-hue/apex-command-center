@@ -43,6 +43,7 @@ function world() {
     // stubbed fetch below never reads the url argument anyway.
     CLAUDE_API_URL: "https://api.anthropic.com/v1/messages",
     authenticate: async () => state.user,
+    claudeBudgetGate: async () => null, // daily caps: see test-claude-budget.mjs
     jsonErr2: (pt, en, status, extra) => Object.assign({ status: status || 400, error: en, error_pt: pt, error_en: en }, extra || {}),
     fetch: async (url, init) => {
       state.claudeCallCount++;

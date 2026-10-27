@@ -62,6 +62,7 @@ function harness(d, who, model, opts) {
   const stubs = Object.assign({}, baseStubs, {
     jsonErr2: (pt, en, status, extra) => Object.assign({ status: status || 400, error: en, error_pt: pt, error_en: en }, extra || {}),
     authenticate: async () => Object.assign({}, user),
+    claudeBudgetGate: async () => null, // daily caps: see test-claude-budget.mjs
     actorName: (u) => (u && (u.display_name || u.role)) || null,
     crypto: globalThis.crypto, Response: globalThis.Response, Intl: globalThis.Intl,
     pushToUsers: async (env, emails, payload) => { calls.push.push({ emails, payload }); },

@@ -23,6 +23,7 @@ function world(stubOverrides) {
   const stubs = Object.assign({}, baseStubs, {
     gmEasternToday: () => TODAY,
     authenticate: async () => ({ role: "alice", display_name: "Alice", email: "alice@test.com" }),
+    claudeBudgetGate: async () => null, // daily caps: see test-claude-budget.mjs
     jsonErr2: function (pt, en, status) { return { status: status || 400, error: en, error_pt: pt, error_en: en }; },
     CLAUDE_API_URL: "https://x.test/claude",
     getZohoAccessToken: async function () { throw new Error("Zoho should be stubbed per-test"); },

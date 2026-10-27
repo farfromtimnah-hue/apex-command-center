@@ -14546,51 +14546,112 @@
             {
               "n": 1,
               "text": {
-                "pt": "O que é. A página Clientes é a lista de todos os clientes e leads da Apex. Alice e Rafa usam para cadastrar um cliente, encontrar alguém, abrir o registro e arquivar quem saiu. Abra Clientes no menu da esquerda.",
-                "en": "What it is. The Clients page is the roster of every client and lead of Apex. Alice and Rafa use it to add a client, find one, open the client record and archive someone who left. Open Clients in the left menu."
+                "pt": "A página Clientes é a lista de todos os clientes e leads da Apex. Alice e Rafa usam para cadastrar um cliente, encontrar alguém, abrir o registro e arquivar quem saiu. Abra Clientes (1) no menu da esquerda.",
+                "en": "The Clients page is the roster of every client and lead of Apex. Alice and Rafa use it to add a client, find one, open the client record and archive someone who left. Open Clients (1) in the left menu."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-clients-roster/roster-s01.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-s01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Veja primeiro Clientes a revisar. Esta caixa mostra clientes marcados como ativos, mas sem termos, faturas, sessões ou avaliações. Alguns podem ser leads cadastrados como clientes por engano. É só uma lista: toque em Abrir na linha para corrigir esse cliente.",
-                "en": "Look at Clients to review first. This box lists clients marked as active that have no terms, invoices, sessions or assessments. Some may be leads added as clients by mistake. It is a list only: tap Open on a line to go and fix that client."
+                "pt": "Veja primeiro Clientes a revisar (1). Esta caixa mostra clientes marcados como ativos, mas sem termos, faturas, sessões ou avaliações. Alguns podem ser leads cadastrados como clientes por engano. É só uma lista: toque em Abrir na linha para corrigir esse cliente.",
+                "en": "Look at Clients to review (1) first. This box lists clients marked as active that have no terms, invoices, sessions or assessments. Some may be leads added as clients by mistake. It is a list only: tap Open on a line to go and fix that client."
               },
               "image": {
-                "pt": "help/img/guides/admin-clients-roster/roster-02.pt.jpg",
-                "en": "help/img/guides/admin-clients-roster/roster-02.en.jpg"
+                "pt": "help/img/guides/admin-clients-roster/roster-s02.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Encontre o grupo certo. 1. + Novo Cliente cadastra uma pessoa. 2. Ver arquivados mostra os clientes que você arquivou antes. 3. As abas dividem a lista: Leads, Ativos, Consolidados e Parceiros. 4. Arquivar tira um cliente da lista. Toque no nome do cliente para abrir o registro.",
-                "en": "Find the right group. 1. + Novo Cliente (Add New Client) adds someone. 2. Ver arquivados (Show archived) shows the clients you archived before. 3. The tabs split the list: Leads, Ativos (Active), Consolidados (Consolidated) and Parceiros (Partners). 4. Arquivar (Archive) takes a client off the list. Tap a client name to open the record."
+                "pt": "+ Novo Cliente (1) cadastra uma pessoa. Toque para abrir o formulário.",
+                "en": "+ Add New Client (1) adds someone. Tap it to open the form."
               },
               "image": {
-                "pt": "help/img/guides/admin-clients-roster/roster-03.pt.jpg",
-                "en": "help/img/guides/admin-clients-roster/roster-03.en.jpg"
+                "pt": "help/img/guides/admin-clients-roster/roster-s03.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Cadastre um cliente ou lead. Toque em + Novo Cliente e preencha. 1. Nome da empresa: o único campo obrigatório. 2. Pacote, se o cliente já tem um. 3. O status: Lead para quem ainda é prospecto. 4. O nome, o cargo, o WhatsApp e o email do contato principal. Dá para adicionar um segundo contato. 5. Toque em Salvar Cliente.",
-                "en": "Add a client or lead. Tap + Novo Cliente and fill in. 1. Nome da empresa (Company name): the only required field. 2. Pacote (Package), if the client already has one. 3. The status: Lead for a prospect. 4. The main contact name, role, WhatsApp and email. You can add a second contact. 5. Tap Salvar Cliente (Save Client)."
+                "pt": "Em Empresa, digite o nome da empresa (1). É o único campo obrigatório.",
+                "en": "In Business, type the company name (1). It is the only required field."
               },
               "image": {
-                "pt": "help/img/guides/admin-clients-roster/roster-04.pt.jpg",
-                "en": "help/img/guides/admin-clients-roster/roster-04.en.jpg"
+                "pt": "help/img/guides/admin-clients-roster/roster-s04.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-s04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Arquive com cuidado. Arquivar esconde o cliente das listas, mas guarda todos os registros. Use Ver arquivados para encontrar o cliente de novo. Nunca arquive o cliente de teste.",
-                "en": "Archive with care. Arquivar hides a client from the lists but keeps all the records. Use Ver arquivados to find the client again. Never archive the testing client."
+                "pt": "Escolha o Pacote (1), se o cliente já tem um. Escolha o status (2): Lead para quem ainda é prospecto.",
+                "en": "Choose the Package (1), if the client already has one. Choose the status (2): Lead for a prospect."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-clients-roster/roster-s05.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Preencha o contato principal (1): nome, cargo, WhatsApp e email. Dá para adicionar um segundo contato com + Adicionar segundo contato.",
+                "en": "Fill the primary contact (1): name, role, WhatsApp and email. You can add a second contact with + Add second contact."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-clients-roster/roster-s06.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Toque em Salvar Cliente (1) para cadastrar o cliente. No nosso teste não salvamos.",
+                "en": "Tap Save Client (1) to add the client. We did not save in our test."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-clients-roster/roster-s07.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Ver arquivados (1) mostra os clientes que você arquivou antes.",
+                "en": "Show archived (1) shows the clients you archived before."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-clients-roster/roster-s08.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "As abas (1) dividem a lista: Leads, Ativos, Consolidados e Parceiros. Toque no nome do cliente para abrir o registro.",
+                "en": "The tabs (1) split the list: Leads, Active, Consolidated and Partners. Tap a client name to open the record."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-clients-roster/roster-s09.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Arquivar (1) esconde o cliente das listas, mas guarda todos os registros. Use Ver arquivados para encontrar o cliente de novo. Nunca arquive o cliente de teste.",
+                "en": "Archive (1) hides a client from the lists but keeps all the records. Use Show archived to find the client again. Never archive the testing client."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-clients-roster/roster-s10.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-s10.en.jpg"
+              }
             }
           ]
         }
@@ -14607,7 +14668,7 @@
             ]
           },
           "section": "roster",
-          "step": 4
+          "step": 3
         },
         {
           "labels": {
@@ -14619,7 +14680,7 @@
             ]
           },
           "section": "roster",
-          "step": 3
+          "step": 8
         }
       ]
     },

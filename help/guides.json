@@ -18877,8 +18877,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Leia o aviso Sem contrato assinado. Quando um projeto não tem contrato assinado, o Apex abre uma janela chamada Sem contrato assinado antes de uma ação do projeto, por exemplo mudar o status para Em andamento. Na Flórida, para um serviço acima de $2,500, o texto vermelho (1) diz que o contrato precisa do aviso de lien (gravame) de construção e do aviso do Recovery Fund. Toque em Enviar contrato (2) para ir fazer o contrato (veja o guia Enviar um contrato). Toque em Continuar sem contrato (3) para seguir sem ele. A linha embaixo diz que continuar fica registrado com o seu nome e a hora.",
-                "en": "Read the No signed contract warning. When a project has no signed contract, Apex opens a window called No signed contract before a project action, for example changing the status to In progress. In Florida, for a job over $2,500, the red text (1) says the contract needs the construction lien notice and the Recovery Fund notice. Tap Send contract (2) to go and make the contract (see the guide Send a contract). Tap Continue without contract (3) to go on without one. The line under it says that continuing is logged with your name and the time."
+                "pt": "Toque em Negócio (1) na fileira de abas no alto. No menu que abre, toque em Projetos (2).",
+                "en": "Tap Business (1) in the row of tabs at the top. In the menu that opens, tap Projects (2)."
               },
               "image": {
                 "pt": "help/img/guides/contracts-that-need-you/cards-01.pt.jpg",
@@ -18888,18 +18888,107 @@
             {
               "n": 2,
               "text": {
-                "pt": "Ache os projetos sem contrato assinado no Início. Depois do aviso, o Apex guarda uma pendência. Na aba Início, um cartão chamado Projetos sem contrato assinado (1) mostra um número. Cada linha tem o nome do projeto e o valor, e depois quando a pendência foi aberta. Toque em Enviar contrato (2) para fazer o contrato. Toque em Continuar sem contrato (3) para seguir sem ele.",
-                "en": "Find the projects without a signed contract on Home. After the warning, Apex keeps a notice. On the Home tab, a card called Projects without a signed contract (1) shows a number. Each row has the project name and the value, and then when the notice was opened. Tap Send contract (2) to make the contract. Tap Continue without contract (3) to go on without one."
+                "pt": "Toque em um projeto para abrir. Depois toque em Status (1) para mudar, por exemplo para Em andamento. O nome do projeto e os valores estão cobertos.",
+                "en": "Tap a project to open it. Then tap Status (1) to change it, for example to In progress. The project name and the money amounts are covered."
               },
               "image": {
                 "pt": "help/img/guides/contracts-that-need-you/cards-02.pt.jpg",
                 "en": "help/img/guides/contracts-that-need-you/cards-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Toque no novo status, por exemplo Em andamento (1), e depois em Salvar (2).",
+                "en": "Tap the new status, for example In progress (1), then tap Save (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-that-need-you/cards-03.pt.jpg",
+                "en": "help/img/guides/contracts-that-need-you/cards-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Se o projeto não tem contrato assinado, o Apex abre uma janela chamada Sem contrato assinado antes da mudança. Na Flórida, para um serviço acima de $2,500, o texto vermelho (1) diz que o contrato precisa do aviso de lien (gravame) de construção e do aviso do Recovery Fund. Para outro estado o texto vermelho cita o estado: a figura mostra o Texas.",
+                "en": "If the project has no signed contract, Apex opens a window called No signed contract before the change. In Florida, for a job over $2,500, the red text (1) says the contract needs the construction lien notice and the Recovery Fund notice. For another state the red text names that state: the picture shows Texas."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-that-need-you/cards-04.pt.jpg",
+                "en": "help/img/guides/contracts-that-need-you/cards-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Toque em Enviar contrato (2) para ir fazer o contrato (veja o guia Enviar um contrato). Toque em Continuar sem contrato (3) para seguir sem ele. A linha embaixo (4) diz que continuar fica registrado com o seu nome e a hora.",
+                "en": "Tap Send contract (2) to go and make the contract (see the guide Send a contract). Tap Continue without contract (3) to go on without one. The line under it (4) says that continuing is logged with your name and the time."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-that-need-you/cards-05.pt.jpg",
+                "en": "help/img/guides/contracts-that-need-you/cards-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Se você fechar a janela no X, o Apex avisa que o status não foi alterado (1). Nada é salvo, e o aviso fica no Início.",
+                "en": "If you close the window with the X instead, Apex says the status was not changed (1). Nothing is saved, and the notice stays on Home."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-that-need-you/cards-06.pt.jpg",
+                "en": "help/img/guides/contracts-that-need-you/cards-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Depois do aviso, o Apex guarda uma pendência. Na aba Início, um cartão chamado Projetos sem contrato assinado (1) mostra um número.",
+                "en": "After the warning, Apex keeps a notice. On the Home tab, a card called Projects without a signed contract (1) shows a number."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-that-need-you/cards-07.pt.jpg",
+                "en": "help/img/guides/contracts-that-need-you/cards-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Cada linha tem o nome do projeto e o valor (1), e depois quando a pendência foi aberta (2). O nome e o valor estão cobertos na figura.",
+                "en": "Each row has the project name and the value (1), and then when the notice was opened (2). The name and the value are covered in the picture."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-that-need-you/cards-08.pt.jpg",
+                "en": "help/img/guides/contracts-that-need-you/cards-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Toque em Enviar contrato (1) para fazer o contrato. Toque em Continuar sem contrato (2) para seguir sem ele.",
+                "en": "Tap Send contract (1) to make the contract. Tap Continue without contract (2) to go on without one."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-that-need-you/cards-09.pt.jpg",
+                "en": "help/img/guides/contracts-that-need-you/cards-09.en.jpg"
               }
             }
           ]
         }
       ],
       "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Enviar contrato"
+            ],
+            "en": [
+              "Send contract"
+            ]
+          },
+          "section": "cards",
+          "step": 5
+        },
         {
           "labels": {
             "pt": [
@@ -18910,7 +18999,7 @@
             ]
           },
           "section": "cards",
-          "step": 1
+          "step": 5
         },
         {
           "labels": {
@@ -18922,19 +19011,7 @@
             ]
           },
           "section": "cards",
-          "step": 2
-        },
-        {
-          "section": "cards",
-          "step": 2,
-          "labels": {
-            "pt": [
-              "Enviar contrato"
-            ],
-            "en": [
-              "Send contract"
-            ]
-          }
+          "step": 8
         }
       ]
     },

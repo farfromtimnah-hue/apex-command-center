@@ -26341,6 +26341,111 @@
           "step": 3
         }
       ]
+    },
+    {
+      "id": "admin-settings-packages-payment",
+      "audience": "admin",
+      "title": {
+        "pt": "Configurações: pacotes e detalhes de pagamento",
+        "en": "Settings: packages and payment details"
+      },
+      "summary": {
+        "pt": "Veja como cada pacote é montado (nome, itens, preço, plano de pagamento, mais popular) e onde ficam o QR Code do Zelle, o link do Stripe e o e-mail ou telefone do Zelle.",
+        "en": "See how each package is built (name, items, price, payment plan, most popular) and where the Zelle QR code, the Stripe link and the Zelle email or phone are."
+      },
+      "keywords": {
+        "pt": [
+          "pacotes",
+          "gerenciar pacotes",
+          "preço base",
+          "plano de pagamento",
+          "mais popular",
+          "qr code zelle",
+          "link stripe",
+          "zelle"
+        ],
+        "en": [
+          "packages",
+          "manage packages",
+          "base price",
+          "payment plan",
+          "most popular",
+          "zelle qr code",
+          "stripe link",
+          "zelle"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "pkg",
+          "title": {
+            "pt": "Pacotes e dados de pagamento",
+            "en": "Packages and payment details"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Um pacote, a parte de cima. Em Gerenciar Pacotes, cada pacote é um cartão. Ele tem um Rótulo curto (1), um Nome completo (2), um Público-alvo (3) e a lista de Itens incluídos (4). Toque no X ao lado de um item para tirar, ou em + Adicionar item para incluir.",
+                "en": "A package, the top part. Under Manage Packages, each package is a card. It has a Short label (1), a Full name (2), an Audience (3) and the list of Included items (4). Tap the X next to an item to remove it, or + Add item to add one."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-settings-packages-payment/pkg-01.pt.jpg",
+                "en": "help/img/guides/admin-settings-packages-payment/pkg-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Um pacote, a parte de baixo. O Preço base e os preços à vista ou parcelados vêm em seguida (a imagem cobre os números). Ligue Plano de Pagamento (1) para um pacote pago em partes. Marque Mais Popular (2) para mostrar a faixa no cartão. Excluir (3) remove o pacote. Salvar (4) guarda as mudanças. + Adicionar Pacote no fim cria um cartão novo.",
+                "en": "A package, the bottom part. The Base price and the upfront or installment prices come next (the picture covers the numbers). Turn on Payment Plan (1) for a package paid in parts. Tick Most Popular (2) to show the badge on the card. Delete (3) removes the package. Save (4) keeps your changes. + Add Package at the end makes a new card."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-settings-packages-payment/pkg-02.pt.jpg",
+                "en": "help/img/guides/admin-settings-packages-payment/pkg-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Detalhes de pagamento. Em Detalhes de Pagamento, o QR Code do Zelle e o link do Stripe valem para todas as faturas da Apex. Toque em Alterar QR Code (1) para enviar uma imagem nova. Digite o link de pagamento do Stripe em (2) e toque em Salvar ao lado. Digite o e-mail ou telefone do Zelle em (3) e toque em Salvar ao lado. Ele aparece junto ao QR Code, para quem lê no celular e não consegue escanear. A imagem cobre os valores reais.",
+                "en": "Payment details. Under Payment Details, the Zelle QR code and the Stripe link are used on all Apex invoices. Tap Change QR Code (1) to send a new picture. Type the Stripe payment link in (2) and tap Save next to it. Type the Zelle email or phone in (3) and tap Save next to it. It shows next to the QR code for someone reading on a phone who cannot scan it. The picture covers the real values."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-settings-packages-payment/pkg-03.pt.jpg",
+                "en": "help/img/guides/admin-settings-packages-payment/pkg-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Salvar pacote"
+            ],
+            "en": [
+              "Save a package"
+            ]
+          },
+          "section": "pkg",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Alterar QR Code do Zelle"
+            ],
+            "en": [
+              "Change the Zelle QR code"
+            ]
+          },
+          "section": "pkg",
+          "step": 3
+        }
+      ]
     }
   ],
   "pages": {
@@ -26687,7 +26792,8 @@
       "guides": [
         "admin-message-templates",
         "admin-menu-language-learn",
-        "admin-settings-pictures-message"
+        "admin-settings-pictures-message",
+        "admin-settings-packages-payment"
       ],
       "overview": {
         "pt": "Aqui você muda os textos das mensagens de WhatsApp, os pacotes, os dados de pagamento e a disponibilidade.",

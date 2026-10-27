@@ -13112,16 +13112,19 @@
             {
               "n": 1,
               "text": {
-                "pt": "Escolha Meu próprio contrato. Toque em Negócio, depois Orçamentos, depois Configurações, e role até Contrato, depois Origem do contrato. Há dois botões: Modelo padrão Apex e Meu próprio contrato. Toque em Meu próprio contrato. Uma linha explica que a Apex converte o seu contrato uma vez em um modelo limpo, e que o texto nunca é editado aqui. Outra linha diz que um sistema de inteligência artificial (Claude, da Anthropic) lê o arquivo para organizar as cláusulas, e que você revisa o resultado e confirma que ele corresponde ao seu contrato original.",
-                "en": "Choose My own contract. Tap Business, then Estimates, then Settings, and scroll to Contract, then Contract source. There are two buttons: Apex standard template and My own contract. Tap My own contract. A line explains that Apex converts your own contract once into a clean template, and that the text is never edited here. Another line says an artificial intelligence system (Claude, by Anthropic) reads the file to organize the clauses, and that you review the result and confirm it matches your original contract."
+                "pt": "Escolha Meu próprio contrato. Toque em Negócio, depois Orçamentos, depois Configurações, e role até Origem do contrato. Há dois botões (1): Modelo padrão Apex e Meu próprio contrato. Toque em Meu próprio contrato. Uma linha explica que a Apex converte o seu contrato uma vez em um modelo limpo e que o texto nunca é editado aqui. Outra linha diz que um sistema de inteligência artificial (Claude, da Anthropic) lê o arquivo para organizar as cláusulas, e que você revisa o resultado e confirma que ele corresponde ao seu contrato original. Enquanto você não responder à pergunta (2), o botão Enviar PDF do meu contrato (3) fica desligado e uma nota diz Responda a pergunta acima primeiro.",
+                "en": "Choose My own contract. Tap Business, then Estimates, then Settings, and scroll to Contract source. There are two buttons (1): Apex standard template and My own contract. Tap My own contract. A line explains that Apex converts your own contract once into a clean template and that the text is never edited here. Another line says an artificial intelligence system (Claude, by Anthropic) reads the file to organize the clauses, and that you review the result and confirm it matches your original contract. Until you answer the question (2), the button Upload my contract PDF (3) stays off and a note says Answer the question above first."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-01.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Diga se um advogado revisou, depois envie o PDF. Primeiro responda Um advogado já revisou este contrato? com Sim ou Não (1). O botão de envio fica desligado, e uma nota diz Responda a pergunta acima primeiro, até você responder. Depois toque em Enviar PDF do meu contrato (2) e escolha um arquivo PDF. O limite é 10 MB. Enquanto o Apex lê, o botão diz Enviando e uma linha diz Lendo o contrato. O nosso teste não enviou um arquivo novo. A imagem mostra um contrato que já tinha sido enviado ao cliente de teste.",
-                "en": "Say if a lawyer reviewed it, then upload the PDF. First answer Has a lawyer reviewed this contract? with Yes or No (1). The upload button stays off, and a note says Answer the question above first, until you answer. Then tap Upload my contract PDF (2) and pick a PDF file. The limit is 10 MB. While Apex reads it, the button says Uploading and a line says Reading the contract. Our test did not upload a new file. The picture shows a contract that was already uploaded to the test client."
+                "pt": "Diga se um advogado revisou e envie o PDF. Responda Um advogado já revisou este contrato? com Sim ou Não (1). Depois toque em Enviar PDF do meu contrato (2) e escolha um arquivo PDF. Enquanto o Apex lê o arquivo, uma linha diz Lendo o contrato. Leva alguns segundos.",
+                "en": "Say if a lawyer reviewed it and upload the PDF. Answer Has a lawyer reviewed this contract? with Yes or No (1). Then tap Upload my contract PDF (2) and pick a PDF file. While Apex reads the file, a line says Reading the contract. It takes a few seconds."
               },
               "image": {
                 "pt": "help/img/guides/own-contract-upload/upload-02.pt.jpg",
@@ -13131,8 +13134,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Leia o resultado. Embaixo do botão você vê o nome do arquivo, o número de páginas e Revisado por advogado: sim ou não. Depois vem um bloco para cada área de um contrato, por exemplo Scope of work and exclusions ou Contract price. Ele mostra o texto que o Apex achou no seu arquivo para aquela área, ou Não encontrado em vermelho quando o seu arquivo não tem nada para ela. Uma parte chamada Cláusulas sem área correspondente lista o texto que não coube em nenhuma área. Confira se cada bloco corresponde ao seu contrato original.",
-                "en": "Read the result. Under the button you see the file name, the number of pages, and Reviewed by a lawyer: yes or no. Then comes one block for each area of a contract, for example Scope of work and exclusions or Contract price. It shows the text Apex found in your file for that area, or Not found in red when your file has nothing for it. A part called Clauses with no matching area lists text that did not fit any area. Check that each block matches your original contract."
+                "pt": "Leia o resultado. Embaixo do botão aparece o nome do arquivo e o número de páginas (1), uma etiqueta Aguardando a sua confirmação (2) e a linha Revisado por advogado: sim ou não. Depois vem um bloco para cada área de um contrato, por exemplo Scope of work and exclusions (3). Ele mostra o texto que o Apex achou no seu arquivo para aquela área. Uma área em que o seu arquivo não tem nada diz Não encontrado em vermelho (4). Confira se cada bloco corresponde ao seu contrato original.",
+                "en": "Read the result. Under the button you see the file name and the number of pages (1), a tag Waiting for your confirmation (2) and the line Reviewed by a lawyer: yes or no. Then comes one block for each area of a contract, for example Scope of work and exclusions (3). It shows the text Apex found in your file for that area. An area where your file has nothing says Not found in red (4). Check that each block matches your original contract."
               },
               "image": {
                 "pt": "help/img/guides/own-contract-upload/upload-03.pt.jpg",
@@ -13142,10 +13145,24 @@
             {
               "n": 4,
               "text": {
-                "pt": "Confirme que corresponde. Enquanto o arquivo espera, uma etiqueta diz Aguardando a sua confirmação e um botão diz Confirmar que corresponde ao meu contrato. Toque nele quando tiver conferido todos os blocos. A etiqueta passa a dizer Confirmado por você (3 na imagem). Você pode enviar outro arquivo quando quiser. Este passo vem do código do aplicativo, e a etiqueta Confirmado por você é a que aparece na imagem.",
-                "en": "Confirm it matches. While the file is waiting, a tag says Waiting for your confirmation and a button reads Confirm it matches my contract. Tap it when you checked every block. The tag then says Confirmed by you (3 in the picture). You can upload another file at any time. This step comes from the app's code, and the tag Confirmed by you is the one in the picture."
+                "pt": "Confirme que corresponde. No fim do resultado, a parte Cláusulas sem área correspondente (1) lista o texto que não coube em nenhuma área. Quando você conferiu todos os blocos, toque em Confirmar que corresponde ao meu contrato (2).",
+                "en": "Confirm it matches. At the end of the result, the part Clauses with no matching area (1) lists text that did not fit any area. When you checked every block, tap Confirm it matches my contract (2)."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-04.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Veja a confirmação. A etiqueta passa a dizer Confirmado por você (1) no arquivo que você enviou (2). Um arquivo enviado antes fica na lista, embaixo. Você pode enviar outro arquivo quando quiser. Para voltar ao contrato do Apex, toque em Modelo padrão Apex em Origem do contrato.",
+                "en": "See the confirmation. The tag now says Confirmed by you (1) on the file you uploaded (2). A file uploaded earlier stays in the list, below. You can upload another file at any time. To go back to the Apex contract, tap Apex standard template under Contract source."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-05.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-05.en.jpg"
+              }
             }
           ]
         }
@@ -13174,6 +13191,18 @@
           },
           "section": "upload",
           "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Meu próprio contrato"
+            ],
+            "en": [
+              "My own contract"
+            ]
+          },
+          "section": "upload",
+          "step": 1
         }
       ]
     },

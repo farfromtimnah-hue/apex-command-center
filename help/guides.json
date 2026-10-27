@@ -28569,6 +28569,177 @@
           }
         }
       ]
+    },
+    {
+      "id": "apex-invoice-and-receipt",
+      "audience": "client",
+      "who": [
+        "all"
+      ],
+      "title": {
+        "pt": "Uma fatura ou um recibo da Apex",
+        "en": "An invoice or receipt from Apex"
+      },
+      "summary": {
+        "pt": "Abra, pague e guarde a fatura e o recibo que a Apex envia para você.",
+        "en": "Open, pay and save the invoice and receipt Apex sends you."
+      },
+      "keywords": {
+        "pt": [
+          "fatura da apex",
+          "recibo da apex",
+          "pagar a apex",
+          "zelle",
+          "ach",
+          "pagar com cartão",
+          "baixar pdf",
+          "saldo a pagar"
+        ],
+        "en": [
+          "apex invoice",
+          "apex receipt",
+          "invoice from apex",
+          "pay apex",
+          "zelle",
+          "ach",
+          "pay by card",
+          "download pdf",
+          "balance due"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "apexbill",
+          "title": {
+            "pt": "Abrir e pagar uma fatura da Apex",
+            "en": "Open and pay an Apex invoice"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o link. Quando a Apex cobra pelos seus serviços, você recebe um link da fatura. Você não precisa entrar: o link é a sua chave, então guarde com cuidado. No alto, Faturado para (1) mostra o seu negócio. A caixa (2) tem o número da fatura, a data da fatura, o vencimento e o status, por exemplo Em aberto. O botão (3) troca a página entre português e inglês.",
+                "en": "Open the link. When Apex bills you for its services, you get a link to the invoice. You do not sign in: the link is your key, so keep it private. At the top, Billed to (1) shows your business. The box (2) has the invoice number, the invoice date, the due date and the status, for example Open. The button (3) changes the page between Portuguese and English."
+              },
+              "image": {
+                "pt": "help/img/guides/apex-invoice-and-receipt/apexbill-01.pt.jpg",
+                "en": "help/img/guides/apex-invoice-and-receipt/apexbill-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Leia pelo que você está pagando. As linhas (1) listam cada serviço com a quantidade, o valor unitário e o subtotal. Embaixo (2) ficam o Subtotal, o Total, o Saldo e o Saldo a pagar agora, que é o que falta pagar nesta fatura.",
+                "en": "Read what you are paying for. The lines (1) list each service with its quantity, unit price and subtotal. Under them (2) are the Subtotal, the Total, the Balance and Balance due now, which is what is left to pay on this invoice."
+              },
+              "image": {
+                "pt": "help/img/guides/apex-invoice-and-receipt/apexbill-02.pt.jpg",
+                "en": "help/img/guides/apex-invoice-and-receipt/apexbill-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Pague com Zelle. Em Formas de pagamento você vê só as formas que a Apex ligou. Toque em Copiar valor (1) e cole na tela do Zelle do seu banco. Envie para o contato mostrado e escreva o número da fatura na mensagem. Você também pode tocar em Copiar contato do Zelle (2). O contato do Zelle na figura é um valor de teste.",
+                "en": "Pay with Zelle. Under Ways to pay you see only the ways Apex turned on. Tap Copy amount (1), then paste it in your bank's Zelle screen. Send it to the contact shown and write the invoice number in the message. You can also tap Copy Zelle contact (2). The Zelle contact in the picture is a test value."
+              },
+              "image": {
+                "pt": "help/img/guides/apex-invoice-and-receipt/apexbill-03.pt.jpg",
+                "en": "help/img/guides/apex-invoice-and-receipt/apexbill-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Pague por transferência. Toque em Pagar por transferência ACH (3). Pode levar até 4 dias úteis para compensar.",
+                "en": "Pay by bank transfer. Tap Pay by ACH bank transfer (3). It can take up to 4 business days to clear."
+              },
+              "image": {
+                "pt": "help/img/guides/apex-invoice-and-receipt/apexbill-04.pt.jpg",
+                "en": "help/img/guides/apex-invoice-and-receipt/apexbill-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Pague com cartão. O botão Pagar com cartão só aparece quando a Apex ligou o cartão para esta fatura, e ele está desligado na fatura de teste. Depois de pagar com cartão você volta para a página. Ela diz Pagamento recebido. Obrigado! ou Pagamento em processamento.",
+                "en": "Pay by card. A Pay by card button shows only when Apex turned card payments on for this invoice, and it is off on the test invoice. After a card payment you come back to the page. It says Payment received. Thank you! or Payment processing."
+              },
+              "image": null
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Guarde uma cópia. Toque em Baixar fatura (PDF) (1) para pegar um PDF. Se o PDF não carregar, a página avisa e você pode tocar em Imprimir.",
+                "en": "Save a copy. Tap Download your invoice (PDF) (1) to get a PDF. If the PDF does not load, the page says so and you can tap Print."
+              },
+              "image": {
+                "pt": "help/img/guides/apex-invoice-and-receipt/apexbill-06.pt.jpg",
+                "en": "help/img/guides/apex-invoice-and-receipt/apexbill-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Abra o seu recibo. Depois de um pagamento, a Apex pode enviar um link de recibo com a mesma cara. Ele mostra Recebido de, o Número do recibo, a Fatura, a Data do recebimento, o Valor recebido, a Forma de pagamento, e o saldo da fatura antes e depois deste pagamento. Toque em Baixar o recibo (PDF) para guardar. Se um pagamento foi desfeito, o recibo diz ANULADO e deixa de ser prova de pagamento. Não havia fatura paga para mostrar em figura.",
+                "en": "Open your receipt. After a payment, Apex can send you a receipt link with the same look. It shows Received from, the Receipt number, the Invoice, the Date received, the Amount received, the Payment method, and the invoice balance before and after this payment. Tap Download the receipt (PDF) to save it. If a payment was undone, the receipt says VOIDED and is no longer proof of payment. There was no paid invoice to picture."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Copiar valor"
+            ],
+            "en": [
+              "Copy amount"
+            ]
+          },
+          "section": "apexbill",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Copiar contato do Zelle"
+            ],
+            "en": [
+              "Copy Zelle contact"
+            ]
+          },
+          "section": "apexbill",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Pagar por transferência ACH"
+            ],
+            "en": [
+              "Pay by ACH bank transfer"
+            ]
+          },
+          "section": "apexbill",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Baixar fatura (PDF)"
+            ],
+            "en": [
+              "Download your invoice (PDF)"
+            ]
+          },
+          "section": "apexbill",
+          "step": 6
+        }
+      ]
     }
   ],
   "pages": {

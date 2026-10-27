@@ -15726,8 +15726,8 @@
                 "en": "Change or cancel a session. Tap a session in the calendar to open it. The sheet that opens has Reschedule, Edit and Cancel meeting. Cancel meeting asks one thing: 1. This meeting was cancelled keeps the record as Cancelled in your history and takes the meeting off the client's calendar. 2. This was a mistake deletes the record for good, so use it only for a session made by error. Neither can be undone."
               },
               "image": {
-                "pt": "help/img/guides/admin-calendar-sessions/calendar-s09.pt.jpg",
-                "en": "help/img/guides/admin-calendar-sessions/calendar-s09.en.jpg"
+                "pt": "help/img/guides/admin-calendar-sessions/calendar-05.pt.jpg",
+                "en": "help/img/guides/admin-calendar-sessions/calendar-05.en.jpg"
               }
             }
           ]
@@ -24097,24 +24097,18 @@
             {
               "n": 9,
               "text": {
-                "pt": "Depois de tocar em um horário, a página diz Reunião confirmada (1), com o dia e o horário. Abaixo você vê o link do Google Meet, se a reunião for online, ou Presencial com o endereço. A página também diz que você vai receber um lembrete pelo WhatsApp no dia da reunião.",
-                "en": "After you tap a time, the page says Reunião confirmada (Meeting confirmed) (1) with the day and the time. Below it you see the Google Meet link for an online meeting, or Presencial (In person) with the address. The page also says you will get a reminder on WhatsApp on the day of the meeting."
+                "pt": "Confira a confirmação. A página diz Reunião confirmada, com o dia e o horário. Abaixo você vê o link do Google Meet, se a reunião for online, ou Presencial com o endereço. A página também diz que você vai receber um lembrete pelo WhatsApp no dia da reunião.",
+                "en": "Check the confirmation. The page says Reunião confirmada (Meeting confirmed) with the day and the time. Below it you see the Google Meet link for an online meeting, or Presencial (In person) with the address. The page also says you will get a reminder on WhatsApp on the day of the meeting."
               },
-              "image": {
-                "pt": "help/img/guides/meetings-and-booking/meeting-s09.pt.jpg",
-                "en": "help/img/guides/meetings-and-booking/meeting-s09.en.jpg"
-              }
+              "image": null
             },
             {
               "n": 10,
               "text": {
-                "pt": "De volta ao Início, o card agora mostra a sua reunião como Agendada (1), com o dia e o horário, e um botão Reagendar (2). Toque em Reagendar para abrir a página de agendamento de novo e escolher outro horário. Quando a reunião é hoje ou amanhã, o card se chama Próximas reuniões, mostra Hoje ou Amanhã com o horário, e tem um botão Entrar para reunião online, ou um botão Como chegar para reunião presencial. Não tocamos em Entrar, Como chegar nem Reagendar.",
-                "en": "Back on Home, the card now shows your meeting as Scheduled (1), with the day and the time, and a Reschedule button (2). Tap Reschedule to open the booking page again and pick another time. When the meeting is today or tomorrow, the card is called Upcoming meetings, shows Today or Tomorrow with the time, and has a Join button for an online meeting, or a Directions button for a meeting in person. We did not tap Join, Directions or Reschedule."
+                "pt": "Entre ou mude. De volta ao Início, o card agora mostra a sua reunião como Agendada, com o dia e o horário, e um botão Reagendar. Toque em Reagendar para abrir a página de agendamento de novo e escolher outro horário. Quando a reunião é hoje ou amanhã, o card se chama Próximas reuniões, mostra Hoje ou Amanhã com o horário, e tem um botão Entrar para reunião online, ou um botão Como chegar para reunião presencial.",
+                "en": "Join or move it. Back on Home, the card now shows your meeting as Scheduled, with the day and the time, and a Reschedule button. Tap Reschedule to open the booking page again and pick another time. When the meeting is today or tomorrow, the card is called Upcoming meetings, shows Today or Tomorrow with the time, and has a Join button for an online meeting, or a Directions button for a meeting in person."
               },
-              "image": {
-                "pt": "help/img/guides/meetings-and-booking/meeting-s10.pt.jpg",
-                "en": "help/img/guides/meetings-and-booking/meeting-s10.en.jpg"
-              }
+              "image": null
             }
           ]
         }
@@ -24429,6 +24423,204 @@
       "buttons": [],
       "who": [
         "all"
+      ]
+    },
+    {
+      "id": "admin-lead-pipeline",
+      "audience": "admin",
+      "title": {
+        "pt": "Leads: acompanhar um lead até virar cliente",
+        "en": "Leads: follow a lead until it becomes a client"
+      },
+      "summary": {
+        "pt": "Etapa, próximo passo, contatos e desfecho de um lead.",
+        "en": "Stage, next step, contacts and outcome of a lead."
+      },
+      "keywords": {
+        "pt": [
+          "lead",
+          "leads",
+          "pipeline do lead",
+          "etapa",
+          "contato",
+          "tornou-se cliente",
+          "quente",
+          "frio",
+          "próximo passo"
+        ],
+        "en": [
+          "lead",
+          "leads",
+          "lead pipeline",
+          "stage",
+          "contact",
+          "became a client",
+          "warm",
+          "cold",
+          "next step"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "lead",
+          "title": {
+            "pt": "Seguir um lead",
+            "en": "Follow a lead"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra um lead. Toque em Clientes no menu da esquerda e depois na aba Leads. Cada lead é uma linha (1). A etiqueta pequena (2) mostra se o lead está Quente ou Frio. Toque em Ver em colunas (3) para ver os leads em colunas. Toque no nome para abrir a ficha. Os nomes da figura são nomes de teste.",
+                "en": "Open a lead. Tap Clients in the left menu, then the Leads tab. Each lead is a row (1). The small tag (2) shows if the lead is Warm or Cold. Tap Switch to column view (3) to see the leads in columns. Tap a name to open its record. The names in the picture are test names."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-01.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "No alto da ficha de um lead está o cartão Pipeline do Lead. A etiqueta (1) mostra a etapa e há quantos dias o lead está nela. Para mudar o lead de etapa, use Mudar etapa (2). O Apex registra quem mudou e avisa se outra pessoa mudou antes.",
+                "en": "At the top of a lead record is the card Lead Pipeline. The tag (1) shows the stage and how many days the lead has been in it. To move the lead to another stage, use Change stage (2). Apex records who moved it and warns if someone else moved it first."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-02.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Em Próximo passo, toque em O que vem a seguir (1) para escrever o que precisa acontecer com este lead. Toque em Contatos registrados (2) para ver os contatos que já estão no registro.",
+                "en": "Under Next step, tap What's next (1) to write what must happen next with this lead. Tap Follow-ups logged (2) to see the contacts already written in the log."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-03.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "A lista Raio X enviado (1) mostra três coisas: Login do portal criado, Raio X atribuído e Credenciais prontas para envio. O círculo fica preenchido quando aquela parte está feita.",
+                "en": "The checklist X-Ray sent (1) shows three things: Portal login created, X-Ray assigned and Credentials ready to send. A circle is filled when that part is done."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-04.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Fale com o lead pelo Registro de contatos. Toque em Ligar (1) ou em WhatsApp (2). Toque em Mais formas de contato (3) para ver as outras formas, como mensagem de texto e email. Toque em + Registrar contato (4) para anotar um contato que você fez de outro jeito.",
+                "en": "Contact the lead from the Contact log. Tap Call (1) or WhatsApp (2). Tap More ways to reach out (3) to see the other ways, such as text message and email. Tap + Log contact (4) to write down a contact you made in another way."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-05.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "No formulário Registrar contato, escolha o Meio (1) e o Resultado (2), por exemplo Sem resposta. Escreva uma nota em Notas (3) se quiser e toque em Salvar. Nada foi salvo nesta figura.",
+                "en": "In the Log contact form, choose the Method (1) and the Result (2), such as No response. Write a note in Notes (3) if you want, then tap Save. Nothing was saved for this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-06.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Em Desfecho há dois botões. Tornou-se cliente (1) é para o lead que fechou. Não seguiu adiante (2) é para o lead que parou, e a ficha fica dormente.",
+                "en": "Under Outcome there are two buttons. Became a client (1) is for a lead that signed. Did not move forward (2) is for a lead that stopped, and the record becomes dormant."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-07.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Tornou-se cliente pede o Pacote (1) antes de salvar. Escolha o pacote e toque em Confirmar (2). A ficha vira um cliente ativo e sai da aba Leads. Nada foi confirmado nesta figura.",
+                "en": "Became a client asks for the Package (1) before it saves. Choose it, then tap Confirm (2). The record becomes an active client and leaves the Leads tab. Nothing was confirmed for this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-08.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-08.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Ver em colunas"
+            ],
+            "en": [
+              "Switch to column view"
+            ]
+          },
+          "section": "lead",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Mudar etapa"
+            ],
+            "en": [
+              "Change stage"
+            ]
+          },
+          "section": "lead",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "+ Registrar contato"
+            ],
+            "en": [
+              "+ Log contact"
+            ]
+          },
+          "section": "lead",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Tornou-se cliente"
+            ],
+            "en": [
+              "Became a client"
+            ]
+          },
+          "section": "lead",
+          "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Não seguiu adiante"
+            ],
+            "en": [
+              "Did not move forward"
+            ]
+          },
+          "section": "lead",
+          "step": 7
+        }
       ]
     },
     {
@@ -24816,204 +25008,6 @@
           },
           "section": "cat",
           "step": 4
-        }
-      ]
-    },
-    {
-      "id": "admin-lead-pipeline",
-      "audience": "admin",
-      "title": {
-        "pt": "Leads: acompanhar um lead até virar cliente",
-        "en": "Leads: follow a lead until it becomes a client"
-      },
-      "summary": {
-        "pt": "Etapa, próximo passo, contatos e desfecho de um lead.",
-        "en": "Stage, next step, contacts and outcome of a lead."
-      },
-      "keywords": {
-        "pt": [
-          "lead",
-          "leads",
-          "pipeline do lead",
-          "etapa",
-          "contato",
-          "tornou-se cliente",
-          "quente",
-          "frio",
-          "próximo passo"
-        ],
-        "en": [
-          "lead",
-          "leads",
-          "lead pipeline",
-          "stage",
-          "contact",
-          "became a client",
-          "warm",
-          "cold",
-          "next step"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "lead",
-          "title": {
-            "pt": "Seguir um lead",
-            "en": "Follow a lead"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Abra um lead. Toque em Clientes no menu da esquerda e depois na aba Leads. Cada lead é uma linha (1). A etiqueta pequena (2) mostra se o lead está Quente ou Frio. Toque em Ver em colunas (3) para ver os leads em colunas. Toque no nome para abrir a ficha. Os nomes da figura são nomes de teste.",
-                "en": "Open a lead. Tap Clients in the left menu, then the Leads tab. Each lead is a row (1). The small tag (2) shows if the lead is Warm or Cold. Tap Switch to column view (3) to see the leads in columns. Tap a name to open its record. The names in the picture are test names."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-lead-pipeline/lead-01.pt.jpg",
-                "en": "help/img/guides/admin-lead-pipeline/lead-01.en.jpg"
-              }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "No alto da ficha de um lead está o cartão Pipeline do Lead. A etiqueta (1) mostra a etapa e há quantos dias o lead está nela. Para mudar o lead de etapa, use Mudar etapa (2). O Apex registra quem mudou e avisa se outra pessoa mudou antes.",
-                "en": "At the top of a lead record is the card Lead Pipeline. The tag (1) shows the stage and how many days the lead has been in it. To move the lead to another stage, use Change stage (2). Apex records who moved it and warns if someone else moved it first."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-lead-pipeline/lead-02.pt.jpg",
-                "en": "help/img/guides/admin-lead-pipeline/lead-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Em Próximo passo, toque em O que vem a seguir (1) para escrever o que precisa acontecer com este lead. Toque em Contatos registrados (2) para ver os contatos que já estão no registro.",
-                "en": "Under Next step, tap What's next (1) to write what must happen next with this lead. Tap Follow-ups logged (2) to see the contacts already written in the log."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-lead-pipeline/lead-03.pt.jpg",
-                "en": "help/img/guides/admin-lead-pipeline/lead-03.en.jpg"
-              }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "A lista Raio X enviado (1) mostra três coisas: Login do portal criado, Raio X atribuído e Credenciais prontas para envio. O círculo fica preenchido quando aquela parte está feita.",
-                "en": "The checklist X-Ray sent (1) shows three things: Portal login created, X-Ray assigned and Credentials ready to send. A circle is filled when that part is done."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-lead-pipeline/lead-04.pt.jpg",
-                "en": "help/img/guides/admin-lead-pipeline/lead-04.en.jpg"
-              }
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "Fale com o lead pelo Registro de contatos. Toque em Ligar (1) ou em WhatsApp (2). Toque em Mais formas de contato (3) para ver as outras formas, como mensagem de texto e email. Toque em + Registrar contato (4) para anotar um contato que você fez de outro jeito.",
-                "en": "Contact the lead from the Contact log. Tap Call (1) or WhatsApp (2). Tap More ways to reach out (3) to see the other ways, such as text message and email. Tap + Log contact (4) to write down a contact you made in another way."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-lead-pipeline/lead-05.pt.jpg",
-                "en": "help/img/guides/admin-lead-pipeline/lead-05.en.jpg"
-              }
-            },
-            {
-              "n": 6,
-              "text": {
-                "pt": "No formulário Registrar contato, escolha o Meio (1) e o Resultado (2), por exemplo Sem resposta. Escreva uma nota em Notas (3) se quiser e toque em Salvar. Nada foi salvo nesta figura.",
-                "en": "In the Log contact form, choose the Method (1) and the Result (2), such as No response. Write a note in Notes (3) if you want, then tap Save. Nothing was saved for this picture."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-lead-pipeline/lead-06.pt.jpg",
-                "en": "help/img/guides/admin-lead-pipeline/lead-06.en.jpg"
-              }
-            },
-            {
-              "n": 7,
-              "text": {
-                "pt": "Em Desfecho há dois botões. Tornou-se cliente (1) é para o lead que fechou. Não seguiu adiante (2) é para o lead que parou, e a ficha fica dormente.",
-                "en": "Under Outcome there are two buttons. Became a client (1) is for a lead that signed. Did not move forward (2) is for a lead that stopped, and the record becomes dormant."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-lead-pipeline/lead-07.pt.jpg",
-                "en": "help/img/guides/admin-lead-pipeline/lead-07.en.jpg"
-              }
-            },
-            {
-              "n": 8,
-              "text": {
-                "pt": "Tornou-se cliente pede o Pacote (1) antes de salvar. Escolha o pacote e toque em Confirmar (2). A ficha vira um cliente ativo e sai da aba Leads. Nada foi confirmado nesta figura.",
-                "en": "Became a client asks for the Package (1) before it saves. Choose it, then tap Confirm (2). The record becomes an active client and leaves the Leads tab. Nothing was confirmed for this picture."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-lead-pipeline/lead-08.pt.jpg",
-                "en": "help/img/guides/admin-lead-pipeline/lead-08.en.jpg"
-              }
-            }
-          ]
-        }
-      ],
-      "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "Ver em colunas"
-            ],
-            "en": [
-              "Switch to column view"
-            ]
-          },
-          "section": "lead",
-          "step": 1
-        },
-        {
-          "labels": {
-            "pt": [
-              "Mudar etapa"
-            ],
-            "en": [
-              "Change stage"
-            ]
-          },
-          "section": "lead",
-          "step": 2
-        },
-        {
-          "labels": {
-            "pt": [
-              "+ Registrar contato"
-            ],
-            "en": [
-              "+ Log contact"
-            ]
-          },
-          "section": "lead",
-          "step": 5
-        },
-        {
-          "labels": {
-            "pt": [
-              "Tornou-se cliente"
-            ],
-            "en": [
-              "Became a client"
-            ]
-          },
-          "section": "lead",
-          "step": 7
-        },
-        {
-          "labels": {
-            "pt": [
-              "Não seguiu adiante"
-            ],
-            "en": [
-              "Did not move forward"
-            ]
-          },
-          "section": "lead",
-          "step": 7
         }
       ]
     },

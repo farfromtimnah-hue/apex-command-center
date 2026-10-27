@@ -4721,489 +4721,6 @@
       ]
     },
     {
-      "id": "pipeline",
-      "audience": "client",
-      "who": [
-        "all"
-      ],
-      "title": {
-        "pt": "Leads e pipeline",
-        "en": "Leads and the pipeline"
-      },
-      "summary": {
-        "pt": "Veja seus leads, filtre por estágio, abra um lead e cadastre um novo.",
-        "en": "See your leads, filter by stage, open a lead, and add a new one."
-      },
-      "keywords": {
-        "pt": [
-          "lead",
-          "leads",
-          "pipeline",
-          "funil",
-          "novo lead",
-          "cadastrar lead",
-          "estágio",
-          "vendedor",
-          "buscar",
-          "contato",
-          "cliente em potencial"
-        ],
-        "en": [
-          "lead",
-          "leads",
-          "pipeline",
-          "new lead",
-          "add a lead",
-          "stage",
-          "salesperson",
-          "search",
-          "prospect",
-          "contact"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "see-leads",
-          "title": {
-            "pt": "Ver e filtrar os leads",
-            "en": "See and filter your leads"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Toque em Negócio (1) na fileira de abas no alto: Início, Negócio, Agenda, Analytics, Apex.",
-                "en": "Tap Business (1) in the row of tabs at the top: Home, Business, Calendar, Analytics, Apex."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/see-leads-01.pt.jpg",
-                "en": "help/img/guides/pipeline/see-leads-01.en.jpg"
-              }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "O menu Negócio abre (1). Ele lista Pipeline, Orçamentos, Contratos, Projetos, Faturas, Financeiro e Preços. Toque em Pipeline (2).",
-                "en": "The Business menu opens (1). It lists Pipeline, Estimates, Contracts, Projects, Invoices, Finances and Pricing. Tap Pipeline (2)."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/see-leads-02.pt.jpg",
-                "en": "help/img/guides/pipeline/see-leads-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "O Pipeline abre em Leads (1). Leads é a primeira de três abas: Leads, Parceiros (2) e Base de Ouro (3).",
-                "en": "The Pipeline opens on Leads (1). Leads is the first of three tabs: Leads, Partners (2) and Golden Base (3)."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/see-leads-03.pt.jpg",
-                "en": "help/img/guides/pipeline/see-leads-03.en.jpg"
-              }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Leia as três primeiras caixas de números: Leads totais (1), Pipeline ativo ($) (2), que soma Orçamento + Follow-up + Negociação, e Receita fechada ($) (3).",
-                "en": "Read the first three number boxes: Total leads (1), Active pipeline ($) (2), which adds Estimate + Follow-up + Negotiation, and Closed revenue ($) (3)."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/see-leads-04.pt.jpg",
-                "en": "help/img/guides/pipeline/see-leads-04.en.jpg"
-              }
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "Leia as próximas três caixas: Conversão (1), Fora do SLA 5 min (1º contato) (2), que é contato em até 5 minutos, e Fora do SLA 24h (orçamento) (3), que é orçamento em até 24 horas.",
-                "en": "Read the next three boxes: Conversion (1), Outside 5-min SLA (1st contact) (2), which is first contact under 5 minutes, and Outside 24h SLA (estimate) (3), which is estimate within 24 hours."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/see-leads-05.pt.jpg",
-                "en": "help/img/guides/pipeline/see-leads-05.en.jpg"
-              }
-            },
-            {
-              "n": 6,
-              "text": {
-                "pt": "Role até a fileira de estágios (1): Novo Lead, Contato Feito, Visita Agendada, Orçamento Enviado, Follow-up, Negociação, Fechado e Perdido. Deslize a fileira para ver todos. O número em cada estágio é quantos leads ele tem.",
-                "en": "Scroll down to the row of stages (1): New Lead, Contacted, Visit Scheduled, Estimate Sent, Follow-up, Negotiation, Closed and Lost. Swipe the row to see them all. The number on each stage is how many leads it has."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/see-leads-06.pt.jpg",
-                "en": "help/img/guides/pipeline/see-leads-06.en.jpg"
-              }
-            },
-            {
-              "n": 7,
-              "text": {
-                "pt": "Toque em um estágio (1) para ver só os leads dele (2). Aqui Orçamento Enviado mostra seus 4 leads.",
-                "en": "Tap a stage (1) to see only the leads in it (2). Here Estimate Sent shows its 4 leads."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/see-leads-07.pt.jpg",
-                "en": "help/img/guides/pipeline/see-leads-07.en.jpg"
-              }
-            },
-            {
-              "n": 8,
-              "text": {
-                "pt": "Toque na caixa de busca (1) e digite um nome, telefone ou cidade. Uma linha diz quantos leads foram encontrados, e Limpar busca mostra a lista completa de novo.",
-                "en": "Tap the search box (1) and type a name, phone or city. A line says how many leads were found, and Clear search shows the full list again."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/see-leads-08.pt.jpg",
-                "en": "help/img/guides/pipeline/see-leads-08.en.jpg"
-              }
-            },
-            {
-              "n": 9,
-              "text": {
-                "pt": "Abra Todos os meses (1) e escolha um mês, por exemplo Outubro 2026. O número entre parênteses é quantos leads o mês tem. O X na caixa limpa a escolha.",
-                "en": "Open All months (1) and pick a month, for example October 2026. The number in brackets is how many leads that month has. The X in the box clears it."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/see-leads-09.pt.jpg",
-                "en": "help/img/guides/pipeline/see-leads-09.en.jpg"
-              }
-            },
-            {
-              "n": 10,
-              "text": {
-                "pt": "Abra Todos os vendedores (1) e escolha uma pessoa, por exemplo Test Sales Person. O número entre parênteses é quantos leads essa pessoa tem.",
-                "en": "Open All salespeople (1) and pick a person, for example Test Sales Person. The number in brackets is how many leads that person has."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/see-leads-10.pt.jpg",
-                "en": "help/img/guides/pipeline/see-leads-10.en.jpg"
-              }
-            },
-            {
-              "n": 11,
-              "text": {
-                "pt": "Os números seguem seus filtros. Uma linha (1) diz o que você está vendo, por exemplo Outubro 2026 · Test Sales Person. As caixas (2) contam só esses leads. A caixa de busca não muda os números. Toque no X de um filtro para voltar a todos.",
-                "en": "The numbers follow your filters. A line (1) names what you are looking at, for example October 2026 · Test Sales Person. The boxes (2) count only those leads. The search box does not change them. Tap the X in a filter to go back to all."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/see-leads-11.pt.jpg",
-                "en": "help/img/guides/pipeline/see-leads-11.en.jpg"
-              }
-            },
-            {
-              "n": 12,
-              "text": {
-                "pt": "Toque em um lead (1). Cada linha mostra o nome do lead, o valor e o serviço, há quantos dias ele está no estágio, e o estágio. Toque na linha para abrir esse lead.",
-                "en": "Tap a lead (1). Each row shows the lead's name, the value and service, how many days it has been in the stage, and the stage. Tap the row to open that lead."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/see-leads-12.pt.jpg",
-                "en": "help/img/guides/pipeline/see-leads-12.en.jpg"
-              }
-            }
-          ]
-        },
-        {
-          "id": "lead-sheet",
-          "title": {
-            "pt": "A ficha do lead",
-            "en": "The lead sheet"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "No alto da ficha do lead ficam os botões de contato: Ligar e WhatsApp (1), Mais formas de contato (2), Enviar cartão de contato (3) e Enviar link de agendamento (4).",
-                "en": "At the top of the lead sheet are the contact buttons: Call and WhatsApp (1), More ways to reach out (2), Send contact card (3) and Send booking link (4)."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-01.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-01.en.jpg"
-              }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "O bloco Indicação (1) mostra Indicado por e abre o lead do cliente que indicou este. Indicação de uma indicação diz que o prospect citou outra pessoa, então você anota quem indicou.",
-                "en": "The Referral block (1) shows Referred by and opens the lead of the customer who referred this one. Referral of a referral says the prospect named someone else, so you record who referred them."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-02.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Estágio (1) mostra o estágio atual e há quantos dias o lead está nele, e diz Toque para mudar. Valor do orçamento (2) mostra o valor, ou Não definido.",
-                "en": "Stage (1) shows the current stage and how many days the lead has been in it, and says Tap to change. Estimate value (2) shows the value, or Not set."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-03.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-03.en.jpg"
-              }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Em Orçamentos (1) você vê os orçamentos deste lead, por exemplo EST-0031 com o status e a data de validade. + Criar orçamento (2) é como um orçamento começa: o guia Criar e enviar um orçamento mostra os passos.",
-                "en": "Under Estimates (1) you see the estimates of this lead, for example EST-0031 with its status and validity date. + Create estimate (2) is how an estimate starts: the guide Create and send an estimate shows the steps."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-04.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-04.en.jpg"
-              }
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "Próxima ação (1). Toda linha que diz Toque para preencher pode ser preenchida tocando nela.",
-                "en": "Next action (1). Every row that says Tap to fill in can be filled by tapping it."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-05.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-05.en.jpg"
-              }
-            },
-            {
-              "n": 6,
-              "text": {
-                "pt": "Em Valores (1): Material ($), Mão de obra ($), Outros ($), Custo administrativo ($), Comissão vendedor ($) e Imposto ($). Toque em uma linha para preencher.",
-                "en": "Under Costs (1): Materials ($), Labor ($), Other ($), Administrative cost ($), Sales commission ($) and Tax ($). Tap a row to fill it in."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-06.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-06.en.jpg"
-              }
-            },
-            {
-              "n": 7,
-              "text": {
-                "pt": "A seção Resultado (1) é calculada pelo Apex. Você nunca digita nela. Ela mostra Custo total, Comissão (%), Lucro e Margem (2). A margem mostra um aviso quando fica abaixo da margem mínima que você definiu. A ficha do projeto tem o mesmo bloco.",
-                "en": "The Result section (1) is calculated by Apex. You never type in it. It shows Total cost, Commission (%), Profit and Margin (2). The margin shows a warning when it is under the minimum margin you set. The project sheet has the same block."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-07.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-07.en.jpg"
-              }
-            },
-            {
-              "n": 8,
-              "text": {
-                "pt": "A comissão tem sua própria linha de porcentagem (1), Comissão (%). Toque nela para definir a comissão como porcentagem do Valor do orçamento.",
-                "en": "The commission has its own percent row (1), Commission (%). Tap it to set the commission as a percent of the Estimate value."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-08.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-08.en.jpg"
-              }
-            },
-            {
-              "n": 9,
-              "text": {
-                "pt": "Uma caixa abre (1). Digite uma porcentagem de 0 a 100. O Apex transforma em dólares em Comissão vendedor ($), usando o Valor do orçamento. Você também pode digitar os dólares em Comissão vendedor ($) e o Apex mostra a porcentagem. Cancelar (2) fecha sem salvar. Se o Valor do orçamento estiver vazio, a linha pede que você preencha antes.",
-                "en": "A box opens (1). Type a percent from 0 to 100. Apex turns it into dollars for Sales commission ($), using the Estimate value. You can also type the dollars in Sales commission ($) and Apex shows the percent. Cancel (2) closes without saving. If the Estimate value is empty, the row asks you to fill it in first."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-09.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-09.en.jpg"
-              }
-            },
-            {
-              "n": 10,
-              "text": {
-                "pt": "Em Atividade de contato (registrado automaticamente), Nº follow-ups (1) mostra quantos follow-ups foram registrados, e diz Toque para ver o histórico. 1º contato mostra quando o primeiro contato aconteceu.",
-                "en": "Under Contact activity (tracked automatically), # follow-ups (1) shows how many follow-ups were logged, and says Tap to see the history. First contacted shows when the first contact happened."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-10.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-10.en.jpg"
-              }
-            },
-            {
-              "n": 11,
-              "text": {
-                "pt": "Em Dados do lead (1): Serviço(s), Vendedor, Origem e Parceiro. Toque em uma linha para mudar.",
-                "en": "Under Lead details (1): Service(s), Salesperson, Source and Partner. Tap a row to change it."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-11.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-11.en.jpg"
-              }
-            },
-            {
-              "n": 12,
-              "text": {
-                "pt": "Abaixo ficam os campos de contato (1): Telefone, Email, Rua / Endereço, Cidade, Estado, CEP / ZIP e Instruções de acesso. Toque em uma linha para preencher.",
-                "en": "Below are the contact fields (1): Phone, Email, Street, City, State, ZIP and Access notes. Tap a row to fill it in."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-12.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-12.en.jpg"
-              }
-            },
-            {
-              "n": 13,
-              "text": {
-                "pt": "Outros campos (1) tem Data/hora do orçamento, Vendedor secundário (opcional), O que o cliente quer, Status financiamento, Observação do trabalho, Data/hora lead e Cliente (nome). Em Arquivos, + Adicionar PDF ou foto (2) anexa um arquivo.",
-                "en": "Other fields (1) has Estimate date/time, Second salesperson (optional), What the client wants, Financing status, Job notes, Lead date/time and Client (name). Under Files, + Add PDF or photo (2) attaches a file."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-13.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-13.en.jpg"
-              }
-            },
-            {
-              "n": 14,
-              "text": {
-                "pt": "Toque no X (1) no canto superior direito para fechar a ficha do lead.",
-                "en": "Tap the X (1) at the top right to close the lead sheet."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-14.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-14.en.jpg"
-              }
-            },
-            {
-              "n": 15,
-              "text": {
-                "en": "Review the commission when the value changes. If an estimate changes the value of a lead after you set its commission, a red line (1) appears in the Estimates part of the lead sheet: Value changed from one amount to another after commission was set. Review commission. Apex does not change the commission for you. Check it, fix it if you need to, and tap Dismiss (2) to remove the line.",
-                "pt": "Revise a comissão quando o valor muda. Se um orçamento mudar o valor de um lead depois que você definiu a comissão, uma linha vermelha (1) aparece na parte Orçamentos da ficha do lead: Valor mudou de um valor para outro depois de a comissão ter sido definida. Revise a comissão. O Apex não muda a comissão por você. Confira, corrija se precisar, e toque em Dispensar (2) para tirar a linha."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/lead-sheet-15.pt.jpg",
-                "en": "help/img/guides/pipeline/lead-sheet-15.en.jpg"
-              }
-            }
-          ]
-        },
-        {
-          "id": "new-lead",
-          "title": {
-            "pt": "Cadastrar um novo lead",
-            "en": "Add a new lead"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Toque no botão redondo dourado + (1) no canto inferior direito do Pipeline. Ele abre o formulário Novo lead.",
-                "en": "Tap the round gold + button (1) at the bottom right of the Pipeline. It opens the New lead form."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/new-lead-01.pt.jpg",
-                "en": "help/img/guides/pipeline/new-lead-01.en.jpg"
-              }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "O formulário Novo lead abre com Nome, Telefone, Endereço, Cidade e Serviço. Embaixo ele diz Estágio: Novo Lead · Data: agora. Depois de salvar você pode adicionar os detalhes.",
-                "en": "The New lead form opens with Name, Phone, Address, City and Service. At the bottom it says Stage: New Lead · Date: now. You can add details after saving."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/new-lead-02.pt.jpg",
-                "en": "help/img/guides/pipeline/new-lead-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Preencha Nome * (1). O * marca um campo obrigatório.",
-                "en": "Fill in Name * (1). The * marks a required field."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/new-lead-03.pt.jpg",
-                "en": "help/img/guides/pipeline/new-lead-03.en.jpg"
-              }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Preencha Telefone (1), Endereço (2) e Cidade (3).",
-                "en": "Fill in Phone (1), Address (2) and City (3)."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/new-lead-04.pt.jpg",
-                "en": "help/img/guides/pipeline/new-lead-04.en.jpg"
-              }
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "Escolha o Serviço (1) tocando em um dos botões. O que você escolher fica dourado.",
-                "en": "Pick the Service (1) by tapping one of the buttons. The one you pick turns gold."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/new-lead-05.pt.jpg",
-                "en": "help/img/guides/pipeline/new-lead-05.en.jpg"
-              }
-            },
-            {
-              "n": 6,
-              "text": {
-                "pt": "Toque em Salvar lead (1) para adicionar o lead, ou Cancelar (2) para fechar sem salvar.",
-                "en": "Tap Save lead (1) to add the lead, or Cancel (2) to close without saving."
-              },
-              "image": {
-                "pt": "help/img/guides/pipeline/new-lead-06.pt.jpg",
-                "en": "help/img/guides/pipeline/new-lead-06.en.jpg"
-              }
-            },
-            {
-              "n": 7,
-              "text": {
-                "pt": "Depois de salvar, uma mensagem diz Lead salvo com o botão Adicionar detalhes. O lead novo fica no estágio Novo Lead.",
-                "en": "After you save, a message says Lead saved with an Add details button. The new lead is in the New Lead stage."
-              },
-              "image": null
-            }
-          ]
-        }
-      ],
-      "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "Mais formas de contato"
-            ],
-            "en": [
-              "More ways to reach out"
-            ]
-          },
-          "section": "lead-sheet",
-          "step": 1
-        },
-        {
-          "labels": {
-            "pt": [
-              "Salvar lead"
-            ],
-            "en": [
-              "Save lead"
-            ]
-          },
-          "section": "new-lead",
-          "step": 6
-        },
-        {
-          "section": "see-leads",
-          "step": 1,
-          "labels": {
-            "pt": [
-              "Negócio",
-              "Pipeline"
-            ],
-            "en": [
-              "Business",
-              "Pipeline"
-            ]
-          }
-        }
-      ]
-    },
-    {
       "id": "calendar",
       "audience": "client",
       "who": [
@@ -28509,6 +28026,549 @@
         }
       ],
       "buttons": []
+    },
+    {
+      "id": "pipeline",
+      "audience": "client",
+      "who": [
+        "all"
+      ],
+      "title": {
+        "pt": "Leads e pipeline",
+        "en": "Leads and the pipeline"
+      },
+      "summary": {
+        "pt": "Veja seus leads, filtre por estágio, abra um lead e cadastre um novo.",
+        "en": "See your leads, filter by stage, open a lead, and add a new one."
+      },
+      "keywords": {
+        "pt": [
+          "lead",
+          "leads",
+          "pipeline",
+          "funil",
+          "novo lead",
+          "cadastrar lead",
+          "estágio",
+          "vendedor",
+          "buscar",
+          "contato",
+          "cliente em potencial",
+          "sla",
+          "primeiro contato",
+          "5 minutos",
+          "24 horas",
+          "fora do sla"
+        ],
+        "en": [
+          "lead",
+          "leads",
+          "pipeline",
+          "new lead",
+          "add a lead",
+          "stage",
+          "salesperson",
+          "search",
+          "prospect",
+          "contact",
+          "sla",
+          "first contact",
+          "5 minutes",
+          "24 hours",
+          "outside sla"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "see-leads",
+          "title": {
+            "pt": "Ver e filtrar os leads",
+            "en": "See and filter your leads"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Toque em Negócio (1) na fileira de abas no alto: Início, Negócio, Agenda, Analytics, Apex.",
+                "en": "Tap Business (1) in the row of tabs at the top: Home, Business, Calendar, Analytics, Apex."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/see-leads-01.pt.jpg",
+                "en": "help/img/guides/pipeline/see-leads-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O menu Negócio abre (1). Ele lista Pipeline, Orçamentos, Contratos, Projetos, Faturas, Financeiro e Preços. Toque em Pipeline (2).",
+                "en": "The Business menu opens (1). It lists Pipeline, Estimates, Contracts, Projects, Invoices, Finances and Pricing. Tap Pipeline (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/see-leads-02.pt.jpg",
+                "en": "help/img/guides/pipeline/see-leads-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "O Pipeline abre em Leads (1). Leads é a primeira de três abas: Leads, Parceiros (2) e Base de Ouro (3).",
+                "en": "The Pipeline opens on Leads (1). Leads is the first of three tabs: Leads, Partners (2) and Golden Base (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/see-leads-03.pt.jpg",
+                "en": "help/img/guides/pipeline/see-leads-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Leia as três primeiras caixas de números: Leads totais (1), Pipeline ativo ($) (2), que soma Orçamento + Follow-up + Negociação, e Receita fechada ($) (3).",
+                "en": "Read the first three number boxes: Total leads (1), Active pipeline ($) (2), which adds Estimate + Follow-up + Negotiation, and Closed revenue ($) (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/see-leads-04.pt.jpg",
+                "en": "help/img/guides/pipeline/see-leads-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Leia as próximas três caixas: Conversão (1), Fora do SLA 5 min (1º contato) (2), que é contato em até 5 minutos, e Fora do SLA 24h (orçamento) (3), que é orçamento em até 24 horas.",
+                "en": "Read the next three boxes: Conversion (1), Outside 5-min SLA (1st contact) (2), which is first contact under 5 minutes, and Outside 24h SLA (estimate) (3), which is estimate within 24 hours."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/see-leads-05.pt.jpg",
+                "en": "help/img/guides/pipeline/see-leads-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Role até a fileira de estágios (1): Novo Lead, Contato Feito, Visita Agendada, Orçamento Enviado, Follow-up, Negociação, Fechado e Perdido. Deslize a fileira para ver todos. O número em cada estágio é quantos leads ele tem.",
+                "en": "Scroll down to the row of stages (1): New Lead, Contacted, Visit Scheduled, Estimate Sent, Follow-up, Negotiation, Closed and Lost. Swipe the row to see them all. The number on each stage is how many leads it has."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/see-leads-06.pt.jpg",
+                "en": "help/img/guides/pipeline/see-leads-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Toque em um estágio (1) para ver só os leads dele (2). Aqui Orçamento Enviado mostra seus 4 leads.",
+                "en": "Tap a stage (1) to see only the leads in it (2). Here Estimate Sent shows its 4 leads."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/see-leads-07.pt.jpg",
+                "en": "help/img/guides/pipeline/see-leads-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Toque na caixa de busca (1) e digite um nome, telefone ou cidade. Uma linha diz quantos leads foram encontrados, e Limpar busca mostra a lista completa de novo.",
+                "en": "Tap the search box (1) and type a name, phone or city. A line says how many leads were found, and Clear search shows the full list again."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/see-leads-08.pt.jpg",
+                "en": "help/img/guides/pipeline/see-leads-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Abra Todos os meses (1) e escolha um mês, por exemplo Outubro 2026. O número entre parênteses é quantos leads o mês tem. O X na caixa limpa a escolha.",
+                "en": "Open All months (1) and pick a month, for example October 2026. The number in brackets is how many leads that month has. The X in the box clears it."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/see-leads-09.pt.jpg",
+                "en": "help/img/guides/pipeline/see-leads-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Abra Todos os vendedores (1) e escolha uma pessoa, por exemplo Test Sales Person. O número entre parênteses é quantos leads essa pessoa tem.",
+                "en": "Open All salespeople (1) and pick a person, for example Test Sales Person. The number in brackets is how many leads that person has."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/see-leads-10.pt.jpg",
+                "en": "help/img/guides/pipeline/see-leads-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Os números seguem seus filtros. Uma linha (1) diz o que você está vendo, por exemplo Outubro 2026 · Test Sales Person. As caixas (2) contam só esses leads. A caixa de busca não muda os números. Toque no X de um filtro para voltar a todos.",
+                "en": "The numbers follow your filters. A line (1) names what you are looking at, for example October 2026 · Test Sales Person. The boxes (2) count only those leads. The search box does not change them. Tap the X in a filter to go back to all."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/see-leads-11.pt.jpg",
+                "en": "help/img/guides/pipeline/see-leads-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Toque em um lead (1). Cada linha mostra o nome do lead, o valor e o serviço, há quantos dias ele está no estágio, e o estágio. Toque na linha para abrir esse lead.",
+                "en": "Tap a lead (1). Each row shows the lead's name, the value and service, how many days it has been in the stage, and the stage. Tap the row to open that lead."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/see-leads-12.pt.jpg",
+                "en": "help/img/guides/pipeline/see-leads-12.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "lead-sheet",
+          "title": {
+            "pt": "A ficha do lead",
+            "en": "The lead sheet"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "No alto da ficha do lead ficam os botões de contato: Ligar e WhatsApp (1), Mais formas de contato (2), Enviar cartão de contato (3) e Enviar link de agendamento (4).",
+                "en": "At the top of the lead sheet are the contact buttons: Call and WhatsApp (1), More ways to reach out (2), Send contact card (3) and Send booking link (4)."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-01.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O bloco Indicação (1) mostra Indicado por e abre o lead do cliente que indicou este. Indicação de uma indicação diz que o prospect citou outra pessoa, então você anota quem indicou.",
+                "en": "The Referral block (1) shows Referred by and opens the lead of the customer who referred this one. Referral of a referral says the prospect named someone else, so you record who referred them."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-02.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Estágio (1) mostra o estágio atual e há quantos dias o lead está nele, e diz Toque para mudar. Valor do orçamento (2) mostra o valor, ou Não definido.",
+                "en": "Stage (1) shows the current stage and how many days the lead has been in it, and says Tap to change. Estimate value (2) shows the value, or Not set."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-03.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Em Orçamentos (1) você vê os orçamentos deste lead, por exemplo EST-0031 com o status e a data de validade. + Criar orçamento (2) é como um orçamento começa: o guia Criar e enviar um orçamento mostra os passos.",
+                "en": "Under Estimates (1) you see the estimates of this lead, for example EST-0031 with its status and validity date. + Create estimate (2) is how an estimate starts: the guide Create and send an estimate shows the steps."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-04.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Próxima ação (1). Toda linha que diz Toque para preencher pode ser preenchida tocando nela.",
+                "en": "Next action (1). Every row that says Tap to fill in can be filled by tapping it."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-05.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Em Valores (1): Material ($), Mão de obra ($), Outros ($), Custo administrativo ($), Comissão vendedor ($) e Imposto ($). Toque em uma linha para preencher.",
+                "en": "Under Costs (1): Materials ($), Labor ($), Other ($), Administrative cost ($), Sales commission ($) and Tax ($). Tap a row to fill it in."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-06.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "A seção Resultado (1) é calculada pelo Apex. Você nunca digita nela. Ela mostra Custo total, Comissão (%), Lucro e Margem (2). A margem mostra um aviso quando fica abaixo da margem mínima que você definiu. A ficha do projeto tem o mesmo bloco.",
+                "en": "The Result section (1) is calculated by Apex. You never type in it. It shows Total cost, Commission (%), Profit and Margin (2). The margin shows a warning when it is under the minimum margin you set. The project sheet has the same block."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-07.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "A comissão tem sua própria linha de porcentagem (1), Comissão (%). Toque nela para definir a comissão como porcentagem do Valor do orçamento.",
+                "en": "The commission has its own percent row (1), Commission (%). Tap it to set the commission as a percent of the Estimate value."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-08.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Uma caixa abre (1). Digite uma porcentagem de 0 a 100. O Apex transforma em dólares em Comissão vendedor ($), usando o Valor do orçamento. Você também pode digitar os dólares em Comissão vendedor ($) e o Apex mostra a porcentagem. Cancelar (2) fecha sem salvar. Se o Valor do orçamento estiver vazio, a linha pede que você preencha antes.",
+                "en": "A box opens (1). Type a percent from 0 to 100. Apex turns it into dollars for Sales commission ($), using the Estimate value. You can also type the dollars in Sales commission ($) and Apex shows the percent. Cancel (2) closes without saving. If the Estimate value is empty, the row asks you to fill it in first."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-09.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Em Atividade de contato (registrado automaticamente), Nº follow-ups (1) mostra quantos follow-ups foram registrados, e diz Toque para ver o histórico. 1º contato mostra quando o primeiro contato aconteceu.",
+                "en": "Under Contact activity (tracked automatically), # follow-ups (1) shows how many follow-ups were logged, and says Tap to see the history. First contacted shows when the first contact happened."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-10.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Em Dados do lead (1): Serviço(s), Vendedor, Origem e Parceiro. Toque em uma linha para mudar.",
+                "en": "Under Lead details (1): Service(s), Salesperson, Source and Partner. Tap a row to change it."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-11.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Abaixo ficam os campos de contato (1): Telefone, Email, Rua / Endereço, Cidade, Estado, CEP / ZIP e Instruções de acesso. Toque em uma linha para preencher.",
+                "en": "Below are the contact fields (1): Phone, Email, Street, City, State, ZIP and Access notes. Tap a row to fill it in."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-12.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Outros campos (1) tem Data/hora do orçamento, Vendedor secundário (opcional), O que o cliente quer, Status financiamento, Observação do trabalho, Data/hora lead e Cliente (nome). Em Arquivos, + Adicionar PDF ou foto (2) anexa um arquivo.",
+                "en": "Other fields (1) has Estimate date/time, Second salesperson (optional), What the client wants, Financing status, Job notes, Lead date/time and Client (name). Under Files, + Add PDF or photo (2) attaches a file."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-13.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Toque no X (1) no canto superior direito para fechar a ficha do lead.",
+                "en": "Tap the X (1) at the top right to close the lead sheet."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-14.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "en": "Review the commission when the value changes. If an estimate changes the value of a lead after you set its commission, a red line (1) appears in the Estimates part of the lead sheet: Value changed from one amount to another after commission was set. Review commission. Apex does not change the commission for you. Check it, fix it if you need to, and tap Dismiss (2) to remove the line.",
+                "pt": "Revise a comissão quando o valor muda. Se um orçamento mudar o valor de um lead depois que você definiu a comissão, uma linha vermelha (1) aparece na parte Orçamentos da ficha do lead: Valor mudou de um valor para outro depois de a comissão ter sido definida. Revise a comissão. O Apex não muda a comissão por você. Confira, corrija se precisar, e toque em Dispensar (2) para tirar a linha."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-15.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-15.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "new-lead",
+          "title": {
+            "pt": "Cadastrar um novo lead",
+            "en": "Add a new lead"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Toque no botão redondo dourado + (1) no canto inferior direito do Pipeline. Ele abre o formulário Novo lead.",
+                "en": "Tap the round gold + button (1) at the bottom right of the Pipeline. It opens the New lead form."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/new-lead-01.pt.jpg",
+                "en": "help/img/guides/pipeline/new-lead-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O formulário Novo lead abre com Nome, Telefone, Endereço, Cidade e Serviço. Embaixo ele diz Estágio: Novo Lead · Data: agora. Depois de salvar você pode adicionar os detalhes.",
+                "en": "The New lead form opens with Name, Phone, Address, City and Service. At the bottom it says Stage: New Lead · Date: now. You can add details after saving."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/new-lead-02.pt.jpg",
+                "en": "help/img/guides/pipeline/new-lead-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Preencha Nome * (1). O * marca um campo obrigatório.",
+                "en": "Fill in Name * (1). The * marks a required field."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/new-lead-03.pt.jpg",
+                "en": "help/img/guides/pipeline/new-lead-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Preencha Telefone (1), Endereço (2) e Cidade (3).",
+                "en": "Fill in Phone (1), Address (2) and City (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/new-lead-04.pt.jpg",
+                "en": "help/img/guides/pipeline/new-lead-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Escolha o Serviço (1) tocando em um dos botões. O que você escolher fica dourado.",
+                "en": "Pick the Service (1) by tapping one of the buttons. The one you pick turns gold."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/new-lead-05.pt.jpg",
+                "en": "help/img/guides/pipeline/new-lead-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Toque em Salvar lead (1) para adicionar o lead, ou Cancelar (2) para fechar sem salvar.",
+                "en": "Tap Save lead (1) to add the lead, or Cancel (2) to close without saving."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/new-lead-06.pt.jpg",
+                "en": "help/img/guides/pipeline/new-lead-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Depois de salvar, uma mensagem diz Lead salvo com o botão Adicionar detalhes. O lead novo fica no estágio Novo Lead.",
+                "en": "After you save, a message says Lead saved with an Add details button. The new lead is in the New Lead stage."
+              },
+              "image": null
+            }
+          ]
+        },
+        {
+          "id": "sla",
+          "title": {
+            "pt": "As caixas de SLA",
+            "en": "The SLA boxes"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "A caixa dos 5 minutos. No Pipeline, em Leads, a caixa Fora do SLA 5 min (1º contato) (1) conta os leads cujo primeiro contato veio mais de 5 minutos depois de o lead chegar. SLA quer dizer o prazo que você promete para responder. A frase embaixo do número diz: contato em até 5 minutos. Um visto verde e 0, como na imagem, quer dizer que nenhum lead foi contatado tarde. Um ! vermelho e um número quer dizer que tantos leads esperaram demais.",
+                "en": "The 5 minute tile. In the Pipeline, under Leads, the box Outside 5-min SLA (1st contact) (1) counts the leads whose first contact came more than 5 minutes after the lead arrived. SLA means the time you promise to answer. The sentence under the number says: first contact under 5 minutes. A green check mark and 0, as in the picture, means no lead was contacted late. A red ! and a number means that many leads waited too long."
+              },
+              "image": {
+                "en": "help/img/guides/pipeline/sla-01.en.jpg",
+                "pt": "help/img/guides/pipeline/sla-01.pt.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Como o primeiro contato é registrado. Abra um lead e toque em Ligar, WhatsApp ou outro botão de contato. O Apex pergunta o que aconteceu e guarda a data, a hora e o resultado no registro de contatos do lead. Mesmo que você nunca responda, a hora em que você apertou o botão fica guardada. O primeiro contato é a hora mais antiga desse registro. Um lead sem contato registrado ainda não é contado como atrasado. Este passo não tem imagem nova, porque o portal de teste é só leitura e não apertamos os botões.",
+                "en": "How the first contact is recorded. Open a lead and tap Call, WhatsApp or another contact button. Apex asks what happened and saves the date, the time and the result in the contact log of the lead. Even if you never answer, the time you pressed the button is still saved. The first contact is the earliest time in that log. A lead with no contact logged yet is not counted as late. This step has no new picture, because the test portal is read only and we did not press the buttons."
+              },
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-01.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-01.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "A caixa das 24 horas. A caixa Fora do SLA 24h (orçamento) (1) conta os leads cujo orçamento foi enviado mais de 24 horas depois de o lead chegar. A frase embaixo do número diz: orçamento em até 24 horas. Na imagem aparece um ! vermelho e 4, então 4 leads receberam o orçamento tarde.",
+                "en": "The 24 hour tile. The box Outside 24h SLA (estimate) (1) counts the leads whose estimate was sent more than 24 hours after the lead arrived. The sentence under the number says: estimate within 24 hours. In the picture it shows a red ! and 4, so 4 leads got their estimate late."
+              },
+              "image": {
+                "en": "help/img/guides/pipeline/sla-03.en.jpg",
+                "pt": "help/img/guides/pipeline/sla-03.pt.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Como voltar ao visto verde. Um lead contatado tarde continua contado: a hora do primeiro contato não muda. Então, daqui para a frente, toque em Ligar em cada lead novo assim que ele chegar, em até 5 minutos, e responda o que aconteceu. Envie cada orçamento em até 24 horas. Os números seguem os seus filtros, então escolha um mês sem lead atrasado para ver o visto verde.",
+                "en": "How to get back to the green check. A lead that was contacted late stays counted: the first contact time does not change. So from now on tap Call on every new lead as soon as it arrives, within 5 minutes, and answer what happened. Send each estimate within 24 hours. The numbers follow your filters, so pick a month with no late lead to see the green check mark."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Mais formas de contato"
+            ],
+            "en": [
+              "More ways to reach out"
+            ]
+          },
+          "section": "lead-sheet",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Salvar lead"
+            ],
+            "en": [
+              "Save lead"
+            ]
+          },
+          "section": "new-lead",
+          "step": 6
+        },
+        {
+          "section": "see-leads",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Negócio",
+              "Pipeline"
+            ],
+            "en": [
+              "Business",
+              "Pipeline"
+            ]
+          }
+        }
+      ]
     }
   ],
   "pages": {

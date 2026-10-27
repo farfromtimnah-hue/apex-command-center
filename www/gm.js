@@ -960,18 +960,217 @@ function gmMetaCardHtml() {
   return h + '</div>';
 }
 
-// Sibling to the Meta card, same visual treatment. There is no Thumbtack
-// OAuth wired yet (dev login is pending Thumbtack's review) -- this is a
-// disabled "coming soon" placeholder only, no live connect action.
+// ── Thumbtack leads (2026-10-27) ──────────────────────────────────────────
+// Sibling to the Facebook card, same visual treatment. The owner connects the
+// business's Thumbtack account once (Estimates > Settings); from then on every
+// Thumbtack lead lands in the pipeline by itself (source "Thumbtack"). A
+// salesperson never reaches the card, and the Worker refuses a seller on every
+// route behind it.
+var gmTtStatus = null;      // last GET gm/thumbtack/status
+var gmTtLoading = false;
+var gmTtBusy = false;
+var gmTtNotice = "";        // "failed" | "nobusinesses" | "nowebhook" | "" : how the sign-in came back
+var gmTtFocus = false;      // Settings is opening to show the card
+var gmTtAwaiting = false;   // the sign-in was opened outside the app
+var gmTtReturnDone = false;
+var gmTtPhones = null;      // last GET gm/thumbtack/phones
+var gmTtPhonesLoading = false;
+
+// Read once: how the Thumbtack sign-in came back (?thumbtack=...). The word is
+// taken out of the address so a reload does not repeat the message.
+function gmTtReturnRead() {
+  if (gmTtReturnDone) { return; }
+  gmTtReturnDone = true;
+  var m = /[?&]thumbtack=([a-z]+)/.exec(window.location.search || "");
+  if (!m) { return; }
+  gmEstimatesSection = "settings";
+  gmTtFocus = true;
+  gmTtStatus = null;
+  gmTtNotice = (m[1] === "failed" || m[1] === "nobusinesses" || m[1] === "nowebhook") ? m[1] : "";
+  try {
+    var rest = (window.location.search || "").replace(/([?&])thumbtack=[a-z]+(&|$)/, function(all, a, b) { return b ? a : ""; });
+    window.history.replaceState(null, "", window.location.pathname + rest + window.location.hash);
+  } catch (e) {}
+}
+function gmTtFocusCard() {
+  if (!gmTtFocus || gmEstimatesSection !== "settings") { return; }
+  var el = document.getElementById("gmThumbtackCard");
+  if (!el) { return; }
+  gmTtFocus = false;
+  try { el.scrollIntoView({ block: "center" }); } catch (e) { try { el.scrollIntoView(); } catch (e2) {} }
+}
+function gmTtLoad(force) {
+  if (gmTtLoading || (gmTtStatus && !force)) { return; }
+  gmTtLoading = true;
+  gmApi("thumbtack/status").then(function(d) {
+    gmTtLoading = false; gmTtStatus = d || { available: false, connected: false, businesses: [] };
+    if (gmTtStatus.connected) { gmTtAwaiting = false; }
+    gmRenderEstimatesTab();
+  }).catch(function(e) {
+    gmTtLoading = false; gmTtStatus = { available: false, connected: false, businesses: [] };
+    console.error("thumbtack status: " + e.message); gmRenderEstimatesTab();
+  });
+}
+function gmTtBusinessesHtml(st) {
+  var h = "";
+  (st.businesses || []).forEach(function(b) {
+    h += '<p style="margin:4px 0;"><strong>' + escHtml(b.name) + '</strong> ' +
+      (b.subscribed ? '<span class="muted">' + escHtml(gmT("recebendo leads", "receiving leads")) + '</span>' : "") + '</p>';
+    if (b.problem || !b.subscribed) {
+      h += '<p class="gm-warn" style="margin:0 0 6px;">' + escHtml(gmT(
+        "O Thumbtack não deixou ligar os leads deste negócio. Toque em Reconectar e tente de novo.",
+        "Thumbtack did not let the leads of this business connect. Tap Reconnect and try again.")) + '</p>';
+    }
+  });
+  return h;
+}
 function gmThumbtackCardHtml() {
   if (gmIsSeller()) { return ""; }
-  return '<div class="content-card" id="gmThumbtackCard"><div class="card-title">' +
+  var st = gmTtStatus;
+  var h = '<div class="content-card" id="gmThumbtackCard"><div class="card-title">' +
     escHtml(gmT("Leads do Thumbtack", "Thumbtack leads")) + '</div>' +
     '<p class="muted" style="margin-bottom:12px;">' + escHtml(gmT(
       "Conecte o Thumbtack e os leads caem direto no seu funil, automaticamente.",
-      "Connect Thumbtack and its leads land in your pipeline automatically.")) + '</p>' +
-    '<button type="button" class="gm-btn-secondary" disabled>' + escHtml(gmT("Em breve", "Coming soon")) + '</button>' +
-    '</div>';
+      "Connect Thumbtack and its leads land in your pipeline automatically.")) + '</p>';
+  if (!st) {
+    gmTtLoad(false);
+    return h + '<p class="muted">' + escHtml(gmT("Verificando o Thumbtack...", "Checking Thumbtack...")) + '</p></div>';
+  }
+  if (!st.available) {
+    return h + '<p class="muted">' + escHtml(gmT("Ainda não disponível.", "Not available yet.")) + '</p></div>';
+  }
+  var tryAgain = '<button type="button" class="gm-btn-primary" onclick="gmTtConnect(this)">' + escHtml(gmT("Tentar de novo", "Try again")) + '</button>';
+  if (gmTtNotice === "failed") {
+    h += '<p class="gm-warn" style="margin:0 0 10px;">' + escHtml(gmT("O Thumbtack não foi conectado. Nada mudou.", "Thumbtack was not connected. Nothing changed.")) + '</p>';
+    if (!st.connected) { return h + tryAgain + '</div>'; }
+  }
+  if (gmTtNotice === "nobusinesses") {
+    h += '<p class="gm-warn" style="margin:0 0 10px;">' + escHtml(gmT(
+      "O Thumbtack não liberou nenhum negócio. Nada mudou. Entre de novo com a conta do negócio.",
+      "Thumbtack did not share any business. Nothing changed. Sign in again with your business account.")) + '</p>';
+    if (!st.connected) { return h + tryAgain + '</div>'; }
+  }
+  if (gmTtNotice === "nowebhook") {
+    h += '<p class="gm-warn" style="margin:0 0 10px;">' + escHtml(gmT(
+      "Conectado, mas o Thumbtack não ligou o envio de leads. Toque em Reconectar.",
+      "Connected, but Thumbtack did not turn lead delivery on. Tap Reconnect.")) + '</p>';
+  }
+  if (!st.connected) {
+    return h + '<button type="button" class="gm-btn-primary" onclick="gmTtConnect(this)">' + escHtml(gmT("Conectar Thumbtack", "Connect Thumbtack")) + '</button>' +
+      (gmTtAwaiting ? ' <button type="button" class="gm-btn-secondary" onclick="gmTtLoad(true)">' + escHtml(gmT("Atualizar status", "Refresh status")) + '</button>' : "") + '</div>';
+  }
+  if (st.needs_reconnect) {
+    h += '<p class="gm-warn" style="margin:0 0 8px;">' + escHtml(gmT("O Thumbtack precisa ser reconectado", "Thumbtack needs to be reconnected")) + '</p>' +
+      '<p style="margin:0 0 12px;"><button type="button" class="gm-btn-primary" onclick="gmTtConnect(this)">' + escHtml(gmT("Reconectar", "Reconnect")) + '</button></p>';
+  }
+  h += gmTtBusinessesHtml(st);
+  h += '<p class="muted" style="margin:8px 0 2px;">' + escHtml(gmT("Conectado em ", "Connected ") + formatDateUTC(st.connected_at) +
+    (st.connected_by ? gmT(" por ", " by ") + st.connected_by : "")) + '</p>' +
+    '<p class="muted" style="margin:0 0 12px;">' + escHtml(st.last_lead_at
+      ? gmT("Último lead: ", "Last lead: ") + formatDateTimeUTC(st.last_lead_at)
+      : gmT("Nenhum lead recebido ainda", "No leads received yet")) + '</p>';
+  h += gmTtPhonesHtml(st);
+  h += '<button type="button" class="gm-btn-secondary" onclick="gmTtDisconnect()">' + escHtml(gmT("Desconectar", "Disconnect")) + '</button>';
+  return h + '</div>';
+}
+// The phone numbers Thumbtack holds for the business: listed on request, and
+// one number is added only when the owner types it and taps Add.
+function gmTtPhonesHtml(st) {
+  var h = '<div style="margin:0 0 14px;"><p style="margin:0 0 6px;"><strong>' + escHtml(gmT("Telefones no Thumbtack", "Phone numbers on Thumbtack")) + '</strong></p>' +
+    '<p class="muted" style="margin:0 0 8px;">' + escHtml(gmT(
+      "O Thumbtack usa estes números para o identificador de chamadas e a comunicação com o cliente.",
+      "Thumbtack uses these numbers for caller ID and for talking to the customer.")) + '</p>';
+  if (!gmTtPhones) {
+    return h + '<button type="button" class="gm-btn-secondary" onclick="gmTtPhonesLoad(this)">' + escHtml(gmT("Ver telefones", "Show phone numbers")) + '</button></div>';
+  }
+  var opts = "";
+  (gmTtPhones.businesses || []).forEach(function(b) {
+    opts += '<option value="' + escHtml(b.business_id) + '">' + escHtml(b.name) + '</option>';
+    if (!(b.numbers || []).length) {
+      h += '<p class="muted" style="margin:2px 0;">' + escHtml(b.name + ": " + gmT("nenhum telefone", "no phone numbers")) + '</p>';
+    }
+    (b.numbers || []).forEach(function(n) {
+      h += '<p style="margin:2px 0;">' + escHtml((n.name || "") + (n.name && n.phone ? " · " : "") + (n.phone || "")) + '</p>';
+    });
+  });
+  h += '<div style="margin:10px 0 0;">' +
+    ((gmTtPhones.businesses || []).length > 1 ? '<label class="muted" for="gmTtPhoneBiz">' + escHtml(gmT("Negócio", "Business")) + '</label><select id="gmTtPhoneBiz" style="min-height:44px;width:100%;margin-bottom:8px;">' + opts + '</select>' : '') +
+    '<label class="muted" for="gmTtPhoneName">' + escHtml(gmT("Nome da pessoa", "Person's name")) + '</label>' +
+    '<input id="gmTtPhoneName" type="text" autocomplete="off" style="min-height:44px;width:100%;margin-bottom:8px;">' +
+    '<label class="muted" for="gmTtPhoneNum">' + escHtml(gmT("Telefone (EUA)", "Phone (US)")) + '</label>' +
+    '<input id="gmTtPhoneNum" type="tel" inputmode="tel" autocomplete="off" style="min-height:44px;width:100%;margin-bottom:8px;">' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmTtPhoneAdd(this)">' + escHtml(gmT("Adicionar telefone", "Add phone number")) + '</button></div></div>';
+  return h;
+}
+function gmTtPhonesLoad(btn) {
+  if (gmTtPhonesLoading) { return; }
+  gmTtPhonesLoading = true;
+  if (btn) { btn.disabled = true; }
+  gmApi("thumbtack/phones").then(function(d) {
+    gmTtPhonesLoading = false; gmTtPhones = d || { businesses: [] };
+    gmRenderEstimatesTab();
+  }).catch(function(e) { gmTtPhonesLoading = false; if (btn) { btn.disabled = false; } gmToast(e.message); console.error("thumbtack phones: " + e.message); });
+}
+function gmTtPhoneAdd(btn) {
+  if (gmTtBusy) { return; }
+  var name = (document.getElementById("gmTtPhoneName") || {}).value || "";
+  var num = (document.getElementById("gmTtPhoneNum") || {}).value || "";
+  var bizEl = document.getElementById("gmTtPhoneBiz");
+  var biz = bizEl ? bizEl.value : (gmTtPhones && gmTtPhones.businesses && gmTtPhones.businesses[0] ? gmTtPhones.businesses[0].business_id : "");
+  gmTtBusy = true;
+  if (btn) { btn.disabled = true; }
+  gmApi("thumbtack/phones", { method: "POST", body: { business_id: biz, phone: num, name: name } }).then(function() {
+    gmTtBusy = false; gmTtPhones = null;
+    gmToast(gmT("Telefone adicionado.", "Phone number added."));
+    gmTtPhonesLoad(null);
+  }).catch(function(e) { gmTtBusy = false; if (btn) { btn.disabled = false; } gmToast(e.message); console.error("thumbtack phone add: " + e.message); });
+}
+// Asks the Worker for Thumbtack's sign-in address and goes there in this tab.
+function gmTtConnect(btn) {
+  if (gmTtBusy) { return; }
+  gmTtBusy = true;
+  if (btn) { btn.disabled = true; }
+  gmApi("thumbtack/connect", { method: "POST", body: {} }).then(function(d) {
+    gmTtBusy = false;
+    if (!d || !d.url || String(d.url).indexOf("https://") !== 0) { throw new Error(gmT("O Thumbtack não respondeu.", "Thumbtack did not answer.")); }
+    if (gmInApp()) {
+      apexOpenExternal(d.url);
+      gmTtAwaiting = true; gmTtNotice = "";
+      gmToast(gmT("Termine no Thumbtack, volte aqui e toque em Atualizar status.", "Finish on Thumbtack, come back here and tap Refresh status."));
+      gmRenderEstimatesTab();
+      return;
+    }
+    window.location.href = d.url;
+  }).catch(function(e) { gmTtBusy = false; if (btn) { btn.disabled = false; } gmToast(e.message); console.error("thumbtack connect: " + e.message); });
+}
+function gmTtDisconnect() {
+  gmAsk({
+    message: gmT("Desconectar o Thumbtack?\n\nOs novos leads do Thumbtack param de chegar. Os leads que você já recebeu continuam no seu funil, mas os detalhes do Thumbtack são apagados.",
+                 "Disconnect Thumbtack?\n\nNew Thumbtack leads stop arriving. The leads you already received stay in your pipeline, but Thumbtack's extra details are erased."),
+    yes: gmT("Sim, desconectar o Thumbtack", "Yes, disconnect Thumbtack"), keep: gmT("Manter conectado", "Keep it connected"),
+    onYes: function() { gmTtDisconnectDo(); }
+  });
+}
+function gmTtDisconnectDo() {
+  gmApi("thumbtack/disconnect", { method: "POST", body: {} }).then(function(d) {
+    gmTtStatus = d; gmTtNotice = ""; gmTtAwaiting = false; gmTtPhones = null;
+    gmRenderEstimatesTab();
+  }).catch(function(e) { gmToast(e.message); console.error("thumbtack disconnect: " + e.message); });
+}
+// A lead that came from Thumbtack shows its service, price and answers.
+function gmThumbtackLeadHtml(lead) {
+  if (!lead || !lead.thumbtack_negotiation_id) { return ""; }
+  var rows = gmSheetRowHtml("compass", gmT("Veio de", "Came from"), escHtml("Thumbtack"));
+  if (lead.thumbtack_category) { rows += gmSheetRowHtml("tag", gmT("Serviço", "Service"), escHtml(lead.thumbtack_category)); }
+  if (lead.thumbtack_lead_price) { rows += gmSheetRowHtml("tag", gmT("Preço do lead", "Lead price"), escHtml(lead.thumbtack_lead_price)); }
+  var details = [];
+  try { details = JSON.parse(lead.thumbtack_details_json || "[]") || []; } catch (e) { details = []; }
+  if (!Array.isArray(details)) { details = []; }
+  details.forEach(function(a) {
+    if (!a || !a.q || !a.a) { return; }
+    rows += gmSheetRowHtml("check", escHtml(a.q === "Description" ? gmT("Descrição", "Description") : String(a.q)), escHtml(String(a.a)));
+  });
+  return gmSheetSection(gmT("Do Thumbtack", "From Thumbtack"), rows);
 }
 
 // Asks the Worker for Facebook's sign-in address and goes there in this tab.
@@ -3109,6 +3308,7 @@ function gmRenderLeadSheet() {
   // Job 38: a lead from a Facebook or Instagram lead ad shows the ad and the
   // answers from its form.
   body += gmMetaLeadHtml(lead);
+  body += gmThumbtackLeadHtml(lead);
 
   // ── Everything else, still tap-to-edit ────────────────────────────────
   // The remaining fields keep the flat treatment: they are lower-frequency,
@@ -10465,6 +10665,7 @@ function gmLoadEstimates() {
     return;
   }
   gmMetaReturnRead();
+  gmTtReturnRead();
   // gm/config is loaded alongside doc-settings: the Serviços list lives on
   // gm_config.servicos_json, not gm_doc_settings, but is edited from this
   // same mandatory first-run screen (see gmDocSettingsFormHtml).
@@ -10519,6 +10720,7 @@ function gmRenderEstimatesTab() {
   body.innerHTML = html;
   gmReviewFocusSettingsField();
   gmMetaFocusCard();
+  gmTtFocusCard();
   gmDocMaybeScrollToFirstPending();
 }
 

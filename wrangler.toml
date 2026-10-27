@@ -94,6 +94,14 @@ FIREBASE_PROJECT_ID          = "apex-command-center-4b038"
 TWILIO_FROM_NUMBER           = ""
 TWILIO_MESSAGING_SERVICE_SID = ""
 REMINDER_TEXTS_ENABLED       = ""
+# Thumbtack leads (2026-10-27): the credentials are Worker SECRETS
+# (`wrangler secret put`), never set here. Staging: THUMBTACK_STAGING_CLIENT_ID
+# and THUMBTACK_STAGING_CLIENT_SECRET (already set by Nicole). Production:
+# THUMBTACK_CLIENT_ID and THUMBTACK_CLIENT_SECRET. Until the pair for the
+# current mode exists the Thumbtack card reads "Not available yet" and the
+# webhook answers 503. Optional Worker variables: THUMBTACK_ENV = "production"
+# (default is staging) and THUMBTACK_AUTH_ORIGIN (the sign-in host, when it
+# differs from the one in the code).
 # Task 5.2: "Meu próprio contrato" -- the Claude model that reads an
 # uploaded PDF contract and maps its clauses onto the Apex standard
 # template's own areas. Defaults to claude-sonnet-5-5 in code

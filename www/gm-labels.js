@@ -282,6 +282,7 @@
     "Indicação": "Referral",
     "Base de Clientes": "Customer base",
     "Parceiro": "Partner",
+    "Thumbtack": "Thumbtack",
     "Google": "Google",
     "Instagram": "Instagram",
     "Site": "Website",

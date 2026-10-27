@@ -15953,6 +15953,8 @@ function clientRequestAllowed(path, method, clientId) {
                 // Job 38: the owner's Facebook Page connection (owner only: the
                 // handler refuses a seller and the seller list never names it).
                 if (gmRest === "meta/status") { return true; }
+                // Thumbtack leads (2026-10-27): the owner's connection and phone numbers (owner only: the handler refuses a seller).
+                if (gmRest === "thumbtack/status" || gmRest === "thumbtack/phones") { return true; }
                 // Hero follow-up (B3): the client's private hero collections
                 // (empty for every client not on a collection's list).
                 if (gmRest === "hero-gallery-private") { return true; }
@@ -16037,6 +16039,8 @@ function clientRequestAllowed(path, method, clientId) {
                     gmRest === "stripe/tap/shared-details") { return true; }
                 // Job 38: connect, choose Pages, disconnect Facebook (owner only).
                 if (gmRest === "meta/connect" || gmRest === "meta/pages" || gmRest === "meta/disconnect") { return true; }
+                // Thumbtack leads (2026-10-27): connect, disconnect, add a phone number (owner only).
+                if (gmRest === "thumbtack/connect" || gmRest === "thumbtack/disconnect" || gmRest === "thumbtack/phones") { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 // G5e: a hand-made project becomes a lead (owner only; never
                 // on the seller list, the handler refuses sellers too).
@@ -22806,7 +22810,7 @@ function gmStageKey(v) {
 // a referral attributed to a partner or customer) -- this page credits no
 // referring person at all, so it needs its own value an owner or Rafa can
 // tell apart in the pipeline.
-var GM_ORIGENS = ["Orgânico", "Tráfego pago", "Indicação", "Base de Clientes", "Parceiro", "Link da bio", "Google", "Instagram", "Site", "Outro"];
+var GM_ORIGENS = ["Orgânico", "Tráfego pago", "Indicação", "Base de Clientes", "Parceiro", "Link da bio", "Thumbtack", "Google", "Instagram", "Site", "Outro"];
 var GM_ROADMAP_STATUSES = ["Realizado", "Em andamento", "Pendente", "Atrasado", "Cancelado"];
 var GM_FRENTES = ["Comercial", "Gestão", "Base de Ouro", "Financeiro", "Parcerias", "Marketing", "Operação"];
 var GM_BASE_OURO_STATUSES = ["Não contatado", "Contatado", "Interessado", "Reativado", "Sem interesse"];
@@ -38018,26 +38022,722 @@ async function handleGetMetaDeletionStatus(code, request, env) {
     return new Response(html, { status: day ? 200 : 404, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
 }
 
-// ── Thumbtack Partner API (stub, 2026-10-10) ────────────────────────────
-// This address is for Thumbtack's Partner API "Request Access" form (the
-// Redirect URI field), filed before the real OAuth token exchange is built.
-// Thumbtack has not approved access and has issued no app credentials yet,
-// so this is not wired to anything: it exists so the URL is stable and live
-// today, and logs whatever arrives so nothing sent here is silently lost
-// while the real connection flow (mirroring handleGetMetaCallback above) is
-// written once Thumbtack approves and real payloads can be seen.
+// ── Thumbtack Partner API: lead connection (2026-10-27) ──────────────────
+// The owner (never a salesperson) connects the business's Thumbtack account
+// once (Estimates > Settings). Thumbtack then calls this Worker for every new
+// lead (a "negotiation", event NegotiationCreatedV4) and the lead lands in the
+// pipeline by itself, with origem "Thumbtack". Modelled on the Meta lead ads
+// section above: same sealed tokens, single-use sign-in state, one stored row
+// per lead event, and an "unavailable until configured" switch.
+//
+// EVERY Thumbtack address and parameter is in THUMBTACK below, and only there.
+// Read from Thumbtack's OpenAPI file (api.thumbtack.com/docs/thumbtack_api_latest.json,
+// version 4.0.0). NOTHING here was run against Thumbtack yet: correct THUMBTACK
+// after the first staging test (the staging sign-in host and how the token
+// call authenticates are the two guesses).
+//
+// Tokens are stored sealed with tokenSeal and are never returned to the
+// browser and never logged. The tables arrive in migrations/thumbtack_connect.sql.
+// This Worker is safe to deploy before OR after it: with no tables the portal
+// reads "not available yet" and the webhook answers 503.
 var THUMBTACK = {
-    callback_path: "/api/thumbtack/callback"
+    callback_path: "/api/thumbtack/callback",
+    webhook_path: "/api/thumbtack/webhook/",
+    // This Worker's own public address (the same one the Request Access form got).
+    worker_origin: "https://apex-api.farfromtimnah.workers.dev",
+    api_origin: { staging: "https://staging-api.thumbtack.com/api", production: "https://api.thumbtack.com/api" },
+    // The spec names only the production sign-in host. For staging set the
+    // Worker variable THUMBTACK_AUTH_ORIGIN (no trailing slash) once Thumbtack's
+    // staging email names it.
+    auth_origin: { staging: "https://auth.thumbtack.com", production: "https://auth.thumbtack.com" },
+    authorize_path: "/oauth2/auth",
+    token_path: "/oauth2/token",
+    // How the token call proves who we are: "basic" = HTTP Basic header,
+    // "post" = client_id and client_secret in the form body. Unverified.
+    token_auth: "basic",
+    scopes: [
+        "offline_access",
+        "supply::businesses.list",
+        "supply::negotiations.read",
+        "supply::webhooks.read",
+        "supply::webhooks.write",
+        "supply::users.read",
+        "supply::users.disconnect",
+        "supply::businesses/associate-phone-numbers.read",
+        "supply::businesses/associate-phone-numbers.write"
+    ],
+    event_type: "NegotiationCreatedV4",
+    header_name: "X-Apex-Thumbtack",
+    state_minutes: 15,
+    raw_keep_days: 90,
+    portal_return: DEFAULT_ORIGIN + "/portal.html?tab=gmestimates"
 };
-async function handleGetThumbtackCallback(request, env) {
+var THUMBTACK_LEAD_ORIGEM = "Thumbtack";
+var THUMBTACK_ACTOR = "Thumbtack lead";
+var THUMBTACK_NA_PT = "Ainda não disponível.";
+var THUMBTACK_NA_EN = "Not available yet.";
+
+// The Worker settings, trimmed. ready is false when the app id or secret of the
+// current mode is missing, or when there is no key to seal the tokens with.
+function thumbtackSettings(env) {
+    var e = env || {};
+    var mode = String(e.THUMBTACK_ENV || "").trim().toLowerCase() === "production" ? "production" : "staging";
+    var authOrigin = String(e.THUMBTACK_AUTH_ORIGIN || "").trim().replace(/\/+$/, "") || THUMBTACK.auth_origin[mode];
+    // Staging and production use DIFFERENT credentials, kept under different
+    // secret names so one can never be sent to the other's host.
+    var staging = mode !== "production";
+    var out = {
+        client_id: String((staging ? e.THUMBTACK_STAGING_CLIENT_ID : e.THUMBTACK_CLIENT_ID) || "").trim(),
+        client_secret: String((staging ? e.THUMBTACK_STAGING_CLIENT_SECRET : e.THUMBTACK_CLIENT_SECRET) || "").trim(),
+        mode: mode,
+        api_origin: THUMBTACK.api_origin[mode],
+        auth_origin: authOrigin
+    };
+    out.ready = !!(out.client_id && out.client_secret && String(e.TOKEN_ENC_KEY || "").trim());
+    return out;
+}
+
+// False until migrations/thumbtack_connect.sql has run.
+async function thumbtackTablesReady(env) {
     try {
-        var url = new URL(request.url);
-        console.log("thumbtack callback stub hit: " + url.search);
-    } catch (e) { console.error("thumbtack callback stub failed: " + (e && e.message)); }
-    return new Response(
-        "Apex Lead Sync. This address is reserved for Thumbtack's Partner API connection flow; it is not yet wired to a client account.",
-        { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } }
-    );
+        await env.DB.prepare("SELECT client_id FROM gm_thumbtack_connections LIMIT 1").first();
+        await env.DB.prepare("SELECT thumbtack_negotiation_id FROM gm_leads LIMIT 1").first();
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function thumbtackNotAvailable() {
+    return jsonErr2(THUMBTACK_NA_PT, THUMBTACK_NA_EN, 503, { available: false });
+}
+
+function thumbtackOwnerGuard(user, clientId) {
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (!requireClientAccess(user, clientId)) { return jsonErr("Forbidden", 403); }
+    if (sessionSellerName(user)) { return jsonErr2("Só o dono da empresa pode conectar o Thumbtack.", "Only the business owner can connect Thumbtack.", 403); }
+    return null;
+}
+
+function thumbtackRedirectUri() { return THUMBTACK.worker_origin + THUMBTACK.callback_path; }
+
+function thumbtackWebhookUrl(token) { return THUMBTACK.worker_origin + THUMBTACK.webhook_path + token; }
+
+// The value Thumbtack sends back in the custom header of every webhook call
+// for one business: a keyed hash of its address token, so it cannot be
+// guessed from the address alone. Stable, so nothing needs storing.
+async function thumbtackHeaderValue(cfg, webhookToken) {
+    return metaHex(await metaHmac(cfg.client_secret, new TextEncoder().encode("thumbtack-webhook:" + webhookToken)));
+}
+
+// One call to Thumbtack. Throws an Error whose message is already scrubbed;
+// ttStatus says what Thumbtack answered (0 = Thumbtack was not reached).
+async function thumbtackFetch(method, url, opts, secrets) {
+    var o = opts || {};
+    var init = { method: method, headers: o.headers || {} };
+    if (o.form) {
+        var qs = [];
+        Object.keys(o.form).forEach(function(k) { qs.push(encodeURIComponent(k) + "=" + encodeURIComponent(String(o.form[k]))); });
+        init.headers["Content-Type"] = "application/x-www-form-urlencoded";
+        init.body = qs.join("&");
+    } else if (o.json !== undefined) {
+        init.headers["Content-Type"] = "application/json";
+        init.body = JSON.stringify(o.json);
+    }
+    var res = null;
+    try {
+        res = await fetch(url, init);
+    } catch (e) {
+        var down = new Error("Thumbtack could not be reached");
+        down.ttStatus = 0;
+        throw down;
+    }
+    var data = null;
+    try { data = await res.json(); } catch (e2) { data = null; }
+    if (!res.ok) {
+        var msg = (data && (data.detail || data.error_description || data.title || data.error)) || ("Thumbtack answered HTTP " + res.status);
+        var err = new Error(metaScrub(String(msg), secrets));
+        err.ttStatus = res.status;
+        throw err;
+    }
+    return data || {};
+}
+
+// A call to the API with the Pro's access token.
+function thumbtackApi(cfg, token, method, path, json, secrets) {
+    var opts = { headers: { "Authorization": "Bearer " + token, "Accept": "application/json" } };
+    if (json !== undefined && json !== null) { opts.json = json; }
+    return thumbtackFetch(method, cfg.api_origin + path, opts, secrets);
+}
+
+// true = worth trying again by itself; false = the owner has to sign in again.
+function thumbtackErrTransient(e) {
+    if (!e || e.ttStatus === undefined) { return true; }
+    return e.ttStatus === 0 || e.ttStatus >= 500 || e.ttStatus === 429;
+}
+
+// The token call: authorization_code (with code) or refresh_token.
+async function thumbtackTokenCall(cfg, form, secrets) {
+    var headers = {};
+    var body = {};
+    Object.keys(form).forEach(function(k) { body[k] = form[k]; });
+    if (THUMBTACK.token_auth === "post") {
+        body.client_id = cfg.client_id;
+        body.client_secret = cfg.client_secret;
+    } else {
+        headers["Authorization"] = "Basic " + btoa(cfg.client_id + ":" + cfg.client_secret);
+    }
+    headers["Accept"] = "application/json";
+    var tok = await thumbtackFetch("POST", cfg.auth_origin + THUMBTACK.token_path, { headers: headers, form: body }, secrets);
+    var access = String((tok && tok.access_token) || "");
+    if (!access) { throw new Error("Thumbtack returned no access token"); }
+    return {
+        access: access,
+        refresh: tok.refresh_token ? String(tok.refresh_token) : null,
+        expires_in: Number(tok.expires_in) > 0 ? Number(tok.expires_in) : 3600
+    };
+}
+
+function thumbtackAuthorizeUrl(cfg, state) {
+    return cfg.auth_origin + THUMBTACK.authorize_path +
+        "?client_id=" + encodeURIComponent(cfg.client_id) +
+        "&response_type=code" +
+        "&redirect_uri=" + encodeURIComponent(thumbtackRedirectUri()) +
+        "&scope=" + encodeURIComponent(THUMBTACK.scopes.join(" ")) +
+        "&state=" + encodeURIComponent(state);
+}
+
+// Back to the owner's settings screen. The address carries one plain word and
+// nothing else: never the code, never a token.
+function thumbtackBack(result) {
+    return new Response(null, { status: 302, headers: {
+        "Location": THUMBTACK.portal_return + "&thumbtack=" + encodeURIComponent(result),
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer"
+    } });
+}
+
+// Marks the state used and returns its row, or null when it is unknown,
+// already used or older than 15 minutes. One statement decides, so two
+// requests carrying the same state cannot both win.
+async function thumbtackStateUse(env, state) {
+    if (!/^[a-f0-9]{48}$/.test(String(state || ""))) { return null; }
+    var upd = await env.DB.prepare(
+        "UPDATE gm_thumbtack_oauth_states SET used_at = datetime('now') WHERE state = ? AND used_at IS NULL AND expires_at > datetime('now')"
+    ).bind(state).run();
+    if (!upd.meta || upd.meta.changes !== 1) { return null; }
+    return env.DB.prepare("SELECT client_id, login_key, actor_name FROM gm_thumbtack_oauth_states WHERE state = ?").bind(state).first();
+}
+
+// Thumbtack refused the token and a refresh failed: the card asks for a
+// reconnect and the owner gets ONE push about it, however many leads wait.
+async function thumbtackFlagReconnect(env, clientId, message) {
+    await env.DB.prepare("UPDATE gm_thumbtack_connections SET needs_reconnect = 1, last_error = ?, updated_at = datetime('now') WHERE client_id = ?").bind(message || null, clientId).run();
+    var first = await env.DB.prepare("UPDATE gm_thumbtack_connections SET reconnect_pushed_at = datetime('now') WHERE client_id = ? AND reconnect_pushed_at IS NULL").bind(clientId).run();
+    if (!first.meta || first.meta.changes !== 1) { return; }
+    try {
+        var client = await env.DB.prepare("SELECT language FROM clients WHERE id = ?").bind(clientId).first();
+        var pt = !client || client.language !== "en";
+        var targets = await gmClientPushTargets(env, clientId, { owner: true });
+        if (!targets.length) { return; }
+        await pushToUsers(env, targets, {
+            title: pt ? "O Thumbtack precisa ser reconectado" : "Thumbtack needs to be reconnected",
+            body: pt ? "Abra os Ajustes e reconecte para continuar recebendo os seus leads." : "Open Settings and reconnect to keep receiving your leads.",
+            url: "/portal.html?tab=gmestimates&thumbtack=reconnect",
+            tag: "thumbtack-reconnect-" + clientId
+        });
+    } catch (e) { console.error("thumbtack reconnect push failed", e && e.message); }
+}
+
+// The access token of one business, refreshed first when it is about to run
+// out. A refresh Thumbtack refuses flags the reconnect and throws.
+async function thumbtackAccessToken(env, cfg, clientId) {
+    var conn = await env.DB.prepare("SELECT token_sealed, refresh_sealed, token_expires_at FROM gm_thumbtack_connections WHERE client_id = ?").bind(clientId).first();
+    if (!conn) { throw new Error("Thumbtack is not connected"); }
+    var token = await tokenOpen(env, conn.token_sealed);
+    var expiring = conn.token_expires_at && String(conn.token_expires_at) < new Date(Date.now() + 120000).toISOString().replace("T", " ").slice(0, 19);
+    if (!expiring) { return token; }
+    if (!conn.refresh_sealed) { return token; }
+    var refresh = "";
+    var secrets = [token];
+    try {
+        refresh = await tokenOpen(env, conn.refresh_sealed);
+        secrets.push(refresh);
+        var t = await thumbtackTokenCall(cfg, { grant_type: "refresh_token", refresh_token: refresh }, secrets.concat([cfg.client_secret]));
+        var sealed = await tokenSeal(env, t.access);
+        var sealedRefresh = t.refresh ? await tokenSeal(env, t.refresh) : conn.refresh_sealed;
+        await env.DB.prepare(
+            "UPDATE gm_thumbtack_connections SET token_sealed = ?, refresh_sealed = ?, token_expires_at = datetime('now', ?), needs_reconnect = 0, last_error = NULL, updated_at = datetime('now') WHERE client_id = ?"
+        ).bind(sealed, sealedRefresh, "+" + t.expires_in + " seconds", clientId).run();
+        return t.access;
+    } catch (e) {
+        if (!thumbtackErrTransient(e)) {
+            await thumbtackFlagReconnect(env, clientId, metaScrub(e && e.message, secrets) || "refresh refused");
+        }
+        throw e;
+    }
+}
+
+// What the card shows. Never a token, and never Thumbtack's own error text.
+async function thumbtackStatusPayload(env, clientId) {
+    var cfg = thumbtackSettings(env);
+    if (!cfg.ready || !(await thumbtackTablesReady(env))) { return { available: false, connected: false, businesses: [] }; }
+    var conn = await env.DB.prepare("SELECT connected_by, connected_at, needs_reconnect FROM gm_thumbtack_connections WHERE client_id = ?").bind(clientId).first();
+    if (!conn) { return { available: true, connected: false, businesses: [] }; }
+    var rows = (await env.DB.prepare(
+        "SELECT business_id, name, subscribed, last_error, last_lead_at FROM gm_thumbtack_businesses WHERE client_id = ? ORDER BY name COLLATE NOCASE, business_id"
+    ).bind(clientId).all()).results || [];
+    var last = null;
+    var on = 0;
+    var businesses = rows.map(function(r) {
+        if (r.subscribed) { on++; }
+        if (r.last_lead_at && (!last || r.last_lead_at > last)) { last = r.last_lead_at; }
+        return { business_id: String(r.business_id), name: r.name || String(r.business_id), subscribed: !!r.subscribed, problem: !!r.last_error, last_lead_at: r.last_lead_at || null };
+    });
+    return {
+        available: true, connected: true, needs_reconnect: !!conn.needs_reconnect, mode: cfg.mode,
+        connected_at: conn.connected_at || null, connected_by: conn.connected_by || null,
+        businesses: businesses, subscribed_count: on, last_lead_at: last
+    };
+}
+
+// Turns one business's lead webhook on or off at Thumbtack and records the
+// result. Returns true when the business ended in the state that was asked for.
+async function thumbtackSubscribe(env, cfg, clientId, businessId, on) {
+    var biz = await env.DB.prepare("SELECT * FROM gm_thumbtack_businesses WHERE client_id = ? AND business_id = ?").bind(clientId, businessId).first();
+    if (!biz) { return false; }
+    var token = "";
+    try { token = await thumbtackAccessToken(env, cfg, clientId); } catch (e0) { token = ""; }
+    var secrets = [token, cfg.client_secret];
+    if (on) {
+        try {
+            if (!token) { throw new Error("The stored Thumbtack token could not be used"); }
+            if (biz.subscribed && biz.webhook_id) { return true; }
+            var made = await thumbtackApi(cfg, token, "POST", "/v4/businesses/" + encodeURIComponent(businessId) + "/webhooks", {
+                webhookURL: thumbtackWebhookUrl(biz.webhook_token),
+                eventTypes: [THUMBTACK.event_type],
+                enabled: true,
+                auth: { header: THUMBTACK.header_name, value: await thumbtackHeaderValue(cfg, biz.webhook_token) }
+            }, secrets);
+            var wid = made && made.webhookID !== undefined && made.webhookID !== null ? String(made.webhookID) : null;
+            await env.DB.prepare("UPDATE gm_thumbtack_businesses SET subscribed = 1, webhook_id = ?, last_error = NULL, updated_at = datetime('now') WHERE id = ?").bind(wid, biz.id).run();
+            return true;
+        } catch (e) {
+            await env.DB.prepare("UPDATE gm_thumbtack_businesses SET subscribed = 0, last_error = ?, updated_at = datetime('now') WHERE id = ?")
+                .bind(metaScrub(e && e.message, secrets) || "subscribe failed", biz.id).run();
+            return false;
+        }
+    }
+    if (token && biz.webhook_id) {
+        try {
+            await thumbtackApi(cfg, token, "DELETE", "/v4/businesses/" + encodeURIComponent(businessId) + "/webhooks/" + encodeURIComponent(biz.webhook_id), null, secrets);
+        } catch (e2) {
+            console.error("thumbtack unsubscribe failed: " + metaScrub(e2 && e2.message, secrets));
+        }
+    }
+    await env.DB.prepare("UPDATE gm_thumbtack_businesses SET subscribed = 0, webhook_id = NULL, last_error = NULL, updated_at = datetime('now') WHERE id = ?").bind(biz.id).run();
+    return true;
+}
+
+// Disconnects: the webhooks come off, Thumbtack is told to revoke, the tokens
+// and businesses are deleted, and the Thumbtack-only data is cleared AT ONCE
+// (Thumbtack's terms: delete its lead data within 5 business days after the
+// API is no longer used). The lead rows themselves stay: they are the
+// business's own pipeline records, with the Thumbtack-only columns emptied.
+async function thumbtackRemoveConnection(env, cfg, clientId) {
+    var rows = (await env.DB.prepare("SELECT business_id FROM gm_thumbtack_businesses WHERE client_id = ?").bind(clientId).all()).results || [];
+    for (var i = 0; i < rows.length; i++) {
+        try { await thumbtackSubscribe(env, cfg, clientId, String(rows[i].business_id), false); }
+        catch (e) { console.error("thumbtack disconnect business failed: " + metaScrub(e && e.message)); }
+    }
+    try {
+        var token = await thumbtackAccessToken(env, cfg, clientId);
+        await thumbtackApi(cfg, token, "POST", "/v4/users/disconnect", {}, [token, cfg.client_secret]);
+    } catch (e2) {
+        console.error("thumbtack revoke failed: " + metaScrub(e2 && e2.message, [cfg.client_secret]));
+    }
+    await env.DB.batch([
+        env.DB.prepare("UPDATE gm_thumbtack_events SET raw_event = NULL WHERE client_id = ?").bind(clientId),
+        env.DB.prepare("UPDATE gm_leads SET thumbtack_details_json = NULL, thumbtack_lead_price = NULL WHERE client_id = ? AND thumbtack_negotiation_id IS NOT NULL").bind(clientId),
+        env.DB.prepare("DELETE FROM gm_thumbtack_businesses WHERE client_id = ?").bind(clientId),
+        env.DB.prepare("DELETE FROM gm_thumbtack_connections WHERE client_id = ?").bind(clientId)
+    ]);
+}
+
+// Every business of the signed-in Thumbtack user: [{ id, name }].
+async function thumbtackGrantedBusinesses(cfg, token, secrets) {
+    var out = [];
+    var seen = {};
+    var after = "";
+    for (var n = 0; n < 10; n++) {
+        var data = await thumbtackApi(cfg, token, "GET", "/v4/businesses?limit=20" + (after ? "&afterID=" + encodeURIComponent(after) : ""), null, secrets);
+        var list = (data && data.data) || [];
+        list.forEach(function(b) {
+            var bid = b && b.businessID !== undefined && b.businessID !== null ? String(b.businessID) : "";
+            if (!/^\d{1,40}$/.test(bid) || seen[bid]) { return; }
+            seen[bid] = true;
+            out.push({ id: bid, name: gmStr(b.name, 200) || bid });
+        });
+        var next = data && data.pagination && data.pagination.next;
+        if (!next || !list.length) { break; }
+        after = String(list[list.length - 1].businessID);
+    }
+    return out;
+}
+
+// Work that may finish after the answer has gone out.
+function thumbtackAfter(request, work) { return metaAfter(request, work); }
+
+// GET /api/clients/:id/gm/thumbtack/status   (owner only)
+async function handleGetGmThumbtackStatus(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = thumbtackOwnerGuard(user, id);
+        if (block) { return block; }
+        return jsonOk(await thumbtackStatusPayload(env, id));
+    } catch (e) {
+        return jsonErr("Error reading the Thumbtack connection: " + metaScrub(e && e.message), 500);
+    }
+}
+
+// POST /api/clients/:id/gm/thumbtack/connect   (owner only)
+// Answers { url }: Thumbtack's sign-in address, carrying a fresh single-use state.
+async function handlePostGmThumbtackConnect(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = thumbtackOwnerGuard(user, id);
+        if (block) { return block; }
+        var cfg = thumbtackSettings(env);
+        if (!cfg.ready || !(await thumbtackTablesReady(env))) { return thumbtackNotAvailable(); }
+        var state = gmEstNewToken();
+        await env.DB.prepare(
+            "INSERT INTO gm_thumbtack_oauth_states (state, client_id, login_key, actor_name, expires_at) VALUES (?, ?, ?, ?, datetime('now', ?))"
+        ).bind(state, id, String(user.username || user.email || "") || null, actorName(user), "+" + THUMBTACK.state_minutes + " minutes").run();
+        return jsonOk({ url: thumbtackAuthorizeUrl(cfg, state) });
+    } catch (e) {
+        return jsonErr("Error starting the Thumbtack sign-in: " + metaScrub(e && e.message), 500);
+    }
+}
+
+// POST /api/clients/:id/gm/thumbtack/disconnect   (owner only)
+async function handlePostGmThumbtackDisconnect(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = thumbtackOwnerGuard(user, id);
+        if (block) { return block; }
+        if (!(await thumbtackTablesReady(env))) { return thumbtackNotAvailable(); }
+        await thumbtackRemoveConnection(env, thumbtackSettings(env), id);
+        return jsonOk(await thumbtackStatusPayload(env, id));
+    } catch (e) {
+        return jsonErr("Error disconnecting Thumbtack: " + metaScrub(e && e.message), 500);
+    }
+}
+
+// GET /api/clients/:id/gm/thumbtack/phones   (owner only)
+// The associate phone numbers Thumbtack holds for each connected business.
+async function handleGetGmThumbtackPhones(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = thumbtackOwnerGuard(user, id);
+        if (block) { return block; }
+        var cfg = thumbtackSettings(env);
+        if (!cfg.ready || !(await thumbtackTablesReady(env))) { return thumbtackNotAvailable(); }
+        var conn = await env.DB.prepare("SELECT client_id FROM gm_thumbtack_connections WHERE client_id = ?").bind(id).first();
+        if (!conn) { return jsonErr2("O Thumbtack não está conectado.", "Thumbtack is not connected.", 409); }
+        var token = await thumbtackAccessToken(env, cfg, id);
+        var secrets = [token, cfg.client_secret];
+        var rows = (await env.DB.prepare("SELECT business_id, name FROM gm_thumbtack_businesses WHERE client_id = ? ORDER BY name COLLATE NOCASE").bind(id).all()).results || [];
+        var out = [];
+        for (var i = 0; i < rows.length; i++) {
+            var numbers = [];
+            try {
+                var data = await thumbtackApi(cfg, token, "GET", "/v4/businesses/" + encodeURIComponent(String(rows[i].business_id)) + "/associate-phone-numbers", null, secrets);
+                var list = Array.isArray(data) ? data : ((data && (data.data || data.phoneNumbers)) || []);
+                numbers = list.map(function(p) {
+                    return { phone_id: p && p.phoneNumberID !== undefined && p.phoneNumberID !== null ? String(p.phoneNumberID) : null,
+                        name: gmStr(p && p.name, 100), phone: gmStr(p && p.phoneNumber, 30) };
+                });
+            } catch (eP) { numbers = []; console.error("thumbtack phones failed: " + metaScrub(eP && eP.message, secrets)); }
+            out.push({ business_id: String(rows[i].business_id), name: rows[i].name || String(rows[i].business_id), numbers: numbers });
+        }
+        return jsonOk({ businesses: out });
+    } catch (e) {
+        return jsonErr("Error reading the Thumbtack phone numbers: " + metaScrub(e && e.message), 500);
+    }
+}
+
+// "+14075550142" for a US number, or null.
+function thumbtackE164(raw) {
+    var d = String(raw === null || raw === undefined ? "" : raw).replace(/\D/g, "");
+    if (d.length === 11 && d.charAt(0) === "1") { d = d.slice(1); }
+    return d.length === 10 ? "+1" + d : null;
+}
+
+// POST /api/clients/:id/gm/thumbtack/phones   { business_id, phone, name }   (owner only)
+// Adds ONE associate phone number to a connected business, only because the
+// owner typed it and tapped Add.
+async function handlePostGmThumbtackPhones(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = thumbtackOwnerGuard(user, id);
+        if (block) { return block; }
+        var cfg = thumbtackSettings(env);
+        if (!cfg.ready || !(await thumbtackTablesReady(env))) { return thumbtackNotAvailable(); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var e164 = thumbtackE164(body.phone);
+        var name = gmStr(body.name, 100);
+        var bid = String(body.business_id || "");
+        if (!e164) { return jsonErr2("Digite um telefone dos EUA com 10 dígitos.", "Enter a US phone number with 10 digits.", 400); }
+        if (!name) { return jsonErr2("Digite o nome da pessoa.", "Enter the person's name.", 400); }
+        var biz = await env.DB.prepare("SELECT business_id FROM gm_thumbtack_businesses WHERE client_id = ? AND business_id = ?").bind(id, bid).first();
+        if (!biz) { return jsonErr2("Negócio do Thumbtack não encontrado.", "Thumbtack business not found.", 404); }
+        var token = await thumbtackAccessToken(env, cfg, id);
+        await thumbtackApi(cfg, token, "POST", "/v4/businesses/" + encodeURIComponent(bid) + "/associate-phone-numbers", { phoneNumber: e164, name: name }, [token, cfg.client_secret]);
+        return jsonOk({ added: true });
+    } catch (e) {
+        return jsonErr("Error adding the Thumbtack phone number: " + metaScrub(e && e.message), 500);
+    }
+}
+
+// GET /api/thumbtack/callback?code=...&state=...   (public: the state is the lock)
+// Thumbtack sends the browser here after the sign-in. Everything is read from
+// Thumbtack BEFORE anything is written, so a failure leaves the business as it
+// was. With no state or code (Thumbtack's own address check, or the Request
+// Access form) it answers the plain note it always did.
+async function handleGetThumbtackCallback(request, env) {
+    var cfg = thumbtackSettings(env);
+    var secrets = [cfg.client_secret];
+    var url = null;
+    try { url = new URL(request.url); } catch (e0) { url = null; }
+    var code = url ? String(url.searchParams.get("code") || "") : "";
+    var stateParam = url ? String(url.searchParams.get("state") || "") : "";
+    if (!code && !stateParam && !(url && url.searchParams.get("error"))) {
+        return new Response(
+            "Apex Lead Sync. This address is reserved for Thumbtack's Partner API connection flow.",
+            { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } }
+        );
+    }
+    try {
+        if (code) { secrets.push(code); }
+        if (!cfg.ready || !(await thumbtackTablesReady(env))) { return thumbtackBack("failed"); }
+        var st = await thumbtackStateUse(env, stateParam);
+        if (!st || !code || url.searchParams.get("error")) { return thumbtackBack("failed"); }
+        var clientId = st.client_id;
+
+        var t = await thumbtackTokenCall(cfg, { grant_type: "authorization_code", code: code, redirect_uri: thumbtackRedirectUri() }, secrets);
+        secrets.push(t.access);
+        if (t.refresh) { secrets.push(t.refresh); }
+
+        // Who signed in. Not needed to receive leads, so a refusal does not stop the connection.
+        var ttUserId = null;
+        try { var me = await thumbtackApi(cfg, t.access, "GET", "/v4/users/self", null, secrets); if (me && me.userID !== undefined && me.userID !== null) { ttUserId = String(me.userID); } }
+        catch (eU) { console.error("thumbtack /users/self failed: " + metaScrub(eU && eU.message, secrets)); }
+
+        var granted = await thumbtackGrantedBusinesses(cfg, t.access, secrets);
+        if (!granted.length) { return thumbtackBack("nobusinesses"); }
+
+        var sealed = await tokenSeal(env, t.access);
+        var sealedRefresh = t.refresh ? await tokenSeal(env, t.refresh) : null;
+        var before = {};
+        ((await env.DB.prepare("SELECT business_id, subscribed FROM gm_thumbtack_businesses WHERE client_id = ?").bind(clientId).all()).results || [])
+            .forEach(function(r) { before[String(r.business_id)] = r.subscribed ? 1 : 0; });
+        var stmts = [env.DB.prepare(
+            "INSERT INTO gm_thumbtack_connections (client_id, token_sealed, refresh_sealed, token_expires_at, thumbtack_user_id, connected_by, connected_login, connected_at, needs_reconnect, reconnect_pushed_at, last_error, updated_at) " +
+            "VALUES (?, ?, ?, datetime('now', ?), ?, ?, ?, datetime('now'), 0, NULL, NULL, datetime('now')) " +
+            "ON CONFLICT (client_id) DO UPDATE SET token_sealed = excluded.token_sealed, refresh_sealed = excluded.refresh_sealed, token_expires_at = excluded.token_expires_at, " +
+            "thumbtack_user_id = excluded.thumbtack_user_id, connected_by = excluded.connected_by, connected_login = excluded.connected_login, connected_at = excluded.connected_at, " +
+            "needs_reconnect = 0, reconnect_pushed_at = NULL, last_error = NULL, updated_at = excluded.updated_at"
+        ).bind(clientId, sealed, sealedRefresh, "+" + t.expires_in + " seconds", ttUserId, st.actor_name || null, st.login_key || null)];
+        var keep = {};
+        granted.forEach(function(g) {
+            keep[g.id] = true;
+            stmts.push(env.DB.prepare(
+                "INSERT INTO gm_thumbtack_businesses (id, client_id, business_id, name, webhook_token) VALUES (?, ?, ?, ?, ?) " +
+                "ON CONFLICT (client_id, business_id) DO UPDATE SET name = excluded.name, updated_at = datetime('now')"
+            ).bind(crypto.randomUUID(), clientId, g.id, g.name, gmEstNewToken()));
+        });
+        Object.keys(before).forEach(function(bid) {
+            if (!keep[bid]) { stmts.push(env.DB.prepare("DELETE FROM gm_thumbtack_businesses WHERE client_id = ? AND business_id = ?").bind(clientId, bid)); }
+        });
+        await env.DB.batch(stmts);
+
+        // Every granted business gets its lead webhook (the owner can still
+        // disconnect everything from the card). A business whose webhook is
+        // already on is left as it is.
+        var anyOn = false;
+        for (var g2 = 0; g2 < granted.length; g2++) {
+            if (await thumbtackSubscribe(env, cfg, clientId, granted[g2].id, true)) { anyOn = true; }
+        }
+        return thumbtackBack(anyOn ? "connected" : "nowebhook");
+    } catch (e) {
+        console.error("thumbtack callback failed: " + metaScrub(e && e.message, secrets));
+        return thumbtackBack("failed");
+    }
+}
+
+// "(407) 555-0142" for a US number; anything else is kept as it was sent.
+function thumbtackFmtPhone(raw) { return metaFmtPhone(raw); }
+
+// Thumbtack's lead (negotiation) as the fields of a pipeline lead.
+function thumbtackLeadFields(data) {
+    var d = data || {};
+    var cust = d.customer || {};
+    var req = d.request || {};
+    var loc = req.location || {};
+    var name = ((cust.firstName ? String(cust.firstName).trim() : "") + " " + (cust.lastName ? String(cust.lastName).trim() : "")).trim();
+    var phone = thumbtackFmtPhone(cust.phone);
+    var street = [loc.address1, loc.address2].filter(function(p) { return p && String(p).trim(); }).map(function(p) { return String(p).trim(); }).join(", ");
+    var details = [];
+    if (req.description && String(req.description).trim()) { details.push({ q: "Description", a: gmStr(req.description, 2000) }); }
+    (Array.isArray(req.details) ? req.details : []).forEach(function(x) {
+        if (!x || !x.question || x.answer === undefined || x.answer === null || !String(x.answer).trim()) { return; }
+        details.push({ q: gmStr(x.question, 300), a: gmStr(x.answer, 2000) });
+    });
+    var cat = req.category && req.category.name ? gmStr(req.category.name, 200) : null;
+    return {
+        cliente: gmStr(name, 200) || phone || "Thumbtack lead",
+        telefone: phone,
+        address: gmStr(street, 200),
+        city: gmStr(loc.city, 100),
+        addr_street: gmStr(street, 200),
+        addr_city: gmStr(loc.city, 100),
+        addr_state: gmStr(loc.state, 40),
+        addr_zip: gmStr(loc.zipCode, 12),
+        servico: cat,
+        category: cat,
+        details: details.slice(0, 60),
+        price: d.leadPrice !== undefined && d.leadPrice !== null ? gmStr(String(d.leadPrice), 40) : null,
+        created_time: d.createdAt || null
+    };
+}
+
+// One row per negotiation id. A second copy of the same event only counts up.
+async function thumbtackStoreEvent(env, negotiationId, businessId, clientId, rawData) {
+    await env.DB.prepare(
+        "INSERT INTO gm_thumbtack_events (id, negotiation_id, business_id, client_id, raw_event) VALUES (?, ?, ?, ?, ?) " +
+        "ON CONFLICT (negotiation_id) DO UPDATE SET duplicates = duplicates + 1"
+    ).bind(crypto.randomUUID(), negotiationId, businessId, clientId, rawData).run();
+}
+
+// One stored event: create the lead. The first UPDATE is the claim, so two
+// copies of the same event arriving together cannot both create a lead.
+async function thumbtackProcessEvent(env, negotiationId) {
+    var claim = await env.DB.prepare(
+        "UPDATE gm_thumbtack_events SET status = 'processing', attempts = attempts + 1, claimed_at = datetime('now') WHERE negotiation_id = ? " +
+        "AND (status IN ('received', 'failed') OR (status = 'processing' AND claimed_at < datetime('now', '-15 minutes')))"
+    ).bind(negotiationId).run();
+    if (!claim.meta || claim.meta.changes !== 1) { return; }
+    var ev = await env.DB.prepare("SELECT * FROM gm_thumbtack_events WHERE negotiation_id = ?").bind(negotiationId).first();
+    try {
+        var clientId = ev.client_id;
+        var data = null;
+        try { data = ev.raw_event ? JSON.parse(ev.raw_event) : null; } catch (eJ) { data = null; }
+        if (!clientId || !data) { throw new Error("The stored Thumbtack event could not be read"); }
+        // A lead this event already created (the claim was lost half way).
+        var made = await env.DB.prepare("SELECT id FROM gm_leads WHERE client_id = ? AND thumbtack_negotiation_id = ?").bind(clientId, negotiationId).first();
+        var leadId = made ? made.id : null;
+        var f = thumbtackLeadFields(data);
+        if (!leadId) {
+            var config = await gmGetConfig(env, clientId);
+            var when = metaNyStamp(f.created_time);
+            var mesLead = GM_MONTH_NAMES_PT[when.month - 1];
+            if (!config || !config.cycle_months || config.cycle_months.indexOf(mesLead) === -1) { mesLead = null; }
+            leadId = await gmInsertLead(env, clientId, {
+                cliente: f.cliente, telefone: f.telefone, address: f.address, city: f.city,
+                addr_street: f.addr_street, addr_city: f.addr_city, addr_state: f.addr_state, addr_zip: f.addr_zip,
+                servico: f.servico, origem: THUMBTACK_LEAD_ORIGEM, estagio: "novo_lead", data_lead: when.stamp, mes_lead: mesLead
+            }, THUMBTACK_ACTOR);
+            await env.DB.prepare(
+                "UPDATE gm_leads SET thumbtack_negotiation_id = ?, thumbtack_category = ?, thumbtack_details_json = ?, thumbtack_lead_price = ? WHERE id = ? AND client_id = ?"
+            ).bind(negotiationId, f.category, f.details.length ? JSON.stringify(f.details) : null, f.price, leadId, clientId).run();
+        }
+        await env.DB.batch([
+            env.DB.prepare("UPDATE gm_thumbtack_events SET status = 'created', error = NULL, lead_id = ?, processed_at = datetime('now') WHERE negotiation_id = ?").bind(leadId, negotiationId),
+            env.DB.prepare("UPDATE gm_thumbtack_businesses SET last_lead_at = datetime('now') WHERE client_id = ? AND business_id = ?").bind(clientId, ev.business_id)
+        ]);
+        if (made) { return; }
+        try {
+            var client = await env.DB.prepare("SELECT language FROM clients WHERE id = ?").bind(clientId).first();
+            var pt = !client || client.language !== "en";
+            var targets = await gmClientPushTargets(env, clientId, { owner: true, seller_name: null });
+            if (targets.length) {
+                await pushToUsers(env, targets, {
+                    title: (pt ? "Novo lead do Thumbtack: " : "New Thumbtack lead: ") + f.cliente,
+                    body: f.servico || f.telefone || "",
+                    url: "/portal.html?tab=gmcrm&lead=" + encodeURIComponent(leadId),
+                    tag: "thumbtack-lead-" + leadId
+                });
+            }
+        } catch (ePush) { console.error("thumbtack lead push failed", ePush && ePush.message); }
+    } catch (e) {
+        // Anything unexpected: the event stays stored and is tried again.
+        await env.DB.prepare("UPDATE gm_thumbtack_events SET status = 'failed', error = ?, processed_at = datetime('now') WHERE negotiation_id = ?")
+            .bind(metaScrub(e && e.message) || "error", negotiationId).run();
+    }
+}
+
+// POST /api/thumbtack/webhook/:token   (public: the token and the header are the lock)
+// The event is stored first, so a lead is never lost; the lead is created
+// right after, and a failure is tried again by the 4-hour job.
+async function handlePostThumbtackWebhook(webhookToken, request, env) {
+    var cfg = thumbtackSettings(env);
+    if (!cfg.ready) { return metaPlain(THUMBTACK_NA_EN, 503); }
+    if (!/^[a-f0-9]{48}$/.test(String(webhookToken || ""))) { return metaPlain("Not found", 404); }
+    var biz = null;
+    try {
+        biz = await env.DB.prepare("SELECT client_id, business_id FROM gm_thumbtack_businesses WHERE webhook_token = ?").bind(webhookToken).first();
+    } catch (e0) {
+        return metaPlain("Try again later", 503);
+    }
+    if (!biz) { return metaPlain("Not found", 404); }
+    var header = String(request.headers.get(THUMBTACK.header_name) || "").trim();
+    var expect = await thumbtackHeaderValue(cfg, webhookToken);
+    if (!header || !metaSafeEqual(header, expect)) { return metaPlain("Bad signature", 401); }
+    var body = null;
+    try {
+        // An id too long for a JavaScript number is quoted before parsing, so
+        // it is never rounded.
+        var text = await request.text();
+        body = JSON.parse(String(text).replace(/([:\[,]\s*)(\d{15,})(?=\s*[,}\]])/g, "$1\"$2\""));
+    } catch (e) {
+        return metaPlain("Bad request", 400);
+    }
+    var type = body && body.event && body.event.eventType ? String(body.event.eventType) : "";
+    if (type !== THUMBTACK.event_type) { return metaPlain("OK", 200); }
+    var data = body.data || null;
+    var negId = data && data.negotiationID !== undefined && data.negotiationID !== null ? String(data.negotiationID) : "";
+    if (!/^\d{1,40}$/.test(negId)) { return metaPlain("Bad request", 400); }
+    try {
+        await thumbtackStoreEvent(env, negId, String(biz.business_id), biz.client_id, JSON.stringify(data));
+    } catch (e2) {
+        console.error("thumbtack webhook could not store the event: " + metaScrub(e2 && e2.message));
+        return metaPlain("Try again later", 503);
+    }
+    await thumbtackAfter(request, thumbtackProcessEvent(env, negId));
+    return metaPlain("OK", 200);
+}
+
+// The 4-hour job: events that are still waiting are tried again, raw copies
+// older than 90 days are cleared, and old sign-in states are removed.
+async function thumbtackCron(env) {
+    try {
+        if (!(await thumbtackTablesReady(env))) { return; }
+        var rows = (await env.DB.prepare(
+            "SELECT negotiation_id FROM gm_thumbtack_events WHERE (status = 'received' AND received_at < datetime('now', '-5 minutes')) " +
+            "OR (status = 'failed' AND attempts < 8) OR (status = 'processing' AND claimed_at < datetime('now', '-15 minutes')) ORDER BY received_at LIMIT 40"
+        ).all()).results || [];
+        for (var i = 0; i < rows.length; i++) {
+            try { await thumbtackProcessEvent(env, String(rows[i].negotiation_id)); }
+            catch (e1) { console.error("thumbtack event failed: " + metaScrub(e1 && e1.message)); }
+        }
+        await env.DB.prepare(
+            "UPDATE gm_thumbtack_events SET raw_event = NULL WHERE received_at < datetime('now', ?) AND raw_event IS NOT NULL"
+        ).bind("-" + THUMBTACK.raw_keep_days + " days").run();
+        await env.DB.prepare("DELETE FROM gm_thumbtack_oauth_states WHERE created_at < datetime('now', '-1 day')").run();
+    } catch (e) {
+        console.error("thumbtack cron failed: " + metaScrub(e && e.message));
+    }
 }
 
 // ── Who gets a push inside a client's business ─────────────────────────
@@ -54195,6 +54895,8 @@ export default {
         // Job 38: Facebook leads still waiting are tried again; raw copies
         // older than 90 days are cleared. Independent, and never throws.
         ctx.waitUntil(metaCron(env));
+        // Thumbtack leads still waiting are tried again; old raw copies are cleared.
+        ctx.waitUntil(thumbtackCron(env));
         // Forwarded bills (water and waste): read the mailbox, extract with
         // Claude, save the statement. Errors are swallowed and logged inside
         // pollForwardedBillEmails itself, so a mail-reading failure can never
@@ -54344,6 +55046,7 @@ async function handleFetch(request, env, ctx) {
         // PUBLIC Thumbtack Partner API stub (see note above its handler): a
         // live, stable address for the Request Access form, not yet wired up.
         if (path === THUMBTACK.callback_path && method === "GET") { return handleGetThumbtackCallback(request, env); }
+        if (path.indexOf(THUMBTACK.webhook_path) === 0 && method === "POST") { return handlePostThumbtackWebhook(path.slice(THUMBTACK.webhook_path.length), request, env); }
         if (path.indexOf("/api/thumbtack/") === 0) { return jsonErr("Not found", 404); }
 
         // PUBLIC online booking page of a client business (book.html). The 48-hex
@@ -55152,6 +55855,14 @@ async function handleFetch(request, env, ctx) {
                     if (segs[5] === "connect" && method === "POST") { return handlePostGmMetaConnect(cid, request, env); }
                     if (segs[5] === "pages" && method === "POST") { return handlePostGmMetaPages(cid, request, env); }
                     if (segs[5] === "disconnect" && method === "POST") { return handlePostGmMetaDisconnect(cid, request, env); }
+                }
+                // Thumbtack leads (2026-10-27): the business's Thumbtack connection (owner only).
+                if (segs.length === 6 && gmCol === "thumbtack") {
+                    if (segs[5] === "status" && method === "GET") { return handleGetGmThumbtackStatus(cid, request, env); }
+                    if (segs[5] === "connect" && method === "POST") { return handlePostGmThumbtackConnect(cid, request, env); }
+                    if (segs[5] === "disconnect" && method === "POST") { return handlePostGmThumbtackDisconnect(cid, request, env); }
+                    if (segs[5] === "phones" && method === "GET") { return handleGetGmThumbtackPhones(cid, request, env); }
+                    if (segs[5] === "phones" && method === "POST") { return handlePostGmThumbtackPhones(cid, request, env); }
                 }
                 // Estimates & invoices build: the business's document settings.
                 if (segs.length === 5 && gmCol === "doc-settings") {

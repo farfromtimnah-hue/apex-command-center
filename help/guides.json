@@ -22661,7 +22661,16 @@
           "allow"
         ]
       },
-      "video": null,
+      "video": {
+        "pt": {
+          "src": "https://apex.resonateai.online/help/video/thumbtack-connect-en.mp4",
+          "poster": "https://apex.resonateai.online/help/video/thumbtack-connect-en.jpg"
+        },
+        "en": {
+          "src": "https://apex.resonateai.online/help/video/thumbtack-connect-en.mp4",
+          "poster": "https://apex.resonateai.online/help/video/thumbtack-connect-en.jpg"
+        }
+      },
       "sections": [
         {
           "id": "connect",

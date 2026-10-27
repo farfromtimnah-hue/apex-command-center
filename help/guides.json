@@ -24097,18 +24097,24 @@
             {
               "n": 9,
               "text": {
-                "pt": "Confira a confirmação. A página diz Reunião confirmada, com o dia e o horário. Abaixo você vê o link do Google Meet, se a reunião for online, ou Presencial com o endereço. A página também diz que você vai receber um lembrete pelo WhatsApp no dia da reunião.",
-                "en": "Check the confirmation. The page says Reunião confirmada (Meeting confirmed) with the day and the time. Below it you see the Google Meet link for an online meeting, or Presencial (In person) with the address. The page also says you will get a reminder on WhatsApp on the day of the meeting."
+                "pt": "Depois de tocar em um horário, a página diz Reunião confirmada (1), com o dia e o horário. Abaixo você vê o link do Google Meet, se a reunião for online, ou Presencial com o endereço. A página também diz que você vai receber um lembrete pelo WhatsApp no dia da reunião.",
+                "en": "After you tap a time, the page says Reunião confirmada (Meeting confirmed) (1) with the day and the time. Below it you see the Google Meet link for an online meeting, or Presencial (In person) with the address. The page also says you will get a reminder on WhatsApp on the day of the meeting."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/meetings-and-booking/meeting-s09.pt.jpg",
+                "en": "help/img/guides/meetings-and-booking/meeting-s09.en.jpg"
+              }
             },
             {
               "n": 10,
               "text": {
-                "pt": "Entre ou mude. De volta ao Início, o card agora mostra a sua reunião como Agendada, com o dia e o horário, e um botão Reagendar. Toque em Reagendar para abrir a página de agendamento de novo e escolher outro horário. Quando a reunião é hoje ou amanhã, o card se chama Próximas reuniões, mostra Hoje ou Amanhã com o horário, e tem um botão Entrar para reunião online, ou um botão Como chegar para reunião presencial.",
-                "en": "Join or move it. Back on Home, the card now shows your meeting as Scheduled, with the day and the time, and a Reschedule button. Tap Reschedule to open the booking page again and pick another time. When the meeting is today or tomorrow, the card is called Upcoming meetings, shows Today or Tomorrow with the time, and has a Join button for an online meeting, or a Directions button for a meeting in person."
+                "pt": "De volta ao Início, o card agora mostra a sua reunião como Agendada (1), com o dia e o horário, e um botão Reagendar (2). Toque em Reagendar para abrir a página de agendamento de novo e escolher outro horário. Quando a reunião é hoje ou amanhã, o card se chama Próximas reuniões, mostra Hoje ou Amanhã com o horário, e tem um botão Entrar para reunião online, ou um botão Como chegar para reunião presencial. Não tocamos em Entrar, Como chegar nem Reagendar.",
+                "en": "Back on Home, the card now shows your meeting as Scheduled (1), with the day and the time, and a Reschedule button (2). Tap Reschedule to open the booking page again and pick another time. When the meeting is today or tomorrow, the card is called Upcoming meetings, shows Today or Tomorrow with the time, and has a Join button for an online meeting, or a Directions button for a meeting in person. We did not tap Join, Directions or Reschedule."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/meetings-and-booking/meeting-s10.pt.jpg",
+                "en": "help/img/guides/meetings-and-booking/meeting-s10.en.jpg"
+              }
             }
           ]
         }

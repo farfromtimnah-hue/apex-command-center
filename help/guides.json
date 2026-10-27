@@ -26238,6 +26238,109 @@
           "step": 2
         }
       ]
+    },
+    {
+      "id": "admin-settings-pictures-message",
+      "audience": "admin",
+      "title": {
+        "pt": "Configurações: abas, fotos de perfil e mensagem de confirmação do Apex Club",
+        "en": "Settings: tabs, profile pictures and the Apex Club confirmation message"
+      },
+      "summary": {
+        "pt": "Conheça as seis partes da página Configurações, envie a foto de perfil de um usuário e edite a mensagem de confirmação do Apex Club.",
+        "en": "Learn the six parts of the Settings page, upload a user's profile picture and edit the Apex Club confirmation message."
+      },
+      "keywords": {
+        "pt": [
+          "configurações",
+          "fotos de perfil",
+          "foto de perfil",
+          "enviar foto",
+          "mensagem de confirmação",
+          "apex club",
+          "modelos whatsapp"
+        ],
+        "en": [
+          "settings",
+          "profile pictures",
+          "profile picture",
+          "upload picture",
+          "confirmation message",
+          "apex club",
+          "whatsapp templates"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "pics",
+          "title": {
+            "pt": "Fotos de perfil e mensagem do Apex Club",
+            "en": "Profile pictures and the Apex Club message"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "As partes das Configurações. As abas (1) no alto são Fotos de Perfil, Modelos WhatsApp, Pacotes, Pagamento, Disponibilidade e Notificações. Toque em uma para ir até aquela parte da página. A página é longa, então você também pode rolar para baixo.",
+                "en": "The parts of Settings. The tabs (1) at the top are Profile Pictures, WhatsApp Templates, Packages, Payment, Availability and Notifications. Tap one to jump to that part of the page. The page is long, so you can also scroll down."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-settings-pictures-message/pics-01.pt.jpg",
+                "en": "help/img/guides/admin-settings-pictures-message/pics-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Envie uma foto de perfil. Em Fotos de Perfil, escolha o usuário na lista Usuário (1). A foto atual aparece acima. Toque em Escolher arquivo (2), escolha uma imagem e toque em Enviar Foto (3). O quadro no alto, por exemplo 3 / 9, conta quantos usuários têm foto.",
+                "en": "Upload a profile picture. Under Profile Pictures, pick the user in the User list (1). The current photo shows above. Tap Choose File (2) and pick a picture, then tap Upload Picture (3). The tile at the top, for example 3 / 9, counts how many users have a photo."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-settings-pictures-message/pics-02.pt.jpg",
+                "en": "help/img/guides/admin-settings-pictures-message/pics-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Edite a mensagem de confirmação do Apex Club. Em Modelos WhatsApp, a caixa separada Mensagem de confirmação, Apex Club (1) guarda o texto enviado ao convidado. Use as palavras entre chaves, como {nome}, {evento}, {data}, {hora}, {local} e {valor}: a Apex preenche. Leia o aviso amarelo (2): peça a confirmação, nunca ofereça um jeito direto de recusar. Toque em Salvar (3).",
+                "en": "Edit the Apex Club confirmation message. Under WhatsApp Templates, the separate box Confirmation message, Apex Club (1) holds the text sent to a guest. Use the words in braces, such as {nome}, {evento}, {data}, {hora}, {local} and {valor}: Apex fills them in. Read the yellow note (2): ask them to confirm, never offer a direct way to decline. Tap Save (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-settings-pictures-message/pics-03.pt.jpg",
+                "en": "help/img/guides/admin-settings-pictures-message/pics-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Enviar foto de perfil"
+            ],
+            "en": [
+              "Upload a profile picture"
+            ]
+          },
+          "section": "pics",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Mensagem de confirmação do Apex Club"
+            ],
+            "en": [
+              "Apex Club confirmation message"
+            ]
+          },
+          "section": "pics",
+          "step": 3
+        }
+      ]
     }
   ],
   "pages": {
@@ -26583,7 +26686,8 @@
       },
       "guides": [
         "admin-message-templates",
-        "admin-menu-language-learn"
+        "admin-menu-language-learn",
+        "admin-settings-pictures-message"
       ],
       "overview": {
         "pt": "Aqui você muda os textos das mensagens de WhatsApp, os pacotes, os dados de pagamento e a disponibilidade.",

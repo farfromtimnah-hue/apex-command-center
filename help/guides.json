@@ -7837,8 +7837,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Contratos. Toque em Negócio e depois em Contratos. Cada contrato fica em um grupo, por estágio: Precisa de ação, Sem contrato assinado (projetos que ainda não têm contrato assinado), Rascunho, Aguardando a empresa (1 a 3), Aguardando o cliente (4) e Assinados (5). Toque no título de um grupo para abrir ou fechar. O número ao lado do título conta o que tem dentro.",
-                "en": "Open Contracts. Tap Business, then Contracts. Every contract sits in a group by stage: Needs action, No signed contract (projects with no signed contract yet), Draft, Waiting on the company (1 to 3), Waiting on the customer (4) and Signed (5). Tap the title of a group to open or close it. The number next to the title counts what is inside."
+                "pt": "Toque em Negócio (1) na fileira de abas no alto. Um menu abre. Toque em Contratos (2).",
+                "en": "Tap Business (1) in the row of tabs at the top. A menu opens. Tap Contracts (2)."
               },
               "image": {
                 "pt": "help/img/guides/contracts-tab/contracts-01.pt.jpg",
@@ -7848,8 +7848,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Abra um contrato assinado. Toque no contrato. A ficha mostra o status e o valor atual. Você pode ver o contrato como o cliente vê (1), baixar o PDF (2), desligar o link do cliente (3) e enviar a cópia assinada ao cliente (4). Um contrato assinado pelos dois lados não muda: para mudar, crie um aditivo (5). O guia Enviar um aditivo mostra como.",
-                "en": "Open a signed contract. Tap the contract. The sheet shows the status and the current amount. You can preview the contract as the customer sees it (1), download the PDF (2), turn off the customer's link (3) and send the signed copy to the customer (4). A contract signed by both sides does not change: to change it, add a change order (5). The Send a change order guide shows how."
+                "pt": "Cada contrato fica em um grupo por estágio. Os primeiros grupos são Precisa de ação (1), Sem contrato assinado (2) e Rascunho (3).",
+                "en": "Every contract sits in a group by stage. The first groups are Needs action (1), No signed contract (2) and Draft (3)."
               },
               "image": {
                 "pt": "help/img/guides/contracts-tab/contracts-02.pt.jpg",
@@ -7859,8 +7859,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Corrija ou cancele um contrato que não foi assinado. Abra um contrato com status (1) Recusado, ou que foi alterado ou expirou. Toque em Criar revisão (2) para fazer uma nova versão que você pode mudar e enviar de novo. Toque em Anular (3) para cancelar: o Apex pede o motivo e guarda o contrato como anulado, nada é apagado.",
-                "en": "Fix or cancel a contract that was not signed. Open a contract whose status (1) is Declined, or one that was changed or expired. Tap Create revision (2) to make a new version you can change and send again. Tap Void (3) to cancel it: Apex asks for the reason and keeps the contract as void, nothing is deleted."
+                "pt": "Toque no título de um grupo para abrir ou fechar. Aqui Sem contrato assinado (1) abre e lista os projetos que ainda não têm contrato assinado.",
+                "en": "Tap the title of a group to open or close it. Here No signed contract (1) opens and lists the projects with no contract signed yet."
               },
               "image": {
                 "pt": "help/img/guides/contracts-tab/contracts-03.pt.jpg",
@@ -7870,10 +7870,156 @@
             {
               "n": 4,
               "text": {
-                "pt": "Ache um contrato pelo projeto. Você também pode abrir um projeto (Negócio e depois Projetos) e olhar a seção Contrato. Para fazer um contrato novo a partir de um orçamento aceito, veja o guia Enviar um contrato.",
-                "en": "Find a contract from its project. You can also open a project (Business, then Projects) and look at the Contract section. To make a new contract from an accepted estimate, see the Send a contract guide."
+                "pt": "Role para ver os outros grupos: Aguardando a empresa (1), que cobre os estágios 1 a 3, Aguardando o cliente (2), que é o estágio 4, e Assinados (3), que é o estágio 5. O número ao lado de cada título conta o que tem dentro.",
+                "en": "Scroll down for the other groups: Waiting on the company (1), which covers stages 1 to 3, Waiting on the customer (2), which is stage 4, and Signed (3), which is stage 5. The number next to each title counts what is inside."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-04.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Toque em um contrato assinado. A folha abre e mostra o status e o valor atual (1).",
+                "en": "Tap a signed contract. The sheet opens and shows its status and the current amount (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-05.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Toque em Ver como o cliente (1) para ver o contrato como o cliente vê.",
+                "en": "Tap Preview as customer (1) to see the contract as the customer sees it."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-06.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "A prévia abre em uma aba nova. Ela mostra a página do contrato com a sua marca, o número do contrato, o preço e a linha da assinatura. Feche essa aba para voltar.",
+                "en": "The preview opens in a new tab. It shows the contract page with your brand, the contract number, the price and the signature line. Close that tab to come back."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-07.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Baixar PDF (1) salva o contrato como um arquivo PDF.",
+                "en": "Download PDF (1) saves the contract as a PDF file."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-08.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Desativar link (1) desliga o link que o cliente usa para abrir o contrato.",
+                "en": "Disable link (1) turns off the link the customer uses to open the contract."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-09.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Enviar cópia assinada (1) manda a cópia assinada para o cliente.",
+                "en": "Send signed copy (1) sends the signed copy to the customer."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-10.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Um contrato assinado pelas duas partes não muda. Para mudar, toque em + Aditivo (1). O guia Enviar um aditivo mostra como.",
+                "en": "A contract signed by both sides does not change. To change it, tap + Change order (1). The Send a change order guide shows how."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-11.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Para corrigir ou cancelar um contrato que não foi assinado, abra um cujo status (1) é Recusado, ou um que foi alterado ou venceu.",
+                "en": "To fix or cancel a contract that was not signed, open one whose status (1) is Declined, or one that was changed or expired."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-12.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Toque em Criar revisão (1) para fazer uma versão nova que você pode mudar e enviar de novo.",
+                "en": "Tap Create revision (1) to make a new version you can change and send again."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-13.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Toque em Anular (1) para cancelar o contrato.",
+                "en": "Tap Void (1) to cancel the contract."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-14.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "O Apex pede o motivo (1). O contrato fica guardado como anulado e nada é apagado. Cancelar fecha a caixa sem anular.",
+                "en": "Apex asks for the reason (1). The contract is kept as void and nothing is deleted. Cancel closes the box without voiding."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-15.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Você também acha um contrato pelo projeto dele. Abra Negócio e toque em Projetos (2).",
+                "en": "You can also find a contract from its project. Open Business, then tap Projects (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-16.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Abra um projeto e olhe a seção Contrato (1). Para fazer um contrato novo a partir de um orçamento aceito, veja o guia Enviar um contrato.",
+                "en": "Open a project and look at the Contract section (1). To make a new contract from an accepted estimate, see the Send a contract guide."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-17.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-17.en.jpg"
+              }
             }
           ]
         }

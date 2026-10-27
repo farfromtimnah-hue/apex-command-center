@@ -12984,8 +12984,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra um item novo. Toque em Negócio, depois Preços, depois + Novo item, no fim da lista. Digite o nome em Item. A Categoria (1) agrupa o item: no orçamento, a tabela de preços aparece por categoria. O Tipo (2) é Produto ou Adicional. Produto é um item principal. Adicional é um extra que o cliente pode somar, e aparece na etapa Adicionais do orçamento. A Unidade (3) é como você conta, por exemplo each, sq ft ou hour. A Descrição para o cliente (4) aparece embaixo da linha no orçamento do cliente.",
-                "en": "Open a new item. Tap Business, then Pricing, then + New item at the bottom of the list. Type the name in Item. The Category (1) groups the item: in the estimate, your price list is shown by category. Type (2) is Product or Add-on. A Product is a main item. An Add-on is an extra your customer can add, and it shows in the Add-ons step of an estimate. Unit (3) is how you count it, for example each, sq ft or hour. Customer description (4) is printed under the line on your customer's estimate."
+                "pt": "Toque em Negócio, no alto. Abre um menu com Pipeline, Orçamentos, Contratos, Projetos, Faturas, Financeiro e Preços.",
+                "en": "Tap Business at the top. A menu opens with Pipeline, Estimates, Contracts, Projects, Invoices, Finances and Pricing."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/item-01.pt.jpg",
@@ -12995,8 +12995,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Adicione os custos e o preço. Embaixo de Custos, toque em + Adicionar custo. Abre uma linha de custo: um nome (1), um valor e um tipo, Material, Mão de obra ou Outro. Adicione uma linha para cada custo. Depois digite o Preço de venda (2), o que o cliente paga por uma unidade. Embaixo, o Apex mostra os números enquanto você digita (3): Material, Mão de obra, Outros, Custo total, Margem e Margem (%). Margem é o preço de venda menos o custo total. No exemplo o preço é $200.00, o custo é $150.00, então a margem é $50.00, ou 25%.",
-                "en": "Add the costs and the price. Under Costs, tap + Add cost. A cost line opens: a name (1), an amount and a type, Material, Labor or Other. Add one line for each cost. Then type the Sale price (2), the price your customer pays for one unit. Under it, Apex shows the numbers while you type (3): Materials, Labor, Other, Total cost, Margin and Margin (%). Margin is the sale price minus the total cost. In the example the price is $200.00, the cost is $150.00, so the margin is $50.00, or 25%."
+                "pt": "Toque em Preços no menu. Abre a sua tabela de preços, com cada item, o custo, a venda e a margem.",
+                "en": "Tap Pricing in the menu. Your price list opens, with every item and its cost, price and margin."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/item-02.pt.jpg",
@@ -13006,8 +13006,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Salve. Escreva uma observação se quiser (1) e toque em Salvar (2), no fim do formulário. O item aparece na lista. Para mudar um item depois, toque nele: a mesma tela abre, com o botão Excluir item.",
-                "en": "Save. Add a note if you want (1) and tap Save (2) at the bottom of the form. The item appears in the list. To change an item later, tap it: the same screen opens, with the button Delete item."
+                "pt": "Vá até o fim da lista e toque em + Novo item. Abre o formulário Novo item.",
+                "en": "Go to the end of the list and tap + New item. The form New item opens."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/item-03.pt.jpg",
@@ -13017,12 +13017,210 @@
             {
               "n": 4,
               "text": {
-                "pt": "Ache os itens que faltam dados. Um item sem alguma informação, por exemplo sem descrição para o cliente, mostra uma etiqueta dourada Faltam dados (2) nas listas. No alto da tabela, toque em Faltam dados (1) para ver só esses itens, e em Todos para ver todos de novo. Um item completo, como o que você acabou de criar, não tem a etiqueta.",
-                "en": "Find items that need more. An item missing something, for example the customer description, shows a gold Needs info tag (2) in the lists. At the top of the price list, tap Needs info (1) to see only those items, and All to see every item again. A complete item, like the one you just created, has no tag."
+                "pt": "Digite o nome do item em Item (1).",
+                "en": "Type the name of the item in Item (1)."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/item-04.pt.jpg",
                 "en": "help/img/guides/pricing-item-and-import/item-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Digite uma Categoria (1), por exemplo Deck. A categoria agrupa o item: no orçamento, a tabela de preços aparece por categoria.",
+                "en": "Type a Category (1), for example Deck. The category groups the item: in the estimate, your price list is shown by category."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-05.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Escolha o Tipo (1): Produto ou Adicional. Produto é um item principal. Adicional é um extra que o cliente pode somar, e aparece na etapa Adicionais do orçamento.",
+                "en": "Choose the Type (1): Product or Add-on. A Product is a main item. An Add-on is an extra your customer can add, and it shows in the Add-ons step of an estimate."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-06.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Digite a Unidade (1), como você conta o item, por exemplo each, sq ft ou hour.",
+                "en": "Type the Unit (1), how you count the item, for example each, sq ft or hour."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-07.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Digite a Descrição para o cliente (1). Ela aparece embaixo da linha no orçamento do cliente.",
+                "en": "Type the Customer description (1). It is printed under the line on your customer's estimate."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-08.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Embaixo de Custos, toque em + Adicionar custo (1). Abre uma linha de custo.",
+                "en": "Under Costs, tap + Add cost (1). A cost line opens."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-09.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Na linha de custo, digite um nome (1), por exemplo Stone, e o valor (2), por exemplo 90.",
+                "en": "In the cost line, type a name (1), for example Stone, and the amount (2), for example 90."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-10.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Escolha o tipo do custo (1): Material, Mão de obra ou Outro.",
+                "en": "Choose the type of the cost (1): Material, Labor or Other."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-11.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Adicione uma linha para cada custo: toque em + Adicionar custo de novo e preencha o nome (1), o valor (2) e o tipo (3), por exemplo Installer, 60, Mão de obra.",
+                "en": "Add one line for each cost: tap + Add cost again and fill the name (1), the amount (2) and the type (3), for example Installer, 60, Labor."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-12.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Digite o Preço de venda (1), o que o cliente paga por uma unidade, por exemplo 200.",
+                "en": "Type the Sale price (1), the price your customer pays for one unit, for example 200."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-13.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "O Apex mostra os números enquanto você digita (1): Material, Mão de obra, Outros, Custo total, Margem e Margem (%). Margem é o preço de venda menos o custo total. No exemplo o preço é $200.00 e o custo é $150.00, então a margem é $50.00, ou 25%.",
+                "en": "Apex shows the numbers while you type (1): Materials, Labor, Other, Total cost, Margin and Margin (%). Margin is the sale price minus the total cost. Here the price is $200.00 and the cost is $150.00, so the margin is $50.00, or 25%."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-14.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Escreva uma observação se quiser (1), na caixa Observações.",
+                "en": "Write a note if you want (1) in the Notes box."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-15.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Toque em Salvar (1), no fim do formulário.",
+                "en": "Tap Save (1) at the end of the form."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-16.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "O item aparece na lista (1).",
+                "en": "The item appears in the list (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-17.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Para mudar um item depois, toque nele. A mesma tela abre, com o botão Excluir item (1) no fim.",
+                "en": "To change an item later, tap it. The same screen opens, with the button Delete item (1) at the end."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-18.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "Se tocar em Excluir item, o Apex pede confirmação. Toque em Sim, excluir (1) para apagar o item, ou em Manter. Isso não pode ser desfeito.",
+                "en": "If you tap Delete item, Apex asks to confirm. Tap Yes, delete (1) to remove the item, or Keep it. This cannot be undone."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-19.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-19.en.jpg"
+              }
+            },
+            {
+              "n": 20,
+              "text": {
+                "pt": "Um item sem alguma informação, por exemplo sem descrição para o cliente, mostra uma etiqueta dourada Faltam dados (1) nas listas. Um item completo, como o que você acabou de criar, não tem a etiqueta.",
+                "en": "An item missing something, for example the customer description, shows a gold Needs info tag (1) in the lists. A complete item, like the one you just created, has no tag."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-20.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-20.en.jpg"
+              }
+            },
+            {
+              "n": 21,
+              "text": {
+                "pt": "No alto da tabela, toque em Faltam dados (1) para ver só os itens que precisam de mais informação.",
+                "en": "At the top of the price list, tap Needs info (1) to see only the items that need more."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-21.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-21.en.jpg"
+              }
+            },
+            {
+              "n": 22,
+              "text": {
+                "pt": "Toque em Todos (1) para ver todos os itens de novo.",
+                "en": "Tap All (1) to see every item again."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-22.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-22.en.jpg"
               }
             }
           ]
@@ -13037,8 +13235,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Comece a importação. Em Preços, toque em Importar planilha. Abre a tela Importar tabela de preços. Toque em Escolher arquivo (1) e escolha um arquivo Excel (.xlsx ou .xls) ou CSV. Se a sua lista está no Numbers ou no Google Sheets, exporte primeiro: Arquivo, depois Exportar, depois Excel ou CSV.",
-                "en": "Start the import. In Pricing, tap Import spreadsheet. A screen called Import pricing table opens. Tap Choose file (1) and pick an Excel file (.xlsx or .xls) or a CSV file. If your list is in Numbers or Google Sheets, export it first: File, then Export, then Excel or CSV."
+                "pt": "Em Preços, vá até o fim da lista e toque em Importar planilha (1).",
+                "en": "In Pricing, go to the end of the list and tap Import spreadsheet (1)."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/import-01.pt.jpg",
@@ -13048,8 +13246,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Excel com mais de uma aba. Se o arquivo Excel tem mais de uma aba, o Apex pergunta qual tem a tabela de preços. Escolha a aba (1) e toque em Continuar (2). Um arquivo CSV ou com uma aba só pula este passo.",
-                "en": "Excel with more than one sheet. If the Excel file has more than one sheet, Apex asks which one has the price list. Choose the sheet (1) and tap Continue (2). A CSV file or a file with one sheet skips this step."
+                "pt": "Abre a tela Importar tabela de preços. Toque em Escolher arquivo (1) e escolha um arquivo Excel (.xlsx ou .xls) ou CSV. Se a sua lista está no Numbers ou no Google Sheets, exporte primeiro: Arquivo, depois Exportar, depois Excel ou CSV.",
+                "en": "The screen Import pricing table opens. Tap Choose file (1) and pick an Excel file (.xlsx or .xls) or a CSV file. If your list is in Numbers or Google Sheets, export it first: File, then Export, then Excel or CSV."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/import-02.pt.jpg",
@@ -13059,8 +13257,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Confira a linha do cabeçalho. O Apex procura sozinho a linha com os nomes das colunas e diz, por exemplo, Linha de cabeçalho usada: linha 3 (1), seguida dos nomes que achou. Se estiver errado, digite o número certo na caixa (2), toque em Usar essa linha (3) e depois em Continuar (4). Se estiver certo, toque em Continuar.",
-                "en": "Check the header row. Apex looks for the row with the column names by itself and says, for example, Header row used: row 3 (1), followed by the names it found. If it is wrong, type the right number in the box (2), tap Use this row (3) and then Continue (4). If it is right, tap Continue."
+                "pt": "Se o arquivo Excel tem mais de uma aba, o Apex pergunta qual tem a tabela de preços. Escolha a aba (1).",
+                "en": "If the Excel file has more than one sheet, Apex asks which one has the price list. Choose the sheet (1)."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/import-03.pt.jpg",
@@ -13070,8 +13268,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Combine as colunas. O Apex mostra um menu para cada campo. Item (1) e Preço (2) são obrigatórios, têm uma estrela. Unidade, Categoria, Tipo (produto ou adicional) e Descrição para o cliente são opcionais: escolha Não está nesta planilha se você não tem. Cada menu mostra o nome da sua coluna e um exemplo da primeira linha. O Apex só preenche um menu sozinho quando o nome da coluna é exatamente igual. Confira todos os menus (3).",
-                "en": "Match the columns. Apex shows a menu for each field. Item (1) and Price (2) are required, they have a star. Unit, Category, Type (product or add-on) and Customer description are optional: choose Not on this spreadsheet if you do not have them. Each menu shows the name of your column and a sample from your first row. Apex fills in a menu by itself only when the column name is exactly the same. Check every menu (3)."
+                "pt": "Toque em Continuar (1). Um arquivo CSV ou com uma aba só pula esta pergunta e a anterior.",
+                "en": "Tap Continue (1). A CSV file or a file with one sheet skips this question and the one before it."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/import-04.pt.jpg",
@@ -13081,8 +13279,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Diga quais colunas são custos. Em Colunas de custo (1), cada coluna que você não usou vira uma possível linha de custo. Para cada uma, escolha Material, Mão de obra ou Outros, ou escolha Ignorar para pular. O Apex já deixa uma escolha marcada: confira. Depois toque em Ver o que será importado (2). Nada é salvo ainda.",
-                "en": "Say which columns are costs. Under Cost columns (1), every column you did not use becomes a possible cost line. For each one, choose Material, Labor or Other, or choose Ignore to skip it. Apex already leaves a choice picked: check it. Then tap Preview the import (2). Nothing is saved yet."
+                "pt": "Confira a linha do cabeçalho. O Apex procura sozinho a linha com os nomes das colunas e diz, por exemplo, Linha de cabeçalho usada: linha 3 (1), seguida dos nomes que achou.",
+                "en": "Check the header row. Apex looks for the row with the column names by itself and says, for example, Header row used: row 3 (1), followed by the names it found."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/import-05.pt.jpg",
@@ -13092,8 +13290,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Leia a prévia e importe. A primeira linha conta os itens, por exemplo 2 a criar · 1 a atualizar (1). Um item novo é criado (2). Um item com o mesmo nome de um que já existe é atualizado (3), e as linhas de custo dele são trocadas pelas colunas de custo da planilha. Cada linha mostra categoria, unidade, custo, venda e margem. Uma linha sem preço ou sem nome é pulada, e o Apex diz quais. Uma etiqueta Faltam dados quer dizer que a linha não traz descrição. Se estiver certo, toque em Importar (4). Para mudar um menu, toque em Voltar às colunas.",
-                "en": "Read the preview and import. The first line counts the items, for example 2 to create · 1 to update (1). A new item is created (2). An item with the same name as one already in your list is updated (3), and its cost lines are replaced by the cost columns of the spreadsheet. Each row shows category, unit, cost, price and margin. A row without a price or without an item name is skipped, and Apex says which lines. A Needs info tag means the row has no description. If it looks right, tap Import (4). To change a menu, tap Back to the columns."
+                "pt": "Se estiver errado, digite o número certo na caixa (1) e toque em Usar essa linha (2).",
+                "en": "If it is wrong, type the right number in the box (1) and tap Use this row (2)."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/import-06.pt.jpg",
@@ -13103,12 +13301,155 @@
             {
               "n": 7,
               "text": {
-                "pt": "Veja o resultado. Os itens novos (1, 2) aparecem na lista com os custos da planilha, e o item atualizado (3) mostra os novos custos. O contador do alto sobe. Os produtos novos também entram sozinhos na sua lista de serviços.",
-                "en": "See the result. The new items (1, 2) appear in the list with the costs from the spreadsheet, and the updated item (3) shows the new costs. The counter at the top goes up. The new products also join your list of services by themselves."
+                "pt": "Se estiver certo, toque em Continuar (1).",
+                "en": "If it is right, tap Continue (1)."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/import-07.pt.jpg",
                 "en": "help/img/guides/pricing-item-and-import/import-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Combine as colunas. O Apex mostra um menu para cada campo. Item (1) e Preço (2) são obrigatórios: têm uma estrela.",
+                "en": "Match the columns. Apex shows a menu for each field. Item (1) and Price (2) are required: they have a star."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-08.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Unidade (1), Categoria (2), Tipo (3), produto ou adicional, e Descrição para o cliente (4) são opcionais. Escolha Não está nesta planilha se você não tem.",
+                "en": "Unit (1), Category (2), Type (3), product or add-on, and Customer description (4) are optional. Choose Not on this spreadsheet if you do not have them."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-09.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Cada menu mostra o nome da sua coluna e um exemplo da primeira linha. O Apex só preenche um menu sozinho quando o nome da coluna é exatamente igual. Confira todos os menus (1 a 6).",
+                "en": "Each menu shows the name of your column and a sample from your first row. Apex fills in a menu by itself only when the column name is exactly the same. Check every menu (1 to 6)."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-10.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Em Colunas de custo (1), cada coluna que você não usou vira uma possível linha de custo.",
+                "en": "Under Cost columns (1), every column you did not use becomes a possible cost line."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-11.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Para cada uma, escolha Material, Mão de obra ou Outros (1, 2), ou escolha Ignorar para pular. O Apex já deixa uma escolha marcada: confira.",
+                "en": "For each one, choose Material, Labor or Other (1, 2), or choose Ignore to skip it. Apex already leaves a choice picked: check it."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-12.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Toque em Ver o que será importado (1). Nada é salvo ainda.",
+                "en": "Tap Preview the import (1). Nothing is saved yet."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-13.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Leia a prévia. A primeira linha conta os itens, por exemplo 2 a criar · 1 a atualizar (1).",
+                "en": "Read the preview. The first line counts the items, for example 2 to create · 1 to update (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-14.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Um item novo é criado (1, 2). Cada linha mostra categoria, unidade, custo, venda e margem.",
+                "en": "A new item is created (1, 2). Each row shows category, unit, cost, price and margin."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-15.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Um item com o mesmo nome de um que já existe é atualizado (1), e as linhas de custo dele são trocadas pelas colunas de custo da planilha.",
+                "en": "An item with the same name as one already in your list is updated (1), and its cost lines are replaced by the cost columns of the spreadsheet."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-16.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Uma linha sem preço ou sem nome é pulada, e o Apex diz quais. Uma etiqueta Faltam dados (1) quer dizer que a linha não traz descrição.",
+                "en": "A row without a price or without an item name is skipped, and Apex says which lines. A Needs info tag (1) means the row has no description."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-17.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Se estiver certo, toque em Importar (1). Para mudar um menu, toque em Voltar às colunas (2).",
+                "en": "If it looks right, tap Import (1). To change a menu, tap Back to the columns (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-18.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "Veja o resultado. O contador do alto sobe (1).",
+                "en": "See the result. The counter at the top goes up (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-19.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-19.en.jpg"
+              }
+            },
+            {
+              "n": 20,
+              "text": {
+                "pt": "Os itens novos (1) aparecem na lista com os custos da planilha, e o item atualizado (2) mostra os novos custos. Os produtos novos também entram sozinhos na sua lista de serviços.",
+                "en": "The new items (1) appear in the list with the costs from the spreadsheet, and the updated item (2) shows the new costs. The new products also join your list of services by themselves."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-20.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-20.en.jpg"
               }
             }
           ]
@@ -13125,7 +13466,7 @@
             ]
           },
           "section": "import",
-          "step": 1
+          "step": 2
         }
       ]
     },

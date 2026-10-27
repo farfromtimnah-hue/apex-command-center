@@ -97,7 +97,7 @@ const publicIds = REAL.guides.filter((g) => (g.who || []).includes("public")).ma
 
 // ================================================================ A. every role against every guide
 {
-  const counts = { owner: 81, partner: 81, staff_finance: 64, staff: 55, seller: 38, lead: 14, alice: 134, rafa: 134, developer: 134, none: 2 };
+  const counts = { owner: 82, partner: 82, staff_finance: 65, staff: 56, seller: 39, lead: 14, alice: 135, rafa: 135, developer: 135, none: 2 };
   TOKENS.forEach((r) => {
     const got = idsFor(r);
     const core2 = allIds.filter((id) => core.guideVisibleTo(REAL.guides.find((g) => g.id === id), REAL.groups, r));
@@ -138,9 +138,9 @@ const publicIds = REAL.guides.filter((g) => (g.who || []).includes("public")).ma
 // ================================================================ C. filterGuides and the guide list route
 {
   const f = W.helpFilterGuides(REAL, "seller", "admin");
-  ok(f.guides.length === 38 && !("groups" in f) && f.guides.every((g) => !("who" in g)), "filterGuides for a seller: 38 guides, no groups, no who lists");
+  ok(f.guides.length === 39 && !("groups" in f) && f.guides.every((g) => !("who" in g)), "filterGuides for a seller: 39 guides, no groups, no who lists");
   ok(Object.keys(f.pages).every((k) => f.pages[k].guides.every((id) => f.guides.some((g) => g.id === id))), "the screen overviews list only visible guides");
-  ok(W.helpFilterGuides(REAL, "alice", "client").guides.length === 84 && W.helpFilterGuides(REAL, "alice", "admin").guides.length === 50, "staff pick a side: 84 client guides or 50 admin guides");
+  ok(W.helpFilterGuides(REAL, "alice", "client").guides.length === 85 && W.helpFilterGuides(REAL, "alice", "admin").guides.length === 50, "staff pick a side: 85 client guides or 50 admin guides");
   ok(JSON.stringify(W.helpFilterGuides(REAL, "staff", "x").guides.map((g) => g.id)) === JSON.stringify(core.filterGuides(REAL, "staff", "x").guides.map((g) => g.id)), "parity: filterGuides agrees between the Worker and HelpCore");
 }
 
@@ -166,7 +166,7 @@ async function payload(key, query, extraHeaders, status, secret) {
   const o = await payload("owner", "?lang=pt");
   ok(o.res.headers.get("Cache-Control") === "private, no-store", "guide list: Cache-Control is private, no-store");
   ok(!o.res.headers.get("Set-Cookie"), "guide list: no Set-Cookie");
-  ok(o.json.guides.length === 81 && o.json.audience === "client" && o.json.lang === "pt", "an owner gets 81 client guides in Portuguese");
+  ok(o.json.guides.length === 82 && o.json.audience === "client" && o.json.lang === "pt", "an owner gets 82 client guides in Portuguese");
   const text = JSON.stringify(o.json);
   ok(!/"who"|"groups"/.test(text), "the answer carries no who list and no groups object");
   ok(!/apex\.resonateai\.online\/help\//.test(text) && !/"help\/img\//.test(text), "no public static address of any picture or video is in the answer");
@@ -185,7 +185,7 @@ async function payload(key, query, extraHeaders, status, secret) {
   // a seller
   const s = await payload("seller", "?lang=pt&role=developer&audience=admin&login_role=owner&who=owner", { "X-Role": "developer", "X-Login-Role": "owner" });
   const sIds = s.json.guides.map((g) => g.id);
-  ok(s.json.audience === "client" && sIds.length === 38 && sIds.join() === idsFor("seller").join(), "a seller who sends role=developer, audience=admin and other fields still gets the 33 seller guides");
+  ok(s.json.audience === "client" && sIds.length === 39 && sIds.join() === idsFor("seller").join(), "a seller who sends role=developer, audience=admin and other fields still gets the 33 seller guides");
   const sText = JSON.stringify(s.json);
   ok(!/guides\/(card-payments-setup|finances|analytics|daily-log)\//.test(sText), "a seller's answer holds no picture link of an owner only guide");
   const ownerOnly = allIds.filter((id) => !sIds.includes(id));
@@ -196,7 +196,7 @@ async function payload(key, query, extraHeaders, status, secret) {
   // staff
   const a = await payload("alice", "?lang=pt&audience=admin");
   const c = await payload("rafa", "?lang=pt&audience=client");
-  ok(a.json.audience === "admin" && a.json.guides.length === 50 && c.json.audience === "client" && c.json.guides.length === 84, "staff may ask for either side");
+  ok(a.json.audience === "admin" && a.json.guides.length === 50 && c.json.audience === "client" && c.json.guides.length === 85, "staff may ask for either side");
   const d = await payload("developer", "?lang=pt");
   ok(d.json.audience === "admin", "staff with no audience field start on the admin side");
   const sf = await payload("staff", "?lang=pt&audience=admin");

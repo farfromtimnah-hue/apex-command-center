@@ -10737,16 +10737,19 @@
             {
               "n": 1,
               "text": {
-                "pt": "Acompanhe o seu plano. Toque em Apex na fileira de abas no alto e depois em Execução. A página se chama Execução do plano. Uma barra de progresso no topo mostra quantas ações estão feitas, por exemplo 1 de 17, e o percentual. Cada linha abaixo é uma ação do seu plano com o Apex. Ela mostra a ação, a área e a pessoa responsável, e uma etiqueta de status: Pendente, Em andamento, Realizado, Atrasado ou Cancelado. Você pode atualizar o status das suas ações.",
-                "en": "Follow your plan. Tap Apex in the row of tabs at the top, then Execution. The page is called Execution of the plan. A progress bar at the top shows how many actions are done, for example 1 of 17, and the percent. Each line below is one action of your plan with Apex. It shows the action, the area and the person in charge, and a status tag: Pending, In progress, Done, Late or Cancelled. You can update the status of your own actions."
+                "pt": "Toque em Apex (1) na fileira de abas no alto. No menu que abre, toque em Execução (2).",
+                "en": "Tap Apex (1) in the row of tabs at the top. In the menu that opens, tap Execution (2)."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/execution-and-tasks/plan-01.pt.jpg",
+                "en": "help/img/guides/execution-and-tasks/plan-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Veja as suas tarefas. Toque em Apex e depois em Tarefas. A página, Suas tarefas, lista o que o Apex pediu para você fazer. Cada tarefa (1) mostra o título e o prazo, e uma etiqueta com o status. A lista é só para ler: você não muda tarefas aqui.",
-                "en": "See your tasks. Tap Apex, then Tasks. The page, Your tasks, lists what Apex asked you to do. Each task (1) shows the title and the due date, and a tag with its status. The list is only for reading: you do not change tasks here."
+                "pt": "A página se chama Execução do plano. A barra (1) mostra quanto do seu plano está feito. A linha embaixo (2) diz quantas ações estão feitas, por exemplo 1 de 17, e o percentual.",
+                "en": "The page is called Execution of the plan. The bar (1) shows how much of your plan is done. The line under it (2) says how many actions are done, for example 1 of 17, and the percent."
               },
               "image": {
                 "pt": "help/img/guides/execution-and-tasks/plan-02.pt.jpg",
@@ -10756,8 +10759,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Mude o status de uma ação. Volte para Apex, depois Execução. A barra (1) mostra quantas ações já foram feitas. Cada linha é uma ação com a sua etiqueta de status (2). Toque em uma linha para abrir. A folha lista Ação, Frente, Responsável, Status e Observações. Toque em Status para escolher Pendente, Em andamento, Realizado, Atrasado ou Cancelado. Os nomes da figura estão cobertos.",
-                "en": "Change the status of an action. Go back to Apex, then Execution. The bar (1) shows how many actions are done. Each row is one action with its status tag (2). Tap a row to open it. The sheet lists Action, Front, Owner, Status and Notes. Tap Status to pick Pending, In progress, Done, Late or Cancelled. The names in the picture are covered."
+                "pt": "Cada linha é uma ação do seu plano com o Apex (1). Ela mostra a ação, a área e a pessoa responsável. A etiqueta à direita (2) é o status: Pendente, Em andamento, Realizado, Atrasado ou Cancelado. Os nomes estão cobertos.",
+                "en": "Each line is one action of your plan with Apex (1). It shows the action, the area and the person in charge. The tag on the right (2) is the status: Pending, In progress, Done, Late or Cancelled. Names are covered."
               },
               "image": {
                 "pt": "help/img/guides/execution-and-tasks/plan-03.pt.jpg",
@@ -10767,18 +10770,140 @@
             {
               "n": 4,
               "text": {
-                "pt": "Adicione uma nova ação. No fim da lista, toque em + Nova ação. Escreva a ação na caixa (os outros campos podem ser preenchidos depois de salvar). Toque em Salvar, ou em Cancelar para sair. Para tirar uma ação, abra-a e toque em Excluir.",
-                "en": "Add a new action. At the bottom of the list, tap + New action. Type the action in the box (the other fields can be filled in after saving). Tap Save, or Cancel to leave. To remove an action, open it and tap Delete."
+                "pt": "Você pode atualizar o status das suas ações. Toque em uma linha para abrir. A folha lista Ação, Frente, Responsável, Status (1) e Observações. Os nomes da figura estão cobertos.",
+                "en": "You can update the status of your own actions. Tap a row to open it. The sheet lists Action, Front, Owner, Status (1) and Notes. The names in the picture are covered."
               },
               "image": {
                 "pt": "help/img/guides/execution-and-tasks/plan-04.pt.jpg",
                 "en": "help/img/guides/execution-and-tasks/plan-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Toque em Status. Abre uma lista com as cinco opções (1): Realizado, Em andamento, Pendente, Atrasado e Cancelado. A dourada é o status que a ação tem agora.",
+                "en": "Tap Status. A list opens with the five choices (1): Done, In progress, Pending, Late and Cancelled. The gold one is the status the action has now."
+              },
+              "image": {
+                "pt": "help/img/guides/execution-and-tasks/plan-05.pt.jpg",
+                "en": "help/img/guides/execution-and-tasks/plan-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Toque no novo status, por exemplo Realizado (1). Depois toque em Salvar (2). Toque em Cancelar se quiser sair sem salvar.",
+                "en": "Tap the new status, for example Done (1). Then tap Save (2). Tap Cancel if you want to leave without saving."
+              },
+              "image": {
+                "pt": "help/img/guides/execution-and-tasks/plan-06.pt.jpg",
+                "en": "help/img/guides/execution-and-tasks/plan-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "A etiqueta da linha muda (1) e a barra conta (2): o número de ações feitas sobe um e o percentual muda.",
+                "en": "The tag on the row changes (1) and the bar counts it (2): the number of done actions goes up by one and the percent changes."
+              },
+              "image": {
+                "pt": "help/img/guides/execution-and-tasks/plan-07.pt.jpg",
+                "en": "help/img/guides/execution-and-tasks/plan-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Para adicionar uma ação, role até o fim da lista e toque em + Nova ação (1).",
+                "en": "To add an action, scroll to the bottom of the list and tap + New action (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/execution-and-tasks/plan-08.pt.jpg",
+                "en": "help/img/guides/execution-and-tasks/plan-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Escreva a ação na caixa (1). Os outros campos podem ser preenchidos depois de salvar. Toque em Salvar (2), ou em Cancelar para sair.",
+                "en": "Type the action in the box (1). The other fields can be filled in after saving. Tap Save (2), or Cancel to leave."
+              },
+              "image": {
+                "pt": "help/img/guides/execution-and-tasks/plan-09.pt.jpg",
+                "en": "help/img/guides/execution-and-tasks/plan-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Aparece Salvo e a nova ação fica no fim da lista (1), com o status Pendente. Toque nela para preencher Frente, Responsável e Observações.",
+                "en": "Saved appears and the new action is at the end of the list (1), with the status Pending. Tap it to fill in Front, Owner and Notes."
+              },
+              "image": {
+                "pt": "help/img/guides/execution-and-tasks/plan-10.pt.jpg",
+                "en": "help/img/guides/execution-and-tasks/plan-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Para tirar uma ação, toque na linha dela para abrir. Depois toque em Excluir (1).",
+                "en": "To remove an action, tap its row to open it. Then tap Delete (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/execution-and-tasks/plan-11.pt.jpg",
+                "en": "help/img/guides/execution-and-tasks/plan-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "O Apex pergunta se você tem certeza e avisa que não dá para desfazer. Toque em Sim, excluir (1) para tirar a ação. Toque em Manter para voltar.",
+                "en": "Apex asks if you are sure and says this cannot be undone. Tap Yes, delete (1) to remove the action. Tap Keep it to go back."
+              },
+              "image": {
+                "pt": "help/img/guides/execution-and-tasks/plan-12.pt.jpg",
+                "en": "help/img/guides/execution-and-tasks/plan-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Para ver as suas tarefas, toque em Apex (1) de novo. No menu, toque em Tarefas (2).",
+                "en": "To see your tasks, tap Apex (1) again. In the menu, tap Tasks (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/execution-and-tasks/plan-13.pt.jpg",
+                "en": "help/img/guides/execution-and-tasks/plan-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "A página, Suas tarefas, lista o que o Apex pediu para você fazer. Cada tarefa (1) mostra o título e o prazo, e uma etiqueta (2) com o status. A lista é só para ler: você não muda tarefas aqui.",
+                "en": "The page, Your tasks, lists what Apex asked you to do. Each task (1) shows the title and the due date, and a tag (2) with its status. The list is only for reading: you do not change tasks here."
+              },
+              "image": {
+                "pt": "help/img/guides/execution-and-tasks/plan-14.pt.jpg",
+                "en": "help/img/guides/execution-and-tasks/plan-14.en.jpg"
               }
             }
           ]
         }
       ],
       "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Execução"
+            ],
+            "en": [
+              "Execution"
+            ]
+          },
+          "section": "plan",
+          "step": 1
+        },
         {
           "labels": {
             "pt": [
@@ -10789,21 +10914,19 @@
             ]
           },
           "section": "plan",
-          "step": 4
+          "step": 8
         },
         {
-          "section": "plan",
-          "step": 1,
           "labels": {
             "pt": [
-              "Execução",
               "Tarefas"
             ],
             "en": [
-              "Execution",
               "Tasks"
             ]
-          }
+          },
+          "section": "plan",
+          "step": 13
         }
       ]
     },

@@ -10838,8 +10838,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Copie o link da sua página. Toque em Negócio, depois em Orçamentos, depois em Configurações, e role até Marketing. A caixa Link da sua página (link na bio) (1) guarda o link da sua página pública. Toque em Copiar link (2): aparece Link copiado. Cole na sua bio do Instagram ou onde você publicar.",
-                "en": "Copy your page link. Tap Business, then Estimates, then Settings, and scroll to Marketing. The box Your page link (link in bio) (1) holds the link of your public page. Tap Copy link (2): Link copied appears. Paste it in your Instagram bio or anywhere you post."
+                "pt": "Toque em Negócio (1) na fileira de abas no alto. No menu que abre, toque em Orçamentos (2).",
+                "en": "Tap Business (1) in the row of tabs at the top. In the menu that opens, tap Estimates (2)."
               },
               "image": {
                 "pt": "help/img/guides/link-in-bio-page/page-01.pt.jpg",
@@ -10849,8 +10849,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Veja o que o visitante vê. A página mostra o seu logo e o seu nome, um formulário curto com Seu nome (1) e Telefone (2), e os seus serviços como botões (3) que o visitante marca, mais de um se quiser. O visitante toca em Enviar (4) e vê Recebido!. A página abre em português e o visitante troca com o botão no alto à direita.",
-                "en": "See what a visitor sees. The page shows your logo and name, a short form with Your name (1) and Phone (2), and your services as buttons (3) the visitor can tick, more than one if they want. The visitor taps Send (4) and sees Received!. The page opens in Portuguese and the visitor switches with the button at the top right."
+                "pt": "No alto da página de Orçamentos, toque em Configurações (1).",
+                "en": "At the top of the Estimates page, tap Settings (1)."
               },
               "image": {
                 "pt": "help/img/guides/link-in-bio-page/page-02.pt.jpg",
@@ -10860,12 +10860,100 @@
             {
               "n": 3,
               "text": {
-                "pt": "Ache o lead novo. Cada visitante que envia o formulário vira um lead novo no seu Pipeline, com a Origem (1) Link da bio e os Serviços (2) que ele marcou. Ninguém é creditado como quem indicou: a linha Parceiro fica vazia. Os serviços da sua lista são os que aparecem como botões. O guia Sua lista de serviços mostra onde editar essa lista.",
-                "en": "Find the new lead. Every visitor who sends the form becomes a new lead in your Pipeline, with the Source (1) Link da bio and the Services (2) they ticked. No one is credited as the referrer: the Partner row stays empty. The services in your list are the ones that appear as buttons. The guide Your list of services shows where to edit that list."
+                "pt": "Role até Marketing. A caixa Link da sua página (link na bio) (1) guarda o link da sua página pública. Uma parte do link está coberta na figura.",
+                "en": "Scroll down to Marketing. The box Your page link (link in bio) (1) holds the link of your public page. Part of the link is covered in the picture."
               },
               "image": {
                 "pt": "help/img/guides/link-in-bio-page/page-03.pt.jpg",
                 "en": "help/img/guides/link-in-bio-page/page-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Toque em Copiar link (1). Aparece Link copiado. Cole na sua bio do Instagram ou onde você publicar.",
+                "en": "Tap Copy link (1). Link copied appears. Paste it in your Instagram bio or anywhere you post."
+              },
+              "image": {
+                "pt": "help/img/guides/link-in-bio-page/page-04.pt.jpg",
+                "en": "help/img/guides/link-in-bio-page/page-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Isto é o que o visitante vê. A página mostra o seu logo e o seu nome (1). Ela abre em português e o visitante troca com o botão no alto à direita (2).",
+                "en": "This is what a visitor sees. The page shows your logo and your name (1). It opens in Portuguese, and the visitor switches with the button at the top right (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/link-in-bio-page/page-05.pt.jpg",
+                "en": "help/img/guides/link-in-bio-page/page-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "O visitante escreve Seu nome (1), que é obrigatório, e Telefone (2).",
+                "en": "The visitor types Your name (1), which is required, and Phone (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/link-in-bio-page/page-06.pt.jpg",
+                "en": "help/img/guides/link-in-bio-page/page-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Os serviços da sua lista aparecem como botões. O visitante toca nos que quer (1) (2), mais de um se quiser. Para editar essa lista, veja o guia Sua lista de serviços.",
+                "en": "The services in your list appear as buttons. The visitor taps the ones they want (1) (2), more than one if they like. To edit that list, see the guide Your list of services."
+              },
+              "image": {
+                "pt": "help/img/guides/link-in-bio-page/page-07.pt.jpg",
+                "en": "help/img/guides/link-in-bio-page/page-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "O visitante toca em Enviar (1).",
+                "en": "The visitor taps Send (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/link-in-bio-page/page-08.pt.jpg",
+                "en": "help/img/guides/link-in-bio-page/page-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "O visitante vê Recebido! e uma mensagem de agradecimento. O Apex agora tem o lead novo.",
+                "en": "The visitor sees Received! and a thank you message. Apex now has the new lead."
+              },
+              "image": {
+                "pt": "help/img/guides/link-in-bio-page/page-09.pt.jpg",
+                "en": "help/img/guides/link-in-bio-page/page-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "No seu portal, toque em Negócio e depois em Pipeline. Cada visitante que envia o formulário vira um lead novo (1), com os serviços que ele marcou (2).",
+                "en": "In your portal, tap Business, then Pipeline. Every visitor who sends the form is a new lead (1), with the services they ticked (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/link-in-bio-page/page-10.pt.jpg",
+                "en": "help/img/guides/link-in-bio-page/page-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Abra o lead. Em Dados do lead, a Origem (1) é Link da bio e os Serviços (2) são os que ele marcou. Ninguém é creditado como quem indicou: a linha Parceiro (3) fica vazia.",
+                "en": "Open the lead. Under Lead details, the Source (1) is Link da bio and the Services (2) are the ones they ticked. No one is credited as the referrer: the Partner row (3) stays empty."
+              },
+              "image": {
+                "pt": "help/img/guides/link-in-bio-page/page-11.pt.jpg",
+                "en": "help/img/guides/link-in-bio-page/page-11.en.jpg"
               }
             }
           ]

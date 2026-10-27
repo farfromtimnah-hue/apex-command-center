@@ -28248,6 +28248,93 @@
           "step": 1
         }
       ]
+    },
+    {
+      "id": "admin-rafa-dashboard",
+      "audience": "admin",
+      "title": {
+        "pt": "O Dashboard do Rafa: números do dia, reuniões e tarefas",
+        "en": "Rafa's Dashboard: the day's numbers, meetings and tasks"
+      },
+      "summary": {
+        "pt": "Veja o Dashboard que o Rafa usa: os três números do dia, o botão Diário e Semanal, Falar reunião, as reuniões de hoje e as tarefas com visto.",
+        "en": "See the Dashboard Rafa uses: the day's three numbers, the Daily and Weekly button, Speak a meeting, today's meetings and the tasks with a tick."
+      },
+      "keywords": {
+        "pt": [
+          "dashboard do rafa",
+          "visão geral",
+          "reuniões hoje",
+          "tarefas pendentes",
+          "atrasadas",
+          "diário",
+          "semanal",
+          "falar reunião"
+        ],
+        "en": [
+          "rafa dashboard",
+          "overview",
+          "meetings today",
+          "tasks due",
+          "overdue",
+          "daily",
+          "weekly",
+          "speak a meeting"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "rd",
+          "title": {
+            "pt": "O Dashboard do Rafa",
+            "en": "Rafa's Dashboard"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O alto da página. O Dashboard do Rafa se chama Visão Geral. Os três números (1) são Reuniões hoje, Tarefas pendentes e Atrasadas. Os botões Diário e Semanal (2) mudam o período. Falar reunião (3) marca uma reunião por voz. Embaixo dos números uma barra mostra quantas tarefas estão feitas. O desenvolvedor vê esta tela com o botão Rafa na barra DEV do menu lateral. A imagem cobre as listas.",
+                "en": "The top of the page. Rafa's Dashboard is called Overview. The three numbers (1) are Meetings today, Tasks due and Overdue. The Daily and Weekly buttons (2) change the period. Speak a meeting (3) books a meeting by voice. Below the numbers a bar shows how many tasks are done. The developer can see this view with the Rafa button in the DEV bar of the side menu. The picture covers the lists."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-rafa-dashboard/rd-01.pt.jpg",
+                "en": "help/img/guides/admin-rafa-dashboard/rd-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "As reuniões de hoje. Embaixo dos números, Reuniões de Hoje lista cada reunião com o horário. Em cada linha há links para o cliente, para a Preparação da reunião, para entrar no Google Meet e para enviar o link por WhatsApp. Toque em Preparação da reunião antes da reunião.",
+                "en": "Today's meetings. Under the numbers, Meetings today lists each meeting with its time. On each row there are links to the client, to the Meeting prep, to join the Google Meet and to send the link by WhatsApp. Tap Meeting prep before the meeting."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Minhas tarefas. Embaixo das reuniões, Minhas tarefas tem a lista de tarefas, com o nome do cliente e o prazo, e Atrasada em vermelho. Toque no círculo à esquerda de uma tarefa para marcá-la como feita. Falar minhas tarefas e Adicionar tarefa ficam no alto da lista.",
+                "en": "My tasks. Under the meetings, My tasks has a list of tasks, with the client name and the due date, and Overdue in red. Tap the circle at the left of a task to tick it as done. Speak my tasks and Add task are at the top of the list."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Números do dia do Rafa"
+            ],
+            "en": [
+              "Rafa's numbers of the day"
+            ]
+          },
+          "section": "rd",
+          "step": 1
+        }
+      ]
     }
   ],
   "pages": {
@@ -28584,7 +28671,8 @@
       "guides": [
         "admin-dashboard-reminders",
         "admin-menu-language-learn",
-        "admin-tell-us-goal-approvals"
+        "admin-tell-us-goal-approvals",
+        "admin-rafa-dashboard"
       ],
       "overview": {
         "pt": "Aqui você vê o que precisa de você hoje: lembretes de reunião, faturas, tarefas e horários esperando o cliente.",

@@ -10712,8 +10712,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Adicione o projeto. Toque em Negócio e depois em Projetos, e role até o fim da lista. Toque em + Novo projeto (1). Digite o nome em Cliente / projeto (2) e toque em Salvar (3). Só o nome é obrigatório. Você preenche os outros campos depois de salvar. Use para uma obra que você já tem, quando não existe um lead para ela.",
-                "en": "Add the project. Tap Business, then Projects, and scroll to the end of the list. Tap + New project (1). Type the Client / project name (2) and tap Save (3). Only the name is required. You fill in the other fields after saving. Use this for a job you already have, when there is no lead for it."
+                "pt": "Toque em Negócio na fileira de abas no alto. Um menu abre. Toque em Projetos (2).",
+                "en": "Tap Business in the row of tabs at the top. A menu opens. Tap Projects (2)."
               },
               "image": {
                 "pt": "help/img/guides/project-from-scratch/newproject-01.pt.jpg",
@@ -10723,8 +10723,60 @@
             {
               "n": 2,
               "text": {
-                "pt": "Transforme em lead quando precisar de documentos. Abra o projeto. Um projeto digitado à mão não pode ter orçamento, contrato nem faturas até ser ligado a um lead. Toque em Criar lead deste projeto. O Apex cria o lead a partir do projeto, então você não digita o cliente de novo. Depois siga os guias do orçamento, do contrato e das faturas.",
-                "en": "Turn it into a lead when you need documents. Open the project. A project typed by hand cannot get an estimate, a contract or invoices until it is tied to a lead. Tap Make this project a lead. Apex creates the lead from the project, so you do not type the customer again. Then follow the guides for the estimate, the contract and the invoices."
+                "pt": "Role até o fim da lista de projetos. Toque em + Novo projeto (1). Use isso para uma obra que você já tem, quando não existe um lead para ela.",
+                "en": "Scroll to the end of the list of projects. Tap + New project (1). Use this for a job you already have, when there is no lead for it."
+              },
+              "image": {
+                "pt": "help/img/guides/project-from-scratch/newproject-02.pt.jpg",
+                "en": "help/img/guides/project-from-scratch/newproject-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Digite o nome em Cliente / projeto (1). Só o nome é obrigatório. Você preenche os outros campos depois de salvar.",
+                "en": "Type the Client / project name (1). Only the name is required. You fill in the other fields after saving."
+              },
+              "image": {
+                "pt": "help/img/guides/project-from-scratch/newproject-03.pt.jpg",
+                "en": "help/img/guides/project-from-scratch/newproject-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Toque em Salvar (1). O projeto entra na sua lista.",
+                "en": "Tap Save (1). The project is added to your list."
+              },
+              "image": {
+                "pt": "help/img/guides/project-from-scratch/newproject-04.pt.jpg",
+                "en": "help/img/guides/project-from-scratch/newproject-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "O projeto aparece no topo da lista, e uma mensagem Salvo aparece por um instante.",
+                "en": "The project appears at the top of the list, and a Saved message shows for a moment."
+              },
+              "image": null
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Abra o projeto. Um projeto digitado à mão não pode ter orçamento, contrato nem faturas até estar ligado a um lead. Em Trabalho, toque em Criar lead deste projeto (1).",
+                "en": "Open the project. A project typed by hand cannot get an estimate, a contract or invoices until it is tied to a lead. Under Job, tap Make this project a lead (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/project-from-scratch/newproject-06.pt.jpg",
+                "en": "help/img/guides/project-from-scratch/newproject-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "O Apex cria o lead a partir do projeto, então você não digita o cliente de novo. Uma mensagem diz Lead criado para este projeto, e o botão some. Depois siga os guias do orçamento, do contrato e das faturas.",
+                "en": "Apex creates the lead from the project, so you do not type the customer again. A message says Lead created for this project, and the button goes away. Then follow the guides for the estimate, the contract and the invoices."
               },
               "image": null
             }
@@ -10742,7 +10794,7 @@
             ]
           },
           "section": "newproject",
-          "step": 1
+          "step": 2
         },
         {
           "labels": {
@@ -10754,7 +10806,7 @@
             ]
           },
           "section": "newproject",
-          "step": 2
+          "step": 6
         }
       ]
     },

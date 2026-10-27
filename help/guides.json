@@ -7610,56 +7610,254 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Parceiros. Toque em Negócio e depois em Parceiros (1), ao lado de Leads. Cada cartão (2) é um parceiro. Ele mostra o status do parceiro, quantos leads ele indicou e quanta receita esses leads trouxeram. Os números são contados pelo Apex a partir dos seus leads, você nunca digita. Na primeira vez, o Apex pode pedir para você conferir a sua página de indicação: toque em Configurar agora, ou em Depois.",
-                "en": "Open Partners. Tap Business, then tap Partners (1) next to Leads. Each card (2) is one partner. It shows the partner's status, how many leads they referred and how much revenue those leads brought. The numbers are counted by Apex from your leads, you never type them. The first time, Apex may ask you to check your referral page: tap Set up now, or Later."
+                "pt": "Toque em Negócio (1) na barra de cima. Um menu abre.",
+                "en": "Tap Business (1) in the top bar. A menu opens."
               },
               "image": {
-                "pt": "help/img/guides/referral-partners/partners-01.pt.jpg",
-                "en": "help/img/guides/referral-partners/partners-01.en.jpg"
+                "pt": "help/img/guides/referral-partners/partners-s01.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Adicione um parceiro. Toque no botão dourado redondo + (3 na imagem anterior). O menu Criar abre. Toque em Novo parceiro (1).",
-                "en": "Add a partner. Tap the round gold + button (3 in the picture before). The Create menu opens. Tap New partner (1)."
+                "pt": "No menu, toque em Pipeline (1).",
+                "en": "In the menu, tap Pipeline (1)."
               },
               "image": {
-                "pt": "help/img/guides/referral-partners/partners-02.pt.jpg",
-                "en": "help/img/guides/referral-partners/partners-02.en.jpg"
+                "pt": "help/img/guides/referral-partners/partners-s02.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Digite o nome do parceiro (1) e toque em Salvar (2). Só o nome é obrigatório. Você preenche os outros campos depois de salvar.",
-                "en": "Type the partner's name (1) and tap Save (2). Only the name is required. You fill in the other fields after saving."
+                "pt": "Toque em Parceiros (1) ao lado de Leads. A lista dos seus parceiros de indicação abre.",
+                "en": "Tap Partners (1) next to Leads. The list of your referral partners opens."
               },
               "image": {
-                "pt": "help/img/guides/referral-partners/partners-03.pt.jpg",
-                "en": "help/img/guides/referral-partners/partners-03.en.jpg"
+                "pt": "help/img/guides/referral-partners/partners-s03.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Preencha os dados do parceiro. Toque no parceiro para abrir a ficha. Toque em uma linha para mudar: o telefone de contato (1), o Tipo (2) e o Status (3): Prospectando, Ativo ou Inativo. Próxima ação (5) ajuda você a lembrar o que fazer em seguida. Leads indicados e Receita gerada (4) são calculados pelo Apex.",
-                "en": "Fill in the partner's details. Tap the partner to open the sheet. Tap a row to change it: the contact phone (1), the Type (2) and the Status (3): Prospecting, Active or Inactive. Next action (5) helps you remember what to do next. Referrals sent and Revenue generated (4) are calculated by Apex."
+                "pt": "Cada cartão (1) é um parceiro. Ele mostra o status do parceiro, quantos leads ele indicou e quanta receita esses leads trouxeram. O Apex conta os números a partir dos seus leads: você nunca digita.",
+                "en": "Each card (1) is one partner. It shows the partner's status, how many leads they referred and how much revenue those leads brought. Apex counts the numbers from your leads: you never type them."
               },
               "image": {
-                "pt": "help/img/guides/referral-partners/partners-04.pt.jpg",
-                "en": "help/img/guides/referral-partners/partners-04.en.jpg"
+                "pt": "help/img/guides/referral-partners/partners-s04.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Envie o link do parceiro. No fim da ficha, Link de indicação (1) é o link próprio do parceiro. Quem preencher o formulário desse link vira um lead no seu pipeline, já ligado a esse parceiro, sem conferir à mão. Toque em Copiar (2) ou Compartilhar (3). O QR code (4) abre o mesmo link: toque em Baixar QR (PNG) (5) para salvar a imagem e imprimir ou postar. Toque em Personalizar aparência (6) para mudar como a página fica.",
-                "en": "Send the partner's link. At the bottom of the sheet, Referral link (1) is the partner's own link. Anyone who fills in the form on this link becomes a lead in your pipeline, already tied to this partner, with no matching by hand. Tap Copy (2) or Share (3). The QR code (4) opens the same link: tap Download QR (PNG) (5) to save the picture and print it or post it. Tap Customize appearance (6) to change how the page looks."
+                "pt": "Na primeira vez, o Apex pode pedir que você confira a sua página de indicação: toque em Configurar agora, ou em Depois.",
+                "en": "The first time, Apex may ask you to check your referral page: tap Set up now, or Later."
               },
               "image": {
-                "pt": "help/img/guides/referral-partners/partners-05.pt.jpg",
-                "en": "help/img/guides/referral-partners/partners-05.en.jpg"
+                "pt": "help/img/guides/referral-partners/partners-s04.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s04.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Para acrescentar um parceiro, toque no botão redondo dourado + (1) no canto de baixo à direita. O menu Criar abre.",
+                "en": "To add a partner, tap the round gold + button (1) at the bottom right. The Create menu opens."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s06.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "No menu Criar, toque em Novo parceiro (1).",
+                "en": "In the Create menu, tap New partner (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s07.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Digite o nome do parceiro (1). Só o nome é obrigatório: você preenche os outros campos depois de salvar.",
+                "en": "Type the partner's name (1). Only the name is required: you fill in the other fields after saving."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s08.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Toque em Salvar (1). O Apex responde Salvo.",
+                "en": "Tap Save (1). Apex answers Saved."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s09.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "O parceiro novo aparece no fim da lista (1), com o status Prospectando.",
+                "en": "The new partner appears at the end of the list (1), with the status Prospecting."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s10.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Toque no parceiro para abrir a folha dele.",
+                "en": "Tap the partner to open its sheet."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s10.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s10.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Toque na linha Contato (1) e digite o telefone de contato. Toque em Salvar: a folha mostra o número.",
+                "en": "Tap the Contact row (1) and type the contact phone. Tap Save: the sheet shows the number."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s12.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Toque na linha Tipo (1) e escolha o tipo do parceiro. As escolhas vêm da sua lista Tipos de parceiro nos Ajustes. Toque em Salvar.",
+                "en": "Tap the Type row (1) and pick the partner's type. The choices come from your Partner types list in Settings. Tap Save."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s13.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Toque na linha Status (1) e escolha Prospectando, Ativo ou Inativo. Toque em Salvar.",
+                "en": "Tap the Status row (1) and pick Prospecting, Active or Inactive. Tap Save."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s14.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Leads indicados (1) e Receita gerada (2) são calculados pelo Apex. Você não digita neles.",
+                "en": "Referrals sent (1) and Revenue generated (2) are calculated by Apex. You cannot type in them."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s15.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Próxima ação (1) ajuda você a lembrar o que fazer em seguida. Toque na linha, digite, por exemplo Ligar para o parceiro na semana que vem, e toque em Salvar.",
+                "en": "Next action (1) helps you remember what to do next. Tap the row, type it, for example Call the partner next week, and tap Save."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s16.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "No fim da folha, o Link de indicação (1) é o link próprio do parceiro. Quem preencher o formulário nesse link vira um lead no seu pipeline, já ligado a este parceiro, sem juntar na mão.",
+                "en": "At the bottom of the sheet, the Referral link (1) is the partner's own link. Anyone who fills in the form on this link becomes a lead in your pipeline, already tied to this partner, with no matching by hand."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s17.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Toque em Copiar (1) para copiar o link. O Apex responde Link copiado.",
+                "en": "Tap Copy (1) to copy the link. Apex answers Link copied."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s18.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "Ou toque em Compartilhar (1) para enviar o link pelas opções de compartilhar do seu celular.",
+                "en": "Or tap Share (1) to send the link with the share options of your phone."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s19.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s19.en.jpg"
+              }
+            },
+            {
+              "n": 20,
+              "text": {
+                "pt": "O código QR (1) abre o mesmo link. Imprima ou publique para as pessoas apontarem a câmera do celular para ele.",
+                "en": "The QR code (1) opens the same link. Print it or post it so people can point the phone camera at it."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s20.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s20.en.jpg"
+              }
+            },
+            {
+              "n": 21,
+              "text": {
+                "pt": "Toque em Baixar QR (PNG) (1) para salvar a imagem do QR, depois imprima ou publique.",
+                "en": "Tap Download QR (PNG) (1) to save the QR picture, then print it or post it."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s21.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s21.en.jpg"
+              }
+            },
+            {
+              "n": 22,
+              "text": {
+                "pt": "Toque em Personalizar aparência (1) para mudar como a página de indicação fica.",
+                "en": "Tap Customize appearance (1) to change how the referral page looks."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s22.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s22.en.jpg"
+              }
+            },
+            {
+              "n": 23,
+              "text": {
+                "pt": "Os Ajustes abrem na parte Página de indicação. Escolha o Idioma inicial (1), a Cor de fundo e a Cor de destaque da página. Deixe uma cor vazia para voltar ao padrão.",
+                "en": "Settings opens at the part Referral page. Choose the Starting language (1), the Background color and the Accent color of the page. Leave a color empty to go back to the default."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-s23.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-s23.en.jpg"
               }
             }
           ]
@@ -7676,7 +7874,7 @@
             ]
           },
           "section": "partners",
-          "step": 2
+          "step": 7
         },
         {
           "labels": {
@@ -7688,7 +7886,7 @@
             ]
           },
           "section": "partners",
-          "step": 5
+          "step": 21
         },
         {
           "labels": {
@@ -7700,7 +7898,7 @@
             ]
           },
           "section": "partners",
-          "step": 5
+          "step": 22
         },
         {
           "labels": {
@@ -7712,7 +7910,7 @@
             ]
           },
           "section": "partners",
-          "step": 2
+          "step": 7
         }
       ]
     },

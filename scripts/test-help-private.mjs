@@ -97,7 +97,7 @@ const publicIds = REAL.guides.filter((g) => (g.who || []).includes("public")).ma
 
 // ================================================================ A. every role against every guide
 {
-  const counts = { owner: 78, partner: 78, staff_finance: 61, staff: 52, seller: 36, lead: 14, alice: 97, rafa: 97, developer: 97, none: 2 };
+  const counts = { owner: 79, partner: 79, staff_finance: 62, staff: 53, seller: 36, lead: 14, alice: 98, rafa: 98, developer: 98, none: 2 };
   TOKENS.forEach((r) => {
     const got = idsFor(r);
     const core2 = allIds.filter((id) => core.guideVisibleTo(REAL.guides.find((g) => g.id === id), REAL.groups, r));
@@ -140,7 +140,7 @@ const publicIds = REAL.guides.filter((g) => (g.who || []).includes("public")).ma
   const f = W.helpFilterGuides(REAL, "seller", "admin");
   ok(f.guides.length === 36 && !("groups" in f) && f.guides.every((g) => !("who" in g)), "filterGuides for a seller: 36 guides, no groups, no who lists");
   ok(Object.keys(f.pages).every((k) => f.pages[k].guides.every((id) => f.guides.some((g) => g.id === id))), "the screen overviews list only visible guides");
-  ok(W.helpFilterGuides(REAL, "alice", "client").guides.length === 81 && W.helpFilterGuides(REAL, "alice", "admin").guides.length === 16, "staff pick a side: 81 client guides or 16 admin guides");
+  ok(W.helpFilterGuides(REAL, "alice", "client").guides.length === 82 && W.helpFilterGuides(REAL, "alice", "admin").guides.length === 16, "staff pick a side: 82 client guides or 16 admin guides");
   ok(JSON.stringify(W.helpFilterGuides(REAL, "staff", "x").guides.map((g) => g.id)) === JSON.stringify(core.filterGuides(REAL, "staff", "x").guides.map((g) => g.id)), "parity: filterGuides agrees between the Worker and HelpCore");
 }
 
@@ -166,7 +166,7 @@ async function payload(key, query, extraHeaders, status, secret) {
   const o = await payload("owner", "?lang=pt");
   ok(o.res.headers.get("Cache-Control") === "private, no-store", "guide list: Cache-Control is private, no-store");
   ok(!o.res.headers.get("Set-Cookie"), "guide list: no Set-Cookie");
-  ok(o.json.guides.length === 78 && o.json.audience === "client" && o.json.lang === "pt", "an owner gets 78 client guides in Portuguese");
+  ok(o.json.guides.length === 79 && o.json.audience === "client" && o.json.lang === "pt", "an owner gets 79 client guides in Portuguese");
   const text = JSON.stringify(o.json);
   ok(!/"who"|"groups"/.test(text), "the answer carries no who list and no groups object");
   ok(!/apex\.resonateai\.online\/help\//.test(text) && !/"help\/img\//.test(text), "no public static address of any picture or video is in the answer");
@@ -196,7 +196,7 @@ async function payload(key, query, extraHeaders, status, secret) {
   // staff
   const a = await payload("alice", "?lang=pt&audience=admin");
   const c = await payload("rafa", "?lang=pt&audience=client");
-  ok(a.json.audience === "admin" && a.json.guides.length === 16 && c.json.audience === "client" && c.json.guides.length === 81, "staff may ask for either side");
+  ok(a.json.audience === "admin" && a.json.guides.length === 16 && c.json.audience === "client" && c.json.guides.length === 82, "staff may ask for either side");
   const d = await payload("developer", "?lang=pt");
   ok(d.json.audience === "admin", "staff with no audience field start on the admin side");
   const sf = await payload("staff", "?lang=pt&audience=admin");

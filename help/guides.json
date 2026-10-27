@@ -26901,6 +26901,158 @@
           "step": 3
         }
       ]
+    },
+    {
+      "id": "admin-tasks-tabs-details",
+      "audience": "admin",
+      "title": {
+        "pt": "Tarefas: as abas, o filtro, a ficha da tarefa, anexos e pedidos de ajuda",
+        "en": "Tasks: the tabs, the filter, the task sheet, attachments and help requests"
+      },
+      "summary": {
+        "pt": "Veja as abas da página Tarefas, como ordenar e filtrar, as três pastas de Minhas tarefas, a ficha de uma tarefa com prazo, anexo e nota, e os pedidos de ajuda do dia.",
+        "en": "See the tabs of the Tasks page, how to sort and filter, the three folds of My tasks, a task sheet with due date, attachment and note, and today's help requests."
+      },
+      "keywords": {
+        "pt": [
+          "tarefas",
+          "abas",
+          "minhas tarefas",
+          "cliente",
+          "consultor",
+          "concluídas",
+          "por data",
+          "por tipo",
+          "anexar",
+          "pedidos de ajuda",
+          "prazo"
+        ],
+        "en": [
+          "tasks",
+          "tabs",
+          "my tasks",
+          "client",
+          "consultant",
+          "done",
+          "by date",
+          "by type",
+          "attach",
+          "help requests",
+          "due date"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "tabs",
+          "title": {
+            "pt": "As abas e a ficha da tarefa",
+            "en": "The tabs and the task sheet"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "As quatro abas. Na página Tarefas, as abas (1) são Minhas tarefas, Cliente, Consultor e Concluídas, cada uma com um número. Consultor é para a Alice e o desenvolvedor, não para o Rafa. Um número como 53/292 quer dizer 53 abertas de 292.",
+                "en": "The four tabs. On the Tasks page, the tabs (1) are My tasks, Client, Consultant and Done, each with a count. Consultant is for Alice and the developer, not for Rafa. A count like 53/292 means 53 open out of 292."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks-tabs-details/tabs-01.pt.jpg",
+                "en": "help/img/guides/admin-tasks-tabs-details/tabs-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Filtre e ordene. Nas abas Cliente e Consultor, escolha um cliente na lista Cliente (1) para ver só ele. Toque em Por Data ou Por Tipo (2) para mudar a ordem. A linha à direita, por exemplo 239 de 292 concluídas, mostra o progresso.",
+                "en": "Filter and sort. On the Client and Consultant tabs, pick one client in the Client list (1) to see only that client. Tap By Date or By Type (2) to change the order. The line on the right, for example 239 of 292 done, shows the progress."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks-tabs-details/tabs-02.pt.jpg",
+                "en": "help/img/guides/admin-tasks-tabs-details/tabs-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "As três pastas de Minhas tarefas. A aba Minhas tarefas tem três pastas: Minhas (1), Das sessões (2) e Passei para outros (3). Cada uma mostra quantas tarefas tem. Toque no título de uma pasta para abrir ou fechar.",
+                "en": "The three folds of My tasks. The My tasks tab has three folds: Mine (1), From sessions (2) and Given to others (3). Each shows how many tasks it holds. Tap a fold title to open or close it."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks-tabs-details/tabs-03.pt.jpg",
+                "en": "help/img/guides/admin-tasks-tabs-details/tabs-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Abra uma tarefa. Toque no texto de uma tarefa. Uma ficha abre. Toque em Em andamento ou Aguardando cliente (1) para marcar o status. O Prazo (2) muda no campo de calendário, e remover tira o prazo.",
+                "en": "Open a task. Tap the text of a task. A sheet opens. Tap Working on it or Waiting on client (1) to set its status. The Due date (2) can be changed with the calendar field, and clear removes it."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks-tabs-details/tabs-04.pt.jpg",
+                "en": "help/img/guides/admin-tasks-tabs-details/tabs-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Anexe um arquivo e adicione uma nota. Toque em Anexar (1) para juntar um arquivo ou uma foto à tarefa. Os arquivos ficam listados embaixo. Escreva na caixa de nota (2) e toque em Adicionar nota (3) para guardar uma nota na tarefa.",
+                "en": "Attach a file and add a note. Tap Attach (1) to add a file or a photo to the task. The files are listed under it. Type in the note box (2) and tap Add note (3) to keep a note on the task."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks-tabs-details/tabs-05.pt.jpg",
+                "en": "help/img/guides/admin-tasks-tabs-details/tabs-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Edite ou feche. Editar (1) muda o texto da tarefa. Fechar (2) fecha a ficha.",
+                "en": "Edit or close. Edit (1) changes the text of the task. Close (2) closes the sheet."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks-tabs-details/tabs-06.pt.jpg",
+                "en": "help/img/guides/admin-tasks-tabs-details/tabs-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Pedidos de ajuda. Quando um cliente pediu ajuda hoje, uma caixa chamada Pedidos de Ajuda, Hoje aparece acima das abas. Ela lista os pedidos do dia, e cada um tem um visto para marcar como feito. A caixa fica escondida quando ninguém pediu.",
+                "en": "Help requests. When a client asked for help today, a box called Help Requests, Today shows above the tabs. It lists the requests of the day, and each one has a tick to mark it done. The box is hidden when nobody asked."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Anexar arquivo à tarefa"
+            ],
+            "en": [
+              "Attach a file to a task"
+            ]
+          },
+          "section": "tabs",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Pedidos de ajuda de hoje"
+            ],
+            "en": [
+              "Help requests today"
+            ]
+          },
+          "section": "tabs",
+          "step": 7
+        }
+      ]
     }
   ],
   "pages": {
@@ -26963,7 +27115,8 @@
       },
       "guides": [
         "admin-tasks",
-        "execution-and-tasks"
+        "execution-and-tasks",
+        "admin-tasks-tabs-details"
       ],
       "overview": {
         "pt": "Aqui você vê e cria as tarefas da equipe.",

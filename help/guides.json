@@ -5095,56 +5095,111 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em Agenda. Agenda fica na fileira de abas no alto.",
-                "en": "Tap Calendar. Calendar is in the row of tabs at the top."
+                "pt": "Toque em Agenda (1). Agenda fica na fileira de abas no alto.",
+                "en": "Tap Calendar (1). Calendar is in the row of tabs at the top."
               },
               "image": {
-                "pt": "help/img/guides/calendar/view-01.pt.jpg",
-                "en": "help/img/guides/calendar/view-01.en.jpg"
+                "pt": "help/img/guides/calendar/view-s01.pt.jpg",
+                "en": "help/img/guides/calendar/view-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Navegue pelo mês. A visão do mês mostra o nome do mês no alto. Use as setas (1 e 2) para ir ao mês anterior ou seguinte, Hoje (3) para voltar para hoje, e Mês, Semana e Dia (4) para mudar a visão.",
-                "en": "Move around the month. The month view shows the month name at the top. Use the arrows (1 and 2) to go to the previous or next month, Today (3) to come back to today, and Month, Week and Day (4) to change the view."
+                "pt": "A visão do mês mostra o nome do mês no alto (1). Os nomes de clientes e projetos na agenda estão cobertos de cinza nestas imagens.",
+                "en": "The month view shows the month name at the top (1). Names of customers and projects on the calendar are covered in grey in these pictures."
               },
               "image": {
-                "pt": "help/img/guides/calendar/view-02.pt.jpg",
-                "en": "help/img/guides/calendar/view-02.en.jpg"
+                "pt": "help/img/guides/calendar/view-s02.pt.jpg",
+                "en": "help/img/guides/calendar/view-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Visão da semana. Toque em Semana para ver sete dias com os horários. Os nomes dos itens estão borrados nestas imagens.",
-                "en": "Week view. Tap Week to see seven days with the hours. The names of the entries are blurred in these pictures."
+                "pt": "Toque na seta da esquerda (1) para ir ao mês anterior.",
+                "en": "Tap the left arrow (1) to go to the previous month."
               },
               "image": {
-                "pt": "help/img/guides/calendar/view-03.pt.jpg",
-                "en": "help/img/guides/calendar/view-03.en.jpg"
+                "pt": "help/img/guides/calendar/view-s03.pt.jpg",
+                "en": "help/img/guides/calendar/view-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Visão do dia. Toque em Dia para ver um dia. Acima dos horários, um cartão lista os projetos do dia com uma nota sobre chuva para cada um (borrado aqui).",
-                "en": "Day view. Tap Day to see one day. Above the hours, a card lists the day's projects with a rain note for each (blurred here)."
+                "pt": "Toque na seta da direita (1) para ir ao mês seguinte.",
+                "en": "Tap the right arrow (1) to go to the next month."
               },
               "image": {
-                "pt": "help/img/guides/calendar/view-04.pt.jpg",
-                "en": "help/img/guides/calendar/view-04.en.jpg"
+                "pt": "help/img/guides/calendar/view-s04.pt.jpg",
+                "en": "help/img/guides/calendar/view-s04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Entenda as cores. A legenda embaixo da agenda explica as cores: Meus eventos, Projetos, Projeto em andamento, Apex Club, Orçamentos e Reunião com a Apex.",
-                "en": "Read the colors. The legend under the calendar explains the colors: My events, Projects, Job in progress, Apex Club, Estimates and Meeting with Apex."
+                "pt": "Toque em Hoje (1) para voltar para hoje depois de navegar pela agenda.",
+                "en": "Tap Today (1) to come back to today after moving around the calendar."
               },
               "image": {
-                "pt": "help/img/guides/calendar/view-05.pt.jpg",
-                "en": "help/img/guides/calendar/view-05.en.jpg"
+                "pt": "help/img/guides/calendar/view-s05.pt.jpg",
+                "en": "help/img/guides/calendar/view-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Toque em Mês (1) para ver o mês inteiro. É a visão em que a agenda abre.",
+                "en": "Tap Month (1) to see the whole month. This is the view the calendar opens in."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/view-s06.pt.jpg",
+                "en": "help/img/guides/calendar/view-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Toque em Semana (1) para ver sete dias com os horários. Os nomes dos itens estão cobertos de cinza nestas imagens.",
+                "en": "Tap Week (1) to see seven days with the hours. The names of the entries are covered in grey in these pictures."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/view-s07.pt.jpg",
+                "en": "help/img/guides/calendar/view-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Esta é a visão da semana. Toque em Dia (1) para ver um dia.",
+                "en": "This is Week view. Tap Day (1) to see one day."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/view-s08.pt.jpg",
+                "en": "help/img/guides/calendar/view-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Na visão do dia, um cartão chamado Chuva por obra hoje (1) fica acima dos horários. Ele lista os projetos do dia com uma nota sobre chuva para cada um. Os nomes dos projetos estão cobertos de cinza aqui.",
+                "en": "In Day view, a card called Rain by site today (1) sits above the hours. It lists the day's projects with a rain note for each. Project names are covered in grey here."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/view-s09.pt.jpg",
+                "en": "help/img/guides/calendar/view-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Entenda as cores. A legenda (1) embaixo da agenda explica: Meus eventos, Projetos, Projeto em andamento, Apex Club, Orçamentos e Reunião com a Apex.",
+                "en": "Read the colors. The legend (1) under the calendar explains them: My events, Projects, Job in progress, Apex Club, Estimates and Meeting with Apex."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/view-s10.pt.jpg",
+                "en": "help/img/guides/calendar/view-s10.en.jpg"
               }
             }
           ]
@@ -5159,43 +5214,255 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em + Novo evento. O botão dourado + Novo evento fica embaixo da agenda. Você também pode tocar em um dia da grade para começar um evento nesse dia.",
-                "en": "Tap + New event. The gold + New event button is under the calendar. You can also tap a day on the grid to start an event on that day."
+                "pt": "Toque em + Novo evento (1). O botão dourado + Novo evento fica embaixo da agenda.",
+                "en": "Tap + New event (1). The gold + New event button is under the calendar."
               },
               "image": {
-                "pt": "help/img/guides/calendar/new-event-01.pt.jpg",
-                "en": "help/img/guides/calendar/new-event-01.en.jpg"
+                "pt": "help/img/guides/calendar/new-event-s01.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Escolha o tipo, os vínculos e a data. Escolha o Tipo de evento * (1): Visita, Reunião, Serviço, Entrega ou Outro. Projeto (2), Lead / cliente (3) e Responsável (4) são menus que mostram a palavra nenhum até você escolher. Defina a Data * (5).",
-                "en": "Choose the type, the links and the date. Pick the Event type * (1): Visit, Meeting, Service, Delivery or Other. Project (2), Lead / customer (3) and Assigned to (4) are menus that show the word none until you choose. Set the Date * (5)."
+                "pt": "Você também pode tocar em um dia (1) da grade para começar um evento nesse dia.",
+                "en": "You can also tap a day (1) on the grid to start an event on that day."
               },
               "image": {
-                "pt": "help/img/guides/calendar/new-event-02.pt.jpg",
-                "en": "help/img/guides/calendar/new-event-02.en.jpg"
+                "pt": "help/img/guides/calendar/new-event-s02.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Adicione o horário e os detalhes, e crie o evento. Dia inteiro, Início e Fim (1), Local (2), Título (gerado) (3) (ele diz que é gerado a partir das escolhas acima, e você pode editar) e Notas (4). Toque em Criar evento (5) para criar, ou feche o formulário com o X no alto.",
-                "en": "Add the time and details, then create it. All day, Start and End (1), Location (2), Title (generated) (3) (it says it is generated from the choices above, and you can edit it) and Notes (4). Tap Create event (5) to create it, or close the form with the X at the top."
+                "pt": "Escolha o Tipo de evento * (1): Visita, Reunião, Serviço, Entrega ou Outro. Nós tocamos em Visita.",
+                "en": "Pick the Event type * (1): Visit, Meeting, Service, Delivery or Other. We tapped Visit."
               },
               "image": {
-                "pt": "help/img/guides/calendar/new-event-03.pt.jpg",
-                "en": "help/img/guides/calendar/new-event-03.en.jpg"
+                "pt": "help/img/guides/calendar/new-event-s03.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "en": "Change or delete an event. Tap the event on the calendar to open it. Change the type, the links, the date or the details, then tap Save. To remove it, tap Delete event.",
-                "pt": "Mude ou exclua um evento. Toque no evento no calendário para abrir. Mude o tipo, os vínculos, a data ou os detalhes e toque em Salvar. Para remover, toque em Excluir evento."
+                "pt": "Projeto (1) é um menu que mostra a palavra nenhum até você escolher. Escolha um projeto se o evento for de um projeto. Aqui escolhemos um projeto de teste.",
+                "en": "Project (1) is a menu that shows the word none until you choose. Pick a project if the event belongs to one. We picked a test project here."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s04.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Lead / cliente (1) é um menu que mostra nenhum até você escolher. Escolhemos um lead de teste. Isso preencheu o Local e o Título e voltou o Projeto para nenhum.",
+                "en": "Lead / customer (1) is a menu that shows none until you choose. We picked a test lead. This filled in the Location and the Title, and put Project back to none."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s05.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Responsável (1) é um menu que mostra a palavra ninguém até você escolher. Escolha quem cuida do evento.",
+                "en": "Assigned to (1) is a menu that shows the word nobody until you choose. Pick who is in charge of the event."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s06.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Defina a Data * (1). Ela começa com a data de hoje. Nós mudamos para 29 de outubro de 2026.",
+                "en": "Set the Date * (1). It starts on today's date. We changed it to Oct 29, 2026."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s07.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Dia inteiro (1): marque para um evento sem horário. Início e Fim somem quando está marcado. Nós deixamos desmarcado.",
+                "en": "All day (1): check it for an event with no hours. Start and End disappear when it is checked. We left it unchecked."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s08.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Defina o Início (1), a hora em que o evento começa. Usamos 9:30 AM.",
+                "en": "Set the Start (1), the hour the event begins. We used 9:30 AM."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s09.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Defina o Fim (1), a hora em que o evento termina. Usamos 10:30 AM.",
+                "en": "Set the End (1), the hour the event ends. We used 10:30 AM."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s10.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "O Local (1) foi preenchido a partir do lead (aqui uma rua de teste). Você pode mudar.",
+                "en": "Location (1) was filled in from the lead (here a test street). You can change it."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s11.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Título (gerado) (1) é montado a partir das escolhas acima (aqui Visita e o nome do lead). Uma linha embaixo diz isso, e você pode editar.",
+                "en": "Title (generated) (1) is built from the choices above (here Visit, then the lead name). A line under it says so, and you can edit it."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s12.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Escreva o que quiser lembrar em Notas (1). Digitamos uma nota curta de teste.",
+                "en": "Write anything you want to remember in Notes (1). We typed a short test note."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s13.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Para sair sem criar o evento, feche o formulário com o X (1) no alto.",
+                "en": "To leave without creating the event, close the form with the X (1) at the top."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s14.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Toque em Criar evento (1). Uma mensagem diz Evento criado.",
+                "en": "Tap Create event (1). A message says Event created."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s15.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "O evento agora aparece na agenda (1), no dia que você escolheu, com a hora de início.",
+                "en": "The event now shows on the calendar (1), on the day you picked, with its start time."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s16.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Para mudar um evento, toque nele na agenda para abrir.",
+                "en": "To change an event, tap it on the calendar to open it."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s16.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s16.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "O evento abre no mesmo formulário, já preenchido. Você pode mudar o tipo, os vínculos, a data ou os detalhes. Aqui mudamos a Data (1).",
+                "en": "The event opens in the same form, already filled in. You can change the type, the links, the date or the details. Here we changed the Date (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s18.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "Também acrescentamos algumas palavras às Notas (1).",
+                "en": "We also added a few words to the Notes (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s19.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s19.en.jpg"
+              }
+            },
+            {
+              "n": 20,
+              "text": {
+                "pt": "Toque em Salvar (1) para guardar as mudanças.",
+                "en": "Tap Save (1) to keep the changes."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s20.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s20.en.jpg"
+              }
+            },
+            {
+              "n": 21,
+              "text": {
+                "pt": "Uma mensagem diz Evento salvo, e o evento vai para a nova data (1).",
+                "en": "A message says Event saved, and the event moves to the new date (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s21.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s21.en.jpg"
+              }
+            },
+            {
+              "n": 22,
+              "text": {
+                "pt": "Para remover um evento, abra-o e toque em Excluir evento (1).",
+                "en": "To remove an event, open it and tap Delete event (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s22.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s22.en.jpg"
+              }
+            },
+            {
+              "n": 23,
+              "text": {
+                "pt": "O app pergunta Excluir este evento? Toque em Sim, excluir o evento (1) para remover, ou em Manter o evento para cancelar. Depois uma mensagem diz que o evento foi excluído.",
+                "en": "The app asks Delete this event? Tap Yes, delete the event (1) to remove it, or Keep the event to cancel. A message then says the event was deleted."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/new-event-s23.pt.jpg",
+                "en": "help/img/guides/calendar/new-event-s23.en.jpg"
+              }
             }
           ]
         },
@@ -5209,12 +5476,12 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em um item para abrir. Um evento que você mesmo fez, ou uma visita que um cliente marcou na sua página de agendamento, abre o formulário do evento (1 é o tipo, 2 é o lead). Mude o que precisar, ou feche com o X. Itens de leads e de projetos também aparecem na agenda. Não tocamos neles no nosso teste.",
-                "en": "Tap an item to open it. An event you made yourself, or a visit a customer booked on your booking page, opens the event form (1 is the type, 2 is the lead). Change what you need, or close it with the X. Items for leads and projects are also on the calendar. We did not tap those in our test."
+                "pt": "Toque em um item para abrir. Um evento que você mesmo fez (1) abre o formulário do evento. Itens de leads e de projetos também aparecem na agenda. Não tocamos neles no nosso teste.",
+                "en": "Tap an item to open it. An event you made yourself (1) opens the event form. Items for leads and projects are also on the calendar. We did not tap those in our test."
               },
               "image": {
-                "pt": "help/img/guides/calendar/more-01.pt.jpg",
-                "en": "help/img/guides/calendar/more-01.en.jpg"
+                "pt": "help/img/guides/calendar/more-s01.pt.jpg",
+                "en": "help/img/guides/calendar/more-s01.en.jpg"
               }
             },
             {
@@ -5231,27 +5498,60 @@
             {
               "n": 3,
               "text": {
-                "pt": "Abra um evento do Apex Club. Um evento do Apex Club tem uma estrela na frente do nome. Toque nele para ver a data, o local e os palestrantes. O botão Confirmar presença (1) é o caminho para se inscrever (não tocamos nele). A linha (2) diz que é um evento do Apex Club, organizado pela Apex.",
-                "en": "Open an Apex Club event. An Apex Club event has a star in front of its name. Tap it to see the date, the place and the speakers. The button Register (1) is the way to sign up (we did not tap it). The line (2) says it is an Apex Club event, hosted by Apex."
+                "pt": "Toque em um evento do Apex Club (1). Ele tem uma estrela na frente do nome.",
+                "en": "Tap an Apex Club event (1). It has a star in front of its name."
               },
               "image": {
-                "pt": "help/img/guides/calendar/more-03.pt.jpg",
-                "en": "help/img/guides/calendar/more-03.en.jpg"
+                "pt": "help/img/guides/calendar/more-s03.pt.jpg",
+                "en": "help/img/guides/calendar/more-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Leia o cartão de chuva na visão Dia. Na visão Dia, um cartão chamado Chuva por obra hoje (1) lista os projetos em andamento. Um ponto verde com Sem chuva quer dizer que não é esperada chuva. Um ponto cinza com Sem previsão quer dizer que o Apex não tem previsão para o projeto, por exemplo porque o endereço não foi achado no mapa. (Os nomes dos projetos estão cobertos de cinza aqui.)",
-                "en": "Read the rain card in Day view. In Day view, a card called Rain by site today (1) lists the projects that are in progress. A green dot with No rain means no rain is expected. A grey dot with No forecast means Apex has no forecast for that project, for example because its address was not found on the map. (Project names are covered in grey here.)"
+                "pt": "Ele abre com a data, o local e os palestrantes (1).",
+                "en": "It opens with the date, the place and the speakers (1)."
               },
               "image": {
-                "pt": "help/img/guides/calendar/more-04.pt.jpg",
-                "en": "help/img/guides/calendar/more-04.en.jpg"
+                "pt": "help/img/guides/calendar/more-s04.pt.jpg",
+                "en": "help/img/guides/calendar/more-s04.en.jpg"
               }
             },
             {
               "n": 5,
+              "text": {
+                "pt": "O botão Confirmar presença (1) é o caminho para se inscrever. Não tocamos nele.",
+                "en": "The button Register (1) is the way to sign up. We did not tap it."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/more-s05.pt.jpg",
+                "en": "help/img/guides/calendar/more-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "A linha (1) diz que é um evento do Apex Club, organizado pela Apex.",
+                "en": "The line (1) says it is an Apex Club event, hosted by Apex."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/more-s06.pt.jpg",
+                "en": "help/img/guides/calendar/more-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "No cartão de chuva, um ponto verde com Sem chuva (1) quer dizer que não é esperada chuva. Um ponto cinza com Sem previsão (2) quer dizer que o Apex não tem previsão para o projeto, por exemplo porque o endereço não foi achado no mapa.",
+                "en": "In the rain card, a green dot with No rain (1) means no rain is expected. A grey dot with No forecast (2) means Apex has no forecast for that project, for example because its address was not found on the map."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/more-s07.pt.jpg",
+                "en": "help/img/guides/calendar/more-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
               "text": {
                 "pt": "Veja uma visita marcada por um cliente. Quando um cliente marca na sua página de agendamento, uma entrada aparece na sua agenda na hora. Aqui, na visão Semana, ela está no domingo às 10:00 AM (1), com o título Visita e o nome do cliente.",
                 "en": "See a visit booked by a customer. When a customer books on your booking page, an entry appears on your calendar at once. Here, in Week view, it sits on Sunday at 10:00 AM (1), with the title Visit and the customer's name."
@@ -5287,7 +5587,7 @@
             ]
           },
           "section": "new-event",
-          "step": 3
+          "step": 15
         },
         {
           "labels": {
@@ -5299,7 +5599,7 @@
             ]
           },
           "section": "new-event",
-          "step": 4
+          "step": 22
         },
         {
           "labels": {
@@ -5323,11 +5623,9 @@
             ]
           },
           "section": "more",
-          "step": 3
+          "step": 5
         },
         {
-          "section": "view",
-          "step": 1,
           "labels": {
             "pt": [
               "Agenda"
@@ -5335,7 +5633,9 @@
             "en": [
               "Calendar"
             ]
-          }
+          },
+          "section": "view",
+          "step": 1
         }
       ]
     },

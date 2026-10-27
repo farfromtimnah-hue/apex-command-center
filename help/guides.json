@@ -25733,8 +25733,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Quais avisos chegam? Por exemplo uma nota em uma tarefa, um cliente pedindo ajuda, um contrato esperando assinatura ou assinado, um cliente que escreveu uma cláusula própria, lembretes de contas para a Alice e um aviso quando a conta de email precisa de atenção. Cada pessoa recebe só os avisos do seu perfil.",
-                "en": "Which alerts come? For example a note on a task, a client asking for help, a contract waiting to be signed or signed, a client who wrote a custom clause, bill reminders for Alice, and a warning when the email account needs a look. Each person receives only the alerts for their own role."
+                "pt": "Quais avisos chegam? Por exemplo um aviso 1 hora antes de cada compromisso, uma nota em uma tarefa ou uma tarefa dada a você, um cliente pedindo ajuda, um contrato esperando assinatura ou assinado, um cliente que escreveu uma cláusula própria, uma mensagem de que rascunhos de fatura foram feitos e ainda faltam enviar, lembretes de contas para a Alice e um aviso quando a conta de email precisa de atenção. Cada pessoa recebe só os avisos do seu perfil.",
+                "en": "Which alerts come? For example an alert one hour before every appointment, a note on a task or a task given to you, a client asking for help, a contract waiting to be signed or signed, a client who wrote a custom clause, a message that new invoice drafts were made and are still to send, bill reminders for Alice, and a warning when the email account needs a look. Each person receives only the alerts for their own role."
               },
               "image": null
             }

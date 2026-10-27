@@ -28848,6 +28848,99 @@
         }
       ],
       "buttons": []
+    },
+    {
+      "id": "admin-finance-extras",
+      "audience": "admin",
+      "title": {
+        "pt": "Financeiro: apólices, prompts, contas sugeridas, aviso de fatura e link da fatura",
+        "en": "Financial: policies, prompts, suggested bills, invoice warning and invoice link"
+      },
+      "summary": {
+        "pt": "Telas menores do Financeiro, escritas a partir do código: nomear apólices, copiar prompt, sugestão de conta fixa, aviso de fatura agendada, link da fatura e relatório impresso.",
+        "en": "Smaller Financial screens, written from the code: name policies, copy prompt, suggested fixed bill, scheduled invoice warning, invoice link and the printed report."
+      },
+      "keywords": {
+        "pt": [
+          "apólice",
+          "copiar prompt",
+          "entrevista concluída",
+          "é conta fixa",
+          "fatura agendada",
+          "link da fatura",
+          "relatório financeiro"
+        ],
+        "en": [
+          "policy",
+          "copy prompt",
+          "interview done",
+          "yes track it",
+          "scheduled invoice",
+          "invoice link",
+          "financial report"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "extra",
+          "title": {
+            "pt": "Telas menores",
+            "en": "Smaller screens"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Quando o robô não sabe de quem é uma apólice, a lista Precisa de você mostra a linha apólices sem nome. Toque na linha para abrir a janela De quem é cada apólice. Para cada código do banco, escolha o nome da pessoa na lista e toque em Salvar. Duas apólices não podem ficar na mesma conta. Sem imagem: esta tela mostra nomes e códigos reais. Escrito a partir do código; nada foi aberto nem salvo.",
+                "en": "When the robot does not know whose a policy is, the Needs you list shows the row policies not named. Tap the row to open the window Whose policy is which. For each bank code, pick the person's name from the list, then tap Save. Two policies cannot go on the same bill. No picture: this screen shows real names and codes. Written from the code; nothing was opened or saved."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Algumas linhas da lista Precisa de você têm os botões Copiar prompt e Entrevista concluída. Copiar prompt busca a lista mais nova e copia um texto para você colar no Claude. Uma janela diz Prompt copiado. Entrevista concluída avisa o sistema que você terminou a conversa. Existem três: depósitos para confirmar, clientes sem valores combinados e cobranças sem categoria. Nada foi tocado.",
+                "en": "Some rows of the Needs you list have the buttons Copy prompt and Interview done. Copy prompt fetches the newest list and copies a text for you to paste into Claude. A window says Prompt copied. Interview done tells the system you finished the conversation. There are three: deposits to confirm, clients without agreed terms, and charges without a category. Nothing was tapped."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Quando o extrato mostra uma cobrança que se repete, aparece a caixa Cobranças que se repetem no seu extrato: são contas fixas? Cada linha mostra o nome, o dia do mês, em quantos meses apareceu e o valor. Toque em É conta fixa para acompanhar essa cobrança como conta fixa. Se não for uma conta, não toque. Sem imagem: a caixa só aparece quando há uma sugestão. Nada foi tocado.",
+                "en": "When the statement shows a charge that repeats, the box Charges that repeat on your statement, are these fixed bills? appears. Each line shows the name, the day of the month, in how many months it showed up, and the amount. Tap Yes, track it to follow that charge as a fixed bill. If it is not a bill, do not tap. No picture: the box only appears when there is a suggestion. Nothing was tapped."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Ao criar uma nova fatura, se o cliente já tem uma fatura agendada para o período, aparece o aviso Este cliente já tem fatura agendada, com a data e o valor. Gerar a agendada agora cria o rascunho da agendada. Continuar manualmente segue com a sua fatura e anota que o período está resolvido, para não nascer uma duplicata. Cancelar fecha tudo. Escrito a partir do código; nada foi criado.",
+                "en": "When you create a new invoice and the client already has an invoice scheduled for the period, the warning This client already has a scheduled invoice appears, with the date and the amount. Generate the scheduled one now creates the draft of the scheduled one. Continue manually goes on with your invoice and notes that the period is handled, so no duplicate is born. Cancel closes everything. Written from the code; nothing was created."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Na lista de faturas, o botão Copiar link do cliente abre a janela Link da fatura para o cliente. Copiar link copia o endereço. O botão de desativar o link pergunta primeiro: com o link desativado, quem abrir vê que ele não vale e não paga. Ativar de novo gera um endereço novo, e você envia outra vez. A caixa Mostrar pagamento por cartão neste cliente liga o cartão; a Apex paga a taxa. ACH e Zelle aparecem sempre. Escrito a partir do código; nada foi mudado.",
+                "en": "On the invoice list, the button Copy client link opens the window Invoice link for the client. Copy link copies the address. The button that disables the link asks first: with the link disabled, anyone who opens it sees it is not valid and cannot pay. Enabling it again makes a new address, and you send it again. The box Show card payment for this client turns the card on; Apex pays the fee. ACH and Zelle always show. Written from the code; nothing was changed."
+              },
+              "image": null
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "O relatório financeiro impresso abre a partir da ferramenta Financeiro do cliente, com o botão Relatório. A página mostra o título, para quem foi preparado, o período, o saldo, a lista Lançamentos e os Totais por categoria. PT / EN muda o idioma. Imprimir / Salvar em PDF faz o arquivo. Sem imagem: mostra dinheiro real do cliente. Nada foi aberto.",
+                "en": "The printed financial report opens from the client's Finance tool, with the Report button. The page shows the title, who it was prepared for, the period, the balance, the Entries list and the Totals by category. PT / EN changes the language. Print / Save as PDF makes the file. No picture: it shows the client's real money. Nothing was opened."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
     }
   ],
   "pages": {
@@ -28931,7 +29024,8 @@
         "admin-finance-accounts",
         "admin-finance-deposits",
         "admin-finance-terms",
-        "admin-finance-overview"
+        "admin-finance-overview",
+        "admin-finance-extras"
       ],
       "overview": {
         "pt": "Aqui você acompanha o financeiro e as faturas.",

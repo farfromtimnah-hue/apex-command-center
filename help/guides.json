@@ -13759,78 +13759,188 @@
             {
               "n": 1,
               "text": {
-                "pt": "Saiba quem mandou a pessoa. Alguém abre o link de indicação de um dos seus parceiros ou clientes (veja o guia de parceiros de indicação). A página mostra o seu logo e o seu nome, e uma linha Indicado por, com o primeiro nome de quem indicou (1). Se a pessoa veio por outro nome, ela toca em Não foi (o nome) (2).",
-                "en": "Know who sent the person. Someone opens the referral link of one of your partners or customers (see the guide on referral partners). The page shows your logo and your name, and a line Referred by with the first name of who referred them (1). If the visitor was sent by someone else, they tap Not (the name) (2)."
+                "pt": "Alguém abre o link de indicação de um dos seus parceiros ou clientes (veja o guia de parceiros de indicação). A página mostra o seu logo e o seu nome, e uma linha Indicado por com o primeiro nome de quem indicou (1).",
+                "en": "Someone opens the referral link of one of your partners or customers (see the guide on referral partners). The page shows your logo and name, and a line Referred by with the first name of who referred them (1)."
               },
               "image": {
-                "pt": "help/img/guides/what-a-referred-person-sees/referral-01.pt.jpg",
-                "en": "help/img/guides/what-a-referred-person-sees/referral-01.en.jpg"
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s01.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Veja o que a pessoa preenche. A pessoa escreve o nome (1) e, se quiser, o telefone (2), toca nos serviços que procura, pode marcar mais de um (3), e toca em Enviar (4). Os serviços são os da sua lista de serviços. A página abre no idioma que você escolheu e a pessoa pode trocar no botão do alto.",
-                "en": "See what the person fills in. The visitor writes their name (1) and, if they want, a phone (2), taps the services they are looking for, more than one if they want (3), and taps Send (4). The services are the ones in your list of services. The page opens in the language you chose and the visitor can switch with the button at the top."
+                "pt": "Se a pessoa foi indicada por outra pessoa, ela toca em Não foi (o nome) (1).",
+                "en": "If the visitor was sent by someone else, they tap Not (the name) (1)."
               },
               "image": {
-                "pt": "help/img/guides/what-a-referred-person-sees/referral-02.pt.jpg",
-                "en": "help/img/guides/what-a-referred-person-sees/referral-02.en.jpg"
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s02.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "O que a pessoa vê depois de enviar. A página mostra um visto verde e Recebido!, com a frase de que a sua empresa recebeu os dados e vai entrar em contato.",
-                "en": "What the person sees after sending. The page shows a green check and Received!, with a line that your company received their details and will reach out."
+                "pt": "A página abre no idioma que você escolheu. A pessoa pode trocar com o botão no alto (1).",
+                "en": "The page opens in the language you chose. The visitor can switch with the button at the top (1)."
               },
               "image": {
-                "pt": "help/img/guides/what-a-referred-person-sees/referral-03.pt.jpg",
-                "en": "help/img/guides/what-a-referred-person-sees/referral-03.en.jpg"
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s03.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Acompanhe o novo lead. Em Negócio, Pipeline, o lead aparece como Novo Lead. No alto da ficha, a parte Indicação mostra Indicado por (1) com o nome de quem indicou. O vendedor desse cliente recebe o lead.",
-                "en": "Follow the new lead. In Business, Pipeline, the lead shows as New Lead. At the top of the sheet, the part called Referral shows Referred by (1) with the name of who referred them. The salesperson of that customer gets the lead."
+                "pt": "A pessoa escreve o nome dela (1). O nome é obrigatório.",
+                "en": "The visitor writes their name (1). The name is required."
               },
               "image": {
-                "pt": "help/img/guides/what-a-referred-person-sees/referral-04.pt.jpg",
-                "en": "help/img/guides/what-a-referred-person-sees/referral-04.en.jpg"
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s04.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Quando a pessoa toca em Não foi. O texto da linha passa a dizer Outra pessoa indicou você. A pessoa preenche e envia do mesmo jeito. No Pipeline, o lead continua ligado a quem tinha o link, mas ganha a linha Indicação de uma indicação com a etiqueta confirmar quem indicou.",
-                "en": "When the person taps Not (the name). The text of the line changes to Someone else referred you. The person fills in and sends the same way. In the Pipeline, the lead stays linked to whoever had the link, but gets the row Referral of a referral with the tag referrer to confirm."
+                "pt": "Se quiser, a pessoa escreve também um telefone (1).",
+                "en": "If they want, the visitor also writes a phone (1)."
               },
               "image": {
-                "pt": "help/img/guides/what-a-referred-person-sees/referral-05.pt.jpg",
-                "en": "help/img/guides/what-a-referred-person-sees/referral-05.en.jpg"
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s05.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s05.en.jpg"
               }
             },
             {
               "n": 6,
               "text": {
-                "pt": "Registre quem indicou de verdade. Na ficha desse lead, toque na linha Indicação de uma indicação. Abre uma janela, Quem indicou de verdade, com uma caixa para o nome. Digite o nome e toque em Salvar.",
-                "en": "Record who really referred them. On that lead's sheet, tap the row Referral of a referral. A window opens, Who actually referred them, with a box for the name. Type the name and tap Save."
+                "pt": "A pessoa toca nos serviços que procura, mais de um se quiser (1). Os serviços são os da sua lista de serviços.",
+                "en": "The visitor taps the services they are looking for, more than one if they want (1). The services are the ones in your list of services."
               },
               "image": {
-                "pt": "help/img/guides/what-a-referred-person-sees/referral-06.pt.jpg",
-                "en": "help/img/guides/what-a-referred-person-sees/referral-06.en.jpg"
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s06.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s06.en.jpg"
               }
             },
             {
               "n": 7,
               "text": {
-                "pt": "Veja o que um cliente mandou para você. Abra o lead do cliente que indicou pessoas. Uma seção (1) diz Indicações, quantos leads e quanto foi fechado, por exemplo 2 leads · $0.00 fechado. Embaixo há uma linha para cada lead que veio desse cliente, com o estágio. Toque numa linha para abrir esse lead.",
-                "en": "See what a customer sent you. Open the lead of the customer who referred people. A section (1) says Referrals, how many leads and how much was closed, for example 2 leads · $0.00 closed. Under it is one row for each lead that came from this customer, with its stage. Tap a row to open that lead."
+                "pt": "A pessoa toca em Enviar (1).",
+                "en": "The visitor taps Send (1)."
               },
               "image": {
-                "pt": "help/img/guides/what-a-referred-person-sees/referral-07.pt.jpg",
-                "en": "help/img/guides/what-a-referred-person-sees/referral-07.en.jpg"
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s07.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Depois de enviar, a página mostra um sinal verde e Recebido!, com uma linha dizendo que a sua empresa recebeu os dados e vai entrar em contato.",
+                "en": "After sending, the page shows a green check and Received!, with a line that your company received their details and will reach out."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s08.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Quando a pessoa toca em Não foi (o nome), a linha muda para Outra pessoa indicou você (1). A pessoa preenche e envia do mesmo jeito.",
+                "en": "When the person taps Not (the name), the line changes to Someone else referred you (1). The person fills in and sends the same way."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s09.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Acompanhe o novo lead. Em Negócio, Pipeline, o lead aparece como Novo Lead (1).",
+                "en": "Follow the new lead. In Business, Pipeline, the lead shows as New Lead (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s10.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Toque no lead para abrir. No alto da ficha, a parte chamada Indicação mostra Indicado por (1) com o nome de quem indicou. O vendedor desse cliente recebe o lead.",
+                "en": "Tap the lead to open it. At the top of the sheet, the part called Referral shows Referred by (1) with the name of who referred them. The salesperson of that customer gets the lead."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s11.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Quando a pessoa tocou em Não foi, o lead continua ligado a quem tinha o link, mas ganha a linha Indicação de uma indicação (1) com a etiqueta confirmar quem indicou.",
+                "en": "For a person who tapped Not, the lead stays linked to whoever had the link, but gets the row Referral of a referral (1) with the tag referrer to confirm."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s12.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Registre quem realmente indicou. Toque nessa linha. Abre uma janela, Quem indicou de verdade, com uma caixa (1) para o nome.",
+                "en": "Record who really referred them. Tap that row. A window opens, Who actually referred them, with a box (1) for the name."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s13.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Digite o nome na caixa e toque em Salvar (1).",
+                "en": "Type the name in the box, then tap Save (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s14.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "A linha agora mostra o nome que você digitou (1).",
+                "en": "The row now shows the name you typed (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s15.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Veja o que um cliente trouxe. Abra o lead do cliente que indicou pessoas. Uma seção (1) diz Indicações, quantos leads e quanto foi fechado, por exemplo 2 leads · $0.00 fechado. Embaixo há uma linha para cada lead que veio desse cliente, com a etapa.",
+                "en": "See what a customer sent you. Open the lead of the customer who referred people. A section (1) says Referrals, how many leads and how much was closed, for example 2 leads · $0.00 closed. Under it is one row for each lead that came from this customer, with its stage."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s16.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Toque em uma linha (1) para abrir esse lead.",
+                "en": "Tap a row (1) to open that lead."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-s17.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-s17.en.jpg"
               }
             }
           ]

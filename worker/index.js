@@ -54607,8 +54607,45 @@ async function docLinkLogoResponse(env, row) {
     return await handleGetClientLogoImage(row.client_id, new Request(APEX_API_BASE + "/api/clients/" + encodeURIComponent(row.client_id) + "/logo-image", { method: "GET" }), env);
 }
 
+// A public, unguessable page for one document that must be linkable without a login (for example the
+// Thumbtack review walkthrough). The files sit in R2 under public-share/<32 hex>/ and are served at
+// doc.resonateai.online/share/<32 hex>/<file>. Nothing lists them: the address is the key.
+var SHARE_TYPES = { html: "text/html; charset=utf-8", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+    webp: "image/webp", mp4: "video/mp4", pdf: "application/pdf", vtt: "text/vtt; charset=utf-8" };
+async function publicShareServe(request, env, rest) {
+    var m = /^([0-9a-f]{32})\/([A-Za-z0-9._-]{1,120})$/.exec(rest);
+    var headers404 = { "Content-Type": "text/plain; charset=utf-8", "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" };
+    if (!m || (request.method !== "GET" && request.method !== "HEAD")) { return new Response("Not found", { status: 404, headers: headers404 }); }
+    var ext = m[2].split(".").pop().toLowerCase();
+    var type = SHARE_TYPES[ext];
+    if (!type) { return new Response("Not found", { status: 404, headers: headers404 }); }
+    var key = "public-share/" + m[1] + "/" + m[2];
+    var range = null;
+    var rh = request.headers.get("Range");
+    var rm = rh ? /^bytes=(\d*)-(\d*)$/.exec(rh) : null;
+    if (rm && (rm[1] !== "" || rm[2] !== "")) {
+        if (rm[1] === "") { range = { suffix: Number(rm[2]) }; }
+        else { range = { offset: Number(rm[1]) }; if (rm[2] !== "") { range.length = Number(rm[2]) - Number(rm[1]) + 1; } }
+    }
+    var obj = await env.ASSETS.get(key, range ? { range: range } : undefined);
+    if (!obj) { return new Response("Not found", { status: 404, headers: headers404 }); }
+    var h = new Headers({ "Content-Type": type, "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "public, max-age=300",
+        "Accept-Ranges": "bytes", "Content-Disposition": "inline" });
+    var status = 200;
+    if (range && obj.range) {
+        var start = obj.range.offset !== undefined ? obj.range.offset : Math.max(0, obj.size - (obj.range.suffix || 0));
+        var len = obj.range.length !== undefined ? obj.range.length : obj.size - start;
+        h.set("Content-Range", "bytes " + start + "-" + (start + len - 1) + "/" + obj.size);
+        h.set("Content-Length", String(len));
+        status = 206;
+    } else { h.set("Content-Length", String(obj.size)); }
+    return new Response(request.method === "HEAD" ? null : obj.body, { status: status, headers: h });
+}
+
 async function docLinkServe(request, env) {
     var url = new URL(request.url);
+    var shareMatch = /^\/share\/(.+)$/.exec(url.pathname);
+    if (shareMatch) { return publicShareServe(request, env, shareMatch[1]); }
     var slug = decodeURIComponent(url.pathname.replace(/^\/+|\/+$/g, "")).toLowerCase();
     // The preview picture is served from this same address, and answers HEAD
     // as well as GET: WhatsApp checks the image with HEAD first, and the API's

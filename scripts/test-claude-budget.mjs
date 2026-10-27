@@ -12,7 +12,7 @@ let fail = 0, pass = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass++; } else { fail++; } };
 
 // ---- the class, as shipped (export keyword dropped so it can run in a Function)
-const i0 = workerSrc.indexOf("export class ClaudeBudget {");
+const i0 = workerSrc.indexOf("export class ClaudeBudget extends DurableObject {");
 const classSrc = workerSrc.slice(i0, workerSrc.indexOf("\n}\n", i0) + 3).replace(/^export /, "");
 function varLine(name) {
   const i = workerSrc.indexOf("\nvar " + name + " =");
@@ -39,7 +39,7 @@ function makeNamespace(opts) {
       }
     };
   };
-  const ClaudeBudget = new Function(VARS.map(varLine).join("\n") + "\n" + classSrc + "\nreturn ClaudeBudget;")();
+  const ClaudeBudget = new Function("class DurableObject { constructor(ctx, env) { this.ctx = ctx; this.env = env; } }\n" + VARS.map(varLine).join("\n") + "\n" + classSrc + "\nreturn ClaudeBudget;")();
   return {
     names: () => [...instances.keys()],
     idFromName: (n) => n,

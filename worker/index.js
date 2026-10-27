@@ -1,3 +1,6 @@
+// Durable Object RPC: the class must extend DurableObject or stub.check() is not callable.
+import { DurableObject } from "cloudflare:workers";
+
 import HERO_GALLERY_V1 from "../data/hero-gallery-v1.json";
 import HERO_GALLERY_PRIVATE_V1 from "../data/hero-gallery-private-v1.json";
 import CONTRACT_STATE_RIDERS_V1 from "../data/contract-state-riders-v1.json";
@@ -114,8 +117,9 @@ var CLAUDE_BUDGET_LIMITS = {
 // the write below have no await between them. A refused call is not counted.
 // kind "cron" is the internal 5 minute job: it adds one to the global total
 // and is never refused. The object deletes itself two days after first use.
-export class ClaudeBudget {
+export class ClaudeBudget extends DurableObject {
     constructor(ctx, env) {
+        super(ctx, env);
         this.ctx = ctx;
         this.sql = ctx.storage.sql;
         this.sql.exec("CREATE TABLE IF NOT EXISTS counts (kind TEXT PRIMARY KEY, n INTEGER NOT NULL)");

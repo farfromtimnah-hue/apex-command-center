@@ -15690,31 +15690,144 @@
             {
               "n": 1,
               "text": {
-                "pt": "O que é. Em vez de ficar indo e voltando no WhatsApp, você envia um link ao cliente. O cliente abre, vê só os horários realmente livres e escolhe um. A reunião fica salva na Apex e no Google Calendar sozinha. O cliente também pode sugerir outro horário ou dizer que nenhum serve.",
-                "en": "What it is. Instead of going back and forth on WhatsApp, you send the client a link. The client opens it, sees only the really free times and picks one. The meeting is then saved in Apex and in Google Calendar by itself. The client can also suggest another time or say that none works."
+                "pt": "Em vez de ficar indo e voltando no WhatsApp, você envia um link ao cliente. O cliente abre, vê só os horários realmente livres e escolhe um. A reunião fica salva na Apex e no Google Calendar sozinha. O cliente também pode sugerir outro horário ou dizer que nenhum serve. Abra Calendário e toque em Enviar horários (2).",
+                "en": "Instead of going back and forth on WhatsApp, you send the client a link. The client opens it, sees only the really free times and picks one. The meeting is then saved in Apex and in Google Calendar by itself. The client can also suggest another time or say that none works. Open Calendar and tap Send times (2)."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-send-times/send-s01.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-s01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Crie o link. Abra Calendário e toque em Enviar horários. 1. Cliente: escolha quem recebe. 2. Tipo de reunião: Google Meet ou Presencial. 3. Reservar 15 min extras depois deixa um intervalo depois da reunião. Embaixo, Personalizar duração muda o tamanho (começa em 1 hora). 4. Toque em Criar link.",
-                "en": "Make the link. Open Calendar and tap Enviar horários. 1. Cliente: choose who gets it. 2. Tipo de reunião: Google Meet or Presencial. 3. Reservar 15 min extras depois (Hold 15 extra minutes after) keeps a gap after the meeting. Below it, Personalizar duração changes the length (it starts at 1 hour). 4. Tap Criar link."
+                "pt": "Em Cliente (1), escolha quem recebe o link.",
+                "en": "In Client (1), choose who gets the link."
               },
               "image": {
-                "pt": "help/img/guides/admin-send-times/send-02.pt.jpg",
-                "en": "help/img/guides/admin-send-times/send-02.en.jpg"
+                "pt": "help/img/guides/admin-send-times/send-s02.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Acompanhe os pedidos. Cada link que você cria fica esperando numa lista no Dashboard, na caixa Aguardando horário. O botão Calendário no canto da caixa leva ao calendário. Cada pedido tem: 1. Editar muda o pedido. 2. Enviar via WhatsApp abre uma mensagem pronta com o link. O lápis ao lado edita o texto dessa mensagem. 3. Cobrar envia um lembrete quando o cliente demora. O lápis ao lado edita essa mensagem. 4. Adicionar horário marca um horário por você quando o cliente respondeu de outro jeito. 5. Reagendar faz um novo link quando o cliente precisa de outro horário. 6. Pular esta semana deixa o cliente fora desta semana. Quando o cliente escolhe um horário, o pedido passa para Agendados. Os nomes estão escondidos nesta imagem.",
-                "en": "Follow the requests. Every link you make waits in a list on the Dashboard, in the box Waiting on a time (Aguardando horário). The Calendar button in the corner of the box takes you to the calendar. Each request has: 1. Edit (Editar) changes it. 2. Send on WhatsApp (Enviar via WhatsApp) opens a ready message with the link. The pencil next to it edits the words of that message. 3. Follow up (Cobrar) sends a reminder when the client is slow. The pencil next to it edits that message. 4. Add time manually (Adicionar horário) books a time yourself when the client answered another way. 5. New link (Reagendar) makes a fresh link when the client needs another time. 6. Skip this week (Pular esta semana) leaves the client out of this week. Once the client picks a time, the request moves to Scheduled (Agendados). Names are hidden in this picture."
+                "pt": "Em Tipo de reunião (2), escolha Google Meet ou Presencial.",
+                "en": "In Meeting type (2), choose Google Meet or In person."
               },
               "image": {
-                "pt": "help/img/guides/admin-send-times/send-03.pt.jpg",
-                "en": "help/img/guides/admin-send-times/send-03.en.jpg"
+                "pt": "help/img/guides/admin-send-times/send-s03.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Reservar 15 min extras depois (3) deixa um intervalo depois da reunião.",
+                "en": "Hold 15 extra minutes after (3) keeps a gap after the meeting."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-send-times/send-s04.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Personalizar duração (4) muda o tamanho da reunião. Começa em 1 hora.",
+                "en": "Customize duration (4) changes the length of the meeting. It starts at 1 hour."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-send-times/send-s05.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Toque em Criar link (5). No nosso teste não tocamos, então nenhum link foi criado.",
+                "en": "Tap Create link (5). We did not tap it in our test, so no link was made."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-send-times/send-s06.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Cada link que você cria fica esperando numa lista, a caixa Aguardando horário (1). Ela fica no Dashboard e também no fim da página Calendário. O botão Calendário no canto da caixa do Dashboard leva ao calendário. Os nomes são inventados nestas imagens.",
+                "en": "Every link you make waits in a list, the box Waiting on a time (1). It is on the Dashboard, and also at the bottom of the Calendar page. The Calendar button in the corner of the box on the Dashboard takes you to the calendar. Names are made up in these pictures."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-send-times/send-s07.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Editar (1) muda o pedido.",
+                "en": "Edit (1) changes the request."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-send-times/send-s08.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Enviar via WhatsApp (2) abre uma mensagem pronta com o link. O lápis ao lado edita o texto dessa mensagem.",
+                "en": "Send on WhatsApp (2) opens a ready message with the link. The pencil next to it edits the words of that message."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-send-times/send-s09.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Cobrar (3) envia um lembrete quando o cliente demora. O lápis ao lado edita essa mensagem.",
+                "en": "Follow up (3) sends a reminder when the client is slow. The pencil next to it edits that message."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-send-times/send-s10.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Adicionar horário (4) marca um horário por você quando o cliente respondeu de outro jeito.",
+                "en": "Add time manually (4) books a time yourself when the client answered another way."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-send-times/send-s11.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Reagendar (5) faz um novo link quando o cliente precisa de outro horário.",
+                "en": "New link (5) makes a fresh link when the client needs another time."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-send-times/send-s12.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Pular esta semana (6) deixa o cliente fora desta semana. Quando o cliente escolhe um horário, o pedido passa para Agendados. No nosso teste não tocamos nestes botões.",
+                "en": "Skip this week (6) leaves the client out of this week. Once the client picks a time, the request moves to Scheduled. We did not tap these buttons in our test."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-send-times/send-s13.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-s13.en.jpg"
               }
             }
           ]
@@ -15724,7 +15837,6 @@
         {
           "labels": {
             "pt": [
-              "Enviar horarios",
               "Enviar horários"
             ],
             "en": [
@@ -15732,7 +15844,7 @@
             ]
           },
           "section": "send",
-          "step": 2
+          "step": 1
         },
         {
           "labels": {
@@ -15744,7 +15856,7 @@
             ]
           },
           "section": "send",
-          "step": 2
+          "step": 6
         },
         {
           "labels": {
@@ -15756,7 +15868,7 @@
             ]
           },
           "section": "send",
-          "step": 3
+          "step": 9
         },
         {
           "labels": {
@@ -15768,7 +15880,7 @@
             ]
           },
           "section": "send",
-          "step": 3
+          "step": 10
         },
         {
           "labels": {
@@ -15780,7 +15892,7 @@
             ]
           },
           "section": "send",
-          "step": 3
+          "step": 11
         },
         {
           "labels": {
@@ -15792,7 +15904,7 @@
             ]
           },
           "section": "send",
-          "step": 3
+          "step": 13
         }
       ]
     },

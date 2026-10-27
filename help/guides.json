@@ -27586,6 +27586,120 @@
         }
       ],
       "buttons": []
+    },
+    {
+      "id": "admin-prep-kickoff",
+      "audience": "admin",
+      "title": {
+        "pt": "Preparação da reunião: Kickoff",
+        "en": "Meeting prep: the Kickoff"
+      },
+      "summary": {
+        "pt": "Percorra a página de preparação do Kickoff: o que o sistema já responde, o passo a passo, as 26 metas na ordem e o depois da reunião.",
+        "en": "Walk through the Kickoff prep page: what the system already answers, the step by step, the 26 targets in order and the after-meeting list."
+      },
+      "keywords": {
+        "pt": [
+          "kickoff",
+          "preparação da reunião",
+          "metas do mês",
+          "registro diário",
+          "tabela de preços",
+          "presença digital",
+          "importar csv"
+        ],
+        "en": [
+          "kickoff",
+          "meeting prep",
+          "targets for the month",
+          "daily log",
+          "pricing table",
+          "digital presence",
+          "import csv"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "ko",
+          "title": {
+            "pt": "Preparação: reunião de Kickoff",
+            "en": "Prep: the Kickoff meeting"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que o sistema já responde. No alto, este cartão (1) mostra os fatos que o sistema já tem: Metas do mês, por exemplo todas as 26 definidas, Entrou hoje, Saiu hoje, Leads hoje, Pipeline aberto, Raio-X, Tabela de preços e App na tela inicial. Embaixo, O que o sistema já sabe mostra o pacote, os donos e o Raio-X. Não pergunte ao cliente o que já está aqui.",
+                "en": "What the system already answers. At the top, this card (1) shows the facts the system already has: Targets for the month, for example all 26 set, In today, Out today, Leads today, Open pipeline, X-Ray, Price table and App on home screen. Under it, What the system already knows shows the package, the owners and the X-Ray. Do not ask the client what is already here."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-kickoff/ko-01.pt.jpg",
+                "en": "help/img/guides/admin-prep-kickoff/ko-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "A reunião, passo a passo. O cartão (1) tem quatro passos numerados: definir as metas do mês, preencher o primeiro registro diário com o cliente, a tabela de preços e custos (com Importar CSV) e a presença digital. Cada passo tem um botão que abre a tela certa e uma nota curta sobre o motivo.",
+                "en": "The meeting, step by step. The card (1) has four numbered steps: set the month's targets, fill in the first daily log with the client, the pricing and costs table (with Import CSV), and digital presence. Each step has a button that opens the right screen, and a short note on why."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-kickoff/ko-02.pt.jpg",
+                "en": "help/img/guides/admin-prep-kickoff/ko-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "As metas, na ordem. Este cartão (1) lista os 26 campos na ordem em que o cliente preenche. A âncora de receita é sempre o número do próprio cliente. Cada campo tem uma etiqueta: perguntado, derivado ou padrão Apex. Os perguntados mostram a pergunta para dizer em voz alta e o valor já definido. Os derivados mostram a conta, por exemplo lucro é receita menos o que sai.",
+                "en": "The targets, in order. This card (1) lists the 26 fields in the order the client fills them. The revenue anchor is always the client's own number. Each field is tagged asked, derived or Apex standard. Asked fields show the question to say out loud and the value already set. Derived fields show the sum, for example profit is revenue minus what goes out."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-kickoff/ko-03.pt.jpg",
+                "en": "help/img/guides/admin-prep-kickoff/ko-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Depois da reunião. Marque Gerar e aprovar o resumo da sessão e toque em Abrir a sessão. Marque Confirmar as metas lançadas e toque em Conferir as metas. Marque Combinar a próxima sessão e toque em Abrir a agenda. O cartão é o (1).",
+                "en": "After the meeting. Tick Generate and approve the session summary and tap Open the session. Tick Confirm the targets that were entered and tap Check the goals. Tick Agree the next session and tap Open the calendar. The card is (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-kickoff/ko-04.pt.jpg",
+                "en": "help/img/guides/admin-prep-kickoff/ko-04.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Metas na ordem do Kickoff"
+            ],
+            "en": [
+              "Targets in order at the Kickoff"
+            ]
+          },
+          "section": "ko",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Conferir as metas"
+            ],
+            "en": [
+              "Check the goals"
+            ]
+          },
+          "section": "ko",
+          "step": 4
+        }
+      ]
     }
   ],
   "pages": {
@@ -28003,7 +28117,8 @@
       },
       "guides": [
         "admin-meeting-prep",
-        "admin-prep-xray-results"
+        "admin-prep-xray-results",
+        "admin-prep-kickoff"
       ],
       "overview": {
         "pt": "Aqui o consultor se prepara para a reunião com um cliente.",

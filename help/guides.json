@@ -16508,16 +16508,19 @@
             {
               "n": 1,
               "text": {
-                "pt": "O que é. Análise de Clientes mostra os mesmos números que os seus clientes veem na própria aba de análise, mais uma camada só sua. O Rafa usa antes de uma reunião para ver quem está no caminho certo. Abra Análise de Clientes no menu da esquerda.",
-                "en": "What it is. Client Analytics shows the same numbers that your clients see in their own Analytics tab, plus a layer only you get. Rafa uses it before a meeting to see who is on track. Open Análise de Clientes in the left menu."
+                "pt": "A Análise de Clientes mostra os mesmos números que os seus clientes veem na aba Analytics deles, mais uma camada só sua. O Rafa usa antes de uma reunião para ver quem está no caminho. Abra Análise de Clientes no menu da esquerda. Média dos clientes (1) mostra todos juntos, Por cliente (2) mostra um, e Mês (3) escolhe o mês.",
+                "en": "Client Analytics shows the same numbers that your clients see in their own Analytics tab, plus a layer only you get. Rafa uses it before a meeting to see who is on track. Open Client Analytics in the left menu. Client average (1) shows every client together, Per client (2) shows one, and Month (3) chooses the month."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-client-analytics/analytics-01.pt.jpg",
+                "en": "help/img/guides/admin-client-analytics/analytics-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "A média de todos os clientes. 1. Média dos clientes mostra a média de todos os clientes juntos. Por cliente deixa você escolher um cliente numa lista e ver só aquele cliente. 2. Mês escolhe o mês. 3. Média geral (composto) é a porcentagem geral. A linha pequena embaixo diz quantos clientes lançaram números e quantos não lançaram nada. Mais abaixo, cada área (por exemplo Financeiro, Clientes & Mercado, Processos e Crescimento) tem a sua porcentagem e o número de clientes que acompanham aquela área. Esta imagem mostra só médias: nenhum nome de cliente aparece.",
-                "en": "The average of all clients. 1. Média dos clientes shows the average of every client together. Por cliente lets you choose one client from a list and see only that client. 2. Mês chooses the month. 3. Média geral (composto) is the overall percentage. The small line under it says how many clients entered numbers and how many logged nothing. Under it, each area (for example Financeiro, Clientes & Mercado, Processos and Crescimento) has its own percentage and the number of clients that track that area. This picture shows only averages: no client name is shown."
+                "pt": "Média geral (composto) (1) é o percentual geral. A linha pequena (2) diz quantos clientes lançaram números e quantos não registraram nada. Embaixo, cada área (3), por exemplo Financeiro, Clientes & Mercado, Processos e Crescimento, tem o seu percentual e o número de clientes que acompanham essa área.",
+                "en": "Média geral (composto) (Overall average, composite) (1) is the overall percentage. The small line (2) says how many clients entered numbers and how many logged nothing. Under it, each area (3), for example Financial, Clients & Market, Processes and Growth, has its own percentage and the number of clients that track that area."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-analytics/analytics-02.pt.jpg",
@@ -16527,10 +16530,35 @@
             {
               "n": 3,
               "text": {
-                "pt": "Um cliente. Toque em Por cliente, escolha o cliente na lista e leia os números dele no mês. A página diz Escolha um cliente acima até você escolher.",
-                "en": "One client. Tap Por cliente, choose the client in the list and read that client's numbers for the month. The page will say Escolha um cliente acima until you choose."
+                "pt": "No fim, Quem entrou nesta conta (1) lista os clientes com registros e quantos dias cada um lançou, e depois os clientes sem nenhum registro. Os nomes dos clientes são nomes de teste na figura.",
+                "en": "At the bottom, Who counted toward this (1) lists the clients with entries and how many days each one entered, and then the clients with no entries at all. The client names are test names in the picture."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-client-analytics/analytics-03.pt.jpg",
+                "en": "help/img/guides/admin-client-analytics/analytics-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Para ver um cliente, toque em Por cliente. A página diz Escolha um cliente acima até você escolher um na lista (1) (2).",
+                "en": "To see one client, tap Per client. The page says Pick a client above until you choose one in the list (1) (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-analytics/analytics-04.pt.jpg",
+                "en": "help/img/guides/admin-client-analytics/analytics-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Escolha o cliente (1) na lista e leia os números dele no mês. O bloco (2) é exatamente o que o cliente vê, com a mesma tela e os mesmos cálculos. Abrir perfil (3) vai para o registro do cliente. Os valores estão cobertos e o nome é um nome de teste.",
+                "en": "Choose the client (1) in the list and read that client's numbers for the month. The block (2) is exactly what the client sees, with the same screen and the same math. Open profile (3) goes to the client record. Amounts are covered and the name is a test name."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-analytics/analytics-05.pt.jpg",
+                "en": "help/img/guides/admin-client-analytics/analytics-05.en.jpg"
+              }
             }
           ]
         }

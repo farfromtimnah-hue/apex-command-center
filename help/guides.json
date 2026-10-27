@@ -4916,34 +4916,78 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em Negócio, depois em Projetos. Toque em Negócio e escolha Projetos no menu.",
-                "en": "Tap Business, then Projects. Tap Business, then choose Projects in the menu."
+                "pt": "Toque em Negócio (1) no alto do portal. Um menu abre.",
+                "en": "Tap Business (1) at the top of the portal. A menu opens."
               },
               "image": {
-                "pt": "help/img/guides/projects/overview-01.pt.jpg",
-                "en": "help/img/guides/projects/overview-01.en.jpg"
+                "pt": "help/img/guides/projects/overview-s01.pt.jpg",
+                "en": "help/img/guides/projects/overview-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Veja os números de margem. O cartão Projetos e margem diz que a margem mínima é opcional: o assistente avisa abaixo dela, nada é bloqueado. Escolha um mês no filtro de mês (2) e veja os números (1): Projetos, Projeto médio ($), Material médio ($), Mão de obra média ($), Margem e Lucro médio ($).",
-                "en": "Read the margin numbers. The Projects & margin card says the minimum margin is optional: the assistant warns below it, nothing is blocked. Pick a month with the month filter (2), and read the numbers (1): Projects, Average job ($), Average materials ($), Average labor ($), Margin and Average profit ($)."
+                "pt": "No menu, escolha Projetos (1).",
+                "en": "In the menu, choose Projects (1)."
               },
               "image": {
-                "pt": "help/img/guides/projects/overview-02.pt.jpg",
-                "en": "help/img/guides/projects/overview-02.en.jpg"
+                "pt": "help/img/guides/projects/overview-s02.pt.jpg",
+                "en": "help/img/guides/projects/overview-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Encontre um projeto na lista. Cada linha é um projeto: o nome do cliente, o total, uma nota de margem em relação à meta e um status como Em andamento. Os nomes estão borrados nesta imagem. Toque na linha para abrir o projeto.",
-                "en": "Find a project in the list. Each row is a project: the client's name, the total, a margin note against the target, and a status such as In progress. The names are blurred in this picture. Tap a row to open the project."
+                "pt": "Leia a linha embaixo de Projetos e margem (1): a margem mínima é opcional. O assistente avisa abaixo dela, nada é bloqueado.",
+                "en": "Read the line under Projects & margin (1): the minimum margin is optional. The assistant warns below it, nothing is blocked."
               },
               "image": {
-                "pt": "help/img/guides/projects/overview-03.pt.jpg",
-                "en": "help/img/guides/projects/overview-03.en.jpg"
+                "pt": "help/img/guides/projects/overview-s03.pt.jpg",
+                "en": "help/img/guides/projects/overview-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Para ver um mês só, escolha o mês no filtro de meses (1).",
+                "en": "To look at one month, pick it in the month filter (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/overview-s04.pt.jpg",
+                "en": "help/img/guides/projects/overview-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Leia os números (1): Projetos, Projeto médio ($), Material médio ($), Mão de obra média ($), Margem e Lucro médio ($).",
+                "en": "Read the numbers (1): Projects, Average job ($), Average materials ($), Average labor ($), Margin and Average profit ($)."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/overview-s05.pt.jpg",
+                "en": "help/img/guides/projects/overview-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Cada linha da lista (1) é um projeto: o nome do cliente, o total, uma nota da margem contra a meta e um status, como Em andamento.",
+                "en": "Each row in the list (1) is a project: the client's name, the total, a margin note against the target, and a status such as In progress."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/overview-s06.pt.jpg",
+                "en": "help/img/guides/projects/overview-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Toque em uma linha (1) para abrir o projeto.",
+                "en": "Tap a row (1) to open the project."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/overview-s07.pt.jpg",
+                "en": "help/img/guides/projects/overview-s07.en.jpg"
               }
             }
           ]
@@ -4958,78 +5002,199 @@
             {
               "n": 1,
               "text": {
-                "pt": "Veja o cliente, o status e os preços. No alto: Cliente / projeto (1) e Status (2), que diz Toque para mudar. Preços (3): Preço do orçamento (orçamentos aceitos), Preço do contrato (negociado no contrato) e Total final (contrato + aditivos). Abaixo ficam Enviar cartão de contato e o botão para pedir uma avaliação.",
-                "en": "Check the client, status and prices. At the top: Client / project (1) and Status (2), which says Tap to change. Prices (3): Estimate price (accepted estimates), Contract price (negotiated on the contract) and Final total (contract + change orders). Below are Send contact card and Ask for a Google review."
+                "pt": "No alto da ficha do projeto, Cliente / projeto (1) mostra para quem é o projeto.",
+                "en": "At the top of the project sheet, Client / project (1) shows who the project is for."
               },
               "image": {
-                "pt": "help/img/guides/projects/project-01.pt.jpg",
-                "en": "help/img/guides/projects/project-01.en.jpg"
+                "pt": "help/img/guides/projects/project-s01.pt.jpg",
+                "en": "help/img/guides/projects/project-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Nome do trabalho e valores. Trabalho (1) mostra o Nome do trabalho. Valores (2): Valor ($), Material ($), Mão de obra ($), Outros ($), Custo administrativo ($), Comissão vendedor ($) e Imposto ($).",
-                "en": "Job name and costs. Job (1) shows the Job name. Costs (2): Value ($), Materials ($), Labor ($), Other ($), Administrative cost ($), Sales commission ($) and Tax ($)."
+                "pt": "Status (1) diz Toque para mudar. Toque nele para mudar o status do projeto.",
+                "en": "Status (1) says Tap to change. Tap it to change the status of the project."
               },
               "image": {
-                "pt": "help/img/guides/projects/project-02.pt.jpg",
-                "en": "help/img/guides/projects/project-02.en.jpg"
+                "pt": "help/img/guides/projects/project-s02.pt.jpg",
+                "en": "help/img/guides/projects/project-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Histórico de valores, prazos e resultado. Histórico de valores (1) lista as mudanças de valor; aqui diz Nenhuma alteração registrada ainda. Prazos (2): Início, Prazo previsto e Entrega real. O Resultado (3) é calculado automaticamente: Custo total, Comissão (%) e mais linhas.",
-                "en": "Value history, schedule and result. Value history (1) lists changes to the value; here it says No changes recorded yet. Schedule (2): Start, Deadline and Actual delivery. Result (3) is calculated automatically: Total cost, Commission (%), Profit, Margin and On time?"
+                "pt": "Preços (1): Preço do orçamento (orçamentos aceitos), Preço do contrato (negociado no contrato) e Total final (contrato + aditivos).",
+                "en": "Prices (1): Estimate price (accepted estimates), Contract price (negotiated on the contract) and Final total (contract + change orders)."
               },
               "image": {
-                "pt": "help/img/guides/projects/project-03.pt.jpg",
-                "en": "help/img/guides/projects/project-03.en.jpg"
+                "pt": "help/img/guides/projects/project-s03.pt.jpg",
+                "en": "help/img/guides/projects/project-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Faturas, contrato e aditivos. Faturas (1) lista as faturas, com o botão Criar faturas a partir do orçamento. Contrato (2) mostra o número do contrato, o status e o valor. Aditivos (change orders) (3) lista os aditivos, com + Aditivo para adicionar um. Os guias Enviar um contrato, Enviar um aditivo e Enviar a fatura mostram esses passos.",
-                "en": "Invoices, contract and change orders. Invoices (1) lists the invoices, with the button Create invoices from estimate. Contract (2) shows the contract number, its status and the amount. Change orders (3) lists change orders, with + Change order to add one. The guides Send a contract, Send a change order and Send an invoice show those steps."
+                "pt": "Abaixo dos preços ficam dois botões: Enviar cartão de contato (1) e Pedir avaliação no Google (2).",
+                "en": "Below the prices are two buttons: Send contact card (1) and Ask for a Google review (2)."
               },
               "image": {
-                "pt": "help/img/guides/projects/project-04.pt.jpg",
-                "en": "help/img/guides/projects/project-04.en.jpg"
+                "pt": "help/img/guides/projects/project-s04.pt.jpg",
+                "en": "help/img/guides/projects/project-s04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Fotos, vistoria e avisos. Fotos de antes (condições existentes) (1): fotografe rachaduras, manchas, calçadas, grama e cercas antes de começar; o cliente confirma que já estavam assim. Vistoria final e pendências (2): ande pela obra com o cliente e anote cada pendência; quando tudo estiver feito, envie o aceite de conclusão. Notices to Owner e liberações (3): quando um fornecedor ou subempreiteiro mandar um Notice to Owner, registre aqui; antes do pagamento final, peça a liberação (release) de cada um.",
-                "en": "Photos, walkthrough and notices. Before-work photos (existing conditions) (1): photograph cracks, stains, driveways, lawn and fences before starting; the homeowner confirms they were already like this. Completion walkthrough and punch list (2): walk the job with the homeowner and note each item; when everything is done, send the completion sign-off. Notices to Owner and lien releases (3): when a supplier or subcontractor serves a Notice to Owner, record it here; before the final payment, get a release from each one."
+                "pt": "Na parte Trabalho, Nome do trabalho (1) mostra o nome do trabalho.",
+                "en": "In the part called Job, Job name (1) shows the name of the job."
               },
               "image": {
-                "pt": "help/img/guides/projects/project-05.pt.jpg",
-                "en": "help/img/guides/projects/project-05.en.jpg"
+                "pt": "help/img/guides/projects/project-s05.pt.jpg",
+                "en": "help/img/guides/projects/project-s05.en.jpg"
               }
             },
             {
               "n": 6,
               "text": {
-                "pt": "Subempreiteiros e arquivos do projeto. Subempreiteiros (1) lista quem está neste projeto; o botão Adicionar subempreiteiro ao projeto adiciona um. Arquivos do projeto (2) tem + Adicionar foto ou PDF. Embaixo, uma linha diz que os arquivos ficam visíveis no portal do seu negócio, para as pessoas que entram pelo seu negócio. Isso não é uma forma de enviar arquivos ao seu cliente.",
-                "en": "Subcontractors and project files. Subcontractors (1) lists who is on this project; the button Add a subcontractor to this project adds one. Project files (2) has + Add photo or PDF. Under it, a line says the files are visible in your business portal, to the people who sign in for your business. This is not a way to send files to your customer."
+                "pt": "Valores (1): Valor ($), Material ($), Mão de obra ($), Outros ($), Custo administrativo ($), Comissão vendedor ($) e Imposto ($).",
+                "en": "Costs (1): Value ($), Materials ($), Labor ($), Other ($), Administrative cost ($), Sales commission ($) and Tax ($)."
               },
               "image": {
-                "pt": "help/img/guides/projects/project-06.pt.jpg",
-                "en": "help/img/guides/projects/project-06.en.jpg"
+                "pt": "help/img/guides/projects/project-s06.pt.jpg",
+                "en": "help/img/guides/projects/project-s06.en.jpg"
               }
             },
             {
               "n": 7,
               "text": {
-                "pt": "Feche o projeto. Toque no X no canto superior direito para fechar a ficha do projeto.",
-                "en": "Close the project. Tap the X at the top right to close the project sheet."
+                "pt": "O Histórico de valores lista as mudanças do valor. Quando nada mudou, diz Nenhuma alteração registrada ainda.",
+                "en": "Value history lists changes to the value. When nothing changed, it says No changes recorded yet."
               },
               "image": {
-                "pt": "help/img/guides/projects/project-07.pt.jpg",
-                "en": "help/img/guides/projects/project-07.en.jpg"
+                "pt": "help/img/guides/projects/project-s06.pt.jpg",
+                "en": "help/img/guides/projects/project-s06.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Prazos (1): Início, Prazo previsto e Entrega real.",
+                "en": "Schedule (1): Start, Deadline and Actual delivery."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/project-s08.pt.jpg",
+                "en": "help/img/guides/projects/project-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Resultado (1) é calculado automaticamente: Custo total, Comissão (%), Lucro, Margem e No prazo?",
+                "en": "Result (1) is calculated automatically: Total cost, Commission (%), Profit, Margin and On time?"
+              },
+              "image": {
+                "pt": "help/img/guides/projects/project-s09.pt.jpg",
+                "en": "help/img/guides/projects/project-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Faturas (1) lista as faturas do projeto. O botão Criar faturas a partir do orçamento fica logo abaixo.",
+                "en": "Invoices (1) lists the invoices of the project. The button Create invoices from estimate is right below."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/project-s10.pt.jpg",
+                "en": "help/img/guides/projects/project-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Contrato (1) mostra o número do contrato, o status e o valor.",
+                "en": "Contract (1) shows the contract number, its status and the amount."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/project-s11.pt.jpg",
+                "en": "help/img/guides/projects/project-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Aditivos (1) lista os aditivos, com + Aditivo para adicionar um. Os guias Enviar um contrato, Enviar um aditivo e Enviar uma fatura mostram esses passos.",
+                "en": "Change orders (1) lists the change orders, with + Change order to add one. The guides Send a contract, Send a change order and Send an invoice show those steps."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/project-s12.pt.jpg",
+                "en": "help/img/guides/projects/project-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Fotos de antes (condições existentes) (1): fotografe rachaduras, manchas, calçadas, grama e cercas antes de começar. O cliente confirma que já estavam assim.",
+                "en": "Before-work photos (existing conditions) (1): photograph cracks, stains, driveways, lawn and fences before starting. The homeowner confirms they were already like this."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/project-s13.pt.jpg",
+                "en": "help/img/guides/projects/project-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Vistoria final e pendências (1): ande pela obra com o cliente e anote cada pendência. Quando tudo estiver feito, envie o aceite de conclusão.",
+                "en": "Completion walkthrough and punch list (1): walk the job with the homeowner and note each item. When everything is done, send the completion sign-off."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/project-s14.pt.jpg",
+                "en": "help/img/guides/projects/project-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Notices to Owner e liberações (1): quando um fornecedor ou subempreiteiro mandar um Notice to Owner, registre aqui. Antes do pagamento final, peça a liberação de cada um.",
+                "en": "Notices to Owner and lien releases (1): when a supplier or subcontractor serves a Notice to Owner, record it here. Before the final payment, get a release from each one."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/project-s15.pt.jpg",
+                "en": "help/img/guides/projects/project-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Subempreiteiros (1) lista quem está neste projeto. O botão Adicionar subempreiteiro ao projeto adiciona um.",
+                "en": "Subcontractors (1) lists who is on this project. The button Add a subcontractor to this project adds one."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/project-s16.pt.jpg",
+                "en": "help/img/guides/projects/project-s16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Arquivos do projeto (1) tem + Adicionar foto ou PDF. Uma linha diz que os arquivos aparecem no portal do seu negócio, para as pessoas que entram pelo seu negócio. Não é um jeito de mandar arquivos ao seu cliente.",
+                "en": "Project files (1) has + Add photo or PDF. A line says the files are visible in your business portal, to the people who sign in for your business. This is not a way to send files to your customer."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/project-s17.pt.jpg",
+                "en": "help/img/guides/projects/project-s17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Para fechar o projeto, toque no X (1) no alto à direita da ficha do projeto.",
+                "en": "To close the project, tap the X (1) at the top right of the project sheet."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/project-s18.pt.jpg",
+                "en": "help/img/guides/projects/project-s18.en.jpg"
               }
             }
           ]
@@ -5119,7 +5284,7 @@
             ]
           },
           "section": "project",
-          "step": 4
+          "step": 10
         },
         {
           "labels": {
@@ -5131,7 +5296,7 @@
             ]
           },
           "section": "project",
-          "step": 5
+          "step": 13
         },
         {
           "labels": {
@@ -5143,11 +5308,9 @@
             ]
           },
           "section": "project",
-          "step": 6
+          "step": 17
         },
         {
-          "section": "overview",
-          "step": 1,
           "labels": {
             "pt": [
               "Projetos"
@@ -5155,7 +5318,9 @@
             "en": [
               "Projects"
             ]
-          }
+          },
+          "section": "overview",
+          "step": 2
         }
       ]
     },
@@ -5382,8 +5547,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra o Analytics. Toque em Analytics na fileira de abas no alto (1). A página se chama Como estou indo? e começa com uma frase que resume o seu mês, por exemplo Você está indo bem este mês (2).",
-                "en": "Open Analytics. Tap Analytics in the row of tabs at the top (1). The page is called How am I doing? and starts with one line that sums up your month, for example You are doing well this month (2)."
+                "pt": "Abra o Analytics. Toque em Analytics na fileira de abas no alto (1).",
+                "en": "Open Analytics. Tap Analytics in the row of tabs at the top (1)."
               },
               "image": {
                 "pt": "help/img/guides/analytics/analytics-01.pt.jpg",
@@ -5393,8 +5558,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Escolha um número. Os botões redondos (1) são os seus números: Receita do Dia, Saída do Dia, Lucro Líquido, Margem de Lucro %, Vendas Fechadas e outros. Deslize a fileira para o lado para ver todos. O dourado é o número que você está vendo. Embaixo dele, Hoje e Média por dia (2) dizem quanto você precisa por dia útil para bater a meta e qual foi o seu ritmo até agora.",
-                "en": "Pick a number. The round buttons (1) are your numbers: Revenue Today, Expenses Today, Net Profit, Profit Margin %, Closed Sales and more. Slide the row sideways to see all of them. The gold one is the number you are looking at. Under it, Today and Average per day (2) tell you how much you need per working day to hit the goal and what your pace has been so far."
+                "pt": "A página se chama Como estou indo? (1) e começa com uma frase que resume o seu mês, por exemplo Você está indo bem este mês (2).",
+                "en": "The page is called How am I doing? (1) and starts with one line that sums up your month, for example You are doing well this month (2)."
               },
               "image": {
                 "pt": "help/img/guides/analytics/analytics-02.pt.jpg",
@@ -5404,8 +5569,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Leia o seu progresso. Uma etiqueta pequena (3) diz como você está indo, por exemplo Precisa acelerar um pouco. Realizado e Falta (4) mostram o que você já fez e o que ainda falta. A linha embaixo deles (5) mostra a meta do mês e o número de dias úteis. O botão dourado (6), Pedir ajuda com esta área, serve para quando você quer ajuda com o número que escolheu. Esta é a mesma imagem do passo anterior. Quando você toca, o WhatsApp abre com uma mensagem para o Rafa, o consultor, que diz qual é o número. A mensagem não leva número de telefone, então você escolhe o contato no WhatsApp e aperta enviar lá. Ao mesmo tempo a Apex salva uma tarefa de ajuda para o Rafa com os seus números e avisa ele, para ele ver o que você viu.",
-                "en": "Read your progress. A small label (3) tells you how you are doing, for example Needs a little push. Achieved and Left (4) show what you have done and what is still missing. The line under them (5) gives the monthly goal and the number of working days. The gold button (6), Ask for help with this area, is there for when you want help with the number you picked. This is the same picture as the step before. When you tap it, WhatsApp opens with a message to Rafa, the consultant, that names the number. The message has no phone number in it, so you choose the contact in WhatsApp and press send there. At the same time Apex saves a help task for Rafa with your numbers and tells him, so he can see what you saw."
+                "pt": "Os botões redondos (1) são os seus números: Receita do Dia, Saída do Dia, Lucro Líquido, Margem de Lucro %, Vendas Fechadas e outros.",
+                "en": "The round buttons (1) are your numbers: Revenue Today, Expenses Today, Net Profit, Profit Margin %, Closed Sales and more."
               },
               "image": {
                 "pt": "help/img/guides/analytics/analytics-03.pt.jpg",
@@ -5415,8 +5580,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Leia o gráfico. Embaixo dos números, o gráfico (1) mostra o número que você escolheu, mês a mês. A linha dourada é o que você fez, e a linha tracejada é a meta (2). A frase embaixo (3) compara este mês com o mês anterior, por exemplo Caiu 17% em relação ao mês anterior, abaixo da meta. Mais para baixo na página, o cartão Evolução mês a mês tem um menu próprio onde você escolhe qualquer outro número e vê o gráfico dele.",
-                "en": "Read the chart. Under the numbers, the chart (1) shows the number you picked, month by month. The gold line is what you did, and the dashed line is the goal (2). The sentence under it (3) compares this month with last month, for example Down 17% vs last month, below target. Further down the page, the card Month-over-month trend has its own menu where you can pick any other number and see its chart."
+                "pt": "Toque no número que você quer ver, por exemplo Lucro Líquido (1). O dourado é o número que você está vendo. Números assim mostram Atual e Meta e uma etiqueta como Na meta, no lugar de Hoje e Média por dia.",
+                "en": "Tap the number you want to see, for example Net Profit (1). The gold one is the number you are looking at. Numbers like this one show Current and Target and a tag such as On target, instead of Today and Average per day."
               },
               "image": {
                 "pt": "help/img/guides/analytics/analytics-04.pt.jpg",
@@ -5426,8 +5591,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Veja o mês e a sua pontuação. As setas dos dois lados do nome do mês (1) mudam para outro mês. Uma linha diz quantos dias do mês estão completos. A pontuação (2) diz quantas metas estão no caminho certo, por exemplo 13 de 27 metas no caminho certo, com uma barra e um percentual geral. Embaixo, Seus destaques mostra os números que mais passaram da meta.",
-                "en": "Check the month and your score. The arrows on each side of the month name (1) move to another month. A line says how many days of the month are completed. The score (2) says how many goals are on track, for example 13 of 27 goals on track, with a bar and an overall percent. Under it, Your wins shows the numbers that went furthest past their goal."
+                "pt": "Deslize a fileira de botões redondos para o lado (1) para ver todos os números.",
+                "en": "Slide the row of round buttons sideways (1) to see all the numbers."
               },
               "image": {
                 "pt": "help/img/guides/analytics/analytics-05.pt.jpg",
@@ -5437,8 +5602,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Leia os números por área. Os números ficam agrupados em áreas: Financeiro, Clientes e mercado, Processos, Crescimento e Rotina. O nome de cada área (1) mostra o percentual dela à direita. Cada cartão (2) mostra o número, uma etiqueta com o percentual da meta, e Meta e Falta. Verde quer dizer que a meta foi batida ou superada, amarelo quer dizer a caminho, e vermelho quer dizer longe da meta. Se uma área tiver mais cartões do que cabem, toque em Ver todos (3).",
-                "en": "Read the numbers by area. The numbers are grouped in areas: Financial, Clients and market, Processes, Growth and Routine. Each area name (1) shows its own percent on the right. Each card (2) shows the number, a tag with the percent of the goal, and Target and Left. Green means the goal was reached or beaten, yellow means on the way, and red means far from the goal. If an area has more cards than fit, tap Show all (3)."
+                "pt": "Para Receita do Dia, as duas caixas Hoje (1) e Média por dia (2) dizem quanto você precisa por dia útil para bater a meta e qual foi o seu ritmo até agora.",
+                "en": "For Revenue Today, the two boxes Today (1) and Average per day (2) tell you how much you need per working day to hit the goal and what your pace has been so far."
               },
               "image": {
                 "pt": "help/img/guides/analytics/analytics-06.pt.jpg",
@@ -5448,12 +5613,166 @@
             {
               "n": 7,
               "text": {
-                "pt": "Veja o que precisa de atenção. Perto do fim, a lista Precisa de atenção (1) diz Foque aqui primeiro. Ela mostra os números mais longe da meta (2), cada um com uma barra, o percentual, e Meta e Falta. Comece pelo primeiro.",
-                "en": "See what needs attention. Near the bottom, the Needs attention list (1) says Focus here first. It lists the numbers that are furthest from their goal (2), each with a bar, the percent and Target and Left. Start with the first one."
+                "pt": "Uma etiqueta pequena (1) diz como você está indo, por exemplo Precisa acelerar um pouco.",
+                "en": "A small label (1) tells you how you are doing, for example Needs a little push."
               },
               "image": {
                 "pt": "help/img/guides/analytics/analytics-07.pt.jpg",
                 "en": "help/img/guides/analytics/analytics-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Realizado (1) e Falta (2) mostram o que você já fez e o que ainda falta.",
+                "en": "Achieved (1) and Left (2) show what you have done and what is still missing."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/analytics-08.pt.jpg",
+                "en": "help/img/guides/analytics/analytics-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "A linha embaixo deles (1) mostra a meta do mês e o número de dias úteis.",
+                "en": "The line under them (1) gives the monthly goal and the number of working days."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/analytics-09.pt.jpg",
+                "en": "help/img/guides/analytics/analytics-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "O botão dourado (1), Pedir ajuda com esta área, serve para quando você quer ajuda com o número que escolheu. Quando você toca, o WhatsApp abre com uma mensagem para o Rafa, o consultor, que diz qual é o número. A mensagem não leva número de telefone, então você escolhe o contato no WhatsApp e aperta enviar lá. Ao mesmo tempo a Apex salva uma tarefa de ajuda para o Rafa com os seus números e avisa ele, para ele ver o que você viu.",
+                "en": "The gold button (1), Ask for help with this area, is there for when you want help with the number you picked. When you tap it, WhatsApp opens with a message to Rafa, the consultant, that names the number. The message has no phone number in it, so you choose the contact in WhatsApp and press send there. At the same time Apex saves a help task for Rafa with your numbers and tells him, so he can see what you saw."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/analytics-10.pt.jpg",
+                "en": "help/img/guides/analytics/analytics-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Embaixo dos números, o gráfico (1) mostra o número que você escolheu, mês a mês. A linha dourada é o que você fez, e a linha tracejada é a meta (2).",
+                "en": "Under the numbers, the chart (1) shows the number you picked, month by month. The gold line is what you did, and the dashed line is the goal (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/analytics-11.pt.jpg",
+                "en": "help/img/guides/analytics/analytics-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "A frase embaixo do gráfico (3) compara este mês com o mês anterior, por exemplo Caiu 9% em relação ao mês anterior, abaixo da meta.",
+                "en": "The sentence under the chart (3) compares this month with last month, for example Down 9% vs last month, below target."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/analytics-12.pt.jpg",
+                "en": "help/img/guides/analytics/analytics-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Mais para baixo na página, o cartão Evolução mês a mês tem um menu próprio (1) onde você escolhe qualquer outro número e vê o gráfico dele.",
+                "en": "Further down the page, the card Month-over-month trend has its own menu (1) where you can pick any other number and see its chart."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/analytics-13.pt.jpg",
+                "en": "help/img/guides/analytics/analytics-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "As setas dos dois lados do nome do mês (1, 2) mudam para outro mês.",
+                "en": "The arrows on each side of the month name (1, 2) move to another month."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/analytics-14.pt.jpg",
+                "en": "help/img/guides/analytics/analytics-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Toque na seta da esquerda (1) para ver o mês anterior. Os números, a pontuação e os cartões mudam para esse mês.",
+                "en": "Tap the left arrow (1) to see the month before. The numbers, the score and the cards change to that month."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/analytics-15.pt.jpg",
+                "en": "help/img/guides/analytics/analytics-15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Uma linha diz quantos dias do mês estão completos. A pontuação (1) diz quantas metas estão no caminho certo, por exemplo 15 de 27 metas no caminho certo, com uma barra e um percentual geral. Embaixo, Seus destaques (2) mostra os números que mais passaram da meta.",
+                "en": "A line says how many days of the month are completed. The score (1) says how many goals are on track, for example 15 of 27 goals on track, with a bar and an overall percent. Under it, Your wins (2) shows the numbers that went furthest past their goal."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/analytics-16.pt.jpg",
+                "en": "help/img/guides/analytics/analytics-16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Os números ficam agrupados em áreas: Financeiro, Clientes e mercado, Processos, Crescimento e Rotina. O nome de cada área (1) mostra o percentual dela à direita.",
+                "en": "The numbers are grouped in areas: Financial, Clients and market, Processes, Growth and Routine. Each area name (1) shows its own percent on the right."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/analytics-17.pt.jpg",
+                "en": "help/img/guides/analytics/analytics-17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Cada cartão (2) mostra o número, uma etiqueta com o percentual da meta, e Meta e Falta. Verde quer dizer que a meta foi batida ou superada, amarelo quer dizer a caminho, e vermelho quer dizer longe da meta.",
+                "en": "Each card (2) shows the number, a tag with the percent of the goal, and Target and Left. Green means the goal was reached or beaten, yellow means on the way, and red means far from the goal."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/analytics-18.pt.jpg",
+                "en": "help/img/guides/analytics/analytics-18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "Se uma área tiver mais cartões do que cabem, toque em Ver todos (1).",
+                "en": "If an area has more cards than fit, tap Show all (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/analytics-19.pt.jpg",
+                "en": "help/img/guides/analytics/analytics-19.en.jpg"
+              }
+            },
+            {
+              "n": 20,
+              "text": {
+                "pt": "Todos os cartões da área abrem, e o botão vira Mostrar menos (1). Toque nele para recolher a área de novo.",
+                "en": "All the cards of the area open, and the button becomes Show less (1). Tap it to fold the area again."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/analytics-20.pt.jpg",
+                "en": "help/img/guides/analytics/analytics-20.en.jpg"
+              }
+            },
+            {
+              "n": 21,
+              "text": {
+                "pt": "Perto do fim, a lista Precisa de atenção (1) diz Foque aqui primeiro. Ela mostra os números mais longe da meta (2), cada um com uma barra, o percentual, e Meta e Falta. Comece pelo primeiro.",
+                "en": "Near the bottom, the Needs attention list (1) says Focus here first. It lists the numbers that are furthest from their goal (2), each with a bar, the percent and Target and Left. Start with the first one."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/analytics-21.pt.jpg",
+                "en": "help/img/guides/analytics/analytics-21.en.jpg"
               }
             }
           ]
@@ -5468,21 +5787,35 @@
             {
               "n": 1,
               "text": {
-                "pt": "Leia as duas caixas grandes. Hoje (1) é quanto você precisa fazer em cada dia útil que ainda resta para bater a meta do mês. O Apex calcula assim: o que Falta, dividido pelos dias úteis que restam. Média por dia (2) é o que você realmente fez, em média, em cada dia útil até agora. O Apex calcula assim: o que você Realizou, dividido pelos dias úteis que já passaram. A linha pequena embaixo de cada uma diz quantos dias úteis foram usados.",
-                "en": "Read the two big boxes. Today (1) is how much you need to do on each working day that is left to reach the monthly goal. Apex counts it as what is Left, divided by the working days left. Average per day (2) is what you have really done, on average, on each working day so far. Apex counts it as what you Achieved, divided by the working days that have passed. The small line under each one tells you how many working days it used."
+                "pt": "Hoje (1) é quanto você precisa fazer em cada dia útil que ainda resta para bater a meta do mês. O Apex calcula assim: o que Falta, dividido pelos dias úteis que restam. A linha pequena embaixo diz quantos dias úteis foram usados.",
+                "en": "Today (1) is how much you need to do on each working day that is left to reach the monthly goal. Apex counts it as what is Left, divided by the working days left. The small line under it tells you how many working days it used."
               },
               "image": {
-                "en": "help/img/guides/analytics/pace-01.en.jpg",
-                "pt": "help/img/guides/analytics/pace-01.pt.jpg"
+                "pt": "help/img/guides/analytics/pace-01.pt.jpg",
+                "en": "help/img/guides/analytics/pace-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Leia o veredito. A etiqueta embaixo das duas caixas (3) compara uma com a outra. No ritmo certo quer dizer que a sua média é igual ou maior do que você precisa por dia. Precisa acelerar um pouco quer dizer que a sua média é menor, então você precisa fazer mais nos dias que restam. Meta batida! quer dizer que a meta do mês já foi alcançada. Aí a caixa Hoje mostra um sinal de visto. Se não restar nenhum dia útil, a caixa avisa. Os dias úteis vêm das suas configurações de Dias de trabalho: veja o guia sobre dias de trabalho e períodos bloqueados.",
-                "en": "Read the verdict. The label under the two boxes (3) compares them. On pace means your average is the same as, or higher than, what you need each day. Needs a little push means your average is lower, so you must do more on the days left. Goal hit! means the monthly goal is already reached. Then Today shows a check mark. If no working day is left, the box says so. The working days come from your Working days settings: see the guide on working days and blocked periods."
+                "pt": "Média por dia (2) é o que você realmente fez, em média, em cada dia útil até agora. O Apex calcula assim: o que você Realizou, dividido pelos dias úteis que já passaram. A linha pequena embaixo diz quantos dias úteis foram usados.",
+                "en": "Average per day (2) is what you have really done, on average, on each working day so far. Apex counts it as what you Achieved, divided by the working days that have passed. The small line under it tells you how many working days it used."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/analytics/pace-02.pt.jpg",
+                "en": "help/img/guides/analytics/pace-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "A etiqueta embaixo das duas caixas (1) compara uma com a outra. No ritmo certo quer dizer que a sua média é igual ou maior do que você precisa por dia. Precisa acelerar um pouco quer dizer que a sua média é menor, então você precisa fazer mais nos dias que restam. Meta batida! quer dizer que a meta do mês já foi alcançada. Aí a caixa Hoje mostra um sinal de visto. Se não restar nenhum dia útil, a caixa avisa. Os dias úteis vêm das suas configurações de Dias de trabalho: veja o guia sobre dias de trabalho e períodos bloqueados.",
+                "en": "The label under the two boxes (1) compares them. On pace means your average is the same as, or higher than, what you need each day. Needs a little push means your average is lower, so you must do more on the days left. Goal hit! means the monthly goal is already reached. Then Today shows a check mark. If no working day is left, the box says so. The working days come from your Working days settings: see the guide on working days and blocked periods."
+              },
+              "image": {
+                "pt": "help/img/guides/analytics/pace-03.pt.jpg",
+                "en": "help/img/guides/analytics/pace-03.en.jpg"
+              }
             }
           ]
         }
@@ -5498,11 +5831,9 @@
             ]
           },
           "section": "analytics",
-          "step": 3
+          "step": 10
         },
         {
-          "section": "analytics",
-          "step": 1,
           "labels": {
             "pt": [
               "Analytics"
@@ -5510,7 +5841,9 @@
             "en": [
               "Analytics"
             ]
-          }
+          },
+          "section": "analytics",
+          "step": 1
         }
       ]
     },
@@ -8110,32 +8443,101 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra o projeto ou o lead. Toque no projeto (Negócio e depois Projetos) ou no lead (Negócio e depois Pipeline). Toque em Enviar cartão de contato (1). Em um lead, o botão fica perto do topo da ficha, embaixo de Ligar e WhatsApp.",
-                "en": "Open the project or the lead. Tap the project (Business, then Projects) or the lead (Business, then Pipeline). Tap Send contact card (1). On a lead, the button is near the top of the sheet, under Call and WhatsApp."
+                "pt": "Abra o projeto: toque em Negócio, depois em Projetos, e toque no projeto (1).",
+                "en": "Open the project: tap Business, then Projects, then tap the project (1)."
               },
               "image": {
-                "pt": "help/img/guides/contact-card/card-01.pt.jpg",
-                "en": "help/img/guides/contact-card/card-01.en.jpg"
+                "pt": "help/img/guides/contact-card/card-s01.pt.jpg",
+                "en": "help/img/guides/contact-card/card-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Envie. Toque em Mensagem de texto ou WhatsApp (1). A mensagem (2) diz quem é você e pede para o cliente tocar em Salvar nos contatos e depois em Criar Novo Contato. O cartão salva o seu contato no celular do cliente, com o link de indicação dele dentro. Toque em Ver o cartão (3) para ver como o cliente vê.",
-                "en": "Send it. Tap Text message or WhatsApp (1). The message (2) says who you are and tells the customer to tap Save to contacts, then Create New Contact. The card saves your contact on the customer's phone, with their own referral link inside. Tap View the card (3) to see it the way the customer does."
+                "pt": "Toque em Enviar cartão de contato (1).",
+                "en": "Tap Send contact card (1)."
               },
               "image": {
-                "pt": "help/img/guides/contact-card/card-02.pt.jpg",
-                "en": "help/img/guides/contact-card/card-02.en.jpg"
+                "pt": "help/img/guides/contact-card/card-s02.pt.jpg",
+                "en": "help/img/guides/contact-card/card-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Prepare o que o cartão mostra. O cartão usa a foto, o telefone, o email e o cargo do vendedor, e usa o telefone, o email e o logo da empresa quando faltam. Você ajusta em Ajustes, em Suas listas, com o botão Cartão. Veja o guia Vendedores e listas.",
-                "en": "Set up what the card shows. The card uses the photo, phone, email and title of the salesperson, and falls back to the business phone, email and logo. You set them in Settings, under Your lists, with the Card button. See the Salespeople and lists guide."
+                "pt": "Você também pode começar por um lead: toque em Negócio, depois em Pipeline, e toque no lead (1).",
+                "en": "You can also start from a lead: tap Business, then Pipeline, then tap the lead (1)."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/contact-card/card-s03.pt.jpg",
+                "en": "help/img/guides/contact-card/card-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Em um lead, Enviar cartão de contato (1) fica perto do topo da ficha, embaixo de Ligar e WhatsApp.",
+                "en": "On a lead, Send contact card (1) is near the top of the sheet, under Call and WhatsApp."
+              },
+              "image": {
+                "pt": "help/img/guides/contact-card/card-s04.pt.jpg",
+                "en": "help/img/guides/contact-card/card-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Abre uma janela. Toque em Mensagem de texto ou WhatsApp (1) para enviar o cartão.",
+                "en": "A window opens. Tap Text message or WhatsApp (1) to send the card."
+              },
+              "image": {
+                "pt": "help/img/guides/contact-card/card-s05.pt.jpg",
+                "en": "help/img/guides/contact-card/card-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "A mensagem (1) diz quem é você e pede para o cliente tocar em Salvar nos contatos e depois em Criar Novo Contato.",
+                "en": "The message (1) says who you are and tells the customer to tap Save to contacts, then Create New Contact."
+              },
+              "image": {
+                "pt": "help/img/guides/contact-card/card-s06.pt.jpg",
+                "en": "help/img/guides/contact-card/card-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "O cartão salva o seu contato no celular do cliente, com o link de indicação dele dentro (1).",
+                "en": "The card saves your contact on the customer's phone, with their own referral link inside (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/contact-card/card-s07.pt.jpg",
+                "en": "help/img/guides/contact-card/card-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Toque em Ver o cartão (1) para ver como o cliente vê.",
+                "en": "Tap View the card (1) to see it the way the customer does."
+              },
+              "image": {
+                "pt": "help/img/guides/contact-card/card-s08.pt.jpg",
+                "en": "help/img/guides/contact-card/card-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "O cartão usa a foto, o telefone, o email e o cargo do vendedor, e usa o telefone, o email e o logo da empresa quando faltam. Você ajusta em Ajustes, em Suas listas, com o botão Cartão (1). Veja o guia Vendedores e listas.",
+                "en": "The card uses the photo, phone, email and title of the salesperson, and falls back to the business phone, email and logo. You set them in Settings, under Your lists, with the Card button (1). See the Salespeople and lists guide."
+              },
+              "image": {
+                "pt": "help/img/guides/contact-card/card-s09.pt.jpg",
+                "en": "help/img/guides/contact-card/card-s09.en.jpg"
+              }
             }
           ]
         }
@@ -8151,7 +8553,7 @@
             ]
           },
           "section": "card",
-          "step": 1
+          "step": 2
         }
       ]
     },
@@ -11789,100 +12191,243 @@
             {
               "n": 1,
               "text": {
-                "pt": "Ache os pagamentos que esperam por você. Quando um vendedor informa um pagamento, um cartão chamado Pagamentos aguardando verificação (1) aparece na aba Início, com um número. Cada linha (2) diz o nome da pessoa e que isto foi pago, com o valor. Embaixo ficam o número da fatura, a forma, a referência e a data. A etiqueta diz verificar. (Não rodamos a tela do próprio vendedor no nosso teste, então este guia começa do lado do dono.)",
-                "en": "Find the payments waiting for you. When a salesperson reports a payment, a card called Payments awaiting verification (1) shows on the Home tab, with a number. Each row (2) says the name of the person and that this is paid, with the amount. Under it are the invoice number, the method, the reference and the date. The tag says verify. (We did not run the salesperson's own screen in our test, so this guide starts on the owner's side.)"
+                "pt": "Quando um vendedor informa um pagamento, um cartão chamado Pagamentos aguardando verificação (1) aparece na aba Início, com um número.",
+                "en": "When a salesperson reports a payment, a card called Payments awaiting verification (1) shows on the Home tab, with a number."
               },
               "image": {
-                "pt": "help/img/guides/reported-payments/owner-01.pt.jpg",
-                "en": "help/img/guides/reported-payments/owner-01.en.jpg"
+                "pt": "help/img/guides/reported-payments/owner-s01.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "O mesmo cartão fica no topo da aba Faturas. Toque em uma linha (2) para abrir aquela fatura.",
-                "en": "The same card is at the top of the Invoices tab. Tap a row (2) to open that invoice."
+                "pt": "Cada linha (1) diz o nome da pessoa e que isto foi pago, com o valor. Embaixo ficam o número da fatura, a forma, a referência e a data. A etiqueta diz verificar.",
+                "en": "Each row (1) says the name of the person and that this is paid, with the amount. Under it are the invoice number, the method, the reference and the date. The tag says verify."
               },
               "image": {
-                "pt": "help/img/guides/reported-payments/owner-02.pt.jpg",
-                "en": "help/img/guides/reported-payments/owner-02.en.jpg"
+                "pt": "help/img/guides/reported-payments/owner-s02.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Ainda não conta. Na fatura, o Status (1) mostra uma etiqueta dourada, aguardando verificação. O Saldo desta fatura (2) não diminui. O cliente não recebe recibo.",
-                "en": "It does not count yet. In the invoice, the Status (1) shows a gold tag, awaiting verification. The Balance due now (2) does not go down. The customer gets no receipt."
+                "pt": "O mesmo cartão fica no topo da aba Faturas (1), em Negócio.",
+                "en": "The same card is at the top of the Invoices tab (1), under Business."
               },
               "image": {
-                "pt": "help/img/guides/reported-payments/owner-03.pt.jpg",
-                "en": "help/img/guides/reported-payments/owner-03.en.jpg"
+                "pt": "help/img/guides/reported-payments/owner-s03.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Em Valores, embaixo do saldo, uma linha (1) diz mais o valor informado, aguardando verificação. Ela aparece separada do dinheiro que você recebeu e conferiu.",
-                "en": "In Amounts, under the balance, a line (1) says plus the amount reported, awaiting verification. It is shown apart from the money you received and checked."
+                "pt": "Toque em uma linha (1) para abrir aquela fatura.",
+                "en": "Tap a row (1) to open that invoice."
               },
               "image": {
-                "pt": "help/img/guides/reported-payments/owner-04.pt.jpg",
-                "en": "help/img/guides/reported-payments/owner-04.en.jpg"
+                "pt": "help/img/guides/reported-payments/owner-s04.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Escolha Verificar ou Rejeitar. Na parte Pagamentos da fatura, o pagamento informado (1) tem a etiqueta aguardando, e dois botões: Verificar (2) e Rejeitar (3). Um pagamento que você já rejeitou (4) fica na lista com o motivo. Confira se o dinheiro chegou mesmo antes de tocar.",
-                "en": "Choose Verify or Reject. In the Payments part of the invoice, the reported payment (1) has the tag pending, and two buttons: Verify (2) and Reject (3). A payment you already rejected (4) stays in the list with its reason. Check that the money really arrived before you tap."
+                "pt": "Ainda não conta. Na fatura, o Status (1) mostra uma etiqueta dourada, aguardando verificação. O Saldo desta fatura (2) não diminui. O cliente não recebe recibo.",
+                "en": "It does not count yet. In the invoice, the Status (1) shows a gold tag, awaiting verification. The Balance due now (2) does not go down. The customer gets no receipt."
               },
               "image": {
-                "pt": "help/img/guides/reported-payments/owner-05.pt.jpg",
-                "en": "help/img/guides/reported-payments/owner-05.en.jpg"
+                "pt": "help/img/guides/reported-payments/owner-s05.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s05.en.jpg"
               }
             },
             {
               "n": 6,
               "text": {
-                "pt": "Verifique. Toque em Verificar. Ele não pede motivo. A linha (1) passa a mostrar verificado e um número de recibo, o saldo diminui, e aparecem os botões Enviar recibo (2) e Estornar (3). Enviar recibo é outro passo: veja o guia sobre enviar um recibo.",
-                "en": "Verify it. Tap Verify. It asks for no reason. The row (1) now shows verified and a receipt number, the balance goes down, and the buttons Send receipt (2) and Reverse (3) appear. Send receipt is a separate step: see the guide on sending a receipt."
+                "pt": "Em Valores, embaixo do saldo, uma linha (1) diz mais o valor informado, aguardando verificação. Ela aparece separada do dinheiro que você recebeu e conferiu.",
+                "en": "In Amounts, under the balance, a line (1) says plus the amount reported, awaiting verification. It is shown apart from the money you received and checked."
               },
               "image": {
-                "pt": "help/img/guides/reported-payments/owner-06.pt.jpg",
-                "en": "help/img/guides/reported-payments/owner-06.en.jpg"
+                "pt": "help/img/guides/reported-payments/owner-s06.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s06.en.jpg"
               }
             },
             {
               "n": 7,
               "text": {
-                "pt": "Rejeite. Se o dinheiro não chegou, toque em Rejeitar. Uma caixa pede o motivo (1). O motivo é obrigatório. Toque em Salvar (2). Cancelar (3) volta. O pagamento passa a mostrar rejeitado, com o seu motivo, e nunca conta. A fatura fica como estava.",
-                "en": "Reject it. If the money did not arrive, tap Reject. A box asks for the reason (1). The reason is required. Tap Save (2). Cancel (3) goes back. The payment then shows rejected, with your reason, and it never counts. The invoice stays as it was."
+                "pt": "Role até a parte Pagamentos da fatura. O pagamento informado (1) tem a etiqueta aguardando.",
+                "en": "Scroll to the Payments part of the invoice. The reported payment (1) has the tag pending."
               },
               "image": {
-                "pt": "help/img/guides/reported-payments/owner-07.pt.jpg",
-                "en": "help/img/guides/reported-payments/owner-07.en.jpg"
+                "pt": "help/img/guides/reported-payments/owner-s07.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s07.en.jpg"
               }
             },
             {
               "n": 8,
               "text": {
-                "pt": "Estorne um pagamento que você verificou por engano. Em um pagamento verificado, toque em Estornar. A caixa diz Motivo do estorno (visível ao cliente). Digite o motivo (1). Ele é obrigatório. A nota diz que ele é impresso no recibo do cliente com a data do estorno, e que o recibo mantém os números originais. Toque em Salvar (2).",
-                "en": "Reverse a payment you verified by mistake. On a verified payment, tap Reverse. The box says Reverse reason (visible to the customer). Type the reason (1). It is required. The note says it is printed on the customer's receipt with the date of the reversal, and the receipt keeps its original numbers. Tap Save (2)."
+                "pt": "Embaixo ficam dois botões: Verificar (1) e Rejeitar (2). Confira se o dinheiro chegou mesmo antes de tocar.",
+                "en": "Under it are two buttons: Verify (1) and Reject (2). Check that the money really arrived before you tap."
               },
               "image": {
-                "pt": "help/img/guides/reported-payments/owner-08.pt.jpg",
-                "en": "help/img/guides/reported-payments/owner-08.en.jpg"
+                "pt": "help/img/guides/reported-payments/owner-s08.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s08.en.jpg"
               }
             },
             {
               "n": 9,
               "text": {
-                "pt": "Depois de estornar, a linha (1) mostra estornado, com o número do recibo, a data e o seu motivo. Uma linha rejeitada (2) também mostra o motivo. O saldo volta a subir.",
-                "en": "After you reverse it, the row (1) shows reversed, with the receipt number, the date and your reason. A rejected row (2) shows the reason too. The balance goes back up."
+                "pt": "Um pagamento que você já rejeitou (1) fica na lista com o motivo.",
+                "en": "A payment you already rejected (1) stays in the list with its reason."
               },
               "image": {
-                "pt": "help/img/guides/reported-payments/owner-09.pt.jpg",
-                "en": "help/img/guides/reported-payments/owner-09.en.jpg"
+                "pt": "help/img/guides/reported-payments/owner-s09.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Para verificar, toque em Verificar (1). Ele não pede motivo.",
+                "en": "To verify it, tap Verify (1). It asks for no reason."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-s10.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "A linha (1) passa a mostrar verificado e um número de recibo. Aparecem os botões Enviar recibo (2) e Estornar (3). Enviar recibo é outro passo: veja o guia sobre enviar um recibo.",
+                "en": "The row (1) now shows verified and a receipt number. The buttons Send receipt (2) and Reverse (3) appear. Send receipt is a separate step: see the guide on sending a receipt."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-s11.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "O saldo (1) diminui pelo valor que você verificou.",
+                "en": "The balance (1) goes down by the amount you verified."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-s12.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Se o dinheiro não chegou, toque em Rejeitar (1) naquele pagamento.",
+                "en": "If the money did not arrive, tap Reject (1) on that payment instead."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-s13.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Uma caixa pede o motivo. Digite-o (1). O motivo é obrigatório.",
+                "en": "A box asks for the reason. Type it (1). The reason is required."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-s14.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Toque em Salvar (1). Cancelar (2) volta e não salva nada.",
+                "en": "Tap Save (1). Cancel (2) goes back and saves nothing."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-s15.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "O pagamento (1) passa a mostrar rejeitado, com o seu motivo, e nunca conta. A fatura fica como estava.",
+                "en": "The payment (1) now shows rejected, with your reason, and it never counts. The invoice stays as it was."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-s16.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Para estornar um pagamento que você verificou por engano, toque em Estornar (1) naquele pagamento verificado.",
+                "en": "To reverse a payment you verified by mistake, tap Reverse (1) on that verified payment."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-s17.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "A caixa diz Motivo do estorno (visível ao cliente). Digite o motivo (1). Ele é obrigatório.",
+                "en": "The box says Reverse reason (visible to the customer). Type the reason (1). It is required."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-s18.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "A nota (1) diz que o motivo é impresso no recibo do cliente com a data do estorno, e que o recibo mantém os números originais.",
+                "en": "The note (1) says the reason is printed on the customer's receipt with the date of the reversal, and the receipt keeps its original numbers."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-s19.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s19.en.jpg"
+              }
+            },
+            {
+              "n": 20,
+              "text": {
+                "pt": "Toque em Salvar (1).",
+                "en": "Tap Save (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-s20.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s20.en.jpg"
+              }
+            },
+            {
+              "n": 21,
+              "text": {
+                "pt": "Depois de estornar, a linha (1) mostra estornado, com o número do recibo, a data e o seu motivo.",
+                "en": "After you reverse it, the row (1) shows reversed, with the receipt number, the date and your reason."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-s21.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s21.en.jpg"
+              }
+            },
+            {
+              "n": 22,
+              "text": {
+                "pt": "O saldo (1) volta a subir. Uma linha rejeitada também mostra o motivo.",
+                "en": "The balance (1) goes back up. A rejected row also shows its reason."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-s22.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-s22.en.jpg"
               }
             }
           ]
@@ -11899,7 +12444,7 @@
             ]
           },
           "section": "owner",
-          "step": 5
+          "step": 10
         },
         {
           "labels": {
@@ -11911,7 +12456,7 @@
             ]
           },
           "section": "owner",
-          "step": 5
+          "step": 13
         },
         {
           "labels": {
@@ -11923,7 +12468,7 @@
             ]
           },
           "section": "owner",
-          "step": 8
+          "step": 17
         }
       ]
     },

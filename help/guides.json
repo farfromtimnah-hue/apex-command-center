@@ -22630,241 +22630,6 @@
       "buttons": []
     },
     {
-      "id": "thumbtack-connect",
-      "audience": "client",
-      "who": [
-        "apex_seller"
-      ],
-      "title": {
-        "pt": "Conectar o Thumbtack",
-        "en": "Connect Thumbtack"
-      },
-      "summary": {
-        "pt": "Conecte o Thumbtack para os leads caírem direto no seu funil. Veja também como desconectar.",
-        "en": "Connect Thumbtack so its leads land in your pipeline by themselves. Also see how to disconnect."
-      },
-      "keywords": {
-        "pt": [
-          "thumbtack",
-          "conectar thumbtack",
-          "leads do thumbtack",
-          "desconectar",
-          "fontes de leads",
-          "autorizar"
-        ],
-        "en": [
-          "thumbtack",
-          "connect thumbtack",
-          "thumbtack leads",
-          "disconnect",
-          "lead sources",
-          "allow"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "connect",
-          "title": {
-            "pt": "Conectar e desconectar",
-            "en": "Connect and disconnect"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Toque em Negócio (1) na fileira de abas no alto. Um menu abre. Toque em Orçamentos (2).",
-                "en": "Tap Business (1) in the row of tabs at the top. A menu opens. Tap Estimates (2)."
-              },
-              "image": {
-                "pt": "help/img/guides/thumbtack-connect/connect-01.pt.jpg",
-                "en": "help/img/guides/thumbtack-connect/connect-01.en.jpg"
-              }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Toque em Configurações (1), a segunda aba ao lado de Orçamentos. A página de configurações dos documentos abre. Role até Fontes de leads.",
-                "en": "Tap Settings (1), the second tab next to Estimates. The document settings page opens. Scroll down to Lead sources."
-              },
-              "image": {
-                "pt": "help/img/guides/thumbtack-connect/connect-02.pt.jpg",
-                "en": "help/img/guides/thumbtack-connect/connect-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Em Fontes de leads fica o cartão Leads do Thumbtack (1). Antes de conectar, o cartão diz que os leads caem direto no seu funil, automaticamente.",
-                "en": "Under Lead sources you find the card Thumbtack leads (1). Before you connect, the card says that its leads land in your pipeline automatically."
-              },
-              "image": {
-                "pt": "help/img/guides/thumbtack-connect/connect-03.pt.jpg",
-                "en": "help/img/guides/thumbtack-connect/connect-03.en.jpg"
-              }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Toque em Conectar Thumbtack (1). O Apex leva você para a página de entrada do próprio Thumbtack, na mesma aba.",
-                "en": "Tap Connect Thumbtack (1). Apex takes you to Thumbtack's own sign-in page in the same tab."
-              },
-              "image": {
-                "pt": "help/img/guides/thumbtack-connect/connect-04.pt.jpg",
-                "en": "help/img/guides/thumbtack-connect/connect-04.en.jpg"
-              }
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "Entre no Thumbtack com a conta do seu negócio, se ele pedir. O Thumbtack mostra então a página de aprovação (1): o nome do seu negócio quer acesso à sua conta do Thumbtack. As páginas do próprio Thumbtack são em inglês. O Apex nunca vê a sua senha do Thumbtack.",
-                "en": "Sign in to Thumbtack with your business account if it asks. Thumbtack then shows its approval page (1): your business name wants access to your Thumbtack account. Thumbtack's own pages are in English. Apex never sees your Thumbtack password."
-              },
-              "image": {
-                "pt": "help/img/guides/thumbtack-connect/connect-05.pt.jpg",
-                "en": "help/img/guides/thumbtack-connect/connect-05.en.jpg"
-              }
-            },
-            {
-              "n": 6,
-              "text": {
-                "pt": "Toque em Allow (1). Para desistir, toque em Cancel e nada muda.",
-                "en": "Tap Allow (1). To stop, tap Cancel and nothing changes."
-              },
-              "image": {
-                "pt": "help/img/guides/thumbtack-connect/connect-06.pt.jpg",
-                "en": "help/img/guides/thumbtack-connect/connect-06.en.jpg"
-              }
-            },
-            {
-              "n": 7,
-              "text": {
-                "pt": "O Thumbtack leva você de volta ao Apex, ao mesmo cartão. Ele agora mostra o nome do seu negócio com recebendo leads, quem conectou e quando, e quando chegou o último lead (1). Os novos leads do Thumbtack agora caem sozinhos no seu funil.",
-                "en": "Thumbtack sends you back to Apex, to the same card. It now shows your business name with receiving leads, who connected and when, and when the last lead came in (1). New Thumbtack leads now land in your pipeline by themselves."
-              },
-              "image": {
-                "pt": "help/img/guides/thumbtack-connect/connect-07.pt.jpg",
-                "en": "help/img/guides/thumbtack-connect/connect-07.en.jpg"
-              }
-            },
-            {
-              "n": 8,
-              "text": {
-                "pt": "No aplicativo do Apex no celular, o Thumbtack abre fora do aplicativo. Termine lá, volte ao Apex e toque em Atualizar status. Esse botão só aparece depois que você tocou em Conectar Thumbtack no aplicativo.",
-                "en": "In the Apex phone app, Thumbtack opens outside the app. Finish there, come back to Apex and tap Refresh status. This button shows only after you tapped Connect Thumbtack in the app."
-              },
-              "image": null
-            },
-            {
-              "n": 9,
-              "text": {
-                "pt": "Para desconectar, toque em Desconectar (1) no fim do cartão.",
-                "en": "To disconnect, tap Disconnect (1) at the bottom of the card."
-              },
-              "image": {
-                "pt": "help/img/guides/thumbtack-connect/connect-09.pt.jpg",
-                "en": "help/img/guides/thumbtack-connect/connect-09.en.jpg"
-              }
-            },
-            {
-              "n": 10,
-              "text": {
-                "pt": "Uma caixa pergunta Desconectar o Thumbtack? (1). Ela diz que os novos leads do Thumbtack param de chegar, e que os leads que você já recebeu continuam no seu funil, mas os detalhes do Thumbtack são apagados. A imagem é do portal em inglês.",
-                "en": "A box asks Disconnect Thumbtack? (1). It says that new Thumbtack leads stop arriving, and that the leads you already received stay in your pipeline, but Thumbtack's extra details are erased. The picture is from the English portal."
-              },
-              "image": {
-                "pt": "help/img/guides/thumbtack-connect/connect-10.pt.jpg",
-                "en": "help/img/guides/thumbtack-connect/connect-10.en.jpg"
-              }
-            },
-            {
-              "n": 11,
-              "text": {
-                "pt": "Toque em Sim, desconectar o Thumbtack (1) para confirmar. Toque em Manter conectado para parar.",
-                "en": "Tap Yes, disconnect Thumbtack (1) to confirm. Tap Keep it connected to stop."
-              },
-              "image": {
-                "pt": "help/img/guides/thumbtack-connect/connect-11.pt.jpg",
-                "en": "help/img/guides/thumbtack-connect/connect-11.en.jpg"
-              }
-            },
-            {
-              "n": 12,
-              "text": {
-                "pt": "O cartão volta ao botão Conectar Thumbtack (1). O Apex também cancela a permissão que você deu no Thumbtack.",
-                "en": "The card goes back to the Connect Thumbtack button (1). Apex also revokes the permission you gave on Thumbtack."
-              },
-              "image": {
-                "pt": "help/img/guides/thumbtack-connect/connect-12.pt.jpg",
-                "en": "help/img/guides/thumbtack-connect/connect-12.en.jpg"
-              }
-            },
-            {
-              "n": 13,
-              "text": {
-                "pt": "Para conectar de novo, toque em Conectar Thumbtack. Como a permissão foi cancelada, o Thumbtack mostra a página de aprovação (1) outra vez. Toque em Allow para terminar.",
-                "en": "To connect again, tap Connect Thumbtack. Because the permission was revoked, Thumbtack shows its approval page (1) again. Tap Allow to finish."
-              },
-              "image": {
-                "pt": "help/img/guides/thumbtack-connect/connect-13.pt.jpg",
-                "en": "help/img/guides/thumbtack-connect/connect-13.en.jpg"
-              }
-            }
-          ]
-        }
-      ],
-      "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "Conectar Thumbtack"
-            ],
-            "en": [
-              "Connect Thumbtack"
-            ]
-          },
-          "section": "connect",
-          "step": 4
-        },
-        {
-          "labels": {
-            "pt": [
-              "Atualizar status do Thumbtack"
-            ],
-            "en": [
-              "Refresh Thumbtack status"
-            ]
-          },
-          "section": "connect",
-          "step": 8
-        },
-        {
-          "labels": {
-            "pt": [
-              "Desconectar o Thumbtack"
-            ],
-            "en": [
-              "Disconnect Thumbtack"
-            ]
-          },
-          "section": "connect",
-          "step": 9
-        },
-        {
-          "labels": {
-            "pt": [
-              "Sim, desconectar o Thumbtack"
-            ],
-            "en": [
-              "Yes, disconnect Thumbtack"
-            ]
-          },
-          "section": "connect",
-          "step": 11
-        }
-      ]
-    },
-    {
       "id": "thumbtack-phone-numbers",
       "audience": "client",
       "who": [
@@ -23107,6 +22872,241 @@
           },
           "section": "leads",
           "step": 1
+        }
+      ]
+    },
+    {
+      "id": "thumbtack-connect",
+      "audience": "client",
+      "who": [
+        "apex_seller"
+      ],
+      "title": {
+        "pt": "Conectar o Thumbtack",
+        "en": "Connect Thumbtack"
+      },
+      "summary": {
+        "pt": "Conecte o Thumbtack para os leads caírem direto no seu funil. Veja também como desconectar.",
+        "en": "Connect Thumbtack so its leads land in your pipeline by themselves. Also see how to disconnect."
+      },
+      "keywords": {
+        "pt": [
+          "thumbtack",
+          "conectar thumbtack",
+          "leads do thumbtack",
+          "desconectar",
+          "fontes de leads",
+          "autorizar"
+        ],
+        "en": [
+          "thumbtack",
+          "connect thumbtack",
+          "thumbtack leads",
+          "disconnect",
+          "lead sources",
+          "allow"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "connect",
+          "title": {
+            "pt": "Conectar e desconectar",
+            "en": "Connect and disconnect"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Toque em Negócio (1) na fileira de abas no alto. Um menu abre. Toque em Orçamentos (2).",
+                "en": "Tap Business (1) in the row of tabs at the top. A menu opens. Tap Estimates (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-connect/connect-01.pt.jpg",
+                "en": "help/img/guides/thumbtack-connect/connect-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Toque em Configurações (1), a segunda aba ao lado de Orçamentos. A página de configurações dos documentos abre. Role até Fontes de leads.",
+                "en": "Tap Settings (1), the second tab next to Estimates. The document settings page opens. Scroll down to Lead sources."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-connect/connect-02.pt.jpg",
+                "en": "help/img/guides/thumbtack-connect/connect-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Em Fontes de leads fica o cartão Leads do Thumbtack (1). Antes de conectar, o cartão diz que os leads caem direto no seu funil, automaticamente.",
+                "en": "Under Lead sources you find the card Thumbtack leads (1). Before you connect, the card says that its leads land in your pipeline automatically."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-connect/connect-03.pt.jpg",
+                "en": "help/img/guides/thumbtack-connect/connect-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Toque em Conectar Thumbtack (1). O Apex leva você para a página de entrada do próprio Thumbtack, na mesma aba.",
+                "en": "Tap Connect Thumbtack (1). Apex takes you to Thumbtack's own sign-in page in the same tab."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-connect/connect-04.pt.jpg",
+                "en": "help/img/guides/thumbtack-connect/connect-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Entre no Thumbtack com a conta do seu negócio, se ele pedir. O Thumbtack mostra então a página de aprovação (1): o nome do seu negócio quer acesso à sua conta do Thumbtack. As páginas do próprio Thumbtack são em inglês. O Apex nunca vê a sua senha do Thumbtack.",
+                "en": "Sign in to Thumbtack with your business account if it asks. Thumbtack then shows its approval page (1): your business name wants access to your Thumbtack account. Thumbtack's own pages are in English. Apex never sees your Thumbtack password."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-connect/connect-05.pt.jpg",
+                "en": "help/img/guides/thumbtack-connect/connect-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Toque em Allow (1). Para desistir, toque em Cancel e nada muda.",
+                "en": "Tap Allow (1). To stop, tap Cancel and nothing changes."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-connect/connect-06.pt.jpg",
+                "en": "help/img/guides/thumbtack-connect/connect-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "O Thumbtack leva você de volta ao Apex, ao mesmo cartão. Ele agora mostra o nome do seu negócio com recebendo leads, quem conectou e quando, e quando chegou o último lead (1). Os novos leads do Thumbtack agora caem sozinhos no seu funil.",
+                "en": "Thumbtack sends you back to Apex, to the same card. It now shows your business name with receiving leads, who connected and when, and when the last lead came in (1). New Thumbtack leads now land in your pipeline by themselves."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-connect/connect-07.pt.jpg",
+                "en": "help/img/guides/thumbtack-connect/connect-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "No aplicativo do Apex no celular, o Thumbtack abre fora do aplicativo. Termine lá, volte ao Apex e toque em Atualizar status. Esse botão só aparece depois que você tocou em Conectar Thumbtack no aplicativo.",
+                "en": "In the Apex phone app, Thumbtack opens outside the app. Finish there, come back to Apex and tap Refresh status. This button shows only after you tapped Connect Thumbtack in the app."
+              },
+              "image": null
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Para desconectar, toque em Desconectar (1) no fim do cartão.",
+                "en": "To disconnect, tap Disconnect (1) at the bottom of the card."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-connect/connect-09.pt.jpg",
+                "en": "help/img/guides/thumbtack-connect/connect-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Uma caixa pergunta Desconectar o Thumbtack? (1). Ela diz que os novos leads do Thumbtack param de chegar, e que os leads que você já recebeu continuam no seu funil, mas os detalhes do Thumbtack são apagados. A imagem é do portal em inglês.",
+                "en": "A box asks Disconnect Thumbtack? (1). It says that new Thumbtack leads stop arriving, and that the leads you already received stay in your pipeline, but Thumbtack's extra details are erased. The picture is from the English portal."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-connect/connect-10.pt.jpg",
+                "en": "help/img/guides/thumbtack-connect/connect-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Toque em Sim, desconectar o Thumbtack (1) para confirmar. Toque em Manter conectado para parar.",
+                "en": "Tap Yes, disconnect Thumbtack (1) to confirm. Tap Keep it connected to stop."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-connect/connect-11.pt.jpg",
+                "en": "help/img/guides/thumbtack-connect/connect-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "O cartão volta ao botão Conectar Thumbtack (1). O Apex também cancela a permissão que você deu no Thumbtack.",
+                "en": "The card goes back to the Connect Thumbtack button (1). Apex also revokes the permission you gave on Thumbtack."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-connect/connect-12.pt.jpg",
+                "en": "help/img/guides/thumbtack-connect/connect-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Para conectar de novo, toque em Conectar Thumbtack. Como a permissão foi cancelada, o Thumbtack mostra a página de aprovação (1) outra vez. Toque em Allow para terminar.",
+                "en": "To connect again, tap Connect Thumbtack. Because the permission was revoked, Thumbtack shows its approval page (1) again. Tap Allow to finish."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-connect/connect-13.pt.jpg",
+                "en": "help/img/guides/thumbtack-connect/connect-13.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Conectar Thumbtack"
+            ],
+            "en": [
+              "Connect Thumbtack"
+            ]
+          },
+          "section": "connect",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Atualizar status do Thumbtack"
+            ],
+            "en": [
+              "Refresh Thumbtack status"
+            ]
+          },
+          "section": "connect",
+          "step": 8
+        },
+        {
+          "labels": {
+            "pt": [
+              "Desconectar o Thumbtack"
+            ],
+            "en": [
+              "Disconnect Thumbtack"
+            ]
+          },
+          "section": "connect",
+          "step": 9
+        },
+        {
+          "labels": {
+            "pt": [
+              "Sim, desconectar o Thumbtack"
+            ],
+            "en": [
+              "Yes, disconnect Thumbtack"
+            ]
+          },
+          "section": "connect",
+          "step": 11
         }
       ]
     }

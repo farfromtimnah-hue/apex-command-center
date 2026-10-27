@@ -8425,8 +8425,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Enquanto o link estiver desligado, quem abrir vê a página da imagem (1), que diz que o link não é válido e não consegue ver nem assinar. O endereço antigo deixa de funcionar para sempre. Se você ligar o link de novo, o documento abre em um endereço novo, então envie o link outra vez ao cliente. Essa página está em inglês para todos os clientes.",
-                "en": "While the link is off, anyone who opens it sees the page in the picture (1), which says the link is not valid and cannot view or sign. The old address stops working for good. If you turn the link on again, the document opens at a new address, so send the link to the customer again. This page is in English for every customer."
+                "pt": "Enquanto o link estiver desligado, quem abrir vê a página da imagem (1). Ela diz que o link não é válido, então a pessoa não consegue ver nem assinar. O endereço antigo deixa de funcionar para sempre. Se você ligar o link de novo, o documento abre em um endereço novo, então envie o link outra vez ao cliente. Essa página está em inglês para todos os clientes.",
+                "en": "While the link is off, anyone who opens it sees the page in the picture (1). It says the link is not valid, so they cannot view or sign. The old address stops working for good. If you turn the link on again, the document opens at a new address, so send the link to the customer again. This page is in English for every customer."
               },
               "image": {
                 "pt": "help/img/guides/revise-or-void-estimate/manage-08.pt.jpg",

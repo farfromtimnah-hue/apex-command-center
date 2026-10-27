@@ -16358,20 +16358,34 @@
             {
               "n": 1,
               "text": {
-                "pt": "O que é. A página Vendas ordena os seus clientes pelo quanto o negócio cresceu num mês, para o Rafa ver quem está avançando e quem está parado. O número de crescimento é o que foi lançado para cada cliente no registro do cliente (Resultados, Crescimento). Abra Vendas no menu da esquerda.",
-                "en": "What it is. The Sales page ranks your clients by how much their business grew in a month, so Rafa can see who is moving and who is stuck. The growth number is the one entered for each client on the client record (Results, Growth). Open Vendas in the left menu."
+                "pt": "A página Vendas ordena os seus clientes pelo quanto o negócio cresceu num mês, para o Rafa ver quem está avançando e quem está parado. O número de crescimento é o que foi lançado para cada cliente no registro do cliente: toque em Resultados (1) e depois em Crescimento (2). O cartão Crescimento tem + Registrar.",
+                "en": "The Sales page ranks your clients by how much their business grew in a month, so Rafa can see who is moving and who is stuck. The growth number is the one entered for each client on the client record: tap Results (1), then Growth (2). The Growth card there has + Log Entry."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-sales-growth/sales-01.pt.jpg",
+                "en": "help/img/guides/admin-sales-growth/sales-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Leia a página. 1. Os quatro cartões: Crescimento médio dos clientes que têm um número, Maior, Menor e Registrados, que conta quantos clientes ativos têm um número no mês. 2. Mês escolhe o mês para olhar. 3. Ranking de Crescimento lista os clientes. Um cliente sem número no mês mostra sem registro. Os nomes dos clientes estão escondidos nesta imagem.",
-                "en": "Read the page. 1. The four tiles: Crescimento médio (Average growth) of the clients that have a number, Maior (Highest), Menor (Lowest) and Registrados (Entered), which counts how many active clients have a number for the month. 2. Mês (Month) chooses the month to look at. 3. Ranking de Crescimento lists the clients. A client with no number for the month shows sem registro (no entry). Client names are hidden in this picture."
+                "pt": "Abra Vendas no menu da esquerda. Os quatro cartões: Crescimento médio (1) dos clientes que têm um número, Maior (2), Menor (3) e Registrados (4), que conta quantos clientes ativos têm um número no mês. Neste mês nenhum tem ainda, então os cartões mostram traços e 0 de 15.",
+                "en": "Open Sales in the left menu. The four tiles: Average growth (1) of the clients that have a number, Highest (2), Lowest (3) and Entered (4), which counts how many active clients have a number for the month. This month none has one yet, so the tiles show dashes and 0 of 15."
               },
               "image": {
                 "pt": "help/img/guides/admin-sales-growth/sales-02.pt.jpg",
                 "en": "help/img/guides/admin-sales-growth/sales-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Mês (1) escolhe o mês para olhar. Ranking de Crescimento (2) lista os clientes (3). Um cliente sem número no mês mostra sem registro. Os nomes dos clientes são nomes de teste na figura.",
+                "en": "Month (1) chooses the month to look at. Growth Ranking (2) lists the clients (3). A client with no number for the month shows no entry. Client names are test names in the picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-sales-growth/sales-03.pt.jpg",
+                "en": "help/img/guides/admin-sales-growth/sales-03.en.jpg"
               }
             }
           ]

@@ -8273,10 +8273,13 @@
             {
               "n": 9,
               "text": {
-                "pt": "Cada tipo de documento tem a sua própria mensagem: orçamento, fatura, recibo e contrato. Para mudar uma delas, repita estes passos na tela de envio daquele documento.",
-                "en": "Each kind of document has its own message: estimate, invoice, receipt and contract. To change one, repeat these steps on the send screen of that document."
+                "pt": "Cada tipo de documento tem a sua própria mensagem: orçamento, fatura, recibo e contrato. Para mudar uma delas, repita estes passos na tela de envio daquele documento. A imagem mostra a tela de envio de um orçamento, com a sua própria Mensagem (1).",
+                "en": "Each kind of document has its own message: estimate, invoice, receipt and contract. The picture shows the send screen of an estimate, with its own Message (1). To change one, repeat these steps on the send screen of that document."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/edit-send-messages/messages-09.pt.jpg",
+                "en": "help/img/guides/edit-send-messages/messages-09.en.jpg"
+              }
             }
           ]
         }

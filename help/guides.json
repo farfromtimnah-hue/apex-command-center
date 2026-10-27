@@ -13372,8 +13372,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Adicione uma nota a um projeto. Abra o projeto (Negócio e depois Projetos) e role até Notas. Escreva o que aconteceu ou o que foi combinado na caixa (1) e toque em Adicionar (2). O Apex guarda a nota com a data, a hora e o nome de quem escreveu, e mostra logo abaixo.",
-                "en": "Add a note to a project. Open the project (Business, then Projects) and scroll down to Notes. Write what happened or what was agreed in the box (1) and tap Add (2). Apex saves the note with the date, the time and the name of who wrote it, and shows it right below."
+                "pt": "Toque em Negócio (1) na fileira de abas no alto. No menu que abre, toque em Projetos (2). Depois toque no projeto para abrir.",
+                "en": "Tap Business (1) in the row of tabs at the top. In the menu that opens, tap Projects (2). Then tap the project to open it."
               },
               "image": {
                 "pt": "help/img/guides/job-notes/notes-01.pt.jpg",
@@ -13383,10 +13383,68 @@
             {
               "n": 2,
               "text": {
-                "pt": "Corrija ou remova uma nota. Embaixo de cada nota, toque em Editar (3) para mudar o texto ou em Excluir (4) para remover. As notas de um lead, antes de virar projeto, ficam na ficha do lead, como explica o guia \"Notas, arquivos e histórico do lead\".",
-                "en": "Fix or remove a note. Under each note, tap Edit (3) to change the words, or Delete (4) to remove it. The notes of a lead, before it becomes a project, live in the lead sheet, as explained in the guide \"Notes, files and history of a lead\"."
+                "pt": "Role até Notas (1). As notas de um lead, antes de virar projeto, ficam na ficha do lead, como explica o guia \"Notas, arquivos e histórico do lead\".",
+                "en": "Scroll down to Notes (1). The notes of a lead, before it becomes a project, live in the lead sheet, as explained in the guide \"Notes, files and history of a lead\"."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/job-notes/notes-02.pt.jpg",
+                "en": "help/img/guides/job-notes/notes-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Escreva o que aconteceu ou o que foi combinado na caixa (1) e toque em Adicionar (2).",
+                "en": "Write what happened or what was agreed in the box (1) and tap Add (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/job-notes/notes-03.pt.jpg",
+                "en": "help/img/guides/job-notes/notes-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "O Apex guarda a nota com a data, a hora e o nome de quem escreveu, e mostra logo abaixo (1).",
+                "en": "Apex saves the note with the date, the time and the name of who wrote it, and shows it right below (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/job-notes/notes-04.pt.jpg",
+                "en": "help/img/guides/job-notes/notes-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Embaixo de cada nota, toque em Editar (1) para mudar o texto ou em Excluir (2) para remover.",
+                "en": "Under each note, tap Edit (1) to change the words, or Delete (2) to remove it."
+              },
+              "image": {
+                "pt": "help/img/guides/job-notes/notes-05.pt.jpg",
+                "en": "help/img/guides/job-notes/notes-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Depois de Editar, mude o texto na caixa (1) e toque em Salvar nota (2). Toque em Manter a nota para deixar como estava.",
+                "en": "After Edit, change the words in the box (1) and tap Save note (2). Tap Keep the note to leave it as it was."
+              },
+              "image": {
+                "pt": "help/img/guides/job-notes/notes-06.pt.jpg",
+                "en": "help/img/guides/job-notes/notes-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Depois de Excluir, o Apex pergunta Excluir esta nota? Toque em Sim, excluir (1) para remover, ou em Manter para voltar.",
+                "en": "After Delete, Apex asks Delete this note? Tap Yes, delete (1) to remove it, or Keep it to go back."
+              },
+              "image": {
+                "pt": "help/img/guides/job-notes/notes-07.pt.jpg",
+                "en": "help/img/guides/job-notes/notes-07.en.jpg"
+              }
             }
           ]
         }

@@ -71,8 +71,8 @@ ok(core.validateGuides(REAL).length === 0, "(f) the real shipped help/guides.jso
 ok(REAL.version === 1 && REAL.guides.length >= 1, "(f) the shipped file has guides");
 { const seen = {}; let dup = 0; REAL.guides.forEach((g) => g.buttons.forEach((b) => b.labels.pt.concat(b.labels.en).forEach((l) => { const k = core.normalize(l); if (seen[k] && seen[k] !== g.id) { dup++; } seen[k] = g.id; })));
   ok(dup === 0, "(f) no button label points at two different guides"); }
-{ let missing = 0; REAL.guides.forEach((g) => g.sections.forEach((sec) => sec.steps.forEach((st) => { if (st.image) { ["pt", "en"].forEach((l) => { if (!existsSync(new URL(st.image[l], root))) { missing++; } }); } })));
-  ok(missing === 0, "(f) every picture named in the shipped guides exists on disk"); }
+{ let missing = 0; REAL.guides.forEach((g) => g.sections.forEach((sec) => sec.steps.forEach((st) => { if (st.image) { ["pt", "en"].forEach((l) => { if (!existsSync(new URL(st.image[l], root)) && !existsSync(new URL(st.image[l].replace(/^help\//, "help-private/"), root))) { missing++; } }); } })));
+  ok(missing === 0, "(f) every picture named in the shipped guides exists on disk (in help/ or, once moved out of git, in help-private/)"); }
 ok(!/[\u2013\u2014]/.test(JSON.stringify(REAL)), "(f) the shipped guides contain no long dash or en dash");
 
 // ---------------------------------------------------------------- (tags) who may see a guide

@@ -7851,10 +7851,13 @@
             {
               "n": 1,
               "text": {
-                "pt": "Crie as faturas a partir do orçamento aceito. Abra o projeto e toque em Criar faturas a partir do orçamento. O Apex cria uma fatura para cada etapa do cronograma de pagamento, por exemplo Sinal, Meio da obra e Conclusão. O guia Projetos mostra onde fica o botão.",
-                "en": "Create the invoices from the accepted estimate. Open the project and tap Create invoices from estimate. Apex makes one invoice for each step of the payment schedule, for example Deposit, Mid-project and Completion. The Projects guide shows where the button is."
+                "pt": "Crie as faturas a partir do orçamento aceito. Abra o projeto. Na seção Faturas, se diz Nenhuma fatura ainda, toque em Criar faturas a partir do orçamento (1). O Apex faz uma fatura para cada etapa do cronograma de pagamento, por exemplo Sinal, Meio da obra e Conclusão.",
+                "en": "Create the invoices from the accepted estimate. Open the project. In the Invoices section, if it says No invoices yet, tap Create invoices from estimate (1). Apex makes one invoice for each step of the payment schedule, for example Deposit, Mid-project and Completion."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/invoices-01.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/invoices-01.en.jpg"
+              }
             },
             {
               "n": 2,
@@ -8024,10 +8027,13 @@
             {
               "n": 17,
               "text": {
-                "pt": "Depois de salvar. O pagamento é somado à fatura, o saldo diminui e um número de recibo é criado. Um pagamento parcial deixa a fatura aberta para o restante. Quando o saldo chega a zero, a fatura passa a Paga. Para enviar o recibo ao seu cliente, veja o guia Enviar um recibo.",
-                "en": "After you save. The payment is added to the invoice, the balance goes down, and a receipt number is created. A part payment leaves the invoice open for the rest. When the balance reaches zero the invoice becomes Paid. To send the receipt to your customer, see the Send a receipt guide."
+                "pt": "Depois de salvar. O pagamento entra na fatura (1), o saldo diminui e um número de recibo é criado. A imagem mostra uma fatura já paga, com o pagamento e o recibo. Um pagamento parcial deixa a fatura aberta para o resto. Quando o saldo chega a zero, a fatura fica Paga. Para enviar o recibo ao seu cliente, veja o guia Enviar um recibo.",
+                "en": "After you save. The payment is added to the invoice (1), the balance goes down, and a receipt number is created. The picture shows an invoice that is already paid, with its payment and receipt. A part payment leaves the invoice open for the rest. When the balance reaches zero the invoice becomes Paid. To send the receipt to your customer, see the Send a receipt guide."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/invoices-17.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/invoices-17.en.jpg"
+              }
             }
           ]
         },
@@ -8074,10 +8080,13 @@
             {
               "n": 4,
               "text": {
-                "en": "So a big job does not look overdue when only one step is. Late fees and Credits and refunds also get a line here when you have them.",
-                "pt": "Assim um trabalho grande não parece vencido quando só uma etapa está. Juros por atraso e Créditos e reembolsos também ganham uma linha aqui quando você tem."
+                "en": "Look at the last two lines (1): Balance due now for this invoice and Remaining contract balance. They keep a big job from looking overdue when only one step is. Late fees and Credits and refunds also get a line here when you have them.",
+                "pt": "Olhe as duas últimas linhas (1): Saldo desta fatura e Saldo restante do contrato. Assim um trabalho grande não parece vencido quando só uma etapa está. Juros por atraso e Créditos e reembolsos também ganham uma linha aqui, quando você tem."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/read-04.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/read-04.en.jpg"
+              }
             },
             {
               "n": 5,

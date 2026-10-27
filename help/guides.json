@@ -28103,8 +28103,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra a tela. Na preparação da reunião, toque em Abrir a tela de pacotes. Ela abre em outra aba, para mostrar ao cliente. A tela é em português de propósito, porque o cliente lê. Ela começa escura com três cartões (1): ADVANCED, GROWTH e START, cada um com o nome e a duração.",
-                "en": "Open the screen. In the meeting prep, tap Open the packages screen. It opens in a new tab, to show the client. The screen is in Portuguese on purpose, because the client reads it. It starts dark with three cards (1): ADVANCED, GROWTH and START, each with its name and its length."
+                "pt": "Abra a tela. Na preparação da reunião, toque em Abrir a tela de pacotes. Ela abre em outra aba, para mostrar ao cliente. A tela é em português. Ela começa escura com três cartões (1): ADVANCED, GROWTH e START, cada um com o nome e a duração.",
+                "en": "Open the screen. In the meeting prep, tap Open the packages screen. It opens in a new tab, to show the client. The screen is in Portuguese. It starts dark with three cards (1): ADVANCED, GROWTH and START, each with its name and its length."
               },
               "image": {
                 "pt": "help/img/guides/admin-packages-screen/pk-01.pt.jpg",

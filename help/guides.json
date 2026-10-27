@@ -12249,8 +12249,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Escolha o vendedor do lead. Abra o lead e role até Dados do lead. Toque na linha Vendedor. Aparece uma lista com os nomes dos seus vendedores (1). Toque em um nome e depois em Salvar (2). Um lead criado por um vendedor fica sempre com esse vendedor. Um lead sem ninguém escolhido aparece como Sem vendedor, e o Apex nunca escolhe alguém por você.",
-                "en": "Choose the salesperson of a lead. Open the lead and scroll to Lead details. Tap the Salesperson row. A list shows the names of your salespeople (1). Tap a name, then tap Save (2). A lead that a salesperson creates is always set to that salesperson. A lead with nobody chosen shows as Unassigned, and Apex never picks someone for you."
+                "pt": "Na lista de Leads, um lead sem ninguém escolhido aparece como Sem vendedor (1). O Apex nunca escolhe alguém por você. Um lead que um vendedor cria fica sempre com esse vendedor.",
+                "en": "In the Leads list, a lead with nobody chosen shows Unassigned (1). Apex never picks someone for you. A lead that a salesperson creates is always set to that salesperson."
               },
               "image": {
                 "pt": "help/img/guides/lead-salesperson-and-filter/seller-01.pt.jpg",
@@ -12260,8 +12260,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Escolha um segundo vendedor. Quando duas pessoas fizeram a visita juntas, role até Outros campos e toque em Vendedor secundário (opcional) (1). Escolha o segundo nome e salve.",
-                "en": "Choose a second salesperson. When two people did the visit together, scroll to Other fields and tap Second salesperson (optional) (1). Pick the second name and save."
+                "pt": "Abra o lead e role até Dados do lead. Toque na linha Vendedor (1).",
+                "en": "Open the lead and scroll to Lead details. Tap the Salesperson row (1)."
               },
               "image": {
                 "pt": "help/img/guides/lead-salesperson-and-filter/seller-02.pt.jpg",
@@ -12271,8 +12271,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Veja a comissão dividida. Quando o lead tem uma comissão (por exemplo $400.00 em Comissão vendedor) e um segundo vendedor, aparece uma linha só para leitura em Valores: Dividida 50/50 (1), com o valor de cada um, por exemplo $200.00 para cada vendedor. Se você ainda não digitou a comissão, a linha não aparece. Se o lead já estava aberto quando você escolheu o segundo vendedor, feche e abra o lead de novo para ver a linha.",
-                "en": "See the split commission. When the lead has a commission (for example $400.00 in Sales commission) and a second salesperson, a read only row appears in Costs: Split 50/50 (1), with the amount for each person, for example $200.00 to each salesperson. If you have not typed the commission yet, the row does not show. If the lead was already open when you chose the second salesperson, close it and open it again to see the row."
+                "pt": "Uma lista mostra os nomes dos seus vendedores (1).",
+                "en": "A list shows the names of your salespeople (1)."
               },
               "image": {
                 "pt": "help/img/guides/lead-salesperson-and-filter/seller-03.pt.jpg",
@@ -12282,8 +12282,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Filtre o Pipeline por vendedor. Na lista de Leads, toque no filtro de vendedor (1). Ele mostra cada nome com o número de leads, e Sem vendedor para os leads sem ninguém escolhido. Escolha um nome e a lista mostra só os leads dele. Toque no x para voltar a Todos os vendedores.",
-                "en": "Filter the Pipeline by salesperson. In the Leads list, tap the salesperson filter (1). It shows each name with the number of leads, and Unassigned for leads with nobody chosen. Pick a name and the list shows only that person's leads. Tap the x to go back to All salespeople."
+                "pt": "Toque em um nome (1) e depois em Salvar (2).",
+                "en": "Tap a name (1), then tap Save (2)."
               },
               "image": {
                 "pt": "help/img/guides/lead-salesperson-and-filter/seller-04.pt.jpg",
@@ -12293,12 +12293,78 @@
             {
               "n": 5,
               "text": {
-                "pt": "Vendedor que saiu. Se você tira um nome da lista de vendedores (Ajustes, depois Suas listas, depois Vendedores), os leads dele continuam no Pipeline. O filtro mostra o nome com a marca ex-vendedor (1), então os leads dele continuam fáceis de achar.",
-                "en": "A salesperson who left. If you remove a name from your list of salespeople (Settings, then Your lists, then Salespeople), their leads stay in the Pipeline. The filter shows the name marked former (1), so their leads are still easy to find."
+                "pt": "Quando duas pessoas fizeram a visita juntas, role até Outros campos e toque em Vendedor secundário (opcional) (1).",
+                "en": "When two people did the visit together, scroll to Other fields and tap Second salesperson (optional) (1)."
               },
               "image": {
                 "pt": "help/img/guides/lead-salesperson-and-filter/seller-05.pt.jpg",
                 "en": "help/img/guides/lead-salesperson-and-filter/seller-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Escolha o segundo nome (1) e toque em Salvar (2).",
+                "en": "Pick the second name (1) and tap Save (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-salesperson-and-filter/seller-06.pt.jpg",
+                "en": "help/img/guides/lead-salesperson-and-filter/seller-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Para ver a divisão, o lead precisa de uma comissão. Em Valores, toque em Comissão vendedor ($), digite o valor, por exemplo 400 (1), e toque em Salvar.",
+                "en": "To see the split, the lead needs a commission. Under Costs, tap Sales commission ($), type the amount, for example 400 (1), and tap Save."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-salesperson-and-filter/seller-07.pt.jpg",
+                "en": "help/img/guides/lead-salesperson-and-filter/seller-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Feche o lead e abra de novo. Uma linha só de leitura aparece em Valores: Dividida 50/50 (1), com o valor de cada pessoa, por exemplo $200.00 para cada vendedor. Se você ainda não digitou a comissão, a linha não aparece.",
+                "en": "Close the lead and open it again. A read only row appears in Costs: Split 50/50 (1), with the amount for each person, for example $200.00 to each salesperson. If you have not typed the commission yet, the row does not show."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-salesperson-and-filter/seller-08.pt.jpg",
+                "en": "help/img/guides/lead-salesperson-and-filter/seller-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Para filtrar o Pipeline por vendedor, toque no filtro de vendedor (1) na lista de Leads. Ele mostra cada nome com o número de leads, e Sem vendedor para leads sem ninguém escolhido. Escolha um nome e a lista mostra só os leads dessa pessoa.",
+                "en": "To filter the Pipeline by salesperson, tap the salesperson filter (1) in the Leads list. It shows each name with the number of leads, and Unassigned for leads with nobody chosen. Pick a name and the list shows only that person's leads."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-salesperson-and-filter/seller-09.pt.jpg",
+                "en": "help/img/guides/lead-salesperson-and-filter/seller-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Toque no x (1) para voltar a Todos os vendedores.",
+                "en": "Tap the x (1) to go back to All salespeople."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-salesperson-and-filter/seller-10.pt.jpg",
+                "en": "help/img/guides/lead-salesperson-and-filter/seller-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Vendedor que saiu. Se você tira um nome da lista de vendedores (Ajustes, depois Suas listas, depois Vendedores), os leads dele continuam no Pipeline. O filtro mostra o nome com a marca ex-vendedor (1), então os leads dele continuam fáceis de achar.",
+                "en": "A salesperson who left. If you remove a name from your list of salespeople (Settings, then Your lists, then Salespeople), their leads stay in the Pipeline. The filter shows the name marked former (1), so their leads are still easy to find."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-salesperson-and-filter/seller-12.pt.jpg",
+                "en": "help/img/guides/lead-salesperson-and-filter/seller-12.en.jpg"
               }
             }
           ]

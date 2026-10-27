@@ -24818,6 +24818,497 @@
           "step": 4
         }
       ]
+    },
+    {
+      "id": "admin-lead-pipeline",
+      "audience": "admin",
+      "title": {
+        "pt": "Leads: acompanhar um lead até virar cliente",
+        "en": "Leads: follow a lead until it becomes a client"
+      },
+      "summary": {
+        "pt": "Etapa, próximo passo, contatos e desfecho de um lead.",
+        "en": "Stage, next step, contacts and outcome of a lead."
+      },
+      "keywords": {
+        "pt": [
+          "lead",
+          "leads",
+          "pipeline do lead",
+          "etapa",
+          "contato",
+          "tornou-se cliente",
+          "quente",
+          "frio",
+          "próximo passo"
+        ],
+        "en": [
+          "lead",
+          "leads",
+          "lead pipeline",
+          "stage",
+          "contact",
+          "became a client",
+          "warm",
+          "cold",
+          "next step"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "lead",
+          "title": {
+            "pt": "Seguir um lead",
+            "en": "Follow a lead"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra um lead. Toque em Clientes no menu da esquerda e depois na aba Leads. Cada lead é uma linha (1). A etiqueta pequena (2) mostra se o lead está Quente ou Frio. Toque em Ver em colunas (3) para ver os leads em colunas. Toque no nome para abrir a ficha. Os nomes da figura são nomes de teste.",
+                "en": "Open a lead. Tap Clients in the left menu, then the Leads tab. Each lead is a row (1). The small tag (2) shows if the lead is Warm or Cold. Tap Switch to column view (3) to see the leads in columns. Tap a name to open its record. The names in the picture are test names."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-01.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "No alto da ficha de um lead está o cartão Pipeline do Lead. A etiqueta (1) mostra a etapa e há quantos dias o lead está nela. Para mudar o lead de etapa, use Mudar etapa (2). O Apex registra quem mudou e avisa se outra pessoa mudou antes.",
+                "en": "At the top of a lead record is the card Lead Pipeline. The tag (1) shows the stage and how many days the lead has been in it. To move the lead to another stage, use Change stage (2). Apex records who moved it and warns if someone else moved it first."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-02.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Em Próximo passo, toque em O que vem a seguir (1) para escrever o que precisa acontecer com este lead. Toque em Contatos registrados (2) para ver os contatos que já estão no registro.",
+                "en": "Under Next step, tap What's next (1) to write what must happen next with this lead. Tap Follow-ups logged (2) to see the contacts already written in the log."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-03.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "A lista Raio X enviado (1) mostra três coisas: Login do portal criado, Raio X atribuído e Credenciais prontas para envio. O círculo fica preenchido quando aquela parte está feita.",
+                "en": "The checklist X-Ray sent (1) shows three things: Portal login created, X-Ray assigned and Credentials ready to send. A circle is filled when that part is done."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-04.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Fale com o lead pelo Registro de contatos. Toque em Ligar (1) ou em WhatsApp (2). Toque em Mais formas de contato (3) para ver as outras formas, como mensagem de texto e email. Toque em + Registrar contato (4) para anotar um contato que você fez de outro jeito.",
+                "en": "Contact the lead from the Contact log. Tap Call (1) or WhatsApp (2). Tap More ways to reach out (3) to see the other ways, such as text message and email. Tap + Log contact (4) to write down a contact you made in another way."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-05.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "No formulário Registrar contato, escolha o Meio (1) e o Resultado (2), por exemplo Sem resposta. Escreva uma nota em Notas (3) se quiser e toque em Salvar. Nada foi salvo nesta figura.",
+                "en": "In the Log contact form, choose the Method (1) and the Result (2), such as No response. Write a note in Notes (3) if you want, then tap Save. Nothing was saved for this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-06.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Em Desfecho há dois botões. Tornou-se cliente (1) é para o lead que fechou. Não seguiu adiante (2) é para o lead que parou, e a ficha fica dormente.",
+                "en": "Under Outcome there are two buttons. Became a client (1) is for a lead that signed. Did not move forward (2) is for a lead that stopped, and the record becomes dormant."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-07.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Tornou-se cliente pede o Pacote (1) antes de salvar. Escolha o pacote e toque em Confirmar (2). A ficha vira um cliente ativo e sai da aba Leads. Nada foi confirmado nesta figura.",
+                "en": "Became a client asks for the Package (1) before it saves. Choose it, then tap Confirm (2). The record becomes an active client and leaves the Leads tab. Nothing was confirmed for this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-lead-pipeline/lead-08.pt.jpg",
+                "en": "help/img/guides/admin-lead-pipeline/lead-08.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Ver em colunas"
+            ],
+            "en": [
+              "Switch to column view"
+            ]
+          },
+          "section": "lead",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Mudar etapa"
+            ],
+            "en": [
+              "Change stage"
+            ]
+          },
+          "section": "lead",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "+ Registrar contato"
+            ],
+            "en": [
+              "+ Log contact"
+            ]
+          },
+          "section": "lead",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Tornou-se cliente"
+            ],
+            "en": [
+              "Became a client"
+            ]
+          },
+          "section": "lead",
+          "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Não seguiu adiante"
+            ],
+            "en": [
+              "Did not move forward"
+            ]
+          },
+          "section": "lead",
+          "step": 7
+        }
+      ]
+    },
+    {
+      "id": "admin-partners",
+      "audience": "admin",
+      "title": {
+        "pt": "Parceiros: quem indica clientes para a Apex",
+        "en": "Partners: people who send clients to Apex"
+      },
+      "summary": {
+        "pt": "Adicionar, editar e copiar o link de um parceiro de indicação.",
+        "en": "Add, edit and copy the link of a referral partner."
+      },
+      "keywords": {
+        "pt": [
+          "parceiro",
+          "parceiros",
+          "indicação",
+          "link de indicação",
+          "imagem de capa"
+        ],
+        "en": [
+          "partner",
+          "partners",
+          "referral",
+          "referral link",
+          "cover image"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "partners",
+          "title": {
+            "pt": "Parceiros de indicação",
+            "en": "Referral partners"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Parceiros são pessoas e empresas que indicam clientes para a Apex. Toque em Clientes e depois na aba Parceiros. Cada parceiro mostra quantos clientes indicou e quantos viraram clientes. Toque em + Novo parceiro (1) para adicionar. A etiqueta (2) é o status. Toque em Editar (3) para mudar um parceiro. Toque em Copiar link de indicação (4) para copiar o link do parceiro. Quem chega por esse link cai na lista de Leads, já ligado ao parceiro. O nome e o número da figura são valores de teste.",
+                "en": "Partners are people and businesses that send clients to Apex. Tap Clients, then the Partners tab. Each partner shows how many clients they referred and how many became clients. Tap + New partner (1) to add one. The tag (2) is the status. Tap Edit (3) to change a partner. Tap Copy referral link (4) to copy the partner's own link. A person who comes through that link lands in the Leads list, already linked to the partner. The name and number in the picture are test values."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-partners/partners-01.pt.jpg",
+                "en": "help/img/guides/admin-partners/partners-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O formulário Parceiro Apex (1) tem Nome, Tipo, Status, Contato, Última interação e Próxima ação. O status é Prospectando, Ativo ou Inativo. Preencha o que você souber. Nada foi salvo nesta figura.",
+                "en": "The form Apex Partner (1) has Name, Type, Status, Contact, Last interaction and Next action. Status is Prospectando (courting), Ativo (active) or Inativo (inactive). Fill what you know. Nothing was saved for this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-partners/partners-02.pt.jpg",
+                "en": "help/img/guides/admin-partners/partners-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Role o formulário para baixo. A Imagem de capa do link (1) é a figura que as pessoas veem quando o link é compartilhado: toque em Choose File para escolher um JPG, PNG ou WebP de até 5 MB. Remover tira a imagem, e o link volta ao visual padrão. Toque em Salvar (2) para guardar as mudanças. O último botão Remover (3) apaga o parceiro, então use com cuidado.",
+                "en": "Scroll down in the form. Link cover image (1) is the picture people see when the link is shared: tap Choose File to pick a JPG, PNG or WebP up to 5 MB. Remove takes the picture away, and the link keeps the default look. Tap Save (2) to keep your changes. The last Remove button (3) deletes the partner, so use it with care."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-partners/partners-03.pt.jpg",
+                "en": "help/img/guides/admin-partners/partners-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Copiar link de indicação"
+            ],
+            "en": [
+              "Copy referral link"
+            ]
+          },
+          "section": "partners",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Editar"
+            ],
+            "en": [
+              "Edit"
+            ]
+          },
+          "section": "partners",
+          "step": 2
+        }
+      ]
+    },
+    {
+      "id": "admin-vendors",
+      "audience": "admin",
+      "title": {
+        "pt": "Fornecedores: o que pagar e a quem",
+        "en": "Vendors: what to pay and to whom"
+      },
+      "summary": {
+        "pt": "Ver o que está para pagar, confirmar pagamentos do banco e olhar a previsão.",
+        "en": "See what is due, confirm bank payments and read the forecast."
+      },
+      "keywords": {
+        "pt": [
+          "fornecedor",
+          "fornecedores",
+          "pagamento",
+          "remitly",
+          "previsão",
+          "histórico",
+          "confirmar"
+        ],
+        "en": [
+          "vendor",
+          "vendors",
+          "payment",
+          "remitly",
+          "forecast",
+          "history",
+          "confirm"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "vendors",
+          "title": {
+            "pt": "Página Fornecedores",
+            "en": "Vendors page"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra Fornecedores no menu da esquerda. Os cartões (1) mostram o Total a pagar agora e um cartão para cada fornecedor, com o valor devido agora e o que vem pela frente. Escolha o mês (2). Previsão (3) e Histórico (4) abrem as listas. Toque em + Adicionar fornecedor (5) para incluir um fornecedor. Nas figuras os fornecedores se chamam Vendor A a E e os valores estão cobertos.",
+                "en": "Open Vendors in the left menu. The tiles (1) show Total to pay now and one tile for each vendor, with the amount due now and what is upcoming. Pick the month (2). Forecast (3) and History (4) open the lists. Tap + Add vendor (5) to add a vendor. In the pictures the vendors are called Vendor A to E and the amounts are covered."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-vendors/vendors-01.pt.jpg",
+                "en": "help/img/guides/admin-vendors/vendors-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Às vezes a página faz uma pergunta (1) que não conseguiu responder sozinha, por exemplo de qual mês foi um primeiro pagamento. Escreva a resposta (2) ou toque em Ditar (3) para falar, e toque em Enviar (4). O contador, por exemplo 1 de 3, mostra quantas perguntas faltam.",
+                "en": "Sometimes the page asks one question (1) it could not answer by itself, for example which month a first payment was for. Type the answer (2) or tap Dictate (3) to speak it, then tap Send (4). The counter, for example 1 of 3, shows how many questions are left."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-vendors/vendors-02.pt.jpg",
+                "en": "help/img/guides/admin-vendors/vendors-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Marcados automaticamente lista pagamentos do banco que o Apex já ligou a um fornecedor e a um cliente (1). Se a linha está certa, toque em Está certo (3). Se está errada, toque em Mudar (4). Para aceitar todas as linhas de uma vez, toque em Confirmar todos (2).",
+                "en": "Marked automatically lists bank payments that Apex already matched to a vendor and a client (1). If a line is right, tap Confirm (3). If it is wrong, tap Change (4). To accept every line at once, tap Confirm all (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-vendors/vendors-03.pt.jpg",
+                "en": "help/img/guides/admin-vendors/vendors-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Remitly sem fornecedor lista dinheiro enviado pela Remitly que ainda não tem fornecedor. Toque na linha para abrir a lista. Para cada pagamento (1) toque no fornecedor a que ele pertence (2). Se não foi um pagamento a fornecedor, toque em Não é de fornecedor (3). O texto do banco na figura está coberto.",
+                "en": "Remitly not assigned to a vendor lists money sent by Remitly that has no vendor yet. Tap the line to open the list. For each payment (1) tap the vendor it belongs to (2). If it was not a payment to a vendor, tap Not a vendor payment (3). The bank text in the picture is covered."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-vendors/vendors-04.pt.jpg",
+                "en": "help/img/guides/admin-vendors/vendors-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Cada fornecedor tem um cartão abaixo. Registrar pagamento (1) serve para quando você enviou um pagamento: você escreve o valor, a data e os itens que ele cobre. Nada está vencendo nesta figura, então o botão só mostra onde fica. Toque em Próximos (2) para ver os pagamentos planejados para depois.",
+                "en": "Each vendor has a card below. Record payment (1) is for when you sent a payment: you write the amount, the date and the items it covers. Nothing is due in this picture, so the button only shows where it is. Tap Coming up (2) to see the payments that are planned for later."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-vendors/vendors-05.pt.jpg",
+                "en": "help/img/guides/admin-vendors/vendors-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Para adicionar um fornecedor, toque em + Adicionar fornecedor. Escreva o Nome (1) e o Tipo (2) e toque em Salvar (3). Nada foi salvo nesta figura.",
+                "en": "To add a vendor, tap + Add vendor. Write the Name (1) and the Type (2), then tap Save (3). Nothing was saved for this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-vendors/vendors-06.pt.jpg",
+                "en": "help/img/guides/admin-vendors/vendors-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Previsão abre uma tabela (1) com os pagamentos planejados para os próximos meses, uma coluna para cada fornecedor. Embaixo, Aguardando conclusão lista os pagamentos que esperam o fim de um trabalho. Os valores estão cobertos na figura.",
+                "en": "Forecast opens a table (1) with the payments planned for the next months, one column for each vendor. Under it, Awaiting completion lists payments that wait for a job to finish. The amounts are covered in the picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-vendors/vendors-07.pt.jpg",
+                "en": "help/img/guides/admin-vendors/vendors-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Histórico abre a lista de pagamentos já feitos (1), mês a mês, com a data, o fornecedor, o cliente, a forma de pagamento e o valor. Toque no x no alto da caixa para fechar.",
+                "en": "History opens the list of payments already made (1), month by month, with the date, the vendor, the client, how it was paid and the amount. Tap the cross at the top of the box to close it."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-vendors/vendors-08.pt.jpg",
+                "en": "help/img/guides/admin-vendors/vendors-08.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Previsão"
+            ],
+            "en": [
+              "Forecast"
+            ]
+          },
+          "section": "vendors",
+          "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Histórico"
+            ],
+            "en": [
+              "History"
+            ]
+          },
+          "section": "vendors",
+          "step": 8
+        },
+        {
+          "labels": {
+            "pt": [
+              "+ Adicionar fornecedor"
+            ],
+            "en": [
+              "+ Add vendor"
+            ]
+          },
+          "section": "vendors",
+          "step": 6
+        },
+        {
+          "labels": {
+            "pt": [
+              "Confirmar todos"
+            ],
+            "en": [
+              "Confirm all"
+            ]
+          },
+          "section": "vendors",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ditar"
+            ],
+            "en": [
+              "Dictate"
+            ]
+          },
+          "section": "vendors",
+          "step": 2
+        }
+      ]
     }
   ],
   "pages": {

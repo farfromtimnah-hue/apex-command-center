@@ -1060,6 +1060,7 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
     return { ctx, rec, win };
   }
   const widgetSrc = read("help-widget.js");
+const configSrc = read("help-config.js");
   { const p = fakePage({ enabled: false, base: "https://apex.resonateai.online/" });
     vm.runInContext(widgetSrc, p.ctx);
     ok(p.rec.docListeners.length === 0 && p.rec.winListeners.length === 0, "(h) flag off: the widget registers no handler");
@@ -1149,12 +1150,17 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
       fetch(url, init) {
         if (/\/api\/help\/ask$/.test(url)) { const b = JSON.parse(init.body); asks.push(b); return Promise.resolve({ ok: true, json: () => Promise.resolve(opts.askFn ? opts.askFn(b) : (opts.askResp || { found: false, guide_ids: [], best: null, reply: "", logged: true, audience: "x", other_side: [] })) }); }
         if (/\/api\/help\/suggest$/.test(url)) { return fakeSuggest(opts, suggests, init); }
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(clone(opts.guides || FIXTURE)) });
+        // The Worker sends one side when the request names it (staff ask for both sides, one call each).
+        const data = clone(opts.guides || FIXTURE);
+        const am = /[?&]audience=(admin|client)/.exec(url);
+        if (am) { data.guides = data.guides.filter((g) => (g.audience || "client") === am[1]); }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(data) });
       },
       matchMedia() { return { matches: true }; }
     };
     win.window = win; win.document = doc;
     const ctx = vm.createContext({ window: win, document: doc, console, setTimeout: win.setTimeout, clearTimeout: win.clearTimeout, fetch: win.fetch, Promise, JSON, Date, Math, Object, Array, String, Number, RegExp, encodeURIComponent, decodeURIComponent, URL, sessionStorage: { getItem(k) { if (k === "apex_role") { return opts.role || null; } return (k === "apex_client_token" && !opts.signedOut && ["alice", "rafa", "developer", "seller"].indexOf(opts.role) < 0) ? "tok" : null; } } });
+    vm.runInContext(configSrc, ctx);   // the guide loader lives in help-config.js
     vm.runInContext(widgetSrc, ctx);
     const tick = async () => { for (let i = 0; i < 8; i++) { await new Promise((r) => setImmediate(r)); } };
     const page = {
@@ -1233,6 +1239,8 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
     p.cards()[0].fire("click"); await p.tick();
     const v4 = p.videos()[0];
     ok(attrOrProp(v4, "src") === "https://example.com/contract-pt.mp4" && !attrOrProp(v4, "poster"), "(d) the plain string shape plays with no poster");
+    v4.fire("error"); await p.tick();
+    ok(p.videos().length === 1, "(d) a first video error fetches the list again and tries once more (the link may have run out)");
     v4.fire("error");
     ok(p.videos().length === 0 && p.all().some((n) => textOf(n) === "Não foi possível carregar o vídeo agora. Siga os passos abaixo."), "(d) a video error shows the message in place of the player");
     ok(v4.getAttribute("src") === null && p.all().some((n) => n.className.indexOf("aph-step") !== -1), "(d) after an error the player is stopped and the steps stay");
@@ -1323,7 +1331,7 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
   { // help.html: the box is shown only for a sign in it can see (portal token, Firebase user, staff role)
     const h = read("help.html");
     ok(/function signedIn\(\)[\s\S]{0,400}hasClientToken\(\) \|\| !!authUser \|\| HC\.isStaffRole\(role\)/.test(h), "(sec) help.html: signedIn() reads the portal token, the Firebase user and the staff role");
-    ok(/byId\("searchBox"\)\.hidden = !on/.test(h) && /onAuthStateChanged\(function \(u\) \{ authUser = u; showAskIfSignedIn\(\)/.test(h), "(sec) help.html: the box follows the sign in, including a late Firebase answer and a sign out");
+    ok(/byId\("searchBox"\)\.hidden = !on/.test(h) && /onAuthStateChanged\(function \(u\) \{[\s\S]{0,120}authUser = u; showAskIfSignedIn\(\)/.test(h), "(sec) help.html: the box follows the sign in, including a late Firebase answer and a sign out");
     ok(!/box\.hidden = false;/.test(h), "(sec) help.html: nothing shows the Ask box unconditionally");
     ok(/<meta name="robots" content="noindex, nofollow">/.test(h), "(sec) help.html: noindex, nofollow");
     const rb = read("robots.txt");

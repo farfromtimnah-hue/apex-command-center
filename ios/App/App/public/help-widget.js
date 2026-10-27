@@ -136,20 +136,54 @@
   function store(key, val) { try { if (val === undefined) { return localStorage.getItem(key); } localStorage.setItem(key, val); } catch (e) { /* works without storage */ } return null; }
 
   // ---- guides ----------------------------------------------------------
+  var guidesLang = null;    // the language the loaded guides were fetched in (the Worker sends one language)
+  var guidesPromiseLang = null;
+  var lastFetchAt = 0;
+  // Guides come from the Worker, filtered by the verified login (see help-config.js).
+  // The Worker sends one language, so a language change fetches again. A list loaded
+  // before sign in (public guides only) is replaced once the person is signed in.
   function loadGuides() {
-    if (guides) { return Promise.resolve(guides); }
-    if (guidesPromise) { return guidesPromise; }
-    guidesPromise = fetch(BASE + "help/guides.json", { cache: "no-cache" }).then(function (res) {
-      if (!res.ok) { throw new Error("status " + res.status); }
-      return res.json();
-    }).then(function (data) {
+    var want = lang();
+    if (guides && guidesLang === want && !(guides.signedOut && signedIn())) { return Promise.resolve(guides); }
+    if (guidesPromise && guidesPromiseLang === want) { return guidesPromise; }
+    guidesPromiseLang = want;
+    var loader = window.APEX_HELP.loadGuides;
+    var p = (typeof loader !== "function" ? Promise.reject(new Error("no loader")) : loader({ lang: want, signedIn: signedIn(), staff: isStaff(), token: getToken, workerUrl: workerUrl() })).then(function (data) {
       if (!data || data.version !== 1 || !Array.isArray(data.guides)) { throw new Error("shape"); }
       guides = data;
+      guidesLang = want;
+      lastFetchAt = Date.now();
       sideData = { admin: null, client: null };
+      if (guidesPromise === p) { guidesPromise = null; }
       return data;
     });
-    guidesPromise["catch"](function () { guidesPromise = null; });
-    return guidesPromise;
+    guidesPromise = p;
+    p["catch"](function () { if (guidesPromise === p) { guidesPromise = null; } });
+    return p;
+  }
+  // A picture or video link ran out (15 minutes): fetch the list again, at most once every 10 seconds.
+  function refreshGuides() {
+    if (Date.now() - lastFetchAt < 10000 && !guidesPromise) { return Promise.resolve(guides); }
+    guides = null;
+    return loadGuides();
+  }
+  function stepImage(gid, sid, n) {
+    var g = findGuide(gid);
+    var secs = g && Array.isArray(g.sections) ? g.sections : [];
+    for (var i = 0; i < secs.length; i++) {
+      if (secs[i].id !== sid) { continue; }
+      var steps = Array.isArray(secs[i].steps) ? secs[i].steps : [];
+      for (var k = 0; k < steps.length; k++) { if (steps[k].n === n && steps[k].image) { return imageUrl(L(steps[k].image)); } }
+    }
+    return "";
+  }
+  function retryImage(im, gid, sid, n) {
+    if (im._retried) { return; }
+    im._retried = true;
+    refreshGuides().then(function () {
+      var fresh = stepImage(gid, sid, n);
+      if (fresh && fresh !== im.getAttribute("src")) { im.setAttribute("src", fresh); }
+    }, function () { /* the picture stays missing; the steps still read */ });
   }
   function findGuide(id) {
     var list = guides && guides.guides ? guides.guides : [];
@@ -174,7 +208,13 @@
     return a ? el("span", "aph-vtag aph-stag", sideLabel(a)) : null;
   }
   function imageUrl(path) {
-    if (typeof path !== "string" || !path || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(path) || path.indexOf("..") !== -1 || path.indexOf("//") === 0) { return ""; }
+    if (typeof path !== "string" || !path || path.indexOf("..") !== -1) { return ""; }
+    // A signed link from the Worker is used as it is.
+    if (/^https:\/\//.test(path)) {
+      try { return new URL(path).pathname.indexOf("/api/help/file/") === 0 ? path : ""; } catch (e) { return ""; }
+    }
+    // A relative path only appears in the last resort copy of the public guides.
+    if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(path) || path.indexOf("//") === 0) { return ""; }
     return BASE + path.replace(/^\/+/, "");
   }
   function linkOrigin() {
@@ -320,7 +360,10 @@
   // follow the language (the old player is stopped by renderGuide).
   function onLangChange() {
     refreshLabels();
-    if (sheet && bodyEl && openView) { renderGuide(openView.id, openView.section, openView.step); }
+    // The Worker sends one language, so fetch the new one before redrawing.
+    loadGuides().then(function () {
+      if (sheet && bodyEl && openView) { renderGuide(openView.id, openView.section, openView.step); }
+    }, function () { /* the open guide stays as it is */ });
   }
   function refreshLabels() {
     var b = doc.getElementById("aphelpBtn");
@@ -467,7 +510,7 @@
 
   // The tap that chose the video also starts it, which is what lets a phone
   // browser play it. The addresses are only ever set as attributes.
-  function startPlayer(wrap, card, vid) {
+  function startPlayer(wrap, card, vid, gid) {
     stopPlayer();
     var v = el("video", "aph-video");
     v.setAttribute("controls", "");
@@ -476,7 +519,24 @@
     v.setAttribute("preload", "none");
     if (vid.poster) { v.setAttribute("poster", vid.poster); }
     v.setAttribute("src", vid.src);
-    v.addEventListener("error", function () { showVideoError(wrap, v); });
+    var retried = false;
+    v.addEventListener("error", function () {
+      // The link may have run out: fetch the list once more and try the new one.
+      if (!retried && gid) {
+        retried = true;
+        refreshGuides().then(function () {
+          var g2 = findGuide(gid);
+          var nv = g2 ? HC.videoFor(g2, lang()) : null;
+          if (nv && activePlayer === v) {
+            v.setAttribute("src", nv.src);
+            var again = v.play();
+            if (again && again.then) { again.then(null, function () { if (v.error) { showVideoError(wrap, v); } }); }
+          } else { showVideoError(wrap, v); }
+        }, function () { showVideoError(wrap, v); });
+        return;
+      }
+      showVideoError(wrap, v);
+    });
     wrap.replaceChild(v, card);
     activePlayer = v;
     var started = v.play();
@@ -504,7 +564,7 @@
     media.appendChild(play);
     card.appendChild(media);
     card.appendChild(el("span", "aph-vlabel", t("Assistir ao vídeo", "Watch the video")));
-    card.addEventListener("click", function () { startPlayer(wrap, card, vid); });
+    card.addEventListener("click", function () { startPlayer(wrap, card, vid, g.id); });
     wrap.appendChild(card);
     wrap.appendChild(el("p", "aph-vhint", t("Ou siga os passos abaixo.", "Or follow the steps below.")));
     return wrap;
@@ -562,6 +622,7 @@
     clear(bodyEl);
     var staff = isStaff();
     if (staff) { bodyEl.appendChild(buildSideRow()); }
+    if (guides && guides.signedOut) { bodyEl.appendChild(el("p", "aph-state aph-muted", t("Entre na sua conta para ver os guias do seu acesso.", "Sign in to see the guides for your access."))); }
     var sideGuides = HC.filterByAudience(guides && guides.guides, side);
     if (!sideGuides.length) {
       bodyEl.appendChild(el("p", "aph-state aph-muted", staff ? t("Os guias deste lado estão sendo preparados.", "The guides for this side are being prepared.") : t("Os guias estão sendo preparados.", "The guides are being prepared.")));
@@ -942,8 +1003,9 @@
           im.loading = "lazy";
           im.alt = L(st.text);
           im.src = src;
+          im.addEventListener("error", function () { retryImage(im, g.id, s.id, st.n); });
           ib.appendChild(im);
-          ib.addEventListener("click", function () { openLightbox(src, L(st.text)); });
+          ib.addEventListener("click", function () { openLightbox(im.getAttribute("src") || src, L(st.text)); });
           box.appendChild(ib);
         }
         if (s.id === sectionId && (step === null || step === undefined || step === st.n)) {

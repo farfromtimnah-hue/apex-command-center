@@ -64887,7 +64887,7 @@ async function helpBuildPayload(env, request, role, lang, audience) {
                 var posterStr = (typeof vid === "object" && vid.poster) ? vid.poster : null;
                 var vsrc = await link(helpUrlPath(srcStr));
                 var vposter = posterStr ? await link(helpUrlPath(posterStr)) : null;
-                if (vsrc) { nv[lang] = { src: vsrc, poster: vposter }; }
+                if (vsrc) { nv[lang] = vposter ? { src: vsrc, poster: vposter } : { src: vsrc }; }
             }
             gd.video = nv;
         }

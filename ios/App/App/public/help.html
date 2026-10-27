@@ -420,20 +420,72 @@
     }
 
     // ---- guides
+    // The Worker sends the guides for this login, in one language, with pictures and
+    // videos as links that last 15 minutes. A language change or a run out link fetches again.
+    var guidesLang = null;
+    var lastFetchAt = 0;
+    var authReady = false;       // true once Firebase has said who is signed in (or there is no Firebase)
+    var authWaiters = [];
+    function markAuthReady() {
+      authReady = true;
+      var w = authWaiters; authWaiters = [];
+      w.forEach(function (f) { f(); });
+    }
+    function whenAuthReady() {
+      if (authReady || hasClientToken()) { return Promise.resolve(); }
+      return new Promise(function (resolve) { authWaiters.push(resolve); setTimeout(resolve, 5000); });
+    }
+    function fetchGuides() {
+      if (useFixture || useLocal) {
+        return fetch(GUIDES_URL, { cache: "no-cache" }).then(function (res) {
+          if (!res.ok) { throw new Error("status " + res.status); }
+          return res.json();
+        });
+      }
+      return whenAuthReady().then(function () {
+        return cfg.loadGuides({ lang: currentLang, signedIn: signedIn(), staff: isStaff(), token: getToken, workerUrl: WORKER_URL });
+      });
+    }
     function loadGuides() {
+      var want = currentLang;
       loadState = "loading";
       renderList();
-      return fetch(GUIDES_URL, { cache: "no-cache" }).then(function (res) {
-        if (!res.ok) { throw new Error("status " + res.status); }
-        return res.json();
-      }).then(function (data) {
+      return fetchGuides().then(function (data) {
         if (!data || data.version !== 1 || !Array.isArray(data.guides)) { throw new Error("shape"); }
+        if (want !== currentLang) { return; }
         guides = data;
+        guidesLang = want;
+        lastFetchAt = Date.now();
         loadState = "ready";
         chooseSide();
       }, function () {
         loadState = "error";
       }).then(function () { renderList(); renderGuideView(); });
+    }
+    // A picture or video link ran out: fetch the list again (at most once every 10 seconds).
+    function refreshGuides() {
+      if (Date.now() - lastFetchAt < 10000) { return Promise.resolve(); }
+      return fetchGuides().then(function (data) {
+        if (data && data.version === 1 && Array.isArray(data.guides)) { guides = data; guidesLang = currentLang; lastFetchAt = Date.now(); }
+      });
+    }
+    function stepImage(gid, sid, n) {
+      var g = findGuide(gid);
+      var secs = g && Array.isArray(g.sections) ? g.sections : [];
+      for (var i = 0; i < secs.length; i++) {
+        if (secs[i].id !== sid) { continue; }
+        var steps = Array.isArray(secs[i].steps) ? secs[i].steps : [];
+        for (var k = 0; k < steps.length; k++) { if (steps[k].n === n && steps[k].image) { return imageUrl(L(steps[k].image)); } }
+      }
+      return "";
+    }
+    function retryImage(im, gid, sid, n) {
+      if (im._retried) { return; }
+      im._retried = true;
+      refreshGuides().then(function () {
+        var fresh = stepImage(gid, sid, n);
+        if (fresh && fresh !== im.getAttribute("src")) { im.setAttribute("src", fresh); }
+      }, function () { /* the picture stays missing; the steps still read */ });
     }
     function findGuide(id) {
       var list = guides && guides.guides ? guides.guides : [];
@@ -441,7 +493,13 @@
       return null;
     }
     function imageUrl(path) {
-      if (typeof path !== "string" || !path || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(path) || path.indexOf("..") !== -1 || path.indexOf("//") === 0) { return ""; }
+      if (typeof path !== "string" || !path || path.indexOf("..") !== -1) { return ""; }
+      // A signed link from the Worker is used as it is.
+      if (/^https:\/\//.test(path)) {
+        try { return new URL(path).pathname.indexOf("/api/help/file/") === 0 ? path : ""; } catch (e) { return ""; }
+      }
+      // A relative path only appears in the fixture, or the last resort copy of the public guides.
+      if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(path) || path.indexOf("//") === 0) { return ""; }
       return BASE + path.replace(/^\/+/, "");
     }
     function deepLink(guideId, sectionId, step) {
@@ -512,7 +570,7 @@
     }
     // The tap that chose the video also starts it, which is what lets a phone
     // browser play it. The addresses are only ever set as attributes.
-    function startPlayer(wrap, card, vid) {
+    function startPlayer(wrap, card, vid, gid) {
       stopPlayer();
       var v = el("video", "video");
       v.setAttribute("controls", "");
@@ -521,7 +579,24 @@
       v.setAttribute("preload", "none");
       if (vid.poster) { v.setAttribute("poster", vid.poster); }
       v.setAttribute("src", vid.src);
-      v.addEventListener("error", function () { showVideoError(wrap, v); });
+      var retried = false;
+      v.addEventListener("error", function () {
+        // The link may have run out: fetch the list once more and try the new one.
+        if (!retried && gid) {
+          retried = true;
+          refreshGuides().then(function () {
+            var g2 = findGuide(gid);
+            var nv = g2 ? HC.videoFor(g2, currentLang) : null;
+            if (nv && activePlayer === v) {
+              v.setAttribute("src", nv.src);
+              var again = v.play();
+              if (again && again.then) { again.then(null, function () { if (v.error) { showVideoError(wrap, v); } }); }
+            } else { showVideoError(wrap, v); }
+          }, function () { showVideoError(wrap, v); });
+          return;
+        }
+        showVideoError(wrap, v);
+      });
       wrap.replaceChild(v, card);
       activePlayer = v;
       var started = v.play();
@@ -548,7 +623,7 @@
       media.appendChild(play);
       card.appendChild(media);
       card.appendChild(el("span", "vlabel", t("Assistir ao vídeo", "Watch the video")));
-      card.addEventListener("click", function () { startPlayer(wrap, card, vid); });
+      card.addEventListener("click", function () { startPlayer(wrap, card, vid, g.id); });
       wrap.appendChild(card);
       wrap.appendChild(el("p", "vhint", t("Ou siga os passos abaixo.", "Or follow the steps below.")));
       return wrap;
@@ -567,6 +642,7 @@
         box.appendChild(retry);
         return;
       }
+      if (guides.signedOut) { box.appendChild(el("p", "state muted", t("Entre na sua conta para ver os guias do seu acesso.", "Sign in to see the guides for your access."))); }
       var shown = HC.filterByAudience(guides.guides, side);
       if (!shown.length) { box.appendChild(el("p", "state muted", isStaff() ? t("Os guias deste lado estão sendo preparados.", "The guides for this side are being prepared.") : t("Os guias estão sendo preparados.", "The guides are being prepared."))); return; }
       shown.forEach(function (g) { box.appendChild(quietCard(g)); });
@@ -959,8 +1035,9 @@
             im.loading = "lazy";
             im.alt = L(st.text);
             im.src = src;
+            im.addEventListener("error", function () { retryImage(im, g.id, s.id, st.n); });
             pb.appendChild(im);
-            pb.addEventListener("click", function () { openLightbox(src, L(st.text)); });
+            pb.addEventListener("click", function () { openLightbox(im.getAttribute("src") || src, L(st.text)); });
             box.appendChild(pb);
           }
           if (s.id === openGuide.section && (!openGuide.step || openGuide.step === st.n)) {
@@ -1019,6 +1096,8 @@
         renderList();
         renderGuideView();
         byId("answer").textContent = "";
+        // The Worker sends one language, so fetch the new one.
+        if (guidesLang !== currentLang) { loadGuides(); }
       });
       chooseSide();
       if (deep.guide) { openGuide = { id: deep.guide, section: deep.section, step: deep.step }; }
@@ -1026,9 +1105,15 @@
       if (enabled && window.firebase && !window.firebase.apps.length) {
         try {
           window.firebase.initializeApp(FIREBASE_CONFIG);
-          window.firebase.auth().onAuthStateChanged(function (u) { authUser = u; showAskIfSignedIn(); chooseSide(); renderList(); });
-        } catch (e) { /* the search then says to sign in */ }
-      }
+          window.firebase.auth().onAuthStateChanged(function (u) {
+            var first = !authReady;
+            authUser = u; showAskIfSignedIn(); chooseSide(); renderList();
+            if (first) { markAuthReady(); }
+            // Signed in after the public list was shown: fetch the list for this login.
+            else if (u && guides && guides.signedOut) { loadGuides(); }
+          });
+        } catch (e) { markAuthReady(); }
+      } else { markAuthReady(); }
       loadGuides();
     }
     init();

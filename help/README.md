@@ -1,9 +1,39 @@
 # Learn (Aprenda): how to write a guide
 
 People see this feature as **Aprenda** in Portuguese and **Learn** in English.
-The guides live in one file, `help/guides.json`. The pictures live in
-`help/img/guides/`. The apps fetch both from the live site, so a new guide goes
-out with a normal push and never needs an iPhone build.
+The guide TEXT lives in one file, `help/guides.json`. The Worker bundles it, so a
+guide edit needs one Worker deploy (`wrangler deploy`), never an iPhone build.
+
+**What is private and what is not (security phase B).**
+
+- Pictures, posters and videos are PRIVATE. They live in the R2 bucket bound as
+  `ASSETS`, under the key prefix `help/` (same relative path as in the repo), and
+  leave only through the Worker: `GET /api/help/file/<path>` with a signed link
+  that lasts 15 minutes. The guide list route mints the links, one per file, only
+  for guides the signed in person may see.
+- The guide TEXT is still readable by anyone who reads this GitHub repository,
+  because the repository is public (`help/guides.json` and its git history). The
+  Worker only SERVES the text to the right login. It becomes private only when the
+  repository itself is made private (a separate, later move). So never write
+  anything secret in guide text.
+- Older pictures were committed to the public repository before this change, so
+  they stay in git history until that move. Treat them as public.
+- Two guides are public on purpose, because they must work before sign in:
+  `sign-in-screens` and `invited-person-sign-in` (tag `public`).
+
+**New pictures and videos: never commit them.** Write them to the gitignored
+folder `help-private/` instead, with the same shape as before:
+`help-private/img/guides/<guide-id>/<name>.pt.jpg` (and `.en.jpg`), and
+`help-private/video/<guide-id>-pt.mp4` (+ `.jpg` poster). The `image` paths in
+`guides.json` stay `help/img/guides/<guide-id>/<name>.pt.jpg`. Then upload with
+`node scripts/help-media-upload.mjs` (safe to run again; it sends only new or
+changed files; `--dry-run` shows what it would send, `--check 20` compares byte
+sizes of 20 uploaded files). Video `src` and `poster` keep the form
+`https://apex.resonateai.online/help/video/<guide-id>-pt.mp4`; the Worker reads
+only the path and replaces it with a signed link.
+
+**Who sees a guide.** Every client guide needs a `who` list, and `guides.json` has
+a top level `groups` object. See "Who sees a guide" below.
 
 The feature is switched off. It turns on when `enabled` in `help-config.js`
 changes from `false` to `true` (and the same line in
@@ -114,8 +144,9 @@ sides: no button, no tag, no word.
   value is ignored, and a person who is not staff always stays on client.
 - A link to one guide (`help.html?guide=ID`) opens that guide on either side, and
   for staff it also sets the starting side to the guide's own side.
-- The guide files are public. The sides keep people from being shown the wrong
-  help by mistake. They are not a secret.
+- The sides are enforced by the Worker (`GET /api/help/guides` answers from the
+  verified login), but the guide text is only as private as the repository (see
+  the top of this file).
 - A screen overview (`pages`) shows only its guides that are on the person's
   current side. If none are left, the overview is left out.
 - A side with no guides shows "Os guias deste lado estão sendo preparados."
@@ -195,6 +226,30 @@ The key is the screen name. In the client portal it is the tab name
 and so on). On a staff page it is the file name without `.html` (`dashboard`,
 `calendar`, `clients`). A screen with no entry just skips the overview.
 
+## Who sees a guide
+
+`groups` (top of the file) names sets of login kinds once:
+
+- `all`: owner, partner, staff_finance, staff, seller.
+- `office`: owner, partner, staff_finance, staff.
+- `money`: owner, partner, staff_finance.
+- `setup`: owner, partner.
+- `public`: everyone, signed out too.
+
+A client guide's `who` is a list of group names and single login kinds (`lead`
+is never inside a group; name it in `who`). Example: `"who": ["money", "seller"]`.
+Admin guides need no `who`: Alice, Rafa and the developer see every guide on both
+sides, whatever `who` says. An unknown name hides the guide, and
+`node scripts/test-help-system.mjs` fails on it. A new client guide with no `who`
+list fails the test too. The login kind comes from the verified session on the
+Worker, never from the request. There is no Apex seller login; the word
+`apex_seller` is reserved only.
+
+Rules of thumb: Finances, Invoices, Analytics, Pace and the daily log are
+`money`. Anything in Ajustes (Settings) is `setup`. Staff without finance see
+project cost and profit as part of their view, so project and pricing guides are
+`office`. A lead only sees Assigned, Documents, language and sign in guides.
+
 ## Links to a guide
 
 `help.html?guide=ID&section=SECTION&step=N&lang=pt` opens that guide scrolled to
@@ -215,4 +270,4 @@ To look at the screens before publishing, run a local server from the repo root
 and open `help.html?fixture=1` on localhost. It reads the test guides in
 `scripts/fixtures/` and changes nothing else.
 
-The pictures and the file are public. Do not put anything private in them.
+The pictures are private (R2, signed links). The guide text in the file is as private as the repository, which is public today: do not put anything secret in it.

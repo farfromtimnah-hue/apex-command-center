@@ -2943,56 +2943,122 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra as configurações dos documentos. Toque em Negócio, depois em Orçamentos e depois em Configurações. Esta página se chama Configurações dos documentos: ela controla o que aparece nos seus orçamentos, faturas e recibos para os seus clientes.",
-                "en": "Open the document settings. Tap Business, then Estimates, then Settings. This page is called Document settings: it controls what appears on your estimates, invoices and receipts for your customers."
+                "pt": "Toque em Negócio (1) no menu de cima. Abre um menu.",
+                "en": "Tap Business (1) in the top menu. A menu opens."
               },
               "image": {
-                "en": "help/img/guides/business-setup/setup-01.en.jpg",
-                "pt": "help/img/guides/business-setup/setup-01.pt.jpg"
+                "pt": "help/img/guides/business-setup/setup-01.pt.jpg",
+                "en": "help/img/guides/business-setup/setup-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Coloque o seu logo e a imagem de capa. Em Marca, toque em Trocar logo (ou Enviar logo se ainda não tem) para escolher o seu logo. Embaixo, a Imagem de capa aparece no topo dos documentos que o seu cliente abre: escolha o seu ramo e veja as opções no seu orçamento, ou toque em Enviar a minha própria imagem (JPG, PNG ou WebP, até 5MB).",
-                "en": "Add your logo and cover image. Under Brand, tap Replace logo (or Upload logo if you have none) to choose your logo. Below it, Cover image is shown across the top of the documents your customer opens: pick your industry and see the options on your estimate, or tap Upload my own image (JPG, PNG or WebP, up to 5MB)."
+                "pt": "No menu, toque em Orçamentos (1).",
+                "en": "In the menu, tap Estimates (1)."
               },
               "image": {
-                "en": "help/img/guides/business-setup/setup-02.en.jpg",
-                "pt": "help/img/guides/business-setup/setup-02.pt.jpg"
+                "pt": "help/img/guides/business-setup/setup-02.pt.jpg",
+                "en": "help/img/guides/business-setup/setup-02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Escolha as cores da marca. Em Cores da marca, defina uma Cor principal e uma Cor de destaque. Elas são usadas nos documentos do seu cliente. Deixe em branco para usar o padrão neutro, cinza escuro e branco.",
-                "en": "Choose your brand colors. Under Brand colors, set a Primary color and an Accent color. They are used on your customer's documents. Leave a color blank to use the neutral default, dark gray and white."
+                "pt": "Toque em Configurações (1). Esta página se chama Configurações dos documentos: ela controla o que aparece nos seus orçamentos, faturas e recibos para os seus clientes.",
+                "en": "Tap Settings (1). This page is called Document settings: it controls what appears on your estimates, invoices and receipts for your customers."
               },
               "image": {
-                "en": "help/img/guides/business-setup/setup-03.en.jpg",
-                "pt": "help/img/guides/business-setup/setup-03.pt.jpg"
+                "pt": "help/img/guides/business-setup/setup-03.pt.jpg",
+                "en": "help/img/guides/business-setup/setup-03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Preencha os dados da empresa. Em Dados da empresa, preencha Razão social (nome legal), Endereço, Telefone e Email. São esses dados que os seus clientes veem nos seus documentos.",
-                "en": "Fill in your business identity. Under Business identity, fill in Legal business name, Address, Phone and Email. These details are what your customers see on your documents."
+                "pt": "Em Marca, toque em Trocar logo (1), ou Enviar logo se ainda não tem, para escolher o seu logo. Na figura não foi tocado, para manter o logo.",
+                "en": "Under Brand, tap Replace logo (1), or Upload logo if you have none, to choose your logo. The picture was not tapped, to keep the logo."
               },
               "image": {
-                "en": "help/img/guides/business-setup/setup-04.en.jpg",
-                "pt": "help/img/guides/business-setup/setup-04.pt.jpg"
+                "pt": "help/img/guides/business-setup/setup-04.pt.jpg",
+                "en": "help/img/guides/business-setup/setup-04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Adicione o número da sua licença. Em Licenciamento, digite o(s) Número(s) de licença. A tela explica que a lei da Flórida (§489.119) exige o número da sua licença em toda proposta e contrato. Toque em + Adicionar licença para colocar mais de uma. Se nenhum serviço seu exige licença estadual de contractor, marque O meu trabalho não exige licença estadual de contractor. A tela diz para marcar só se nenhum serviço que você orça exige licença estadual, e para perguntar à agência de licenciamento de contractors do seu estado se você não tiver certeza.",
-                "en": "Add your license number. Under Licensing, type your License number(s). The screen explains that Florida law (§489.119) requires your license number on every bid and contract. Tap + Add license for more than one. If none of your work needs a state contractor license, tick My work does not require a state contractor license. The screen says to tick it only if none of the work you quote needs a state license, and to ask your state's contractor licensing agency if you are not sure."
+                "pt": "Embaixo, a Imagem de capa aparece no topo dos documentos que o seu cliente abre. Escolha o seu ramo (1) e veja as opções no seu orçamento.",
+                "en": "Below it, Cover image is shown across the top of the documents your customer opens. Pick your industry (1) and see the options on your estimate."
               },
               "image": {
-                "en": "help/img/guides/business-setup/setup-05.en.jpg",
-                "pt": "help/img/guides/business-setup/setup-05.pt.jpg"
+                "pt": "help/img/guides/business-setup/setup-05.pt.jpg",
+                "en": "help/img/guides/business-setup/setup-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Ou toque em Enviar a minha própria imagem (1): escolha um arquivo JPG, PNG ou WebP, até 5MB.",
+                "en": "Or tap Upload my own image (1): choose a JPG, PNG or WebP file, up to 5MB."
+              },
+              "image": {
+                "pt": "help/img/guides/business-setup/setup-06.pt.jpg",
+                "en": "help/img/guides/business-setup/setup-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Em Cores da marca, defina uma Cor principal (1, 2) e uma Cor de destaque embaixo dela. Elas são usadas nos documentos do seu cliente. Deixe em branco para usar o padrão neutro, cinza escuro e branco.",
+                "en": "Under Brand colors, set a Primary color (1, 2) and an Accent color below it. They are used on your customer's documents. Leave a color blank to use the neutral default, dark gray and white."
+              },
+              "image": {
+                "pt": "help/img/guides/business-setup/setup-07.pt.jpg",
+                "en": "help/img/guides/business-setup/setup-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Em Dados da empresa, preencha Razão social (nome legal) (1), Endereço (2), Telefone (3) e Email (4). São esses dados que os seus clientes veem nos seus documentos.",
+                "en": "Under Business identity, fill in Legal business name (1), Address (2), Phone (3) and Email (4). These details are what your customers see on your documents."
+              },
+              "image": {
+                "pt": "help/img/guides/business-setup/setup-08.pt.jpg",
+                "en": "help/img/guides/business-setup/setup-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Em Licenciamento, digite o(s) Número(s) de licença (1). A tela explica que a lei da Flórida (§489.119) exige o número da sua licença em toda proposta e contrato. O número está coberto na figura.",
+                "en": "Under Licensing, type your License number(s) (1). The screen explains that Florida law (§489.119) requires your license number on every bid and contract. The number is covered in the picture."
+              },
+              "image": {
+                "pt": "help/img/guides/business-setup/setup-09.pt.jpg",
+                "en": "help/img/guides/business-setup/setup-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Toque em + Adicionar licença (2) para colocar mais de uma.",
+                "en": "Tap + Add license (2) to add more than one."
+              },
+              "image": {
+                "pt": "help/img/guides/business-setup/setup-10.pt.jpg",
+                "en": "help/img/guides/business-setup/setup-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Se nenhum serviço seu exige licença estadual de contractor, marque O meu trabalho não exige licença estadual de contractor (3). A tela diz para marcar só se nenhum serviço que você orça exige licença estadual, e para perguntar à agência de licenciamento de contractors do seu estado se você não tiver certeza.",
+                "en": "If none of your work needs a state contractor license, tick My work does not require a state contractor license (3). The screen says to tick it only if none of the work you quote needs a state license, and to ask your state's contractor licensing agency if you are not sure."
+              },
+              "image": {
+                "pt": "help/img/guides/business-setup/setup-11.pt.jpg",
+                "en": "help/img/guides/business-setup/setup-11.en.jpg"
               }
             }
           ]
@@ -3011,7 +3077,7 @@
             ]
           },
           "section": "setup",
-          "step": 2
+          "step": 4
         },
         {
           "labels": {
@@ -3023,7 +3089,7 @@
             ]
           },
           "section": "setup",
-          "step": 5
+          "step": 10
         },
         {
           "labels": {
@@ -3035,7 +3101,7 @@
             ]
           },
           "section": "setup",
-          "step": 5
+          "step": 9
         }
       ]
     },

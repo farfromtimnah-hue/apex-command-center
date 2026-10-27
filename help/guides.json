@@ -28166,6 +28166,88 @@
           "step": 4
         }
       ]
+    },
+    {
+      "id": "admin-sessions-transcripts",
+      "audience": "admin",
+      "title": {
+        "pt": "Sessões: a aba Transcrições",
+        "en": "Sessions: the Transcripts tab"
+      },
+      "summary": {
+        "pt": "Ache uma transcrição na aba Transcrições da página Sessões: filtre por cliente e por datas e leia o status de cada uma.",
+        "en": "Find a transcript in the Transcripts tab of the Sessions page: filter by client and by dates and read the status of each one."
+      },
+      "keywords": {
+        "pt": [
+          "transcrições",
+          "transcrição",
+          "filtrar por cliente",
+          "datas",
+          "aprovado",
+          "pendente",
+          "descartado",
+          "caixa de entrada"
+        ],
+        "en": [
+          "transcripts",
+          "transcript",
+          "filter by client",
+          "dates",
+          "approved",
+          "pending",
+          "discarded",
+          "inbox"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "tr",
+          "title": {
+            "pt": "A aba Transcrições",
+            "en": "The Transcripts tab"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra a aba e filtre. Na página Sessões toque em Transcrições. Escolha um cliente na lista All Clients (1) para ver só ele. Defina uma data de início e uma data de fim (2) para ver só aquele período. A imagem cobre os nomes dos clientes.",
+                "en": "Open the tab and filter. On the Sessions page tap Transcripts. Pick one client in the list All Clients (1) to see only that client. Set a start date and an end date (2) to see only that period. The picture covers the client names."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-sessions-transcripts/tr-01.pt.jpg",
+                "en": "help/img/guides/admin-sessions-transcripts/tr-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Leia o status. Cada linha mostra o cliente, a data e uma etiqueta (3): Aprovado, Pendente, Descartado ou Caixa de Entrada. Embaixo do nome, Clique para ver a transcrição abre o texto daquela reunião.",
+                "en": "Read the status. Each row shows the client, the date and a tag (3): Approved, Pending, Discarded or Inbox. Under the name, Click to view transcript opens the text of that meeting."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-sessions-transcripts/tr-02.pt.jpg",
+                "en": "help/img/guides/admin-sessions-transcripts/tr-02.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Filtrar transcrições por cliente"
+            ],
+            "en": [
+              "Filter transcripts by client"
+            ]
+          },
+          "section": "tr",
+          "step": 1
+        }
+      ]
     }
   ],
   "pages": {
@@ -28486,7 +28568,8 @@
         "en": "Sessions"
       },
       "guides": [
-        "admin-sessions-summary"
+        "admin-sessions-summary",
+        "admin-sessions-transcripts"
       ],
       "overview": {
         "pt": "Aqui chegam as reuniões gravadas. Ligue cada uma ao cliente, gere o resumo e aprove.",

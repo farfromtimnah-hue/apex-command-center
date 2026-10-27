@@ -7419,30 +7419,96 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra a tela de envio. Abra uma fatura e toque em Enviar fatura. Você pode fazer o mesmo com um orçamento, um recibo ou um contrato. Embaixo de Mensagem você vê o texto que o seu cliente vai receber (2). Toque no lápis ao lado de Mensagem (1).",
-                "en": "Open the send screen. Open an invoice and tap Send invoice. You can do the same with an estimate, a receipt or a contract. Under Message you see the text your customer will get (2). Tap the pencil next to Message (1)."
+                "pt": "Abra uma fatura: toque em Negócio, depois em Faturas, e toque na fatura, por exemplo INV-0025 (1).",
+                "en": "Open an invoice: tap Business, then Invoices, then tap the invoice, for example INV-0025 (1)."
               },
               "image": {
-                "pt": "help/img/guides/edit-send-messages/messages-01.pt.jpg",
-                "en": "help/img/guides/edit-send-messages/messages-01.en.jpg"
+                "pt": "help/img/guides/edit-send-messages/messages-s01.pt.jpg",
+                "en": "help/img/guides/edit-send-messages/messages-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Mude as palavras e salve. Escreva as suas palavras na caixa (1). As palavras entre chaves, como {customer_first_name} e {link} (2), são preenchidas pelo Apex para cada cliente, então mantenha exatamente como estão. Toque em Salvar (3). Toque em Cancelar para sair sem mudar nada.",
-                "en": "Change the words, then save. Type your own words in the box (1). The words in curly brackets, like {customer_first_name} and {link} (2), are filled in by Apex for each customer, so keep them exactly as they are. Tap Save (3). Tap Cancel to leave without changing anything."
+                "pt": "Toque em Enviar fatura (1). Você pode fazer o mesmo com um orçamento, um recibo ou um contrato. Nada é enviado ainda.",
+                "en": "Tap Send invoice (1). You can do the same with an estimate, a receipt or a contract. Nothing is sent yet."
               },
               "image": {
-                "pt": "help/img/guides/edit-send-messages/messages-02.pt.jpg",
-                "en": "help/img/guides/edit-send-messages/messages-02.en.jpg"
+                "pt": "help/img/guides/edit-send-messages/messages-s02.pt.jpg",
+                "en": "help/img/guides/edit-send-messages/messages-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Confira o resultado. A nova mensagem é usada na próxima vez que você enviar aquele tipo de documento, e vale para todos na sua empresa. Embaixo da caixa, Última alteração por mostra quem mudou por último. Cada tipo de documento tem a sua própria mensagem: orçamento, fatura, recibo e contrato.",
-                "en": "Check the result. The new message is used the next time you send that kind of document, and it is saved for everyone at your company. Under the box, Last changed by shows who changed it last. Each kind of document has its own message: estimate, invoice, receipt and contract."
+                "pt": "Abre a tela de envio. Embaixo de Mensagem (1) você vê o texto que o seu cliente vai receber. Não toque em Mensagem de texto nem em WhatsApp agora.",
+                "en": "The send screen opens. Under Message (1) you see the text your customer will get. Do not tap Text message or WhatsApp now."
+              },
+              "image": {
+                "pt": "help/img/guides/edit-send-messages/messages-s03.pt.jpg",
+                "en": "help/img/guides/edit-send-messages/messages-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Toque no lápis ao lado de Mensagem (1) para editar as palavras.",
+                "en": "Tap the pencil next to Message (1) to edit the words."
+              },
+              "image": {
+                "pt": "help/img/guides/edit-send-messages/messages-s04.pt.jpg",
+                "en": "help/img/guides/edit-send-messages/messages-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Escreva as suas palavras na caixa (1). As palavras entre chaves, como {customer_first_name} e {link} (2), são preenchidas pelo Apex para cada cliente, então mantenha exatamente como estão.",
+                "en": "Type your own words in the box (1). The words in curly brackets, like {customer_first_name} and {link} (2), are filled in by Apex for each customer, so keep them exactly as they are."
+              },
+              "image": {
+                "pt": "help/img/guides/edit-send-messages/messages-s05.pt.jpg",
+                "en": "help/img/guides/edit-send-messages/messages-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Toque em Salvar (1). Toque em Cancelar (2) para sair sem mudar nada.",
+                "en": "Tap Save (1). Tap Cancel (2) instead to leave without changing anything."
+              },
+              "image": {
+                "pt": "help/img/guides/edit-send-messages/messages-s06.pt.jpg",
+                "en": "help/img/guides/edit-send-messages/messages-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "A nova mensagem (1) é usada na próxima vez que você enviar aquele tipo de documento, e vale para todos na sua empresa.",
+                "en": "The new message (1) is used the next time you send that kind of document, and it is saved for everyone at your company."
+              },
+              "image": {
+                "pt": "help/img/guides/edit-send-messages/messages-s07.pt.jpg",
+                "en": "help/img/guides/edit-send-messages/messages-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Toque no lápis de novo. Embaixo da caixa, Última alteração por (1) mostra quem mudou a mensagem por último.",
+                "en": "Tap the pencil again. Under the box, Last changed by (1) shows who changed the message last."
+              },
+              "image": {
+                "pt": "help/img/guides/edit-send-messages/messages-s08.pt.jpg",
+                "en": "help/img/guides/edit-send-messages/messages-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Cada tipo de documento tem a sua própria mensagem: orçamento, fatura, recibo e contrato. Para mudar uma delas, repita estes passos na tela de envio daquele documento.",
+                "en": "Each kind of document has its own message: estimate, invoice, receipt and contract. To change one, repeat these steps on the send screen of that document."
               },
               "image": null
             }

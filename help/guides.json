@@ -8176,8 +8176,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em Negócio e depois em Orçamentos. Os botões (1) filtram a lista: Todos, Rascunho, Enviado, Aberto, Aceito e Outros.",
-                "en": "Tap Business, then Estimates. The chips (1) filter the list: All, Draft, Sent, Viewed, Accepted and Other."
+                "pt": "Ache o orçamento. Toque em Negócio e depois em Orçamentos. Os botões (1) filtram a lista: Todos, Rascunho, Enviado, Aberto, Aceito e Outros. Um nome que termina em R2 ou R3 é uma revisão de um orçamento anterior. Aqui o EST-0027-R3 (2) é o mais novo, ainda rascunho, e o EST-0027-R2 (3) é o que o cliente aceitou. Toque em um orçamento para abrir.",
+                "en": "Find the estimate. Tap Business, then Estimates. The chips (1) filter the list: All, Draft, Sent, Viewed, Accepted and Other. A name that ends in R2 or R3 is a revision of an earlier estimate. Here EST-0027-R3 (2) is the newest, still a draft, and EST-0027-R2 (3) is the one the customer accepted. Tap an estimate to open it."
               },
               "image": {
                 "pt": "help/img/guides/revise-or-void-estimate/manage-01.pt.jpg",
@@ -8187,8 +8187,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Um nome que termina em R2 ou R3 é uma revisão de um orçamento anterior. Aqui o EST-0027-R3 (2) é o mais novo, ainda rascunho, e o EST-0027-R2 (3) é o que o cliente aceitou. Toque em um orçamento para abrir.",
-                "en": "A name that ends in R2 or R3 is a revision of an earlier estimate. Here EST-0027-R3 (2) is the newest, still a draft, and EST-0027-R2 (3) is the one the customer accepted. Tap an estimate to open it."
+                "pt": "Veja as suas opções. Na ficha do orçamento, Criar revisão (1) faz uma nova versão que você pode mudar. Anular (2) cancela o orçamento. Desativar link (3) desliga o link que você mandou ao cliente. Os outros botões servem para enviar, ver como o cliente, baixar e marcar como aceito.",
+                "en": "See your choices. On the estimate sheet, Create revision (1) makes a new version you can change. Void (2) cancels the estimate. Disable link (3) turns off the link you sent to the customer. The other buttons are for sending, previewing, downloading and marking as accepted."
               },
               "image": {
                 "pt": "help/img/guides/revise-or-void-estimate/manage-02.pt.jpg",
@@ -8198,60 +8198,27 @@
             {
               "n": 3,
               "text": {
-                "pt": "Na ficha do orçamento, Criar revisão (1) faz uma nova versão que você pode mudar. Os outros botões servem para enviar, ver como o cliente, baixar e marcar como aceito.",
-                "en": "On the estimate sheet, Create revision (1) makes a new version you can change. The other buttons are for sending, previewing, downloading and marking as accepted."
-              },
-              "image": {
-                "pt": "help/img/guides/revise-or-void-estimate/manage-03.pt.jpg",
-                "en": "help/img/guides/revise-or-void-estimate/manage-03.en.jpg"
-              }
-            },
-            {
-              "n": 4,
-              "text": {
                 "pt": "Crie uma revisão quando o preço ou o serviço mudar. Toque em Criar revisão. O Apex mostra Revisão criada e abre um novo rascunho com o número seguinte, por exemplo R3. Mude o que precisar e envie de novo. O orçamento antigo fica guardado e não pode mais ser mudado. Se o cliente abrir o link antigo, ele é levado para a versão mais nova.",
                 "en": "Create a revision when the price or the work changes. Tap Create revision. Apex shows Revision created and opens a new draft with the next number, for example R3. Change what you need and send it again. The old estimate is kept and can no longer be changed. If the customer opens the old link, they are sent to the newest version."
               },
               "image": null
             },
             {
+              "n": 4,
+              "text": {
+                "pt": "Anule um orçamento com um motivo. Toque em Anular. Escreva o porquê na caixa (1) e toque em Salvar. O motivo é obrigatório. O orçamento fica guardado como anulado e nada é apagado. Toque em Cancelar para sair sem anular.",
+                "en": "Void an estimate with a reason. Tap Void. Write why in the box (1) and tap Save. A reason is required. The estimate is kept as void and nothing is deleted. Tap Cancel to leave without voiding."
+              },
+              "image": {
+                "pt": "help/img/guides/revise-or-void-estimate/manage-04.pt.jpg",
+                "en": "help/img/guides/revise-or-void-estimate/manage-04.en.jpg"
+              }
+            },
+            {
               "n": 5,
               "text": {
-                "pt": "Anular (1) cancela o orçamento.",
-                "en": "Void (1) cancels the estimate."
-              },
-              "image": {
-                "pt": "help/img/guides/revise-or-void-estimate/manage-05.pt.jpg",
-                "en": "help/img/guides/revise-or-void-estimate/manage-05.en.jpg"
-              }
-            },
-            {
-              "n": 6,
-              "text": {
-                "pt": "Toque em Anular. Escreva o porquê na caixa (1) e toque em Salvar (2). O motivo é obrigatório. O orçamento fica guardado como anulado e nada é apagado. Toque em Cancelar para sair sem anular.",
-                "en": "Tap Void. Write why in the box (1) and tap Save (2). A reason is required. The estimate is kept as void and nothing is deleted. Tap Cancel to leave without voiding."
-              },
-              "image": {
-                "pt": "help/img/guides/revise-or-void-estimate/manage-06.pt.jpg",
-                "en": "help/img/guides/revise-or-void-estimate/manage-06.en.jpg"
-              }
-            },
-            {
-              "n": 7,
-              "text": {
-                "pt": "Desativar link (1) desliga o link que você mandou ao cliente. Toque nele e confirme.",
-                "en": "Disable link (1) turns off the link you sent to the customer. Tap it and confirm."
-              },
-              "image": {
-                "pt": "help/img/guides/revise-or-void-estimate/manage-07.pt.jpg",
-                "en": "help/img/guides/revise-or-void-estimate/manage-07.en.jpg"
-              }
-            },
-            {
-              "n": 8,
-              "text": {
-                "pt": "Enquanto o link estiver desligado, quem abrir vê que ele não é válido e não consegue ver nem assinar. O endereço antigo deixa de funcionar para sempre. Se você ligar o link de novo, o documento abre em um endereço novo, então envie o link outra vez ao cliente.",
-                "en": "While the link is off, anyone who opens it sees that it is not valid and cannot view or sign. The old address stops working for good. If you turn the link on again, the document opens at a new address, so send the link to the customer again."
+                "pt": "Desligue o link do cliente. Toque em Desativar link e confirme. Enquanto o link estiver desligado, quem abrir vê que ele não é válido e não consegue ver nem assinar. O endereço antigo deixa de funcionar para sempre. Se você ligar o link de novo, o documento abre em um endereço novo, então envie o link outra vez ao cliente.",
+                "en": "Turn off the customer's link. Tap Disable link and confirm. While the link is off, anyone who opens it sees that it is not valid and cannot view or sign. The old address stops working for good. If you turn the link on again, the document opens at a new address, so send the link to the customer again."
               },
               "image": null
             }
@@ -8395,8 +8362,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em Analytics (1) na linha de abas no topo.",
-                "en": "Tap Analytics (1) in the row of tabs at the top."
+                "pt": "Abra o Histórico de registros. Toque em Analytics na linha de abas no topo e role para baixo. O cartão Histórico de registros (1) lista os dias que você preencheu. Ele fica na aba Analytics, não na aba Ritmo.",
+                "en": "Open Entry history. Tap Analytics in the row of tabs at the top, then scroll down. The card called Entry history (1) lists the days you filled in. It is on the Analytics tab, not on the Pace tab."
               },
               "image": {
                 "pt": "help/img/guides/daily-log/history-01.pt.jpg",
@@ -8406,8 +8373,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Role para baixo. O cartão Histórico de registros (1) lista os dias que você preencheu. Ele fica na aba Analytics, não na aba Ritmo.",
-                "en": "Scroll down. The card Entry history (1) lists the days you filled in. It is on the Analytics tab, not on the Pace tab."
+                "pt": "Escolha o mês e o status. As setas (1) vão para o mês anterior ou o seguinte. O menu (2) filtra a lista: Todos os status, Completo, Parcial, Preenchido depois e Folga. Parcial é um dia que você começou e não terminou. Preenchido depois é um dia que você perdeu e preencheu mais tarde. Cada dia tem um botão detalhes (3).",
+                "en": "Pick the month and the status. The arrows (1) go to the month before or after. The menu (2) filters the list: All statuses, Completed, Partial, Filled late and Day off. Partial means you started the day and did not finish it. Filled late means a day you missed and filled in later. Each day has a details button (3)."
               },
               "image": {
                 "pt": "help/img/guides/daily-log/history-02.pt.jpg",
@@ -8417,8 +8384,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "As setas (1 e 2) vão para o mês anterior ou o seguinte.",
-                "en": "The arrows (1 and 2) go to the month before or after."
+                "pt": "Veja os números de um dia. Toque em detalhes (1). A caixa (2) abre embaixo do dia e lista todos os números que você digitou naquele dia. Toque em detalhes de novo para fechar. Ao lado de detalhes fica o botão editar.",
+                "en": "See the numbers of one day. Tap details (1). The box (2) opens under the day and lists every number you typed that day. Tap details again to close it. Next to details is the button edit."
               },
               "image": {
                 "pt": "help/img/guides/daily-log/history-03.pt.jpg",
@@ -8428,8 +8395,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "O menu (1) filtra a lista: Todos os status, Completo, Parcial, Preenchido depois e Folga. Parcial é um dia que você começou e não terminou. Preenchido depois é um dia que você perdeu e preencheu mais tarde.",
-                "en": "The menu (1) filters the list: All statuses, Completed, Partial, Filled late and Day off. Partial means you started the day and did not finish it. Filled late means a day you missed and filled in later."
+                "pt": "Corrija um dia passado. Toque em editar. Abre o mesmo formulário do registro diário. Uma linha vermelha no topo (1) diz Editando um dia já registrado e a data. As seções são as do registro diário (aqui 5). Mude um número e toque em Continuar (2). Cada vez que você toca em Continuar, aquela seção é salva. Cancelar edição (3) sai do formulário.",
+                "en": "Fix a past day. Tap edit. The same form as the daily log opens. A red line at the top (1) says Editing a past day and the date. The sections are the ones of the daily log (here 5). Change a number, then tap Continue (2). Each time you tap Continue, that section is saved. Cancel editing (3) leaves the form."
               },
               "image": {
                 "pt": "help/img/guides/daily-log/history-04.pt.jpg",
@@ -8439,8 +8406,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Cada dia tem um botão detalhes (1). Toque nele.",
-                "en": "Each day has a details button (1). Tap it."
+                "pt": "Saia sem salvar. Se você digitou por cima de um número e toca em Cancelar edição, o Apex pergunta Descartar alterações? Ele diz que você mudou valores e ainda não salvou esta seção. Toque em Continuar editando (1) para voltar, ou em Descartar alterações (2) para jogar fora os números novos.",
+                "en": "Leave without saving. If you typed over a number and tap Cancel editing, Apex asks Discard changes? It says you changed values and have not saved this section yet. Tap Keep editing (1) to go back, or Discard changes (2) to throw the new numbers away."
               },
               "image": {
                 "pt": "help/img/guides/daily-log/history-05.pt.jpg",
@@ -8450,78 +8417,12 @@
             {
               "n": 6,
               "text": {
-                "pt": "A caixa (1) abre embaixo do dia e lista todos os números que você digitou naquele dia. Toque em detalhes de novo para fechar.",
-                "en": "The box (1) opens under the day and lists every number you typed that day. Tap details again to close it."
-              },
-              "image": {
-                "pt": "help/img/guides/daily-log/history-06.pt.jpg",
-                "en": "help/img/guides/daily-log/history-06.en.jpg"
-              }
-            },
-            {
-              "n": 7,
-              "text": {
-                "pt": "Ao lado de detalhes fica o botão editar (1). Toque em editar para corrigir um dia passado.",
-                "en": "Next to details is the button edit (1). Tap edit to fix a past day."
-              },
-              "image": {
-                "pt": "help/img/guides/daily-log/history-07.pt.jpg",
-                "en": "help/img/guides/daily-log/history-07.en.jpg"
-              }
-            },
-            {
-              "n": 8,
-              "text": {
-                "pt": "Abre o mesmo formulário do registro diário. Uma linha vermelha no topo diz Editando um dia já registrado e a data. As seções são as do registro diário (aqui 5). Mude um número e toque em Continuar (1). Cada vez que você toca em Continuar, aquela seção é salva.",
-                "en": "The same form as the daily log opens. A red line at the top says Editing a past day and the date. The sections are the ones of the daily log (here 5). Change a number, then tap Continue (1). Each time you tap Continue, that section is saved."
-              },
-              "image": {
-                "pt": "help/img/guides/daily-log/history-08.pt.jpg",
-                "en": "help/img/guides/daily-log/history-08.en.jpg"
-              }
-            },
-            {
-              "n": 9,
-              "text": {
-                "pt": "Para ver o que acontece ao sair, digite por cima de um número (1). Os números que o Apex calcula mudam na hora.",
-                "en": "To see what happens when you leave, type over a number (1). The numbers calculated by Apex change at once."
-              },
-              "image": {
-                "pt": "help/img/guides/daily-log/history-09.pt.jpg",
-                "en": "help/img/guides/daily-log/history-09.en.jpg"
-              }
-            },
-            {
-              "n": 10,
-              "text": {
-                "pt": "Cancelar edição sai do formulário. Se você digitou por cima de um número e toca em Cancelar edição, o Apex pergunta Descartar alterações? Ele diz que você mudou valores e ainda não salvou esta seção.",
-                "en": "Cancel editing leaves the form. If you typed over a number and tap Cancel editing, Apex asks Discard changes? It says you changed values and have not saved this section yet."
-              },
-              "image": {
-                "pt": "help/img/guides/daily-log/history-10.pt.jpg",
-                "en": "help/img/guides/daily-log/history-10.en.jpg"
-              }
-            },
-            {
-              "n": 11,
-              "text": {
-                "pt": "Toque em Continuar editando (1) para voltar, ou em Descartar alterações (2) para jogar fora os números novos. Aqui os números foram descartados, nada foi salvo.",
-                "en": "Tap Keep editing (1) to go back, or Discard changes (2) to throw the new numbers away. Here the numbers were discarded, nothing was saved."
-              },
-              "image": {
-                "pt": "help/img/guides/daily-log/history-11.pt.jpg",
-                "en": "help/img/guides/daily-log/history-11.en.jpg"
-              }
-            },
-            {
-              "n": 12,
-              "text": {
                 "pt": "Salve o dia. Na última seção o botão diz Salvar (1). Toque nele. Você volta para a tela Início, e o dia no Histórico de registros passa a mostrar os números novos. Cancelar edição (2) continua ali se você mudar de ideia. A linha (3) diz qual dia você está editando.",
                 "en": "Save the day. In the last section the button reads Save (1). Tap it. You go back to the Home screen, and the day in Entry history now shows the new numbers. Cancel editing (2) is still there if you change your mind. The line (3) tells you which day you are editing."
               },
               "image": {
-                "pt": "help/img/guides/daily-log/history-12.pt.jpg",
-                "en": "help/img/guides/daily-log/history-12.en.jpg"
+                "pt": "help/img/guides/daily-log/history-06.pt.jpg",
+                "en": "help/img/guides/daily-log/history-06.en.jpg"
               }
             }
           ]
@@ -8588,7 +8489,7 @@
             ]
           },
           "section": "history",
-          "step": 10
+          "step": 4
         },
         {
           "labels": {
@@ -8600,7 +8501,7 @@
             ]
           },
           "section": "history",
-          "step": 11
+          "step": 4
         },
         {
           "labels": {
@@ -8612,7 +8513,7 @@
             ]
           },
           "section": "history",
-          "step": 11
+          "step": 4
         }
       ]
     },
@@ -21058,8 +20959,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra um lead (Negócio, depois Pipeline, e toque no lead) e role até Dados do lead. Serviço(s) (1) pode ter mais de um serviço.",
-                "en": "Open a lead (Business, then Pipeline, then tap the lead) and scroll to Lead details. Service(s) (1) can hold more than one service."
+                "pt": "Preencha os dados do lead. Abra um lead (Negócio, depois Pipeline, e toque no lead) e role até Dados do lead. Serviço(s) (1) pode ter mais de um serviço: toque e marque todos os que valem (veja o guia Sua lista de serviços). Depois vêm Vendedor, Origem, Parceiro, Telefone, Email, Rua, Cidade, Estado e CEP. Instruções de acesso (2) é para dizer como entrar, por exemplo o código do portão. Toque em uma linha, digite e salve. Uma linha vazia diz Toque para preencher.",
+                "en": "Fill in the lead details. Open a lead (Business, then Pipeline, then tap the lead) and scroll to Lead details. Service(s) (1) can hold more than one service: tap it and tick all that apply (see the guide Your list of services). Then come Salesperson, Source, Partner, Phone, Email, Street, City, State and ZIP. Access notes (2) is for how to get in, for example a gate code. Tap a row, type and save. An empty row says Tap to fill in."
               },
               "image": {
                 "pt": "help/img/guides/lead-fields/fields-01.pt.jpg",
@@ -21069,8 +20970,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Toque em Serviço(s) e marque todos os que valem (1), depois toque em Salvar (2). Veja o guia Sua lista de serviços.",
-                "en": "Tap Service(s) and tick all the services that apply (1), then tap Save (2). See the guide Your list of services."
+                "pt": "Use os outros campos. Embaixo de Dados do lead fica a parte Outros campos. Data/hora do orçamento (1) é o dia e a hora da visita do orçamento. O que o cliente quer (2) é onde você escreve o que o seu cliente pediu. Status financiamento (3) é onde você anota se o cliente precisa de financiamento. Data/hora lead (4) é quando o lead chegou. Também há Vendedor secundário (opcional), Observação do trabalho e o nome do cliente.",
+                "en": "Use the other fields. Below Lead details is a part called Other fields. Estimate date/time (1) is the day and hour of the estimate visit. What the client wants (2) is where you write what your customer asked for. Financing status (3) is where you note if the customer needs financing. Lead date/time (4) is when the lead came in. There are also Second salesperson (optional), Job notes and the customer name."
               },
               "image": {
                 "pt": "help/img/guides/lead-fields/fields-02.pt.jpg",
@@ -21080,8 +20981,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Depois vêm Vendedor, Origem, Parceiro, Telefone, Email, Rua, Cidade e Estado (1). Toque em uma linha, digite e salve. Uma linha vazia diz Toque para preencher.",
-                "en": "Then come Salesperson, Source, Partner, Phone, Email, Street, City and State (1). Tap a row, type and save. An empty row says Tap to fill in."
+                "pt": "Os campos de mês. Se a sua empresa trabalha por temporada, toque em Ajustes (no alto, à direita), role até Suas listas e, em Meses do ciclo, toque em + Adicionar e digite o mês, por exemplo Outubro. Depois toque em Salvar ajustes. Agora a ficha do lead mostra duas linhas a mais em Outros campos: Mês fechamento (1) e Mês lead (2). Se a lista de Meses do ciclo estiver vazia, essas duas linhas ficam escondidas.",
+                "en": "The month fields. If your business works by season, tap Settings (top right), scroll to Your lists and, under Cycle months, tap + Add and type the month, for example Outubro (the month names are in Portuguese). Then tap Save settings. Now the lead sheet shows two more rows in Other fields: Closing month (1) and Lead month (2). If the Cycle months list is empty, these two rows stay hidden."
               },
               "image": {
                 "pt": "help/img/guides/lead-fields/fields-03.pt.jpg",
@@ -21091,8 +20992,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Depois vêm CEP / ZIP (1) e Instruções de acesso (2). Instruções de acesso é para dizer como entrar, por exemplo o código do portão.",
-                "en": "Next are ZIP (1) and Access notes (2). Access notes is for how to get in, for example a gate code."
+                "pt": "Veja quem indicou o lead. No alto da ficha do lead, a parte Indicação pode ter duas linhas. Indicado por (1) mostra o cliente ou parceiro cujo link trouxe este lead. Toque para abrir o lead dessa pessoa. Indicação de uma indicação (2) mostra uma etiqueta dourada, confirmar quem indicou, quando a pessoa tocou em Não foi essa pessoa na página de indicação. Toque na linha, digite quem indicou de verdade e salve.",
+                "en": "Read who referred the lead. At the top of the lead sheet, the part called Referral can show two rows. Referred by (1) names the customer or partner whose link brought this lead. Tap it to open that person's lead. Referral of a referral (2) shows a gold tag, referrer to confirm, when the person tapped Not (the name) on the referral page. Tap the row, type who really referred them and save."
               },
               "image": {
                 "pt": "help/img/guides/lead-fields/fields-04.pt.jpg",
@@ -21102,8 +21003,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Embaixo de Dados do lead fica a parte Outros campos (1). Data/hora do orçamento é o dia e a hora da visita do orçamento. O que o cliente quer é onde você escreve o que o seu cliente pediu. Status financiamento é onde você anota se o cliente precisa de financiamento. Data/hora lead é quando o lead entrou. Há também Vendedor secundário (opcional), Observação do trabalho e o nome do cliente.",
-                "en": "Below Lead details is a part called Other fields (1). Estimate date/time is the day and hour of the estimate visit. What the client wants is where you write what your customer asked for. Financing status is where you note if the customer needs financing. Lead date/time is when the lead came in. There are also Second salesperson (optional), Job notes and the customer name."
+                "pt": "Veja o que um cliente mandou para você. No lead de quem indicou outros, uma parte chamada Indicações mostra quantos leads essa pessoa mandou e quanto fechou, por exemplo Indicações: 2 leads · $0.00 fechado. Embaixo há uma linha para cada lead, com o estágio. Toque em uma linha para abrir esse lead.",
+                "en": "See what a customer sent you. On the lead of the person who referred others, a part called Referrals shows how many leads that person sent and how much of it closed, for example Referrals: 2 leads · $0.00 closed. Under it is one row for each lead, with its stage. Tap a row to open that lead."
               },
               "image": {
                 "pt": "help/img/guides/lead-fields/fields-05.pt.jpg",
@@ -21113,8 +21014,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Os campos de mês. Se a sua empresa trabalha por temporada, toque em Ajustes (no alto, à direita), role até Suas listas e, em Meses do ciclo, toque em + Adicionar e digite o mês, por exemplo Outubro. Depois toque em Salvar ajustes. Agora a ficha do lead mostra duas linhas a mais em Outros campos: Mês fechamento (1) e Mês lead (2). Se a lista de Meses do ciclo estiver vazia, essas duas linhas ficam escondidas.",
-                "en": "The month fields. If your business works by season, tap Settings (top right), scroll to Your lists and, under Cycle months, tap + Add and type the month, for example Outubro (the month names are in Portuguese). Then tap Save settings. Now the lead sheet shows two more rows in Other fields: Closing month (1) and Lead month (2). If the Cycle months list is empty, these two rows stay hidden."
+                "pt": "Veja os leads por estágio. No Pipeline, um botão fica à direita, embaixo dos números. Quando ele diz Ver tudo empilhado (1), você está na visão por estágio: toque em um estágio para ver só os leads dele.",
+                "en": "See the leads by stage. In the Pipeline, one button sits at the right under the numbers. When it says View stacked (1), you are in the by-stage view: tap a stage to see only its leads."
               },
               "image": {
                 "pt": "help/img/guides/lead-fields/fields-06.pt.jpg",
@@ -21124,45 +21025,12 @@
             {
               "n": 7,
               "text": {
-                "pt": "Veja quem indicou o lead. No alto da ficha do lead, a parte Indicação pode ter duas linhas. Indicado por (1) mostra o cliente ou parceiro cujo link trouxe este lead. Toque para abrir o lead dessa pessoa. Indicação de uma indicação (2) mostra uma etiqueta dourada, confirmar quem indicou, quando a pessoa tocou em Não foi essa pessoa na página de indicação. Toque na linha, digite quem indicou de verdade e salve.",
-                "en": "At the top of the lead sheet, the part called Referral can show two rows. Referred by (1) names the customer or partner whose link brought this lead. Tap it to open that person's lead. Referral of a referral (2) shows a gold tag, referrer to confirm, when the person tapped Not (the name) on the referral page. Tap the row, type who really referred them and save."
+                "pt": "Veja todos os estágios juntos. Toque em Ver tudo empilhado. Todos os estágios aparecem um embaixo do outro, em uma rolagem só, e o botão passa a dizer Ver por estágio (1). Toque nele para voltar.",
+                "en": "See every stage together. Tap View stacked. Every stage shows one under the other in one scroll, and the button now says View by stage (1). Tap it to go back."
               },
               "image": {
                 "pt": "help/img/guides/lead-fields/fields-07.pt.jpg",
                 "en": "help/img/guides/lead-fields/fields-07.en.jpg"
-              }
-            },
-            {
-              "n": 8,
-              "text": {
-                "pt": "Veja o que um cliente mandou para você. No lead de quem indicou outros, uma parte chamada Indicações mostra quantos leads essa pessoa mandou e quanto fechou, por exemplo Indicações: 2 leads · $0.00 fechado. Embaixo há uma linha para cada lead, com o estágio. Toque em uma linha para abrir esse lead.",
-                "en": "See what a customer sent you. On the lead of the person who referred others, a part called Referrals shows how many leads that person sent and how much of it closed, for example Referrals: 2 leads · $0.00 closed. Under it is one row for each lead, with its stage. Tap a row to open that lead."
-              },
-              "image": {
-                "pt": "help/img/guides/lead-fields/fields-08.pt.jpg",
-                "en": "help/img/guides/lead-fields/fields-08.en.jpg"
-              }
-            },
-            {
-              "n": 9,
-              "text": {
-                "pt": "No Pipeline, um botão fica à direita, embaixo dos números. Quando ele diz Ver tudo empilhado (1), você está na visão por estágio: toque em um estágio para ver só os leads dele. Toque em Ver tudo empilhado.",
-                "en": "In the Pipeline, one button sits at the right under the numbers. When it says View stacked (1), you are in the by-stage view: tap a stage to see only its leads. Tap View stacked."
-              },
-              "image": {
-                "pt": "help/img/guides/lead-fields/fields-09.pt.jpg",
-                "en": "help/img/guides/lead-fields/fields-09.en.jpg"
-              }
-            },
-            {
-              "n": 10,
-              "text": {
-                "pt": "Todos os estágios aparecem um embaixo do outro, em uma rolagem só, e o botão passa a dizer Ver por estágio (1). Toque nele para voltar.",
-                "en": "Every stage shows one under the other in one scroll, and the button now says View by stage (1). Tap it to go back."
-              },
-              "image": {
-                "pt": "help/img/guides/lead-fields/fields-10.pt.jpg",
-                "en": "help/img/guides/lead-fields/fields-10.en.jpg"
               }
             }
           ]

@@ -18218,10 +18218,13 @@
             {
               "n": 2,
               "text": {
-                "pt": "Comece. A primeira página diz: São 7 perguntas de Sim ou Não. Responda com base na sua percepção de hoje. Suas respostas são salvas automaticamente, você pode parar e continuar depois. A linha 0 de 7 respostas preenchidas conta as suas respostas. Toque em Começar.",
-                "en": "Start. The first page says: There are 7 Yes/No questions. Answer based on how you see things today. Your answers are saved automatically, you can stop and pick up later. The line 0 of 7 answers filled in counts your answers. Tap Start."
+                "pt": "Comece. A primeira página diz: São 7 perguntas de Sim ou Não. Responda com base na sua percepção de hoje. Suas respostas são salvas automaticamente, você pode parar e continuar depois. A linha 0 de 7 respostas preenchidas conta as suas respostas. Toque em Começar (1).",
+                "en": "Start. The first page says: There are 7 Yes/No questions. Answer based on how you see things today. Your answers are saved automatically, you can stop and pick up later. The line 0 of 7 answers filled in counts your answers. Tap Start (1)."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-02.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-02.en.jpg"
+              }
             },
             {
               "n": 3,

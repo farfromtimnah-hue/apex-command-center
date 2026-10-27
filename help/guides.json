@@ -22871,7 +22871,17 @@
           "section": "connect",
           "step": 11
         }
-      ]
+      ],
+      "notice": {
+        "title": {
+          "pt": "Este recurso ainda não está ativo",
+          "en": "This feature is not live yet"
+        },
+        "text": {
+          "pt": "A conexão simples, descrita abaixo, ainda está pendente. Mesmo assim, o Thumbtack já pode ser conectado hoje, mas por enquanto exige alguns passos extras. Fale com o seu representante do Apex e ele ajuda você a configurar.",
+          "en": "The easy connection described below is still pending. You can still connect Thumbtack today, but for now it takes a few extra steps. Reach out to your Apex representative and they will help you set it up."
+        }
+      }
     },
     {
       "id": "thumbtack-phone-numbers",

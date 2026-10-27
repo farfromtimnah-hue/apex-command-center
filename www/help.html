@@ -124,6 +124,8 @@
     #returnBtn { color: var(--text); }
     .guide-title { font-family: var(--serif); font-size: 38px; font-weight: 400; line-height: 1.12; letter-spacing: -0.01em; margin-bottom: 8px; }
     .guide-sum { font-size: 17px; line-height: 1.55; color: var(--muted); margin-bottom: 20px; }
+    .guide-notice { margin: 0 0 20px; padding: 14px 16px; border: 1px solid #d9c27a; border-left: 6px solid #c9a227; border-radius: 10px; background: #fbf6e4; color: #1b1b1b; font-size: 16px; line-height: 1.5; }
+    .guide-notice b { display: block; margin-bottom: 4px; }
     .sec-title { font-family: var(--serif); font-size: 26px; font-weight: 500; line-height: 1.25; margin: 40px 0 6px; padding-top: 26px; border-top: 2px solid var(--text); }
     .step { padding: 30px 14px 34px; margin: 0 -14px; border-radius: var(--radius); border-bottom: 1px solid var(--border); }
     .step.hit { background: #f3eee3; }
@@ -1019,6 +1021,13 @@
       view.classList.add("fade");
       view.appendChild(el("h1", "guide-title", L(g.title)));
       view.appendChild(el("p", "guide-sum", L(g.summary)));
+      if (g.notice && typeof g.notice === "object" && (g.notice.title || g.notice.text)) {
+        var nb = el("div", "guide-notice");
+        nb.setAttribute("role", "note");
+        if (g.notice.title) { nb.appendChild(el("b", "", L(g.notice.title))); }
+        if (g.notice.text) { nb.appendChild(document.createTextNode(L(g.notice.text))); }
+        view.appendChild(nb);
+      }
       var gtag2 = sideTag(g);
       if (gtag2) { var tagWrap = el("p", "guide-sum"); tagWrap.appendChild(gtag2); view.appendChild(tagWrap); }
       var vblock = videoBlock(g);

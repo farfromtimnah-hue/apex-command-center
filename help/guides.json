@@ -28941,6 +28941,77 @@
         }
       ],
       "buttons": []
+    },
+    {
+      "id": "admin-vendors-extras",
+      "audience": "admin",
+      "title": {
+        "pt": "Fornecedores: editar, adicionar serviço, pular mês e adiar início",
+        "en": "Vendors: edit, add a service, skip a month and delay the start"
+      },
+      "summary": {
+        "pt": "Telas menores de Fornecedores, escritas a partir do código.",
+        "en": "Smaller Vendors screens, written from the code."
+      },
+      "keywords": {
+        "pt": [
+          "editar fornecedor",
+          "adicionar serviço",
+          "pular este mês",
+          "adiar início"
+        ],
+        "en": [
+          "edit vendor",
+          "add service",
+          "skip this month",
+          "delay start"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "vx",
+          "title": {
+            "pt": "Telas menores",
+            "en": "Smaller screens"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Para mudar um fornecedor, abra o cartão dele e toque em Editar fornecedor. Você muda o nome, o nome em inglês (opcional), o tipo, o nome e o telefone do contato, a forma de pagamento (Zelle, cheque, ACH ou outra) e o identificador do pagamento. Toque em Salvar. Escrito a partir do código; nada foi aberto nem salvo.",
+                "en": "To change a vendor, open its card and tap Edit vendor. You change the name, the English name (optional), the type, the contact name and phone, the payment method (Zelle, check, ACH or other) and the payment identifier. Tap Save. Written from the code; nothing was opened or saved."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "No cartão do fornecedor, toque em + Adicionar serviço. Escolha o cliente e escreva o nome do serviço. O Tipo pode ser Mensal, Uma vez ou Duas metades. Escreva o valor planejado, o primeiro mês e a data de início. Em Mensal, escreva também o número de meses. A nota é opcional. Toque em Salvar. Escrito a partir do código; nada foi criado.",
+                "en": "On the vendor card, tap + Add service. Choose the client and write the service name. The Type can be Monthly, Once or Split in two halves. Write the planned amount, the first month and the start date. For Monthly, also write the number of months. The note is optional. Tap Save. Written from the code; nothing was created."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Quando um pagamento está a pagar ou atrasado, a linha tem os botões Pular este mês e Adiar início. Pular este mês abre uma janela com o campo Motivo; escreva o motivo e toque em Confirmar. O pagamento deste mês não será cobrado. Escrito a partir do código; nenhum botão foi tocado, porque nada estava a pagar.",
+                "en": "When a payment is due or late, its line has the buttons Skip this month and Delay start. Skip this month opens a window with the field Reason; write the reason and tap Confirm. This month's payment will not be charged. Written from the code; no button was tapped, because nothing was due."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Adiar início abre uma janela com a Nota (opcional). Escreva uma nota se quiser e toque em Confirmar. O início do serviço fica para depois. Escrito a partir do código; nada foi tocado.",
+                "en": "Delay start opens a window with a Note (optional). Write a note if you want and tap Confirm. The start of the service moves to later. Written from the code; nothing was tapped."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
     }
   ],
   "pages": {

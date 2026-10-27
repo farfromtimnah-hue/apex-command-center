@@ -3777,34 +3777,78 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Ajustes. Toque em Ajustes no canto de cima à direita do portal, ao lado de Ajuda, e role até Agendamento online.",
-                "en": "Open Settings. Tap Settings at the top right of the portal, next to Help, then scroll down to Online booking."
+                "pt": "Abra os Ajustes. Toque em Ajustes (1) no alto à direita do portal, ao lado de Ajuda, e role até Agendamento online.",
+                "en": "Open Settings. Tap Settings (1) at the top right of the portal, next to Help, then scroll down to Online booking."
               },
               "image": {
-                "en": "help/img/guides/online-booking-page/booking-01.en.jpg",
-                "pt": "help/img/guides/online-booking-page/booking-01.pt.jpg"
+                "pt": "help/img/guides/online-booking-page/booking-01.pt.jpg",
+                "en": "help/img/guides/online-booking-page/booking-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Ligue o agendamento online e defina as regras. Seus clientes escolhem o dia e o horário em uma página da sua empresa. Fica desligado até você ligar, então toque em Ligado. Depois defina os Dias de trabalho, o Início e o Fim, a Duração da visita (minutos), o Aviso mínimo (horas), o Máximo de visitas por dia e até quantos dias à frente o cliente pode agendar.",
-                "en": "Turn online booking on and set the rules. Your customers pick a day and time on a page of your company. It stays off until you switch it on, so tap On. Then set the Working days, the Start time and End time, the Visit length (minutes), the Minimum notice (hours), the Most visits per day and how far ahead customers can book (days)."
+                "pt": "Ligue o agendamento online. Seus clientes escolhem o dia e o horário em uma página da sua empresa. Fica desligado até você ligar, então toque em Ligado (1).",
+                "en": "Turn online booking on. Your customers pick a day and time on a page of your company. It stays off until you switch it on, so tap On (1)."
               },
               "image": {
-                "en": "help/img/guides/online-booking-page/booking-02.en.jpg",
-                "pt": "help/img/guides/online-booking-page/booking-02.pt.jpg"
+                "pt": "help/img/guides/online-booking-page/booking-02.pt.jpg",
+                "en": "help/img/guides/online-booking-page/booking-02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Compartilhe o seu link de agendamento. No fim de Agendamento online, o Link geral é a página para postar no seu site ou nas redes. Quem agendar vira lead. Toque em Copiar para copiar o link e em Salvar para guardar as suas configurações.",
-                "en": "Share your booking link. At the bottom of Online booking, the General link is the page to post on your website or social media. Anyone who books becomes a lead. Tap Copy to copy the link, and tap Save to keep your settings."
+                "pt": "Defina os Dias de trabalho (1): toque em cada dia em que as visitas podem acontecer.",
+                "en": "Set the Working days (1): tap each day your visits can happen."
               },
               "image": {
-                "en": "help/img/guides/online-booking-page/booking-03.en.jpg",
-                "pt": "help/img/guides/online-booking-page/booking-03.pt.jpg"
+                "pt": "help/img/guides/online-booking-page/booking-03.pt.jpg",
+                "en": "help/img/guides/online-booking-page/booking-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Defina o Início (1) e o Fim (2) do dia de visitas.",
+                "en": "Set the Start time (1) and End time (2) of your visit day."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/booking-04.pt.jpg",
+                "en": "help/img/guides/online-booking-page/booking-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Defina a Duração da visita em minutos (1), o Aviso mínimo em horas (2), o Máximo de visitas por dia (3) e até quantos dias à frente o cliente pode agendar (4).",
+                "en": "Set the Visit length in minutes (1), the Minimum notice in hours (2), the Most visits per day (3) and how far ahead customers can book, in days (4)."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/booking-05.pt.jpg",
+                "en": "help/img/guides/online-booking-page/booking-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Compartilhe o link de agendamento. No fim de Agendamento online, o Link geral (1) é a página para postar no seu site ou nas redes. Quem agendar vira um lead. O link aparece depois que você liga o agendamento e salva. Toque em Copiar (2) para copiar.",
+                "en": "Share your booking link. At the bottom of Online booking, the General link (1) is the page to post on your website or social media. Anyone who books becomes a lead. The link appears after you turn booking On and save. Tap Copy (2) to copy it."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/booking-06.pt.jpg",
+                "en": "help/img/guides/online-booking-page/booking-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Toque em Salvar (1) para guardar os seus ajustes.",
+                "en": "Tap Save (1) to keep your settings."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/booking-07.pt.jpg",
+                "en": "help/img/guides/online-booking-page/booking-07.en.jpg"
               }
             }
           ]
@@ -3819,23 +3863,78 @@
             {
               "n": 1,
               "text": {
-                "pt": "Escolha o tipo do evento no calendário. Em Agendamento online, role até Tipo do evento no calendário (1). Toda visita que um cliente agenda vira um evento na sua agenda. O menu tem Automático, Visita, Reunião, Serviço, Entrega ou Outro. Automático escolhe o tipo visita para você. Depois escolha um Modelo de perguntas (2): Limpeza residencial ou Geral. O modelo troca as perguntas que você tem agora. O Apex mostra Desfazer por um instante para você voltar atrás. Nada é salvo até você tocar em Salvar. Cada pergunta tem uma caixa de marcar (3) para mostrar ou esconder, e Remover (4) para apagar.",
-                "en": "Choose the calendar entry type. In Online booking, scroll to Calendar entry type (1). Every visit a customer books becomes an entry on your calendar. The menu is Automatic, Visit, Meeting, Service, Delivery or Other. Automatic picks the visit type for you. Then pick a Question preset (2): House cleaning or General. A preset replaces the questions you have now. Apex shows Undo for a moment so you can go back. Nothing is saved until you tap Save. Each question has a tick box (3) to show or hide it, and Remove (4) to delete it."
+                "pt": "Escolha o tipo do evento no calendário. Em Agendamento online, role até Tipo do evento no calendário (1). Cada visita que um cliente agenda vira um evento na sua agenda. O menu tem Automático, Visita, Reunião, Serviço, Entrega ou Outro. Automático escolhe o tipo da visita para você.",
+                "en": "Choose the calendar entry type. In Online booking, scroll to Calendar entry type (1). Every visit a customer books becomes an entry on your calendar. The menu is Automatic, Visit, Meeting, Service, Delivery or Other. Automatic picks the visit type for you."
               },
               "image": {
-                "en": "help/img/guides/online-booking-page/questions-01.en.jpg",
-                "pt": "help/img/guides/online-booking-page/questions-01.pt.jpg"
+                "pt": "help/img/guides/online-booking-page/questions-01.pt.jpg",
+                "en": "help/img/guides/online-booking-page/questions-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Adicione a sua própria pergunta e salve. Digite a pergunta na caixa (1). Escolha o tipo de resposta (2): Resposta curta, Número, ou Sim ou não. Toque em Adicionar (3). A sua pergunta vai para o fim da lista. Toque em Salvar (5) quando terminar. Em Link geral, Copiar (4) copia o link da sua página de agendamento. O link aparece depois que você liga o agendamento e salva.",
-                "en": "Add your own question and save. Type the question in the box (1). Pick the kind of answer (2): Short answer, Number, or Yes or no. Tap Add (3). Your question goes to the end of the list. Tap Save (5) when you are done. Under General link, Copy (4) copies the link of your booking page. The link appears after you turn booking On and save."
+                "pt": "Escolha um Modelo de perguntas (1): Limpeza residencial ou Geral. Um modelo troca as perguntas que você tem agora.",
+                "en": "Pick a Question preset (1): House cleaning or General. A preset replaces the questions you have now."
               },
               "image": {
-                "en": "help/img/guides/online-booking-page/questions-02.en.jpg",
-                "pt": "help/img/guides/online-booking-page/questions-02.pt.jpg"
+                "pt": "help/img/guides/online-booking-page/questions-02.pt.jpg",
+                "en": "help/img/guides/online-booking-page/questions-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Depois de escolher um modelo, o Apex mostra Desfazer (1) por um instante para você voltar. Nada é salvo até você tocar em Salvar.",
+                "en": "After you pick a preset, Apex shows Undo (1) for a moment so you can go back. Nothing is saved until you tap Save."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/questions-03.pt.jpg",
+                "en": "help/img/guides/online-booking-page/questions-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Cada pergunta tem uma caixa de marcar (1) para mostrar ou esconder, e Remover (2) para apagar.",
+                "en": "Each question has a tick box (1) to show or hide it, and Remove (2) to delete it."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/questions-04.pt.jpg",
+                "en": "help/img/guides/online-booking-page/questions-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Adicione a sua própria pergunta. Digite a pergunta na caixa (1). Escolha o tipo de resposta (2): Resposta curta, Número ou Sim ou não.",
+                "en": "Add your own question. Type the question in the box (1). Pick the kind of answer (2): Short answer, Number, or Yes or no."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/questions-05.pt.jpg",
+                "en": "help/img/guides/online-booking-page/questions-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Toque em Adicionar. A sua pergunta vai para o fim da lista (1).",
+                "en": "Tap Add. Your question goes to the end of the list (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/questions-06.pt.jpg",
+                "en": "help/img/guides/online-booking-page/questions-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Toque em Salvar (1) quando terminar.",
+                "en": "Tap Save (1) when you are done."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/questions-07.pt.jpg",
+                "en": "help/img/guides/online-booking-page/questions-07.en.jpg"
               }
             }
           ]
@@ -3850,19 +3949,19 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra a página de agendamento como o seu cliente. Ela mostra o nome e o logo da sua empresa, e nada da Apex. O cliente pode trocar entre PT e EN no alto. No Link geral o cliente preenche Nome (1) e Telefone (2). E-mail (3) é opcional. Endereço da visita (4) é sempre obrigatório. Quando você manda a página para um lead, o Apex já preenche o que sabe e mostra um botão Editar ao lado de cada linha.",
-                "en": "Open the booking page as your customer. It carries your company name and logo, and nothing from Apex. The customer can switch between PT and EN at the top. On the General link the customer fills in Name (1) and Phone (2). Email (3) is optional. Address for the visit (4) is always required. When you send the page to one lead, Apex already fills in what it knows and shows an Edit button next to each line."
+                "pt": "Abra a página de agendamento como o seu cliente. Ela leva o nome e a logo da sua empresa, e nada do Apex. O cliente pode trocar entre PT e EN no alto (1).",
+                "en": "Open the booking page as your customer. It carries your company name and logo, and nothing from Apex. The customer can switch between PT and EN at the top (1)."
               },
               "image": {
-                "en": "help/img/guides/online-booking-page/customer-01.en.jpg",
-                "pt": "help/img/guides/online-booking-page/customer-01.pt.jpg"
+                "pt": "help/img/guides/online-booking-page/customer-01.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Quando você manda a página para um lead, ela abre com Olá e o primeiro nome do lead. O Apex já preencheu o nome, o telefone e o email que conhece. Cada linha tem um botão Editar (1) caso o cliente queira mudar. O cliente ainda precisa digitar o Endereço da visita (2).",
-                "en": "When you send the page to one lead, it opens with Hi and the lead's first name. Apex already filled in the name, phone and email it knows. Each line has an Edit button (1) in case the customer wants to change it. The customer still has to type the Address for the visit (2)."
+                "pt": "No Link geral o cliente preenche Nome (1) e Telefone (2).",
+                "en": "On the General link the customer fills in Name (1) and Phone (2)."
               },
               "image": {
                 "pt": "help/img/guides/online-booking-page/customer-02.pt.jpg",
@@ -3872,19 +3971,19 @@
             {
               "n": 3,
               "text": {
-                "pt": "O cliente responde às suas perguntas. O cartão Sobre o serviço (1) mostra as perguntas que você escolheu. Abaixo dele, o botão Escolher dia e horário leva para a próxima tela.",
-                "en": "The customer answers your questions. The card About the job (1) shows the questions you chose. Below it, the button Choose a day and time goes to the next screen."
+                "pt": "E-mail (1) é opcional. Endereço da visita (2) é sempre obrigatório.",
+                "en": "Email (1) is optional. Address for the visit (2) is always required."
               },
               "image": {
-                "en": "help/img/guides/online-booking-page/customer-02.en.jpg",
-                "pt": "help/img/guides/online-booking-page/customer-02.pt.jpg"
+                "pt": "help/img/guides/online-booking-page/customer-03.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "O cliente escolhe um dia. A lista (1) mostra só os dias que você permite: seus Dias de trabalho, dentro do número de dias que você definiu para marcar com antecedência. Voltar (2) retorna. No nosso cliente de teste só os domingos são dias de trabalho, então só aparecem domingos.",
-                "en": "The customer picks a day. The list (1) shows only days you allow: your Working days, inside the number of days you set for how far ahead customers can book. Back (2) returns. In our test client only Sundays are working days, so only Sundays show."
+                "pt": "O cliente responde às suas perguntas. O cartão Sobre o serviço (1) mostra as perguntas que você escolheu.",
+                "en": "The customer answers your questions. The card About the job (1) shows the questions you chose."
               },
               "image": {
                 "pt": "help/img/guides/online-booking-page/customer-04.pt.jpg",
@@ -3894,19 +3993,19 @@
             {
               "n": 5,
               "text": {
-                "pt": "O cliente escolhe um horário e confirma. A grade mostra os horários livres, no fuso do próprio cliente. Um horário ocupado, ou perto demais para o seu aviso mínimo, não aparece. Quando o cliente toca em um, ele fica escuro, e o botão Confirmar embaixo da grade fica pronto. Outro dia volta para os dias.",
-                "en": "The customer picks a time and confirms. The grid shows the free times, in the customer's own time zone. A time that is taken, or too soon for your minimum notice, is not shown. When the customer taps one, it turns dark, and the button Confirm under the grid is ready. Another day goes back to the days."
+                "pt": "Embaixo, o botão Escolher dia e horário (1) vai para a próxima tela.",
+                "en": "Below it, the button Choose a day and time (1) goes to the next screen."
               },
               "image": {
-                "en": "help/img/guides/online-booking-page/customer-04.en.jpg",
-                "pt": "help/img/guides/online-booking-page/customer-04.pt.jpg"
+                "pt": "help/img/guides/online-booking-page/customer-05.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-05.en.jpg"
               }
             },
             {
               "n": 6,
               "text": {
-                "pt": "Depois de Confirmar, o cliente vê Visita agendada! com a data, o horário e o endereço. O botão Adicionar ao calendário (1) salva na agenda do cliente. Em Precisa mudar?, o cliente pode tocar em Escolher outro horário (2) ou Cancelar a visita (3).",
-                "en": "After Confirm, the customer sees Your visit is booked! with the date, time and address. The button Add to calendar (1) saves it to the customer's calendar. Under Need to change it?, the customer can tap Pick a different time (2) or Cancel the visit (3)."
+                "pt": "O cliente escolhe um dia. A lista (1) mostra só os dias que você permite: seus Dias de trabalho, dentro do número de dias que você definiu. Voltar (2) retorna. No nosso cliente de teste só o domingo é dia de trabalho, então só domingos aparecem.",
+                "en": "The customer picks a day. The list (1) shows only days you allow: your Working days, inside the number of days you set for how far ahead customers can book. Back (2) returns. In our test client only Sundays are working days, so only Sundays show."
               },
               "image": {
                 "pt": "help/img/guides/online-booking-page/customer-06.pt.jpg",
@@ -3916,8 +4015,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Se o cliente toca em Cancelar a visita, o Apex pergunta mais uma vez: Cancelar esta visita? Sim, cancelar minha visita (1) cancela. Manter minha visita (2) mantém.",
-                "en": "If the customer taps Cancel the visit, Apex asks once more: Cancel this visit? Yes, cancel my visit (1) cancels. Keep my visit (2) keeps it."
+                "pt": "O cliente vê os horários livres (1), no fuso do próprio cliente. Um horário ocupado, ou cedo demais para o seu aviso mínimo, não aparece.",
+                "en": "The customer sees the free times (1), in the customer's own time zone. A time that is taken, or too soon for your minimum notice, is not shown."
               },
               "image": {
                 "pt": "help/img/guides/online-booking-page/customer-07.pt.jpg",
@@ -3927,8 +4026,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Depois que uma visita é cancelada, o mesmo link deixa de funcionar. Ele diz Este link não está mais ativo. Fale com a empresa. Para marcar de novo, mande um novo link de agendamento.",
-                "en": "After a visit is cancelled, the same link no longer works. It says This link is no longer active. Please contact the business. To book again, send a new booking link."
+                "pt": "Quando o cliente toca em um horário (1), ele fica escuro.",
+                "en": "When the customer taps a time (1), it turns dark."
               },
               "image": {
                 "pt": "help/img/guides/online-booking-page/customer-08.pt.jpg",
@@ -3938,10 +4037,101 @@
             {
               "n": 9,
               "text": {
-                "en": "What happens on your side. When the customer confirms, the lead keeps its name and shows Booked for the day and time. An entry is put on your calendar with the title Visit and the customer's name, and the address as the location (see Calendar). If the booking came from the General link, a new lead is made with the source Site. Apex also sends a push to the owner, if push is on for that login. In our test no phone had push, so we did not see the push.",
-                "pt": "O que acontece do seu lado. Quando o cliente confirma, o lead mantém o nome e mostra Agendado para o dia e o horário. Uma entrada vai para a sua agenda com o título Visita e o nome do cliente, e o endereço como local (veja Agenda). Se a marcação veio do link Geral, um lead novo é criado com a origem Site. O Apex também manda um push para o dono, se o push estiver ligado naquele login. No nosso teste nenhum telefone tinha push, então não vimos o push."
+                "pt": "O botão Confirmar (1) embaixo da grade fica pronto. Outro dia volta para os dias.",
+                "en": "The button Confirm (1) under the grid is now ready. Another day goes back to the days."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/online-booking-page/customer-09.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Depois de Confirmar, o cliente vê Visita agendada! (1) com a data, o horário e o endereço.",
+                "en": "After Confirm, the customer sees Your visit is booked! (1) with the date, time and address."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/customer-10.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "O botão Adicionar ao calendário (1) salva a visita na agenda do cliente.",
+                "en": "The button Add to calendar (1) saves the visit to the customer's calendar."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/customer-11.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Em Precisa mudar?, o cliente pode tocar em Escolher outro horário (1) ou Cancelar a visita (2).",
+                "en": "Under Need to change it?, the customer can tap Pick a different time (1) or Cancel the visit (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/customer-12.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Se o cliente tocar em Cancelar a visita, o Apex pergunta mais uma vez: Cancelar esta visita? Sim, cancelar minha visita (1) cancela. Manter minha visita (2) mantém.",
+                "en": "If the customer taps Cancel the visit, Apex asks once more: Cancel this visit? Yes, cancel my visit (1) cancels. Keep my visit (2) keeps it."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/customer-13.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Depois que uma visita é cancelada, o mesmo link não funciona mais. Ele diz Este link não está mais ativo. Fale com a empresa (1). Para agendar de novo, envie um novo link de agendamento.",
+                "en": "After a visit is cancelled, the same link no longer works. It says This link is no longer active. Please contact the business (1). To book again, send a new booking link."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/customer-14.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "O que acontece do seu lado. Quando o cliente confirma, o lead mantém o nome e mostra Agendado para o dia e o horário (1). Se o agendamento veio do Link geral, um lead novo é criado com a origem Site. O Apex também envia um push ao dono, se o push estiver ligado naquele login.",
+                "en": "What happens on your side. When the customer confirms, the lead keeps its name and shows Booked for the day and time (1). If the booking came from the General link, a new lead is made with the source Site. Apex also sends a push to the owner, if push is on for that login."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/customer-15.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Um evento é colocado na sua agenda com o título Visita e o nome do cliente (1), e o endereço como local (veja Agenda).",
+                "en": "An entry is put on your calendar with the title Visit and the customer's name (1), and the address as the location (see Calendar)."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/customer-16.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Quando você envia a página para um lead, ela abre com Olá e o primeiro nome do lead (1). O Apex já preencheu o nome, o telefone, o e-mail e o endereço que conhece, e cada linha tem um botão Editar (2) caso o cliente queira mudar. Endereço da visita (3) é sempre obrigatório.",
+                "en": "When you send the page to one lead, it opens with Hi and the lead's first name (1). Apex already filled in the name, phone, email and address it knows, and each line has an Edit button (2) in case the customer wants to change it. Address for the visit (3) is always required."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/customer-17.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-17.en.jpg"
+              }
             }
           ]
         },
@@ -3955,7 +4145,7 @@
             {
               "n": 1,
               "text": {
-                "pt": "Ache o botão. Abra um lead. Embaixo de Enviar cartão de contato fica Enviar link de agendamento (1). Ele só aparece quando o Agendamento online está ligado em Ajustes. Se você não vê, ligue o agendamento primeiro.",
+                "pt": "Encontre o botão. Abra um lead. Embaixo de Enviar cartão de contato fica Enviar link de agendamento (1). Ele só aparece quando o Agendamento online está ligado nos Ajustes. Se você não vê, ligue o agendamento primeiro.",
                 "en": "Find the button. Open a lead. Under Send contact card there is Send booking link (1). It shows only when Online booking is switched On in Settings. If you do not see it, turn booking on first."
               },
               "image": {
@@ -3966,8 +4156,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Use a tela de envio. Tocar no botão cria um link só para este lead e abre uma tela. Mensagem de texto (1) e WhatsApp (2) abrem o app de mensagens do seu telefone com as palavras e o link prontos. A mensagem é escrita no idioma do lead. Copiar link (3) copia. Voltar (4) volta ao lead. O Apex não envia nada sozinho: você aperta enviar no seu app de mensagens. A tela também mostra o telefone que vai usar.",
-                "en": "Use the send screen. Tapping the button makes a link just for this lead and opens a screen. Text message (1) and WhatsApp (2) open your phone's messaging app with the words and the link ready. The message is written in the language of the lead. Copy link (3) copies it. Back (4) returns to the lead. Apex sends nothing by itself: you press send in your messaging app. The screen also shows the phone number it will use."
+                "pt": "Tocar no botão cria um link só para este lead e abre uma tela. Mensagem de texto (1) e WhatsApp (2) abrem o app de mensagens do seu telefone com o texto e o link prontos. A tela também mostra o número de telefone que será usado.",
+                "en": "Tapping the button makes a link just for this lead and opens a screen. Text message (1) and WhatsApp (2) open your phone's messaging app with the words and the link ready. The screen also shows the phone number it will use."
               },
               "image": {
                 "pt": "help/img/guides/online-booking-page/send-one-02.pt.jpg",
@@ -3977,12 +4167,45 @@
             {
               "n": 3,
               "text": {
-                "pt": "Acompanhe o agendamento no lead. Depois que você abre a tela de envio, o lead mostra uma seção chamada Agendamento (1). Primeiro ela diz Link criado, ainda não enviado. Depois que o cliente marca, diz Agendado para o dia e o horário.",
-                "en": "Follow the booking on the lead. After you open the send screen, the lead shows a section called Booking (1). First it reads Link created, not sent yet. After the customer books, it reads Booked for the day and time."
+                "pt": "A mensagem (1) é escrita no idioma do lead. O Apex não envia nada sozinho: você aperta enviar no seu app de mensagens.",
+                "en": "The message (1) is written in the language of the lead. Apex sends nothing by itself: you press send in your messaging app."
               },
               "image": {
                 "pt": "help/img/guides/online-booking-page/send-one-03.pt.jpg",
                 "en": "help/img/guides/online-booking-page/send-one-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Copiar link (1) copia o link.",
+                "en": "Copy link (1) copies the link."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/send-one-04.pt.jpg",
+                "en": "help/img/guides/online-booking-page/send-one-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Voltar (1) retorna ao lead.",
+                "en": "Back (1) returns to the lead."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/send-one-05.pt.jpg",
+                "en": "help/img/guides/online-booking-page/send-one-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Acompanhe o agendamento no lead. Depois que você abre a tela de envio, o lead mostra uma seção chamada Agendamento (1). Primeiro ela diz Link criado, ainda não enviado (2). Depois que o cliente agenda, ela diz Agendado para o dia e o horário.",
+                "en": "Follow the booking on the lead. After you open the send screen, the lead shows a section called Booking (1). First it reads Link created, not sent yet (2). After the customer books, it reads Booked for the day and time."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/send-one-06.pt.jpg",
+                "en": "help/img/guides/online-booking-page/send-one-06.en.jpg"
               }
             }
           ]
@@ -4011,7 +4234,7 @@
             ]
           },
           "section": "customer",
-          "step": 2
+          "step": 5
         }
       ]
     },
@@ -7312,43 +7535,288 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Suas listas. Toque em Ajustes no alto à direita e role até Suas listas. Em Vendedores, digite cada nome. Um nome com Login ativo (1) já tem o seu próprio login. Toque em Solicitar Login (2) para pedir ao Apex um login do portal para um vendedor: o Apex analisa o pedido antes, ele não cria o login sozinho. Um vendedor com login vê só os leads que ele cria ou que são dados a ele, nunca o seu financeiro, os projetos ou as metas. Toque em Cartão (3) para preparar o cartão de contato da pessoa. Toque em × (4) para remover um nome. Toque em + Adicionar (5) para colocar outro. Se a lista estiver vazia, a linha Vendedor não aparece nos leads.",
-                "en": "Open Your lists. Tap Settings at the top right and scroll to Your lists. Under Salespeople, type each name. A name with Login active (1) already has its own login. Tap Request Login (2) to ask Apex for a portal login for a salesperson: Apex reviews the request first, it does not create the login by itself. A salesperson with a login sees only the leads they create or that are given to them, never your finances, projects or goals. Tap Card (3) to set up the person's contact card. Tap × (4) to remove a name. Tap + Add (5) to add another. If the list is empty, the Salesperson line does not appear on leads."
+                "pt": "Toque em Ajustes (1) no canto superior direito do portal. A página de ajustes abre.",
+                "en": "Tap Settings (1) at the top right of the portal. The Settings page opens."
               },
               "image": {
-                "pt": "help/img/guides/salespeople-and-lists/lists-01.pt.jpg",
-                "en": "help/img/guides/salespeople-and-lists/lists-01.en.jpg"
+                "pt": "help/img/guides/salespeople-and-lists/lists-s01.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Prepare o cartão do vendedor. Na ficha Cartão do vendedor, toque em Trocar foto (1) para colocar uma foto. Preencha o Telefone (2), o Email (3) e o Cargo (4), que fica escrito em inglês no cartão. Toque em Salvar. O que você deixar em branco usa o telefone, o email e o logo da empresa.",
-                "en": "Set up the salesperson's card. In the Card sheet, tap Change photo (1) to add a photo. Fill in the Phone (2), the Email (3) and the Title (4), which is written in English on the card. Tap Save. Anything you leave blank is filled with the business phone, email and logo."
+                "pt": "Role para baixo até a parte chamada Suas listas (1). Ela guarda as escolhas que você faz no app.",
+                "en": "Scroll down to the part called Your lists (1). It holds the choices you pick from across the app."
               },
               "image": {
-                "pt": "help/img/guides/salespeople-and-lists/lists-02.pt.jpg",
-                "en": "help/img/guides/salespeople-and-lists/lists-02.en.jpg"
+                "pt": "help/img/guides/salespeople-and-lists/lists-s02.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Mantenha as outras listas e salve. Abaixo de Vendedores ficam os Tipos de parceiro, com as opções que você usa na aba Parceiros, e os Meses do ciclo (1), que você pode deixar vazio se trabalha o ano todo. A Margem mínima (2) é a menor margem que você aceita: o montador de orçamentos avisa abaixo dela, e nada é bloqueado. Toque em Salvar ajustes (3) quando terminar.",
-                "en": "Keep your other lists and save. Below Salespeople there are Partner types, with the choices you use on the Partners tab, and Cycle months (1), which you can leave empty if you work all year. Minimum margin (2) is the lowest margin you accept: the estimate builder warns you below it, and nothing is blocked. Tap Save settings (3) when you finish."
+                "pt": "Em Vendedores, toque em + Adicionar (1) para acrescentar um nome. Aparece uma caixa vazia.",
+                "en": "Under Salespeople, tap + Add (1) to add a name. A new empty box appears."
               },
               "image": {
-                "pt": "help/img/guides/salespeople-and-lists/lists-03.pt.jpg",
-                "en": "help/img/guides/salespeople-and-lists/lists-03.en.jpg"
+                "pt": "help/img/guides/salespeople-and-lists/lists-s03.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Escolha entre Solicitar Login e Pessoas e acessos. Solicitar Login (passo 1) pede à Apex que crie um login com usuário e senha para um vendedor, depois que a Apex analisa. O outro jeito é o card Pessoas e acessos em Ajustes: escolha o acesso Vendedor(a), digite o nome e o celular, e envie o link de convite. A pessoa cria uma passkey, então não há senha, e você mesmo faz na hora. Use Pessoas e acessos quando você o vê em Ajustes. Use Solicitar Login quando não vê. Dê a cada vendedor um dos dois. Veja o guia Adicionar pessoas e escolher o acesso.",
-                "en": "Choose Request Login or People and access. Request Login (step 1) asks Apex to create a login with a username and a password for a salesperson, after Apex reviews it. The other way is the card People and access in Settings: choose the access Salesperson, type the name and the mobile number, and send the invite link. The person creates a passkey, so there is no password, and you do it yourself at once. Use People and access when you see it in Settings. Use Request Login when you do not. Give each salesperson one of the two. See the guide Add people and choose their access."
+                "pt": "Digite o nome do vendedor na caixa nova (1). Digite cada vendedor assim, uma caixa para cada pessoa.",
+                "en": "Type the salesperson's name in the new box (1). Type each salesperson this way, one box for each person."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s04.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Um nome com Login ativo (1) já tem o seu próprio login no portal.",
+                "en": "A name with Login active (1) already has its own login for the portal."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s05.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Para pedir um login do portal ao Apex, toque em Solicitar Login (1) no nome. O Apex analisa o pedido antes: ele não cria o login sozinho. Um nome novo precisa ser salvo antes.",
+                "en": "To ask Apex for a portal login, tap Request Login (1) on the name. Apex reviews the request first: it does not create the login by itself. A new name must be saved first."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s06.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Um vendedor com login vê só os leads que ele cria ou que são dados a ele, nunca o seu financeiro, os projetos ou as metas.",
+                "en": "A salesperson with a login sees only the leads they create or that are given to them, never your finances, projects or goals."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s06.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s06.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Para configurar o cartão de contato do vendedor, toque em Cartão (1) no nome.",
+                "en": "To set up the salesperson's contact card, tap Card (1) on the name."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s08.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Na folha do cartão, toque em Trocar foto (1) para colocar uma foto da pessoa.",
+                "en": "In the Card sheet, tap Change photo (1) to add a photo of the person."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s09.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Preencha o Telefone (1) do vendedor.",
+                "en": "Fill in the Phone (1) of the salesperson."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s10.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Preencha o Email (1).",
+                "en": "Fill in the Email (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s11.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Preencha o Cargo (1). Ele é escrito em inglês no cartão.",
+                "en": "Fill in the Title (1). It is written in English on the card."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s12.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Toque em Salvar (1). O Apex responde Cartão salvo.",
+                "en": "Tap Save (1). Apex answers Card saved."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s13.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "O que você deixar em branco no cartão é preenchido com o telefone, o email e o logo da empresa.",
+                "en": "Anything you leave blank on the card is filled with the business phone, email and logo."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s13.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s13.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Para tirar um nome da lista, toque em × (1) na linha dele.",
+                "en": "To remove a name from the list, tap × (1) on its row."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s15.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Se a lista ficar vazia, a linha Vendedor não aparece nos leads.",
+                "en": "If the list is empty, the Salesperson line does not appear on leads."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s15.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s15.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Abaixo de Vendedores há Tipos de parceiro (1): as escolhas que você usa na aba Parceiros. Toque em + Adicionar embaixo para acrescentar uma.",
+                "en": "Below Salespeople there is Partner types (1): the choices you use on the Partners tab. Tap + Add under it to add one."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s17.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Meses do ciclo (1) é opcional. Você pode deixar vazio se trabalha o ano todo.",
+                "en": "Cycle months (1) is optional. You can leave it empty if you work all year."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s18.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "Margem mínima (1) é a menor margem que você aceita: o montador de orçamentos avisa abaixo dela, e nada é bloqueado.",
+                "en": "Minimum margin (1) is the lowest margin you accept: the estimate builder warns you below it, and nothing is blocked."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s19.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s19.en.jpg"
+              }
+            },
+            {
+              "n": 20,
+              "text": {
+                "pt": "Toque em Salvar ajustes (1) quando terminar. O Apex salva as suas listas.",
+                "en": "Tap Save settings (1) when you finish. Apex saves your lists."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s20.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s20.en.jpg"
+              }
+            },
+            {
+              "n": 21,
+              "text": {
+                "pt": "Solicitar Login (passo 6) pede ao Apex um login com usuário e senha, depois que o Apex analisa. O outro jeito é o cartão Pessoas e acessos (1) nos Ajustes.",
+                "en": "Request Login (step 6) asks Apex to create a login with a username and a password, after Apex reviews it. The other way is the card People and access (1) in Settings."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s21.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s21.en.jpg"
+              }
+            },
+            {
+              "n": 22,
+              "text": {
+                "pt": "Em Pessoas e acessos, em Adicionar pessoa, digite o nome da pessoa em Nome (1).",
+                "en": "In People and access, under Add a person, type the person's name in Name (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s22.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s22.en.jpg"
+              }
+            },
+            {
+              "n": 23,
+              "text": {
+                "pt": "Em Acesso, toque em Vendedor(a) (1).",
+                "en": "Under Access, tap Salesperson (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s23.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s23.en.jpg"
+              }
+            },
+            {
+              "n": 24,
+              "text": {
+                "pt": "Digite o Celular (1) da pessoa.",
+                "en": "Type the person's Mobile number (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s24.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s24.en.jpg"
+              }
+            },
+            {
+              "n": 25,
+              "text": {
+                "pt": "Toque em Criar link de convite (1) e envie o link. A pessoa cria uma passkey, então não há senha, e você mesmo faz isso na hora.",
+                "en": "Tap Create invite link (1) and send the link. The person creates a passkey, so there is no password, and you do it yourself at once."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s25.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s25.en.jpg"
+              }
+            },
+            {
+              "n": 26,
+              "text": {
+                "pt": "Use Pessoas e acessos quando ele aparecer nos Ajustes. Use Solicitar Login quando não aparecer. Dê a cada vendedor um dos dois. Veja o guia Adicione pessoas e escolha o acesso.",
+                "en": "Use People and access when you see it in Settings. Use Request Login when you do not. Give each salesperson one of the two. See the guide Add people and choose their access."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-s21.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-s21.en.jpg"
+              }
             }
           ]
         }
@@ -7364,7 +7832,7 @@
             ]
           },
           "section": "lists",
-          "step": 1
+          "step": 6
         }
       ]
     },

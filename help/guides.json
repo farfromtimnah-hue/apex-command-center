@@ -1765,97 +1765,199 @@
             {
               "n": 1,
               "text": {
-                "pt": "Antes de começar. Use Registrar pagamento. Não use Marcar como pago: esse botão é só uma etiqueta de lembrete e não emite recibo. Use quando um cliente paga uma fatura em dinheiro, cheque, Zelle ou outra forma e precisa de um recibo. O dinheiro entra como receita nos livros da Apex.",
-                "en": "Before you start. Use Registrar pagamento (Record payment). Do not use Marcar como pago (Mark as paid): that one is only a reminder note and does not issue a receipt. Use this when a client pays an invoice in cash, by check, Zelle or another method and needs a receipt. Cash counts as income in the Apex books."
+                "pt": "Use Registrar pagamento (1). Não use Marcar como pago (2): esse botão é só uma etiqueta de lembrete e não emite recibo. Use quando um cliente paga uma fatura em dinheiro, cheque, Zelle ou outra forma e precisa de um recibo. O dinheiro entra como receita nos livros da Apex.",
+                "en": "Use Record payment (1). Do not use Mark as paid (2): that one is only a reminder note and does not issue a receipt. Use this when a client pays an invoice in cash, by check, Zelle or another method and needs a receipt. Cash counts as income in the Apex books."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-record-payment/record-s01.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Abra Financeiro, toque em Faturas. Abra Financeiro no menu da esquerda. Embaixo dos quatro totais, toque no botão Faturas.",
-                "en": "Open Financeiro, tap Faturas. Open Financeiro in the left menu. Under the four totals, tap the Faturas button."
+                "pt": "Abra Financeiro (1) no menu da esquerda.",
+                "en": "Open Financial (1) in the left menu."
               },
               "image": {
-                "pt": "help/img/guides/admin-record-payment/record-02.jpg",
-                "en": "help/img/guides/admin-record-payment/record-02.jpg"
+                "pt": "help/img/guides/admin-record-payment/record-s02.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Toque em Não Pagas. Toque em Não Pagas. Encontre a fatura do cliente que pagou.",
-                "en": "Tap Não Pagas. Tap Não Pagas (Unpaid). Find the invoice of the client who paid."
+                "pt": "Embaixo dos quatro totais, toque no botão Faturas (1).",
+                "en": "Under the four totals, tap the Invoices button (1)."
               },
               "image": {
-                "pt": "help/img/guides/admin-record-payment/record-03.jpg",
-                "en": "help/img/guides/admin-record-payment/record-03.jpg"
+                "pt": "help/img/guides/admin-record-payment/record-s03.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Toque em Registrar pagamento. Na fatura, toque no botão dourado Registrar pagamento.",
-                "en": "Tap Registrar pagamento. On that invoice, tap the gold button Registrar pagamento (Record payment)."
+                "pt": "Toque em Não Pagas (1). Procure a fatura do cliente que pagou.",
+                "en": "Tap Unpaid (1). Find the invoice of the client who paid."
               },
               "image": {
-                "pt": "help/img/guides/admin-record-payment/record-04.jpg",
-                "en": "help/img/guides/admin-record-payment/record-04.jpg"
+                "pt": "help/img/guides/admin-record-payment/record-s04.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Preencha o formulário. 1. Valor recebido: digite o valor que você recebeu. 2. Forma de pagamento: escolha Dinheiro. Confira se a data está certa. 3. Toque em Salvar.",
-                "en": "Fill in the form. 1. Valor recebido: type the amount you received. 2. Forma de pagamento: choose Dinheiro (Cash). Check that the date is right. 3. Tap Salvar (Save)."
+                "pt": "Nessa fatura, toque no botão dourado Registrar pagamento (1).",
+                "en": "On that invoice, tap the gold button Record payment (1)."
               },
               "image": {
-                "pt": "help/img/guides/admin-record-payment/record-05.jpg",
-                "en": "help/img/guides/admin-record-payment/record-05.jpg"
+                "pt": "help/img/guides/admin-record-payment/record-s05.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s05.en.jpg"
               }
             },
             {
               "n": 6,
               "text": {
-                "pt": "Confira a mensagem. Aparece \"Pagamento registrado. Recibo RCT-...\". A fatura sai de Não Pagas e vai para Arquivo como Paga. O dinheiro já conta como receita.",
-                "en": "Check the message. You see \"Pagamento registrado. Recibo RCT-...\" (Payment recorded). The invoice leaves Não Pagas and moves to Arquivo as Paga (Paid). The cash is now counted as income."
+                "pt": "Em Valor recebido (1), digite o valor que você recebeu.",
+                "en": "In Amount received (1), type the amount you received."
               },
               "image": {
-                "pt": "help/img/guides/admin-record-payment/record-06.jpg",
-                "en": "help/img/guides/admin-record-payment/record-06.jpg"
+                "pt": "help/img/guides/admin-record-payment/record-s06.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s06.en.jpg"
               }
             },
             {
               "n": 7,
               "text": {
-                "pt": "Abra o recibo. Toque em Arquivo. Embaixo da fatura, em Pagamentos, estão os botões do recibo: Ver recibo, Copiar link e Baixar PDF. Se o cliente tem WhatsApp cadastrado, aparece também Enviar por WhatsApp.",
-                "en": "Open the receipt. Tap Arquivo (Archive). Under the invoice, in Pagamentos, are the receipt buttons: Ver recibo (view), Copiar link (copy link) and Baixar PDF (download). If the client has a WhatsApp number on file, Enviar por WhatsApp (Send on WhatsApp) also appears."
+                "pt": "Em Forma de pagamento (1), escolha Dinheiro, ou outra forma como cheque ou Zelle.",
+                "en": "In Payment method (1), choose Cash, or another method such as check or Zelle."
               },
               "image": {
-                "pt": "help/img/guides/admin-record-payment/record-07.jpg",
-                "en": "help/img/guides/admin-record-payment/record-07.jpg"
+                "pt": "help/img/guides/admin-record-payment/record-s07.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s07.en.jpg"
               }
             },
             {
               "n": 8,
               "text": {
-                "pt": "Envie para o cliente. É isso que o cliente vê: o recibo da Apex com o logo e \"Recebido em dinheiro\". Envie com Enviar por WhatsApp, ou toque em Copiar link e cole o link numa mensagem.",
-                "en": "Send it to the client. This is what the client sees: the Apex receipt with the logo and \"Recebido em dinheiro\" (received in cash). Send it with Enviar por WhatsApp, or tap Copiar link and paste the link into a message."
+                "pt": "Confira se a Data do recebimento (1) está certa.",
+                "en": "Check that the Date received (1) is right."
               },
               "image": {
-                "pt": "help/img/guides/admin-record-payment/record-08.jpg",
-                "en": "help/img/guides/admin-record-payment/record-08.jpg"
+                "pt": "help/img/guides/admin-record-payment/record-s08.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s08.en.jpg"
               }
             },
             {
               "n": 9,
               "text": {
-                "pt": "Se você errou. Toque em Desfazer ao lado do pagamento. A fatura volta para Não Pagas, o dinheiro sai dos livros e o recibo fica marcado como anulado. Depois registre de novo, do jeito certo.",
-                "en": "If you made a mistake. Tap Desfazer (Undo) next to the payment. The invoice goes back to Não Pagas, the cash leaves the books, and the receipt shows as voided. Then record it again correctly."
+                "pt": "Toque em Salvar (1).",
+                "en": "Tap Save (1)."
               },
               "image": {
-                "pt": "help/img/guides/admin-record-payment/record-09.jpg",
-                "en": "help/img/guides/admin-record-payment/record-09.jpg"
+                "pt": "help/img/guides/admin-record-payment/record-s09.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Aparece a mensagem Pagamento registrado com o número do recibo, por exemplo RCT-000006. A fatura sai de Não Pagas e vai para Arquivo como Paga. O dinheiro já conta como receita.",
+                "en": "A message says Payment recorded and shows the receipt number, for example RCT-000008. The invoice leaves Unpaid and moves to Archive as Paid. The cash is now counted as income."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-record-payment/record-s10.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Toque em Arquivo (1).",
+                "en": "Tap Archive (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-record-payment/record-s11.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Embaixo da fatura, em Pagamentos, toque em Ver recibo (1) para ver o recibo.",
+                "en": "Under the invoice, in Pagamentos, tap View receipt (1) to see the receipt."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-record-payment/record-s12.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Copiar link (1) copia o link do recibo, para colar numa mensagem.",
+                "en": "Copy link (1) copies the link of the receipt, to paste in a message."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-record-payment/record-s13.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Baixar PDF (1) baixa o recibo. Se o cliente tem WhatsApp cadastrado, aparece também Enviar por WhatsApp ao lado destes botões.",
+                "en": "Download PDF (1) downloads the receipt. If the client has a WhatsApp number on file, Send on WhatsApp also appears next to these buttons."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-record-payment/record-s14.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "É isso que o cliente vê: o recibo da Apex com o logo e Recebido em dinheiro (1).",
+                "en": "This is what the client sees: the Apex receipt with the logo and Received in cash (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-record-payment/record-s15.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Envie com Enviar por WhatsApp, ou toque em Copiar link (1) e cole o link numa mensagem.",
+                "en": "Send it with Send on WhatsApp, or tap Copy link (1) and paste the link into a message."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-record-payment/record-s16.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Se você errou, toque em Desfazer (1) ao lado do pagamento.",
+                "en": "If you made a mistake, tap Undo (1) next to the payment."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-record-payment/record-s17.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Aparece a mensagem Pagamento desfeito. A fatura volta para Não Pagas, o dinheiro sai dos livros e o recibo fica marcado como anulado. Depois registre de novo, do jeito certo.",
+                "en": "A message says Payment undone. The invoice goes back to Unpaid, the cash leaves the books, and the receipt shows as voided. Then record it again correctly."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-record-payment/record-s18.pt.jpg",
+                "en": "help/img/guides/admin-record-payment/record-s18.en.jpg"
               }
             }
           ]
@@ -1872,7 +1974,7 @@
             ]
           },
           "section": "record",
-          "step": 4
+          "step": 5
         }
       ]
     },

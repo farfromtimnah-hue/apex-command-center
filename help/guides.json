@@ -21294,6 +21294,106 @@
         }
       ],
       "buttons": []
+    },
+    {
+      "id": "seller-price-list",
+      "audience": "client",
+      "who": [
+        "seller"
+      ],
+      "title": {
+        "pt": "Tabela de preços do vendedor",
+        "en": "The price list for a salesperson"
+      },
+      "summary": {
+        "pt": "Veja os preços de venda que você usa nos orçamentos. Só leitura e sem custos.",
+        "en": "See the sale prices you use on estimates. Read only, with no costs."
+      },
+      "keywords": {
+        "pt": [
+          "preços",
+          "tabela de preços",
+          "vendedor",
+          "preço de venda",
+          "item",
+          "orçamento",
+          "custo"
+        ],
+        "en": [
+          "prices",
+          "price list",
+          "salesperson",
+          "sale price",
+          "item",
+          "estimate",
+          "cost"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "prices",
+          "title": {
+            "pt": "Ver os preços",
+            "en": "See the prices"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Toque em Negócio. Um menu abre (1). Toque em Preços.",
+                "en": "Tap Business. A menu opens (1). Tap Pricing."
+              },
+              "image": {
+                "pt": "help/img/guides/seller-price-list/prices-01.pt.jpg",
+                "en": "help/img/guides/seller-price-list/prices-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "A Tabela de preços abre (1). Ela diz quantos itens existem e que são os preços que você usa nos orçamentos. Cada linha tem o item, a categoria e a unidade, e o preço de venda (3). Você só pode ler.",
+                "en": "The Price list opens (1). It says how many items there are and that these are the prices you use on estimates. Each row has the item, its category and unit, and the sale price (3). You can only read it."
+              },
+              "image": {
+                "pt": "help/img/guides/seller-price-list/prices-02.pt.jpg",
+                "en": "help/img/guides/seller-price-list/prices-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Os botões (2) filtram a lista. Faltam dados mostra os itens que o dono ainda precisa completar.",
+                "en": "The chips (2) filter the list. Needs info shows the items that the owner still has to complete."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Toque em Faltam dados (1) para ver só esses itens. Toque em Todos para ver a lista completa de novo.",
+                "en": "Tap Needs info (1) to see only those items. Tap All to see the full list again."
+              },
+              "image": {
+                "pt": "help/img/guides/seller-price-list/prices-03.pt.jpg",
+                "en": "help/img/guides/seller-price-list/prices-03.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Toque em um item para abrir. Você vê o item (1): nome, categoria, tipo, unidade e o preço de venda. Embaixo fica a Descrição para o cliente (2). Não há custo nem margem: isso é do dono. Aqui não há nada para salvar.",
+                "en": "Tap an item to open it. You see the item (1): name, category, type, unit and the sale price. Below is the Customer description (2). There is no cost and no margin: those are for the owner. There is nothing to save here."
+              },
+              "image": {
+                "pt": "help/img/guides/seller-price-list/prices-04.pt.jpg",
+                "en": "help/img/guides/seller-price-list/prices-04.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": []
     }
   ],
   "pages": {
@@ -21458,7 +21558,8 @@
       },
       "guides": [
         "pricing-setup",
-        "pricing-item-and-import"
+        "pricing-item-and-import",
+        "seller-price-list"
       ],
       "overview": {
         "pt": "Aqui você vê quanto cada item custa contra o que você cobra, com a margem. Você pode adicionar um item ou importar uma planilha.",

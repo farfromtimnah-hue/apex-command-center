@@ -97,7 +97,7 @@ const publicIds = REAL.guides.filter((g) => (g.who || []).includes("public")).ma
 
 // ================================================================ A. every role against every guide
 {
-  const counts = { owner: 74, partner: 74, staff_finance: 57, staff: 48, seller: 36, lead: 10, alice: 93, rafa: 93, developer: 93, none: 2 };
+  const counts = { owner: 75, partner: 75, staff_finance: 58, staff: 49, seller: 36, lead: 11, alice: 94, rafa: 94, developer: 94, none: 2 };
   TOKENS.forEach((r) => {
     const got = idsFor(r);
     const core2 = allIds.filter((id) => core.guideVisibleTo(REAL.guides.find((g) => g.id === id), REAL.groups, r));
@@ -114,7 +114,7 @@ const publicIds = REAL.guides.filter((g) => (g.who || []).includes("public")).ma
   ["estimate", "contract", "pricing-setup", "projects", "pipeline"].forEach((id) => ok(staffSees.includes(id), "staff without finance can get " + id + " (cost and profit are part of their view)"));
   ok(idsFor("staff_finance").includes("finances") && !idsFor("staff_finance").includes("card-payments-setup"), "staff with finance gets Finances but not the Settings guides");
   ok(["invoice", "receipt", "reported-payments", "estimate"].every((id) => sellerSees.includes(id)), "a seller gets the invoice, receipt, reported payment and estimate guides");
-  ok(idsFor("lead").join() === "documents,my-devices,use-learn-and-language,assigned-tools,business-xray,other-assessments,sign-in-screens,invited-person-sign-in,delete-my-account,management-xray", "a lead sees only Assigned, Documents, language, sign in and account guides");
+  ok(idsFor("lead").join() === "documents,my-devices,use-learn-and-language,assigned-tools,business-xray,other-assessments,sign-in-screens,invited-person-sign-in,delete-my-account,management-xray,leadership-xray", "a lead sees only Assigned, Documents, language, sign in and account guides");
   ok(idsFor("apex_seller").join() === publicIds.join(), "the reserved apex_seller token sees only the public guides");
 }
 
@@ -140,7 +140,7 @@ const publicIds = REAL.guides.filter((g) => (g.who || []).includes("public")).ma
   const f = W.helpFilterGuides(REAL, "seller", "admin");
   ok(f.guides.length === 36 && !("groups" in f) && f.guides.every((g) => !("who" in g)), "filterGuides for a seller: 36 guides, no groups, no who lists");
   ok(Object.keys(f.pages).every((k) => f.pages[k].guides.every((id) => f.guides.some((g) => g.id === id))), "the screen overviews list only visible guides");
-  ok(W.helpFilterGuides(REAL, "alice", "client").guides.length === 77 && W.helpFilterGuides(REAL, "alice", "admin").guides.length === 16, "staff pick a side: 77 client guides or 16 admin guides");
+  ok(W.helpFilterGuides(REAL, "alice", "client").guides.length === 78 && W.helpFilterGuides(REAL, "alice", "admin").guides.length === 16, "staff pick a side: 78 client guides or 16 admin guides");
   ok(JSON.stringify(W.helpFilterGuides(REAL, "staff", "x").guides.map((g) => g.id)) === JSON.stringify(core.filterGuides(REAL, "staff", "x").guides.map((g) => g.id)), "parity: filterGuides agrees between the Worker and HelpCore");
 }
 
@@ -166,7 +166,7 @@ async function payload(key, query, extraHeaders, status, secret) {
   const o = await payload("owner", "?lang=pt");
   ok(o.res.headers.get("Cache-Control") === "private, no-store", "guide list: Cache-Control is private, no-store");
   ok(!o.res.headers.get("Set-Cookie"), "guide list: no Set-Cookie");
-  ok(o.json.guides.length === 74 && o.json.audience === "client" && o.json.lang === "pt", "an owner gets 74 client guides in Portuguese");
+  ok(o.json.guides.length === 75 && o.json.audience === "client" && o.json.lang === "pt", "an owner gets 75 client guides in Portuguese");
   const text = JSON.stringify(o.json);
   ok(!/"who"|"groups"/.test(text), "the answer carries no who list and no groups object");
   ok(!/apex\.resonateai\.online\/help\//.test(text) && !/"help\/img\//.test(text), "no public static address of any picture or video is in the answer");
@@ -196,7 +196,7 @@ async function payload(key, query, extraHeaders, status, secret) {
   // staff
   const a = await payload("alice", "?lang=pt&audience=admin");
   const c = await payload("rafa", "?lang=pt&audience=client");
-  ok(a.json.audience === "admin" && a.json.guides.length === 16 && c.json.audience === "client" && c.json.guides.length === 77, "staff may ask for either side");
+  ok(a.json.audience === "admin" && a.json.guides.length === 16 && c.json.audience === "client" && c.json.guides.length === 78, "staff may ask for either side");
   const d = await payload("developer", "?lang=pt");
   ok(d.json.audience === "admin", "staff with no audience field start on the admin side");
   const sf = await payload("staff", "?lang=pt&audience=admin");
@@ -204,15 +204,15 @@ async function payload(key, query, extraHeaders, status, secret) {
 
   // a lead
   const l = await payload("lead", "?lang=pt");
-  ok(l.json.guides.length === 10, "a lead (status read from the clients row) gets the 10 lead guides");
+  ok(l.json.guides.length === 11, "a lead (status read from the clients row) gets the 11 lead guides");
   const lbad = await payload(USERS.owner, "?lang=pt", undefined, "lead");
-  ok(lbad.json.guides.length === 10, "an owner login of a client whose status is lead is a lead");
+  ok(lbad.json.guides.length === 11, "an owner login of a client whose status is lead is a lead");
   const dbDown = await payload(USERS.owner, "?lang=pt", undefined, undefined);
   void dbDown;
   const brokenEnv = { HELP_LINK_SECRET: "x", ASSETS: fakeAssets(), DB: { prepare: () => { throw new Error("db down"); } } };
   currentUser = USERS.owner;
   const br = await build(FNS, VARS, stubsFor()).handleGetHelpGuides(getReq("/api/help/guides?lang=pt"), brokenEnv);
-  ok(br.status === 200 && (await br.json()).guides.length === 10, "if the clients row cannot be read, the viewer is treated as a lead (the narrowest view)");
+  ok(br.status === 200 && (await br.json()).guides.length === 11, "if the clients row cannot be read, the viewer is treated as a lead (the narrowest view)");
 
   // the public route
   currentUser = null;

@@ -21394,6 +21394,82 @@
         }
       ],
       "buttons": []
+    },
+    {
+      "id": "seller-contracts",
+      "audience": "client",
+      "who": [
+        "seller"
+      ],
+      "title": {
+        "pt": "Contratos dos seus leads",
+        "en": "The contracts of your leads"
+      },
+      "summary": {
+        "pt": "Veja os contratos dos seus leads, em grupos por estágio.",
+        "en": "See the contracts of your leads, in groups by stage."
+      },
+      "keywords": {
+        "pt": [
+          "contratos",
+          "vendedor",
+          "contrato assinado",
+          "recusado",
+          "precisa de ação",
+          "estágio"
+        ],
+        "en": [
+          "contracts",
+          "salesperson",
+          "signed contract",
+          "declined",
+          "needs action",
+          "stage"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "contracts",
+          "title": {
+            "pt": "Ver os contratos",
+            "en": "See the contracts"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Toque em Negócio. Um menu abre (1). Toque em Contratos.",
+                "en": "Tap Business. A menu opens (1). Tap Contracts."
+              },
+              "image": {
+                "pt": "help/img/guides/seller-contracts/contracts-01.pt.jpg",
+                "en": "help/img/guides/seller-contracts/contracts-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Os contratos dos seus próprios leads ficam em grupos por estágio. Precisa de ação (1) vem primeiro e mostra, por exemplo, um contrato recusado com o motivo que o cliente deu. Toque no título de um grupo, como Sem contrato assinado (2), para abrir ou fechar. O número ao lado de cada título conta o que tem dentro.",
+                "en": "The contracts of your own leads sit in groups by stage. Needs action (1) comes first and shows, for example, a declined contract with the reason the customer gave. Tap the title of a group, like No signed contract (2), to open or close it. The number next to each title counts what is inside."
+              },
+              "image": {
+                "pt": "help/img/guides/seller-contracts/contracts-02.pt.jpg",
+                "en": "help/img/guides/seller-contracts/contracts-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Os outros grupos são Rascunho, Aguardando a empresa, Aguardando o cliente, Assinados e Outros. Um contrato assinado pelos dois lados aparece como Totalmente assinado. Você só vê os contratos dos seus próprios leads.",
+                "en": "The other groups are Draft, Waiting on the company, Waiting on the customer, Signed and Other. A contract signed by both sides shows as Fully signed. You only see the contracts of your own leads."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
     }
   ],
   "pages": {
@@ -21519,7 +21595,8 @@
         "contracts-that-need-you",
         "contract-price-values-and-clauses",
         "contract-other-states",
-        "cleaning-agreement"
+        "cleaning-agreement",
+        "seller-contracts"
       ],
       "overview": {
         "pt": "Aqui você vê os seus contratos. Você também pode abrir o contrato dentro do projeto.",

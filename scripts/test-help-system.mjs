@@ -1292,6 +1292,9 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
     ok(/function signedIn\(\)[\s\S]{0,400}hasClientToken\(\) \|\| !!authUser \|\| HC\.isStaffRole\(role\)/.test(h), "(sec) help.html: signedIn() reads the portal token, the Firebase user and the staff role");
     ok(/byId\("searchBox"\)\.hidden = !on/.test(h) && /onAuthStateChanged\(function \(u\) \{ authUser = u; showAskIfSignedIn\(\)/.test(h), "(sec) help.html: the box follows the sign in, including a late Firebase answer and a sign out");
     ok(!/box\.hidden = false;/.test(h), "(sec) help.html: nothing shows the Ask box unconditionally");
+    ok(/<meta name="robots" content="noindex, nofollow">/.test(h), "(sec) help.html: noindex, nofollow");
+    const rb = read("robots.txt");
+    ok(/^User-agent: \*$/m.test(rb) && /^Disallow: \/help\/$/m.test(rb) && /^Disallow: \/help\.html$/m.test(rb) && !/^Disallow: \/?$/m.test(rb), "(sec) robots.txt blocks help and help/ only, not the whole site");
   }
   { // a client whose role is something other than staff, trying a staff-looking value
     const p = await learnPage("pt", { role: "owner", path: "/dashboard.html" });

@@ -1,0 +1,5 @@
+# Learn (Aprenda): the help library is for people who use Apex, not for search engines.
+# Only help is blocked. The rest of the site is not listed here.
+User-agent: *
+Disallow: /help/
+Disallow: /help.html

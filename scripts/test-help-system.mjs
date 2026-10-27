@@ -217,8 +217,9 @@ ok(core.parseDeepLink("?audience=staff").audience === null && core.parseDeepLink
 const workerSrc = read("worker/index.js");
 const WORKER_FNS = ["handlePostHelpAsk", "validateHelpReply", "helpBuildIndex", "helpBuildOtherList", "helpGuideAudience", "supportStaffAuthed", "helpSystemText", "helpPageKey", "publicReadRateLimited",
   "supportFeatureGuideFor", "supportPageIsPortal", "supportRateLimited", "supportIncrementDailyCount",
-  "handlePostHelpSuggest", "validateSuggestTurn", "helpCleanTranscript", "helpSuggestSystem", "suggestReadiness", "helpSuggestSummary", "helpSpecFromModel", "helpPlainText"];
-const WORKER_VARS = ["HELP_AI_MODEL", "HELP_INDEXES", "HELP_OTHERS", "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "HELP_SUGGEST_MAX_QUESTIONS", "HELP_SUGGEST_MAX_ITEMS",
+  "handlePostHelpSuggest", "validateSuggestTurn", "helpCleanTranscript", "helpSuggestSystem", "suggestReadiness", "helpSuggestSummary", "helpSpecFromModel", "helpPlainText",
+  "helpViewerRole", "helpViewerRoleToken", "helpGuideVisibleTo", "helpFilterGuides", "helpIndexFor", "helpClampResult"];
+const WORKER_VARS = ["HELP_ADMIN_TOKENS", "HELP_ROLE_SET", "HELP_DEFAULT_WHO", "HELP_ROLE_INDEXES", "HELP_AI_MODEL", "HELP_INDEXES", "HELP_OTHERS", "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "HELP_SUGGEST_MAX_QUESTIONS", "HELP_SUGGEST_MAX_ITEMS",
   "SUPPORT_FEATURE_GUIDE_STAFF_PT", "SUPPORT_FEATURE_GUIDE_STAFF_EN", "SUPPORT_FEATURE_GUIDE_PORTAL_PT", "SUPPORT_FEATURE_GUIDE_PORTAL_EN"];
 const STAFF = { role: "alice", email: "a@x.test", display_name: "A" };
 const CLIENT = { role: "client", client_id: "c1", username: "loja1", login_role: "client" };

@@ -15867,6 +15867,9 @@ function clientRequestAllowed(path, method, clientId) {
     if (path === "/api/help/ask" && method === "POST") { return true; }
     // Learn (Aprenda) suggestion: files one support ticket, identity from the session.
     if (path === "/api/help/suggest" && method === "POST") { return true; }
+    // Learn (Aprenda) phase B: the guide list, the public set and the signed file links.
+    if ((path === "/api/help/guides" || path === "/api/help/public") && method === "GET") { return true; }
+    if (path.indexOf("/api/help/file/") === 0 && (method === "GET" || method === "HEAD")) { return true; }
     // Task 1.7: Siri shortcuts, scoped to the caller's own role inside the
     // handler itself (a seller session is refused there, not here).
     if ((path === "/api/me/outstanding-invoices" || path === "/api/me/today-schedule") && method === "GET") { return true; }
@@ -16174,6 +16177,9 @@ function sellerRequestAllowed(path, method, clientId) {
     if (path === "/api/help/ask" && method === "POST") { return true; }
     // Learn (Aprenda) suggestion: same route the owner has.
     if (path === "/api/help/suggest" && method === "POST") { return true; }
+    // Learn (Aprenda) phase B: the guide list, the public set and the signed file links.
+    if ((path === "/api/help/guides" || path === "/api/help/public") && method === "GET") { return true; }
+    if (path.indexOf("/api/help/file/") === 0 && (method === "GET" || method === "HEAD")) { return true; }
 
     var base = "/api/clients/" + clientId;
     // The portal shell reads the client record to boot (name, logo, industry).
@@ -54250,6 +54256,13 @@ async function handleFetch(request, env, ctx) {
             }
         }
 
+        // Learn (Aprenda) phase B. The guide list needs a login and is filtered by the
+        // verified role. The public list and the signed file route need none (the file
+        // route proves itself with an HMAC link). Allowlisted above for client tier roles.
+        if (path === "/api/help/guides" && method === "GET") { return handleGetHelpGuides(request, env); }
+        if (path === "/api/help/public" && method === "GET") { return handleGetHelpPublic(request, env); }
+        if (path.indexOf("/api/help/file/") === 0) { return handleGetHelpFile(request, env, path); }
+
         // PUBLIC Apex Club registration + flyer (no auth by design). The link
         // is meant to be forwarded by attendees to people Apex has never met,
         // so nothing here may require a login. GET returns only what the page
@@ -64645,13 +64658,387 @@ function helpBuildOtherList(data, audience) {
 var HELP_INDEXES = { admin: helpBuildIndex(HELP_GUIDES_V1, "admin"), client: helpBuildIndex(HELP_GUIDES_V1, "client") };
 var HELP_OTHERS = { admin: helpBuildOtherList(HELP_GUIDES_V1, "admin"), client: helpBuildOtherList(HELP_GUIDES_V1, "client") };
 
+// ===========================================================================
+// Learn (Aprenda) security phase B: who may see which guide, and private media.
+// help/guides.json carries a "who" list on each client guide and a top level
+// "groups" object (see help-core.js, the tested twin of these three functions).
+// The role comes ONLY from the verified session (authenticate() plus the
+// clients row for a lead), never from a request field. Guides stay bundled in
+// the Worker; the pictures, posters and videos live in the private R2 bucket
+// (binding ASSETS, key prefix help/) and leave only through a signed link.
+// ===========================================================================
+
+var HELP_ADMIN_TOKENS = ["alice", "rafa", "developer"];
+var HELP_CLIENT_TOKENS = ["owner", "partner", "staff_finance", "staff", "seller", "lead"];
+var HELP_ROLE_SET = { alice: true, rafa: true, developer: true, owner: true, partner: true, staff_finance: true, staff: true, seller: true, lead: true, apex_seller: true };
+var HELP_DEFAULT_WHO = ["owner", "partner", "staff_finance", "staff", "seller"];
+var HELP_LINK_TTL_SEC = 900;
+var HELP_FILE_IP_LIMIT = 3000;
+var HELP_LINK_KEY_CACHE = { secret: null, key: null };
+var HELP_TYPES = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", mp4: "video/mp4" };
+
+// info: { role, login_role, client_status }. One token, or null for a signed
+// out visitor or a login this code does not know (that one gets public only).
+function helpViewerRoleToken(info) {
+    if (!info || typeof info !== "object") { return null; }
+    var role = info.role;
+    if (role === "alice" || role === "rafa" || role === "developer") { return role; }
+    if (role !== "client") { return null; }
+    var lr = info.login_role;
+    var tok;
+    if (lr === undefined || lr === null || lr === "" || lr === "client") { tok = "owner"; }
+    else if (lr === "partner" || lr === "staff_finance" || lr === "staff" || lr === "seller") { tok = lr; }
+    else { return null; }
+    if (info.client_status === "lead") { return "lead"; }
+    return tok;
+}
+
+// True when this role may see this guide. role null is a signed out visitor.
+// Fails closed: an unknown token, an unknown who entry or a bad audience hides it.
+function helpGuideVisibleTo(guide, groups, role) {
+    var own = Object.prototype.hasOwnProperty;
+    if (!guide || typeof guide !== "object" || typeof guide.id !== "string" || !/^[A-Za-z0-9_-]{1,60}$/.test(guide.id)) { return false; }
+    var anon = (role === null || role === undefined || role === "");
+    if (!anon && (typeof role !== "string" || !own.call(HELP_ROLE_SET, role))) { return false; }
+    if (!anon && HELP_ADMIN_TOKENS.indexOf(role) !== -1) { return true; }
+    if (helpGuideAudience(guide) !== "client") { return false; }
+    var who = own.call(guide, "who") ? guide.who : HELP_DEFAULT_WHO;
+    if (!Array.isArray(who) || !who.length) { return false; }
+    var allowed = false;
+    for (var i = 0; i < who.length; i++) {
+        var t = who[i];
+        if (typeof t !== "string") { return false; }
+        if (own.call(HELP_ROLE_SET, t)) { if (!anon && t === role) { allowed = true; } continue; }
+        if (!groups || typeof groups !== "object" || !own.call(groups, t) || !Array.isArray(groups[t])) { return false; }
+        var m = groups[t];
+        for (var j = 0; j < m.length; j++) {
+            if (m[j] === "*") { allowed = true; }
+            else if (!anon && m[j] === role && m[j] !== "lead") { allowed = true; }
+        }
+    }
+    return allowed;
+}
+
+// A copy with only the guides this role may see, on one side. who and groups
+// never leave. Staff pick a side; anyone else is the client side.
+function helpFilterGuides(data, role, audience) {
+    var out = { version: data && data.version, guides: [], pages: {} };
+    if (!data || !Array.isArray(data.guides)) { return out; }
+    var staff = (typeof role === "string" && HELP_ADMIN_TOKENS.indexOf(role) !== -1);
+    var side = staff ? (audience === "client" ? "client" : "admin") : "client";
+    var keep = {};
+    data.guides.forEach(function(g) {
+        if (!helpGuideVisibleTo(g, data.groups, role)) { return; }
+        if (helpGuideAudience(g) !== side) { return; }
+        var copy = {};
+        Object.keys(g).forEach(function(k) { if (k !== "who") { copy[k] = g[k]; } });
+        out.guides.push(copy);
+        keep[g.id] = true;
+    });
+    if (data.pages && typeof data.pages === "object") {
+        Object.keys(data.pages).forEach(function(k) {
+            var p = data.pages[k];
+            if (!p || typeof p !== "object" || !Array.isArray(p.guides)) { return; }
+            var ids = p.guides.filter(function(id) { return Object.prototype.hasOwnProperty.call(keep, id); });
+            if (!ids.length) { return; }
+            var pc = {};
+            Object.keys(p).forEach(function(pk) { pc[pk] = p[pk]; });
+            pc.guides = ids;
+            out.pages[k] = pc;
+        });
+    }
+    return out;
+}
+
+// The role of a verified session. A client tier session also reads the client
+// row for a lead; if that read fails the answer is "lead", the narrowest view.
+async function helpViewerRole(env, user) {
+    if (!user) { return null; }
+    var status = null;
+    if (user.role === "client" && user.client_id) {
+        try {
+            var row = await env.DB.prepare("SELECT status FROM clients WHERE id = ?").bind(user.client_id).first();
+            status = row ? row.status : null;
+        } catch (e) { status = "lead"; }
+    }
+    return helpViewerRoleToken({ role: user.role, login_role: user.login_role, client_status: status });
+}
+
+// The search index for one role and side, built from the filtered list and kept
+// for the life of the Worker copy. The key is the role token, never a request field.
+var HELP_ROLE_INDEXES = {};
+function helpIndexFor(role, audience) {
+    var side = audience === "admin" ? "admin" : "client";
+    var key = (role || "anon") + "|" + side;
+    if (!Object.prototype.hasOwnProperty.call(HELP_ROLE_INDEXES, key)) {
+        HELP_ROLE_INDEXES[key] = helpBuildIndex(helpFilterGuides(HELP_GUIDES_V1, role, side), side);
+    }
+    return HELP_ROLE_INDEXES[key];
+}
+
+// After the model answers, drop any id this viewer may not see (a second check
+// behind the filtered index). Staff keep the other side list unchanged.
+function helpClampResult(result, role, audience) {
+    var idx = helpIndexFor(role, audience);
+    var own = Object.prototype.hasOwnProperty;
+    var ids = (result.guide_ids || []).filter(function(id) { return own.call(idx.ids, id); });
+    var best = (result.best && own.call(idx.ids, result.best.guide)) ? result.best : null;
+    if (ids.length === (result.guide_ids || []).length && best === result.best) { return result; }
+    if (!ids.length) { return { found: false, guide_ids: [], best: null, reply: "", other_side: result.other_side || [], kind: "missing_guide" }; }
+    return { found: true, guide_ids: ids, best: best, reply: result.reply, other_side: [], kind: "answer" };
+}
+
+// guide id owning a private file path, or null. Pictures live under
+// help/img/guides/<guide-id>/<file>; posters and videos are help/video/<guide-id>-pt.mp4 (or .jpg).
+var HELP_GUIDE_BY_ID = (function() {
+    var m = Object.create(null);
+    ((HELP_GUIDES_V1 && HELP_GUIDES_V1.guides) || []).forEach(function(g) { if (g && typeof g.id === "string") { m[g.id] = true; } });
+    return m;
+})();
+
+function helpFileOwner(rel) {
+    if (typeof rel !== "string" || rel.length > 300 || rel.indexOf("..") !== -1) { return null; }
+    var m = /^help\/img\/guides\/([A-Za-z0-9_-]{1,60})\/([A-Za-z0-9._-]{1,120}\.(?:jpg|jpeg|png|webp))$/i.exec(rel);
+    if (!m) { m = /^help\/video\/([A-Za-z0-9_-]{1,60})-(?:pt|en)\.(?:mp4|jpg)$/.exec(rel); }
+    if (!m || HELP_GUIDE_BY_ID[m[1]] !== true) { return null; }
+    return m[1];
+}
+
+function helpB64hex(bytes) {
+    var s = "";
+    for (var i = 0; i < bytes.length; i++) { s += (bytes[i] < 16 ? "0" : "") + bytes[i].toString(16); }
+    return s;
+}
+
+// HMAC of path, expiry and role token. Null when the secret is not set.
+async function helpLinkSig(env, rel, exp, g) {
+    if (!env.HELP_LINK_SECRET) { return null; }
+    if (HELP_LINK_KEY_CACHE.secret !== env.HELP_LINK_SECRET) {
+        HELP_LINK_KEY_CACHE = { secret: env.HELP_LINK_SECRET, key: await crypto.subtle.importKey("raw", new TextEncoder().encode(env.HELP_LINK_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]) };
+    }
+    var sig = await crypto.subtle.sign("HMAC", HELP_LINK_KEY_CACHE.key, new TextEncoder().encode("help-file\n" + rel + "\n" + exp + "\n" + g));
+    return helpB64hex(new Uint8Array(sig));
+}
+
+function helpSameText(a, b) {
+    if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) { return false; }
+    var d = 0;
+    for (var i = 0; i < a.length; i++) { d |= a.charCodeAt(i) ^ b.charCodeAt(i); }
+    return d === 0;
+}
+
+async function helpMintLink(env, origin, rel, g) {
+    var exp = Math.floor(Date.now() / 60000) * 60 + HELP_LINK_TTL_SEC;
+    var sig = await helpLinkSig(env, rel, exp, g);
+    if (!sig) { return null; }
+    return origin + "/api/help/file/" + rel + "?e=" + exp + "&g=" + g + "&s=" + sig;
+}
+
+// Keep one language of every { pt, en } pair. The button labels stay in both
+// languages: they match words on the page, which may not be in the Learn language.
+function helpPickLang(v, lang) {
+    if (Array.isArray(v)) { return v.map(function(x) { return helpPickLang(x, lang); }); }
+    if (!v || typeof v !== "object") { return v; }
+    var keys = Object.keys(v);
+    var out = {};
+    if (keys.length === 2 && keys.indexOf("pt") !== -1 && keys.indexOf("en") !== -1) {
+        out[lang] = helpPickLang(v[lang], lang);
+        return out;
+    }
+    keys.forEach(function(k) { out[k] = (k === "buttons") ? v[k] : helpPickLang(v[k], lang); });
+    return out;
+}
+
+function helpUrlPath(u) {
+    try { return new URL(u).pathname.replace(/^\//, ""); } catch (e) { return null; }
+}
+
+// The guide list for one role, one language and one side. Every private file
+// gets a signed link good for 15 minutes. Without the secret there are no
+// links: the text still comes, the pictures and videos are left out.
+async function helpBuildPayload(env, request, role, lang, audience) {
+    var origin = new URL(request.url).origin;
+    var g = role || "anon";
+    var filtered = helpFilterGuides(HELP_GUIDES_V1, role, audience);
+    var picked = helpPickLang(filtered, lang);
+    var linked = true;
+    async function link(rel) {
+        if (typeof rel !== "string" || !helpFileOwner(rel)) { return null; }
+        var u = await helpMintLink(env, origin, rel, g);
+        if (!u) { linked = false; }
+        return u;
+    }
+    for (var gi = 0; gi < picked.guides.length; gi++) {
+        var gd = picked.guides[gi];
+        var secs = Array.isArray(gd.sections) ? gd.sections : [];
+        for (var si = 0; si < secs.length; si++) {
+            var steps = Array.isArray(secs[si].steps) ? secs[si].steps : [];
+            for (var ti = 0; ti < steps.length; ti++) {
+                var st = steps[ti];
+                if (st && st.image && typeof st.image === "object") { st.image[lang] = await link(st.image[lang]); }
+            }
+        }
+        if (gd.video && typeof gd.video === "object") {
+            var vid = gd.video[lang];
+            var nv = {};
+            nv[lang] = null;
+            if (vid) {
+                var srcStr = typeof vid === "string" ? vid : vid.src;
+                var posterStr = (typeof vid === "object" && vid.poster) ? vid.poster : null;
+                var vsrc = await link(helpUrlPath(srcStr));
+                var vposter = posterStr ? await link(helpUrlPath(posterStr)) : null;
+                if (vsrc) { nv[lang] = { src: vsrc, poster: vposter }; }
+            }
+            gd.video = nv;
+        }
+    }
+    return { version: 1, lang: lang, audience: audience, media: linked, ttl: HELP_LINK_TTL_SEC, guides: picked.guides, pages: picked.pages };
+}
+
+function helpNoStoreJson(data, status) {
+    var headers = Object.assign({}, CORS_HEADERS, { "Content-Type": "application/json", "Cache-Control": "private, no-store" });
+    return new Response(JSON.stringify(data), { status: status || 200, headers: headers });
+}
+
+function helpNotFound() {
+    var headers = Object.assign({}, CORS_HEADERS, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
+    return new Response("Not found", { status: 404, headers: headers });
+}
+
+// GET /api/help/guides?lang=pt|en&audience=admin|client  (signed in)
+async function handleGetHelpGuides(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var role = await helpViewerRole(env, user);
+        if (!role) { return jsonErr("Forbidden", 403); }
+        var who = user.email || user.username || user.client_id || "";
+        if (publicReadRateLimited(request, "helpguides", who, 240, 90)) { return jsonErr("Too many requests", 429); }
+        var q = new URL(request.url).searchParams;
+        var lang = q.get("lang") === "en" ? "en" : "pt";
+        var staff = HELP_ADMIN_TOKENS.indexOf(role) !== -1;
+        var audience = staff ? (q.get("audience") === "client" ? "client" : "admin") : "client";
+        return helpNoStoreJson(await helpBuildPayload(env, request, role, lang, audience));
+    } catch (e) {
+        console.error("help guides failed (" + (e && e.name) + ")");
+        return jsonErr("Something went wrong", 500);
+    }
+}
+
+// GET /api/help/public?lang=pt|en  (no login: only the public guides)
+async function handleGetHelpPublic(request, env) {
+    try {
+        if (publicReadRateLimited(request, "helppublic", "", 120, 0)) { return jsonErr("Too many requests", 429); }
+        var lang = new URL(request.url).searchParams.get("lang") === "en" ? "en" : "pt";
+        return helpNoStoreJson(await helpBuildPayload(env, request, null, lang, "client"));
+    } catch (e) {
+        console.error("help public failed (" + (e && e.name) + ")");
+        return jsonErr("Something went wrong", 500);
+    }
+}
+
+// "bytes=a-b", "bytes=a-" or "bytes=-n". null: no usable Range (send it all).
+// "bad": the range cannot be met (416).
+function helpParseRange(header, size) {
+    if (typeof header !== "string" || !header) { return null; }
+    var m = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
+    if (!m) { return null; }
+    if (m[1] === "" && m[2] === "") { return "bad"; }
+    if (size <= 0) { return "bad"; }
+    var start, end;
+    if (m[1] === "") {
+        var n = parseInt(m[2], 10);
+        if (!(n > 0)) { return "bad"; }
+        start = Math.max(0, size - n);
+        end = size - 1;
+    } else {
+        start = parseInt(m[1], 10);
+        if (start >= size) { return "bad"; }
+        if (m[2] === "") { end = size - 1; }
+        else {
+            end = parseInt(m[2], 10);
+            if (end < start) { return "bad"; }
+            if (end > size - 1) { end = size - 1; }
+        }
+    }
+    return { start: start, end: end };
+}
+
+// GET /api/help/file/<path>?e=<expiry>&g=<role>&s=<hmac>
+// A picture, poster or video from R2. Every failure is the same neutral 404.
+async function handleGetHelpFile(request, env, path) {
+    try {
+        if (request.method !== "GET" && request.method !== "HEAD") { return helpNotFound(); }
+        if (publicReadRateLimited(request, "helpfile", "", HELP_FILE_IP_LIMIT, 0)) {
+            return new Response("Too many requests", { status: 429, headers: Object.assign({}, CORS_HEADERS, { "Cache-Control": "private, no-store" }) });
+        }
+        var rel;
+        try { rel = decodeURIComponent(path.slice("/api/help/file/".length)); } catch (e) { return helpNotFound(); }
+        var owner = helpFileOwner(rel);
+        if (!owner) { return helpNotFound(); }
+        var q = new URL(request.url).searchParams;
+        var e = q.get("e"), g = q.get("g"), s = q.get("s");
+        if (!e || !/^\d{1,12}$/.test(e) || !g || !s || !/^[a-f0-9]{64}$/.test(s)) { return helpNotFound(); }
+        var nowSec = Math.floor(Date.now() / 1000);
+        var exp = parseInt(e, 10);
+        if (exp < nowSec || exp > nowSec + HELP_LINK_TTL_SEC + 120) { return helpNotFound(); }
+        var role = null;
+        if (g !== "anon") {
+            if (!Object.prototype.hasOwnProperty.call(HELP_ROLE_SET, g) || g === "apex_seller") { return helpNotFound(); }
+            role = g;
+        }
+        var want = await helpLinkSig(env, rel, exp, g);
+        if (!want || !helpSameText(want, s)) { return helpNotFound(); }
+        var guide = null;
+        for (var i = 0; i < HELP_GUIDES_V1.guides.length; i++) { if (HELP_GUIDES_V1.guides[i].id === owner) { guide = HELP_GUIDES_V1.guides[i]; break; } }
+        if (!guide || !helpGuideVisibleTo(guide, HELP_GUIDES_V1.groups, role)) { return helpNotFound(); }
+
+        var ext = rel.slice(rel.lastIndexOf(".") + 1).toLowerCase();
+        var headers = Object.assign({}, CORS_HEADERS, {
+            "Content-Type": HELP_TYPES[ext] || "application/octet-stream",
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+            "Accept-Ranges": "bytes",
+            "Cross-Origin-Resource-Policy": "cross-origin",
+            "Referrer-Policy": "no-referrer"
+        });
+        var head = await env.ASSETS.head(rel);
+        if (!head) { return helpNotFound(); }
+        var size = head.size;
+        var range = helpParseRange(request.headers.get("Range"), size);
+        if (range === "bad") {
+            headers["Content-Range"] = "bytes */" + size;
+            return new Response(null, { status: 416, headers: headers });
+        }
+        if (request.method === "HEAD") {
+            headers["Content-Length"] = String(size);
+            return new Response(null, { status: 200, headers: headers });
+        }
+        if (range) {
+            var part = await env.ASSETS.get(rel, { range: { offset: range.start, length: range.end - range.start + 1 } });
+            if (!part || !part.body) { return helpNotFound(); }
+            headers["Content-Range"] = "bytes " + range.start + "-" + range.end + "/" + size;
+            headers["Content-Length"] = String(range.end - range.start + 1);
+            return new Response(part.body, { status: 206, headers: headers });
+        }
+        var obj = await env.ASSETS.get(rel);
+        if (!obj || !obj.body) { return helpNotFound(); }
+        headers["Content-Length"] = String(size);
+        return new Response(obj.body, { status: 200, headers: headers });
+    } catch (err) {
+        console.error("help file failed (" + (err && err.name) + ")");
+        return helpNotFound();
+    }
+}
+
 // staff true adds the other side list and the other_side field. For anyone else
 // the other side is never put into the prompt. The feature guide is the one the
 // support chat uses, chosen by the audience the route computed: the staff app
 // for admin, the client portal for client. It tells the model what Apex does, so
 // it can tell a missing guide from a feature Apex does not have.
-function helpSystemText(lang, audience, staff) {
+function helpSystemText(lang, audience, staff, index) {
     var side = audience === "admin" ? "admin" : "client";
+    var idxText = (index && typeof index.text === "string") ? index.text : HELP_INDEXES[side].text;
     var other = staff ? HELP_OTHERS[side] : null;
     var featureGuide = supportFeatureGuideFor(side === "client" ? "portal.html" : "dashboard.html", lang === "en" ? "en" : "pt");
     return "You are the search helper inside Apex, a business software product. " +
@@ -64670,7 +65057,7 @@ function helpSystemText(lang, audience, staff) {
         "\"unclear\" when you are not sure, or it is not clear whether the person wants to learn something Apex does or wants Apex to do something new. When unsure, always use \"unclear\". " +
         "If nothing in the index fits the question, output " + (staff ? "{\"kind\":\"...\",\"guide_ids\":[],\"best\":null,\"reply\":\"\",\"other_side\":[]}" : "{\"kind\":\"...\",\"guide_ids\":[],\"best\":null,\"reply\":\"\"}") + " with kind set by the rule above.\n\n" +
         "APP FEATURES (what Apex does, for deciding the kind only; do not explain steps from it):\n" + featureGuide + "\n\n" +
-        "GUIDE INDEX (one guide per line):\n" + HELP_INDEXES[side].text +
+        "GUIDE INDEX (one guide per line):\n" + idxText +
         (other && other.text ? "\n\nOTHER SIDE GUIDES (id, titles and summary only; use these ids only for other_side):\n" + other.text : "");
 }
 
@@ -64740,7 +65127,11 @@ async function handlePostHelpAsk(request, env) {
         // get the side they asked for (admin when it is missing or not valid).
         var isStaff = supportStaffAuthed(user);
         var audience = isStaff ? (body.audience === "client" ? "client" : "admin") : "client";
-        var index = { text: HELP_INDEXES[audience].text, ids: HELP_INDEXES[audience].ids };
+        // The search index is built for this viewer's role only, so the model is never
+        // shown (and cannot name) a guide the viewer may not open. Role: verified session.
+        var viewerRole = await helpViewerRole(env, user);
+        var roleIndex = helpIndexFor(viewerRole, audience);
+        var index = { text: roleIndex.text, ids: roleIndex.ids };
         if (isStaff) { index.other = HELP_OTHERS[audience]; }
 
         // In memory, no database writes: 15 per person and 40 per network address
@@ -64764,7 +65155,7 @@ async function handlePostHelpAsk(request, env) {
                     headers: { "Content-Type": "application/json", "x-api-key": env.CLAUDE_API_KEY, "anthropic-version": "2023-06-01" },
                     body: JSON.stringify({
                         model: HELP_AI_MODEL, max_tokens: 400,
-                        system: [{ type: "text", text: helpSystemText(language, audience, isStaff), cache_control: { type: "ephemeral" } }],
+                        system: [{ type: "text", text: helpSystemText(language, audience, isStaff, index), cache_control: { type: "ephemeral" } }],
                         messages: [{ role: "user", content: question }]
                     })
                 });
@@ -64779,7 +65170,7 @@ async function handlePostHelpAsk(request, env) {
             var data = await res.json().catch(function() { return null; });
             var blocks = (data && Array.isArray(data.content)) ? data.content : [];
             var text = blocks.filter(function(x) { return x && x.type === "text" && x.text; }).map(function(x) { return x.text; }).join("");
-            result = validateHelpReply(text, index);
+            result = helpClampResult(validateHelpReply(text, index), viewerRole, audience);
         }
 
         var logged = false;

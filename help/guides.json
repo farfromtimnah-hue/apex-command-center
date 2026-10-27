@@ -15726,8 +15726,8 @@
                 "en": "Change or cancel a session. Tap a session in the calendar to open it. The sheet that opens has Reschedule, Edit and Cancel meeting. Cancel meeting asks one thing: 1. This meeting was cancelled keeps the record as Cancelled in your history and takes the meeting off the client's calendar. 2. This was a mistake deletes the record for good, so use it only for a session made by error. Neither can be undone."
               },
               "image": {
-                "pt": "help/img/guides/admin-calendar-sessions/calendar-05.pt.jpg",
-                "en": "help/img/guides/admin-calendar-sessions/calendar-05.en.jpg"
+                "pt": "help/img/guides/admin-calendar-sessions/calendar-s09.pt.jpg",
+                "en": "help/img/guides/admin-calendar-sessions/calendar-s09.en.jpg"
               }
             }
           ]

@@ -26779,6 +26779,128 @@
           "step": 3
         }
       ]
+    },
+    {
+      "id": "admin-client-money",
+      "audience": "admin",
+      "title": {
+        "pt": "Dinheiro do cliente: contratos Apex e plano de pagamento",
+        "en": "Client money: Apex contracts and the payment plan"
+      },
+      "summary": {
+        "pt": "A aba Financeiro da ficha do cliente: lista de contratos e o que cada botão faz.",
+        "en": "The Money tab of the client record: the contract list and what each button does."
+      },
+      "keywords": {
+        "pt": [
+          "contrato apex",
+          "montar contrato",
+          "assinado",
+          "plano de pagamento",
+          "baixar pdf",
+          "cancelar contrato"
+        ],
+        "en": [
+          "apex contract",
+          "build contract",
+          "signed",
+          "payment plan",
+          "download pdf",
+          "cancel contract"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "money",
+          "title": {
+            "pt": "Contratos e plano",
+            "en": "Contracts and plan"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Na ficha do cliente, abra a aba Financeiro. O cartão Contrato APEX (1) lista os contratos que a Apex fez para este cliente, cada um com número, pacote, total e status, por exemplo Assinado por todos ou Cancelado. Toque em uma linha para abrir. Toque em Montar contrato (2) para fazer um novo. O cartão Método de Pagamento tem o plano de pagamento: toque em Definir (3) para escrever como o cliente paga. Os valores estão cobertos na figura.",
+                "en": "On a client record, open the tab Money (Financeiro). The card APEX Contract (1) lists the contracts Apex made for this client, each with its number, package, total and status, for example Assinado por todos or Cancelado. Tap a row to open it. Tap Montar contrato (2) to build a new one. The card Payment Method has a payment plan: tap Set plan (3) to write how the client pays. The amounts are covered in the picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-money/money-01.pt.jpg",
+                "en": "help/img/guides/admin-client-money/money-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Um contrato que todos assinaram abre uma folha com o status e o total. Ver contrato assinado (1) abre o contrato assinado. Salvar condições de pagamento no cliente (2) copia as condições de pagamento do contrato para a ficha do cliente, uma única vez. Baixar PDF (3) baixa o PDF. Mais abaixo, as seções Contrato e Assinaturas mostram quem assinou e quando. As telas do contrato são em português de propósito.",
+                "en": "A contract that everyone signed opens a sheet with the status and the total. Ver contrato assinado (1) opens the signed contract. Salvar condições de pagamento no cliente (2) copies the payment terms of the contract into the client record, one time only. Baixar PDF (3) downloads the PDF. Below, the sections Contrato and Assinaturas show who signed and when. The contract screens are in Portuguese on purpose."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-money/money-02.pt.jpg",
+                "en": "help/img/guides/admin-client-money/money-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Os botões da folha dependem do status. Um rascunho mostra Editar, Pré-visualizar e, para o Pr. Rafael, Assinar pela Apex. Os outros veem Pedir assinatura ao Pr. Rafael. Um contrato pronto ou enviado mostra Enviar ao cliente (ou Enviar de novo), Ver contrato e Baixar PDF. Cancelar contrato aparece até o contrato ser assinado. Você precisa escrever um motivo.",
+                "en": "The buttons on the sheet depend on the status. A draft shows Editar, Pré-visualizar and, for Pr. Rafael, Assinar pela Apex. Everyone else sees Pedir assinatura ao Pr. Rafael. A contract that is ready or sent shows Enviar ao cliente (or Enviar de novo), Ver contrato and Baixar PDF. Cancelar contrato appears until the contract is signed. You must write a reason."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Montar contrato"
+            ],
+            "en": [
+              "Montar contrato"
+            ]
+          },
+          "section": "money",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ver contrato assinado"
+            ],
+            "en": [
+              "Ver contrato assinado"
+            ]
+          },
+          "section": "money",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Baixar PDF"
+            ],
+            "en": [
+              "Baixar PDF"
+            ]
+          },
+          "section": "money",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Cancelar contrato"
+            ],
+            "en": [
+              "Cancelar contrato"
+            ]
+          },
+          "section": "money",
+          "step": 3
+        }
+      ]
     }
   ],
   "pages": {

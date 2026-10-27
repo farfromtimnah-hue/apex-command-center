@@ -16358,8 +16358,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "A página Vendas ordena os seus clientes pelo quanto o negócio cresceu num mês, para o Rafa ver quem está avançando e quem está parado. O número de crescimento é o que foi lançado para cada cliente no registro do cliente: toque em Resultados (1) e depois em Crescimento (2). O cartão Crescimento tem + Registrar.",
-                "en": "The Sales page ranks your clients by how much their business grew in a month, so Rafa can see who is moving and who is stuck. The growth number is the one entered for each client on the client record: tap Results (1), then Growth (2). The Growth card there has + Log Entry."
+                "pt": "A página Vendas ordena os seus clientes pelo quanto o negócio cresceu num mês, para o Rafa ver quem está avançando e quem está parado. O número de crescimento é o que foi lançado para cada cliente no registro do cliente: toque em Resultados (1) e depois em Crescimento (2). O cartão Crescimento tem um botão para registrar um lançamento.",
+                "en": "The Sales page ranks your clients by how much their business grew in a month, so Rafa can see who is moving and who is stuck. The growth number is the one entered for each client on the client record: tap Results (1), then Growth (2). The Growth card there has the button + Log Entry."
               },
               "image": {
                 "pt": "help/img/guides/admin-sales-growth/sales-01.pt.jpg",

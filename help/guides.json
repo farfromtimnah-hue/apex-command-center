@@ -15526,16 +15526,19 @@
             {
               "n": 1,
               "text": {
-                "pt": "O que é. Toda mensagem que a Apex envia a um cliente pelo WhatsApp parte de um modelo: a confirmação da sessão, os lembretes, os links de horário, a fatura, o login do portal e outros. Em Configurações você muda o texto uma vez, e todas as próximas mensagens usam o texto novo. Abra Configurações no menu da esquerda. As abas do alto são Fotos de Perfil, Modelos WhatsApp, Pacotes, Pagamento, Disponibilidade e Notificações.",
-                "en": "What it is. Every message that Apex sends to a client on WhatsApp starts from a template: the session confirmation, the reminders, the time links, the invoice, the portal login and more. In Settings you can change the words once, and every next message uses the new words. Open Configurações in the left menu. The tabs at the top are Profile Pictures, WhatsApp Templates, Packages, Payment, Availability and Notifications."
+                "pt": "Abra Configurações no menu da esquerda (2). As abas do alto (1) são Fotos de Perfil, Modelos WhatsApp, Pacotes, Pagamento, Disponibilidade e Notificações. O nome e a foto estão trocados na figura.",
+                "en": "Open Settings in the left menu (2). The tabs at the top (1) are Profile Pictures, WhatsApp Templates, Packages, Payment, Availability and Notifications. The name and photo are replaced in the picture."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-message-templates/templates-01.pt.jpg",
+                "en": "help/img/guides/admin-message-templates/templates-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Edite um modelo. Toque na aba dos modelos. Cada modelo é um cartão com um nome. 1. Mude as palavras dentro da caixa. 2. A linha Variável disponível lista as partes que a Apex preenche sozinha, escritas entre chaves, por exemplo {appUrl}. Deixe do jeito que estão, ou a mensagem perde essa parte. 3. Toque em Salvar naquele cartão. Embaixo da caixa aparece quem mudou por último e quando. Os nomes das pessoas estão escondidos nesta imagem.",
-                "en": "Edit a template. Tap the tab of the templates. Each template is a card with a name. 1. Change the words inside the box. 2. The line Variável disponível (Available token) lists the pieces that Apex fills in by itself, written between curly brackets, for example {appUrl}. Leave them exactly as they are, or the message loses that piece. 3. Tap Salvar (Save) on that card. Under the box you see who changed it last and when. The names of people are hidden in this picture."
+                "pt": "Toda mensagem que a Apex envia a um cliente pelo WhatsApp parte de um modelo: a confirmação da sessão, os lembretes, os links de horário, a fatura, o login do portal e outros. Toque em Modelos WhatsApp e a lista (1) abre. Você muda o texto uma vez, e todas as próximas mensagens usam o texto novo.",
+                "en": "Every message that Apex sends to a client on WhatsApp starts from a template: the session confirmation, the reminders, the time links, the invoice, the portal login and more. Tap WhatsApp Templates and the list (1) opens. You change the words once, and every next message uses the new words."
               },
               "image": {
                 "pt": "help/img/guides/admin-message-templates/templates-02.pt.jpg",
@@ -15545,18 +15548,68 @@
             {
               "n": 3,
               "text": {
-                "pt": "Um jeito mais rápido. Ao lado de muitos botões de enviar do app da equipe há um lápis pequeno. Toque nele, ou clique com o botão direito no botão, e o mesmo modelo abre ali mesmo, para você corrigir o texto sem ir às Configurações.",
-                "en": "A faster way. Next to many send buttons in the staff app there is a small pencil. Tap it, or right click the button, and the same template opens right there, so you can fix the words without going to Settings."
+                "pt": "Cada modelo é um cartão com um nome. Mude as palavras dentro da caixa (1). A linha Variável disponível (2) lista as partes que a Apex preenche sozinha, escritas entre chaves, por exemplo {appUrl}. Deixe do jeito que estão, ou a mensagem perde essa parte. Embaixo da caixa (3) aparece quem mudou por último e quando. Toque em Salvar (4) naquele cartão. Nada foi salvo nesta figura, e o nome da pessoa está trocado.",
+                "en": "Each template is a card with a name. Change the words inside the box (1). The line Available token (2) lists the pieces that Apex fills in by itself, written between curly brackets, for example {appUrl}. Leave them exactly as they are, or the message loses that piece. Under the box (3) you see who changed it last and when. Tap Save (4) on that card. Nothing was saved for this picture, and the name of the person is replaced."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-message-templates/templates-03.pt.jpg",
+                "en": "help/img/guides/admin-message-templates/templates-03.en.jpg"
+              }
             },
             {
               "n": 4,
               "text": {
-                "pt": "As outras abas. Pacotes é o catálogo de pacotes com preços e descrições. Pagamento guarda os dados de pagamento que aparecem nas faturas (o link de pagamento por cartão e o Zelle). Disponibilidade guarda os horários em que você está livre, usados nos links de horário. Notificações liga os alertas neste aparelho e envia um teste.",
-                "en": "The other tabs. Pacotes is the catalog of packages with prices and descriptions. Pagamento holds the payment details that appear on invoices (the card payment link and the Zelle handle). Disponibilidade holds the times you are free, used by the time links. Notificações turns on the alerts on this device and sends a test."
+                "pt": "Um jeito mais rápido. Ao lado de muitos botões de enviar do app da equipe há um lápis pequeno (1). Toque nele, ou clique com o botão direito no botão, e o mesmo modelo abre ali mesmo, para você corrigir o texto sem ir às Configurações.",
+                "en": "A faster way. Next to many send buttons in the staff app there is a small pencil (1). Tap it, or right click the button, and the same template opens right there, so you can fix the words without going to Settings."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-message-templates/templates-04.pt.jpg",
+                "en": "help/img/guides/admin-message-templates/templates-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Depois, Pacotes (1) é o catálogo de pacotes com preços e descrições. Os preços estão cobertos na figura.",
+                "en": "Next, Packages (1) is the catalog of packages with prices and descriptions. The prices are covered in the picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-message-templates/templates-05.pt.jpg",
+                "en": "help/img/guides/admin-message-templates/templates-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Pagamento (1) guarda os dados de pagamento que aparecem nas faturas: o QR Code do Zelle, o link de pagamento por cartão (Stripe) e o e-mail ou telefone do Zelle. Eles estão cobertos na figura.",
+                "en": "Payment (1) holds the payment details that appear on invoices: the Zelle QR code, the Stripe card payment link and the Zelle email or phone. They are covered in the picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-message-templates/templates-06.pt.jpg",
+                "en": "help/img/guides/admin-message-templates/templates-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Disponibilidade (1) guarda os horários em que você está livre, usados nos links de horário: quando o dia começa e termina, o aviso mínimo, o máximo de reuniões por dia, a duração e o deslocamento padrão, e os dias de trabalho.",
+                "en": "Availability (1) holds the times you are free, used by the time links: when the day starts and ends, the minimum notice, the maximum meetings per day, the default duration and travel time, and the working days."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-message-templates/templates-07.pt.jpg",
+                "en": "help/img/guides/admin-message-templates/templates-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Notificações (1) liga os alertas neste aparelho, com a chave Notificações neste dispositivo. Precisa do app instalado na tela de início. A chave não foi ligada nesta figura.",
+                "en": "Notifications (1) turns on the alerts on this device, with the switch Notifications on this device. It needs the app installed on the Home Screen. The switch was not turned on for this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-message-templates/templates-08.pt.jpg",
+                "en": "help/img/guides/admin-message-templates/templates-08.en.jpg"
+              }
             }
           ]
         }

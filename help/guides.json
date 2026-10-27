@@ -27279,6 +27279,100 @@
           "step": 2
         }
       ]
+    },
+    {
+      "id": "admin-finance-deposits",
+      "audience": "admin",
+      "title": {
+        "pt": "Financeiro: depósitos a conciliar e pagamentos aplicados sozinhos",
+        "en": "Financial: deposits to match and payments applied automatically"
+      },
+      "summary": {
+        "pt": "Aprove depósitos do banco que pagam faturas da Apex e desfaça os aplicados sozinhos.",
+        "en": "Approve bank deposits that pay Apex invoices and undo the ones applied automatically."
+      },
+      "keywords": {
+        "pt": [
+          "depósitos",
+          "conciliar",
+          "aprovar todos",
+          "desfazer",
+          "aplicados automaticamente"
+        ],
+        "en": [
+          "deposits",
+          "match",
+          "approve all",
+          "undo",
+          "applied automatically"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "dep",
+          "title": {
+            "pt": "Depósitos",
+            "en": "Deposits"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Depósitos a conciliar é uma caixa que aparece na aba Saúde Financeira só quando o banco recebeu dinheiro que parece pagamento de uma fatura da Apex. Quando nada espera, a caixa não aparece. Sem imagem: nada esperava quando este guia foi escrito. Ele foi escrito a partir do código e ganha imagens quando aparecer um depósito real.",
+                "en": "Deposits to match is a box that appears on the Financial Health tab only when the bank received money that looks like payment of an Apex invoice. When nothing waits, the box is not on the page. No picture: nothing was waiting when this guide was written. It was written from the code and will get pictures when a real deposit appears."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Cada linha mostra o Depósito, a Fatura que ele parece pagar e o Valor. Confira se combinam antes de aprovar.",
+                "en": "Each line shows the Deposit, the Invoice it seems to pay, and the Amount. Check that they fit before you approve."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Toque em Aprovar na linha para confirmar que o depósito paga aquela fatura. A fatura sai de Não Pagas e um recibo é criado, como num pagamento registrado.",
+                "en": "Tap Approve on a line to confirm that the deposit pays that invoice. The invoice leaves Unpaid and a receipt is made, like a recorded payment."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Aprovar todos confirma as linhas de uma vez. Máximo de 20 por vez. Valores acima de $5.000, ou que não batem exatamente, exigem confirmação individual.",
+                "en": "Approve all confirms the lines in one tap. Maximum 20 at a time. Amounts above $5,000, or that do not match exactly, need individual confirmation."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Aplicados automaticamente lista pagamentos de pagadores já confirmados, aplicados sozinhos depois da sincronização com o banco. Desfazer devolve a fatura para Não Pagas.",
+                "en": "Applied automatically lists payments from payers already confirmed, applied on their own after the bank sync. Undo puts the invoice back in Unpaid."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Aprovar todos"
+            ],
+            "en": [
+              "Approve all"
+            ]
+          },
+          "section": "dep",
+          "step": 4
+        }
+      ]
     }
   ],
   "pages": {
@@ -27359,7 +27453,8 @@
         "admin-invoices",
         "admin-finance-categories",
         "admin-finance-bills",
-        "admin-finance-accounts"
+        "admin-finance-accounts",
+        "admin-finance-deposits"
       ],
       "overview": {
         "pt": "Aqui você acompanha o financeiro e as faturas.",

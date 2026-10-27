@@ -15914,56 +15914,188 @@
             {
               "n": 1,
               "text": {
-                "pt": "Escolha Meu próprio contrato. Toque em Negócio, depois Orçamentos, depois Configurações, e role até Origem do contrato. Há dois botões (1): Modelo padrão Apex e Meu próprio contrato. Toque em Meu próprio contrato. Uma linha explica que a Apex converte o seu contrato uma vez em um modelo limpo e que o texto nunca é editado aqui. Outra linha diz que um sistema de inteligência artificial (Claude, da Anthropic) lê o arquivo para organizar as cláusulas, e que você revisa o resultado e confirma que ele corresponde ao seu contrato original. Enquanto você não responder à pergunta (2), o botão Enviar PDF do meu contrato (3) fica desligado e uma nota diz Responda a pergunta acima primeiro.",
-                "en": "Choose My own contract. Tap Business, then Estimates, then Settings, and scroll to Contract source. There are two buttons (1): Apex standard template and My own contract. Tap My own contract. A line explains that Apex converts your own contract once into a clean template and that the text is never edited here. Another line says an artificial intelligence system (Claude, by Anthropic) reads the file to organize the clauses, and that you review the result and confirm it matches your original contract. Until you answer the question (2), the button Upload my contract PDF (3) stays off and a note says Answer the question above first."
+                "pt": "Toque em Negócio (1) na barra de cima. Um menu abre.",
+                "en": "Tap Business (1) in the top bar. A menu opens."
               },
               "image": {
-                "pt": "help/img/guides/own-contract-upload/upload-01.pt.jpg",
-                "en": "help/img/guides/own-contract-upload/upload-01.en.jpg"
+                "pt": "help/img/guides/own-contract-upload/upload-s01.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Diga se um advogado revisou e envie o PDF. Responda Um advogado já revisou este contrato? com Sim ou Não (1). Depois toque em Enviar PDF do meu contrato (2) e escolha um arquivo PDF. Enquanto o Apex lê o arquivo, uma linha diz Lendo o contrato. Leva alguns segundos.",
-                "en": "Say if a lawyer reviewed it and upload the PDF. Answer Has a lawyer reviewed this contract? with Yes or No (1). Then tap Upload my contract PDF (2) and pick a PDF file. While Apex reads the file, a line says Reading the contract. It takes a few seconds."
+                "pt": "No menu, toque em Orçamentos (1).",
+                "en": "In the menu, tap Estimates (1)."
               },
               "image": {
-                "pt": "help/img/guides/own-contract-upload/upload-02.pt.jpg",
-                "en": "help/img/guides/own-contract-upload/upload-02.en.jpg"
+                "pt": "help/img/guides/own-contract-upload/upload-s02.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Leia o resultado. Embaixo do botão aparece o nome do arquivo e o número de páginas (1), uma etiqueta Aguardando a sua confirmação (2) e a linha Revisado por advogado: sim ou não. Depois vem um bloco para cada área de um contrato, por exemplo Scope of work and exclusions (3). Ele mostra o texto que o Apex achou no seu arquivo para aquela área. Uma área em que o seu arquivo não tem nada diz Não encontrado em vermelho (4). Confira se cada bloco corresponde ao seu contrato original.",
-                "en": "Read the result. Under the button you see the file name and the number of pages (1), a tag Waiting for your confirmation (2) and the line Reviewed by a lawyer: yes or no. Then comes one block for each area of a contract, for example Scope of work and exclusions (3). It shows the text Apex found in your file for that area. An area where your file has nothing says Not found in red (4). Check that each block matches your original contract."
+                "pt": "Toque em Configurações (1) ao lado de Orçamentos. As configurações dos documentos abrem.",
+                "en": "Tap Settings (1) next to Estimates. The document settings open."
               },
               "image": {
-                "pt": "help/img/guides/own-contract-upload/upload-03.pt.jpg",
-                "en": "help/img/guides/own-contract-upload/upload-03.en.jpg"
+                "pt": "help/img/guides/own-contract-upload/upload-s03.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Confirme que corresponde. No fim do resultado, a parte Cláusulas sem área correspondente (1) lista o texto que não coube em nenhuma área. Quando você conferiu todos os blocos, toque em Confirmar que corresponde ao meu contrato (2).",
-                "en": "Confirm it matches. At the end of the result, the part Clauses with no matching area (1) lists text that did not fit any area. When you checked every block, tap Confirm it matches my contract (2)."
+                "pt": "Role para baixo até a parte chamada Origem do contrato (1).",
+                "en": "Scroll down to the part called Contract source (1)."
               },
               "image": {
-                "pt": "help/img/guides/own-contract-upload/upload-04.pt.jpg",
-                "en": "help/img/guides/own-contract-upload/upload-04.en.jpg"
+                "pt": "help/img/guides/own-contract-upload/upload-s04.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Veja a confirmação. A etiqueta passa a dizer Confirmado por você (1) no arquivo que você enviou (2). Um arquivo enviado antes fica na lista, embaixo. Você pode enviar outro arquivo quando quiser. Para voltar ao contrato do Apex, toque em Modelo padrão Apex em Origem do contrato.",
-                "en": "See the confirmation. The tag now says Confirmed by you (1) on the file you uploaded (2). A file uploaded earlier stays in the list, below. You can upload another file at any time. To go back to the Apex contract, tap Apex standard template under Contract source."
+                "pt": "Toque em Meu próprio contrato (1). O outro botão, Modelo padrão Apex, é o contrato da Apex.",
+                "en": "Tap My own contract (1). The other button, Apex standard template, is the Apex contract."
               },
               "image": {
-                "pt": "help/img/guides/own-contract-upload/upload-05.pt.jpg",
-                "en": "help/img/guides/own-contract-upload/upload-05.en.jpg"
+                "pt": "help/img/guides/own-contract-upload/upload-s05.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Leia a linha do quadro (1): um sistema de inteligência artificial (Claude, da Anthropic) lê o arquivo para organizar as cláusulas. Você revisa o resultado e confirma que ele corresponde ao seu contrato original.",
+                "en": "Read the line with the box (1): an artificial intelligence system (Claude, by Anthropic) reads the file to organize the clauses. You review the result and confirm it matches your original contract."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-s06.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "A linha de cima diz que a Apex converte o seu próprio contrato uma vez em um modelo limpo, e o texto nunca é editado aqui.",
+                "en": "The line above it says Apex converts your own contract once into a clean template, and the text is never edited here."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-s06.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s06.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Responda Um advogado já revisou este contrato? com Sim ou Não (1). Até você responder, o botão Enviar PDF do meu contrato fica desligado e uma nota diz Responda a pergunta acima primeiro.",
+                "en": "Answer Has a lawyer reviewed this contract? with Yes or No (1). Until you answer, the button Upload my contract PDF stays off and a note says Answer the question above first."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-s08.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Toque em Enviar PDF do meu contrato (1) e escolha um arquivo PDF. Enquanto o Apex lê o arquivo, uma linha diz Lendo o contrato. Leva alguns segundos.",
+                "en": "Tap Upload my contract PDF (1) and pick a PDF file. While Apex reads the file, a line says Reading the contract. It takes a few seconds."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-s09.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Embaixo do botão você vê o nome do arquivo e o número de páginas (1), uma etiqueta Aguardando a sua confirmação (2) e a linha Revisado por advogado: sim ou não.",
+                "en": "Under the button you see the file name and the number of pages (1), a tag Waiting for your confirmation (2) and the line Reviewed by a lawyer: yes or no."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-s10.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Depois vem um bloco para cada área de um contrato, por exemplo Scope of work and exclusions (1). Ele mostra o texto que o Apex achou no seu arquivo para aquela área.",
+                "en": "Then comes one block for each area of a contract, for example Scope of work and exclusions (1). It shows the text Apex found in your file for that area."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-s11.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Uma área em que o seu arquivo não tem nada diz Não encontrado em vermelho (1).",
+                "en": "An area where your file has nothing says Not found in red (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-s12.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "No fim, a parte Cláusulas sem área correspondente (1) lista o texto que não coube em nenhuma área.",
+                "en": "At the end, the part Clauses with no matching area (1) lists text that did not fit any area."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-s13.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Confira se cada bloco corresponde ao seu contrato original. Quando você conferir todos os blocos, toque em Confirmar que corresponde ao meu contrato (1).",
+                "en": "Check that each block matches your original contract. When you checked every block, tap Confirm it matches my contract (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-s14.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "A etiqueta agora diz Confirmado por você (1) no arquivo que você enviou (2).",
+                "en": "The tag now says Confirmed by you (1) on the file you uploaded (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-s15.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Um arquivo enviado antes continua na lista, mais abaixo (1). Você pode enviar outro arquivo quando quiser.",
+                "en": "A file uploaded earlier stays in the list, below (1). You can upload another file at any time."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-s16.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Para voltar ao contrato da Apex, toque em Modelo padrão Apex (1) em Origem do contrato.",
+                "en": "To go back to the Apex contract, tap Apex standard template (1) under Contract source."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-s17.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-s17.en.jpg"
               }
             }
           ]
@@ -15980,7 +16112,7 @@
             ]
           },
           "section": "upload",
-          "step": 2
+          "step": 9
         },
         {
           "labels": {
@@ -15992,7 +16124,7 @@
             ]
           },
           "section": "upload",
-          "step": 4
+          "step": 14
         },
         {
           "labels": {
@@ -16004,7 +16136,7 @@
             ]
           },
           "section": "upload",
-          "step": 1
+          "step": 5
         }
       ]
     },
@@ -16178,53 +16310,199 @@
             {
               "n": 1,
               "text": {
-                "pt": "Ache a lista. Toque em Negócio, depois Orçamentos, depois Configurações, e role até Serviços (1). Uma linha curta (1) diz que são as opções da sua página pública de indicação e da sua página de link na bio. Cada serviço (2) é uma linha da lista.",
-                "en": "Find the list. Tap Business, then Estimates, then Settings, and scroll to Services (1). A short line (1) says these show up on your public referral page and your link in bio page. Each service (2) is one line of the list."
+                "pt": "Abra as configurações: toque em Negócio (1) no alto da tela.",
+                "en": "Open the Settings: tap Business (1) at the top of the screen."
               },
               "image": {
-                "pt": "help/img/guides/services-list/services-01.pt.jpg",
-                "en": "help/img/guides/services-list/services-01.en.jpg"
+                "pt": "help/img/guides/services-list/services-s01.pt.jpg",
+                "en": "help/img/guides/services-list/services-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Adicione ou remova um serviço. Toque em + Adicionar (1). Uma linha vazia aparece no fim da lista (2). Toque nela e digite o nome do serviço. Você muda o nome de qualquer linha digitando nela. Toque em × (3) à direita de uma linha para removê-la. Um nome pode ter até 80 caracteres, e as linhas vazias são descartadas quando você salva.",
-                "en": "Add or remove a service. Tap + Add (1). An empty line appears at the end of the list (2). Tap it and type the name of the service. You can change the name of any line by typing in it. Tap × (3) at the right of a line to remove it. A name can have up to 80 characters, and empty lines are dropped when you save."
+                "pt": "No menu, toque em Orçamentos (1).",
+                "en": "In the menu, tap Estimates (1)."
               },
               "image": {
-                "pt": "help/img/guides/services-list/services-02.pt.jpg",
-                "en": "help/img/guides/services-list/services-02.en.jpg"
+                "pt": "help/img/guides/services-list/services-s02.pt.jpg",
+                "en": "help/img/guides/services-list/services-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Salve. Role até o fim do primeiro cartão, depois de Mensagens de envio, e toque em Salvar configurações (1). Aparece Configurações salvas. Nada muda até você salvar.",
-                "en": "Save. Scroll to the end of the first card, after Send messages, and tap Save settings (1). Settings saved appears. Nothing changes until you save."
+                "pt": "Toque em Configurações (1), ao lado de Orçamentos, para abrir as configurações dos documentos.",
+                "en": "Tap Settings (1), next to Estimates, to open your document settings."
               },
               "image": {
-                "pt": "help/img/guides/services-list/services-03.pt.jpg",
-                "en": "help/img/guides/services-list/services-03.en.jpg"
+                "pt": "help/img/guides/services-list/services-s03.pt.jpg",
+                "en": "help/img/guides/services-list/services-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Produtos novos entram sozinhos. Quando você adiciona um produto à tabela de preços, ou importa uma planilha, o nome dele também entra nesta lista. Um adicional não entra. Se um nome já existe na lista, o Apex não repete.",
-                "en": "New products join by themselves. When you add a product to your price list, or import a spreadsheet, its name also joins this list. An add-on does not. If a name is already in the list, Apex does not repeat it."
+                "pt": "Role até a parte chamada Serviços (1).",
+                "en": "Scroll down to the part called Services (1)."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/services-list/services-s04.pt.jpg",
+                "en": "help/img/guides/services-list/services-s04.en.jpg"
+              }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Veja onde os serviços aparecem. Em um lead, toque na linha Serviço(s). A tela lista os seus serviços como botões (1). Toque em um ou mais: cada um que você toca fica dourado. Toque em Salvar (2) para guardar a escolha. Um lead pode ter mais de um serviço. A mesma lista aparece como opções na sua página de indicação e na sua página de link na bio, onde o visitante pode marcar mais de um.",
-                "en": "See where the services show up. On a lead, tap the Service(s) row. The sheet lists your services as buttons (1). Tap one or more: each one you tap turns gold. Tap Save (2) to keep the choice. A lead can have more than one service. The same list shows as options on your referral page and on your link in bio page, where a visitor can tick more than one."
+                "pt": "Uma linha curta (1) diz que são as opções da sua página pública de indicação e da sua página de link na bio.",
+                "en": "A short line (1) says these show up on your public referral page and your link in bio page."
               },
               "image": {
-                "pt": "help/img/guides/services-list/services-05.pt.jpg",
-                "en": "help/img/guides/services-list/services-05.en.jpg"
+                "pt": "help/img/guides/services-list/services-s05.pt.jpg",
+                "en": "help/img/guides/services-list/services-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Cada serviço (1) é uma linha da lista.",
+                "en": "Each service (1) is one line of the list."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-s06.pt.jpg",
+                "en": "help/img/guides/services-list/services-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Para adicionar um serviço, toque em + Adicionar (1) no fim da lista.",
+                "en": "To add a service, tap + Add (1) at the end of the list."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-s07.pt.jpg",
+                "en": "help/img/guides/services-list/services-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Uma linha vazia aparece no fim da lista (1).",
+                "en": "An empty line appears at the end of the list (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-s08.pt.jpg",
+                "en": "help/img/guides/services-list/services-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Toque na linha vazia e digite o nome do serviço (1). Um nome pode ter até 80 caracteres, e as linhas vazias são descartadas quando você salva.",
+                "en": "Tap the empty line and type the name of the service (1). A name can have up to 80 characters, and empty lines are dropped when you save."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-s09.pt.jpg",
+                "en": "help/img/guides/services-list/services-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Você muda o nome de qualquer linha digitando nela (1).",
+                "en": "You can change the name of any line by typing in it (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-s10.pt.jpg",
+                "en": "help/img/guides/services-list/services-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Toque em × (1) à direita de uma linha para removê-la.",
+                "en": "Tap × (1) at the right of a line to remove it."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-s11.pt.jpg",
+                "en": "help/img/guides/services-list/services-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Role até o fim do primeiro cartão, depois de Mensagens de envio, e toque em Salvar configurações (1). Nada muda até você salvar.",
+                "en": "Scroll to the end of the first card, after Send messages, and tap Save settings (1). Nothing changes until you save."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-s12.pt.jpg",
+                "en": "help/img/guides/services-list/services-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Aparece Configurações salvas (1) acima do botão.",
+                "en": "Settings saved (1) appears above the button."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-s13.pt.jpg",
+                "en": "help/img/guides/services-list/services-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Produtos novos entram sozinhos. Quando você adiciona um produto à tabela de preços, ou importa uma planilha, o nome dele também entra nesta lista (1). Um adicional não entra. Se um nome já existe na lista, o Apex não repete.",
+                "en": "New products join by themselves. When you add a product to your price list, or import a spreadsheet, its name also joins this list (1). An add-on does not. If a name is already in the list, Apex does not repeat it."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-s14.pt.jpg",
+                "en": "help/img/guides/services-list/services-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Para ver onde os serviços aparecem, abra um lead e toque na linha Serviço(s) (1).",
+                "en": "To see where the services show up, open a lead and tap the Service(s) row (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-s15.pt.jpg",
+                "en": "help/img/guides/services-list/services-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "A tela lista os seus serviços como botões (1).",
+                "en": "The sheet lists your services as buttons (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-s16.pt.jpg",
+                "en": "help/img/guides/services-list/services-s16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Toque em um ou mais: cada um que você toca fica dourado (1, 2). Um lead pode ter mais de um serviço.",
+                "en": "Tap one or more: each one you tap turns gold (1, 2). A lead can have more than one service."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-s17.pt.jpg",
+                "en": "help/img/guides/services-list/services-s17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Toque em Salvar (1) para guardar a escolha. A mesma lista aparece como opções na sua página de indicação e na sua página de link na bio, onde o visitante pode marcar mais de um.",
+                "en": "Tap Save (1) to keep the choice. The same list shows as options on your referral page and on your link in bio page, where a visitor can tick more than one."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-s18.pt.jpg",
+                "en": "help/img/guides/services-list/services-s18.en.jpg"
               }
             }
           ]

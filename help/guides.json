@@ -13248,54 +13248,94 @@
         {
           "id": "cleaning",
           "title": {
-            "pt": "Um contrato de serviço de limpeza",
+            "pt": "Contrato de serviço de limpeza",
             "en": "A cleaning service agreement"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "pt": "Ligue o ofício de limpeza. Toque em Negócio, depois Orçamentos, depois Configurações, e role até Contrato. Em Ofícios da empresa, toque em Limpeza para ficar selecionado. Você pode selecionar Limpeza e o ofício de construção juntos. Contratos de limpeza só aparecem para um negócio que tem Limpeza selecionado aqui e que tem a biblioteca de cláusulas de limpeza carregada pela Apex. Se você não os vê, esta é a primeira coisa a conferir. Este guia vem do código do aplicativo, porque o nosso cliente de teste não faz limpeza.",
-                "en": "Switch on the cleaning trade. Tap Business, then Estimates, then Settings, and scroll to Contract. Under Trades the business does, tap Cleaning so it is selected. You can select Cleaning and the construction trade together. Cleaning agreements only show for a business that has Cleaning selected here and has the cleaning clause library loaded by Apex. If you do not see them, this is the first thing to check. This guide comes from the app's code, because our test client does not do cleaning."
+                "pt": "Ligue o ofício Limpeza. Toque em Negócio, depois Orçamentos, depois Configurações, e role até Contrato. Em Ofícios da empresa (1), toque em Limpeza (2) para ele ficar marcado. Você pode marcar Limpeza junto com os ofícios de obra. No fim do cartão Contrato, toque em Salvar configurações do contrato: o Apex avisa Configurações do contrato salvas.",
+                "en": "Turn on the Cleaning trade. Tap Business, then Estimates, then Settings, and scroll to Contract. Under Trades the business does (1), tap Cleaning (2) so it is selected. You can select Cleaning together with the construction trades. At the end of the Contract card, tap Save contract settings: Apex says Contract settings saved."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/cleaning-agreement/cleaning-01.pt.jpg",
+                "en": "help/img/guides/cleaning-agreement/cleaning-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Preencha o que a sua empresa pode dizer sobre si mesma. Com Limpeza selecionado, as configurações do Contrato mostram uma parte chamada Limpeza: o que o contrato pode dizer sobre a empresa. O contrato diz que a sua empresa tem seguro, fiança ou triagem só enquanto o registro aqui estiver em dia. Marque Tenho um certificado de seguro válido em arquivo e ponha a validade. Ponha um resumo do seguro, como está no certificado. Marque O certificado mostra os limites de cobertura, Tenho apólice ou isenção de workers' compensation em arquivo (com a validade) e Tenho um documento de fiança (bond) em arquivo. Descreva a triagem da sua equipe, por exemplo identity check e criminal background check, e marque que ela foi feita para as pessoas que vão atender. Embaixo, Limpeza: valores fixos da empresa tem caixas para os seus números padrão, por exemplo o aviso de cancelamento grátis em horas e a taxa de cancelamento tardio. O que ficar em branco é perguntado em cada contrato. Toque em Salvar contrato quando terminar.",
-                "en": "Fill in what your company can say about itself. With Cleaning selected, the Contract settings show a part called Cleaning: what the agreement may say about your company. The agreement says your company is insured, bonded or screened only while the record here is current. Tick I have a current certificate of insurance on file and set its expiry date. Add an insurance summary, as the certificate shows it. Tick The certificate shows the coverage limits, I have a workers' compensation policy or exemption on file (with its expiry date) and I have a bond document on file. Describe the screening of your staff, for example identity check and criminal background check, and tick that it was completed for the people who will be assigned. Below, Cleaning: your standard values has boxes for your standard numbers, for example the free cancellation notice in hours and the late cancellation fee. What you leave blank is asked on each contract. Tap Save contract settings when you finish."
+                "pt": "Preencha o que a sua empresa pode dizer sobre si. Com Limpeza marcada, as configurações mostram a parte Limpeza: o que o contrato pode dizer sobre a empresa. O contrato só diz que a empresa tem seguro, fiança ou triagem se o registro estiver aqui e em dia. Marque Tenho um certificado de seguro válido em arquivo (1) e escolha a validade (2). Escreva o resumo do seguro, como está no certificado (3). Há também caixas para os limites de cobertura, o workers' compensation com a sua validade, o documento de fiança (bond) e a triagem da equipe (4), com a confirmação de que ela foi feita. Embaixo, a parte Limpeza: valores fixos da empresa tem caixas para, por exemplo, o prazo para cancelar sem custo e como terminar o acordo. O que ficar em branco é perguntado no contrato.",
+                "en": "Fill in what your company can say about itself. With Cleaning selected, the settings show a part called Cleaning: what the agreement may say about your company. The agreement says your company is insured, bonded or screened only while the record here is current. Tick I have a current certificate of insurance on file (1) and choose the expiry date (2). Write the insurance summary, as the certificate shows it (3). There are also boxes for the coverage limits, the workers' compensation policy with its expiry date, the bond document, and the screening of your staff (4), with a confirmation that it was done. Below it, the part Cleaning: your standard values has boxes for, for example, the notice to cancel at no charge and how to end the agreement. Anything left blank is asked on the contract."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/cleaning-agreement/cleaning-02.pt.jpg",
+                "en": "help/img/guides/cleaning-agreement/cleaning-02.en.jpg"
+              }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Crie o contrato. No projeto, toque em Criar contrato a partir do orçamento aceito. Uma janela chamada Criar contrato abre. Se o seu negócio faz os dois tipos de serviço, primeiro escolha Que tipo de contrato é este?: Contrato de obra ou Contrato de serviço de limpeza. Para um contrato de limpeza, escolha o Modelo do contrato de limpeza (obrigatório): Residencial recorrente, Limpeza única ou de mudança, Temporada (turnover de aluguel curto) ou Escritório pequeno. Se o lead tem mais de um orçamento aceito, marque os que entram neste contrato. Toque em Criar contrato.",
-                "en": "Create the agreement. On the project, tap Create contract from the accepted estimate. A window called Create contract opens. If your business does both kinds of work, first choose What kind of contract is this?: Construction contract or Cleaning service agreement. For a cleaning agreement, choose the Cleaning agreement template (required): Residential recurring, One-time or move-out, Short-term-rental turnover or Small commercial office. If the lead has more than one accepted estimate, tick the ones this contract includes. Tap Create contract."
+                "pt": "Crie o contrato. Em Negócio, abra o projeto e toque em Criar contrato a partir do orçamento aceito. Abre a janela Criar contrato. Se a sua empresa faz os dois tipos de trabalho, escolha primeiro Que tipo de contrato é este? (1): Contrato de obra ou Contrato de serviço de limpeza. Para limpeza, escolha o Modelo do contrato de limpeza (2), que é obrigatório: Residencial recorrente, Limpeza única ou de mudança, Temporada (turnover de aluguel curto) ou Escritório pequeno. Toque em Criar contrato (3). O Apex avisa Contrato criado e abre o rascunho.",
+                "en": "Create the agreement. In Business, open the project and tap Create contract from the accepted estimate. The window Create contract opens. If your business does both kinds of work, first choose What kind of contract is this? (1): Construction contract or Cleaning service agreement. For cleaning, choose the Cleaning agreement template (2), which is required: Residential recurring, One-time or move-out, Short-term-rental turnover or Small commercial office. Tap Create contract (3). Apex says Contract created and opens the draft."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/cleaning-agreement/cleaning-03.pt.jpg",
+                "en": "help/img/guides/cleaning-agreement/cleaning-03.en.jpg"
+              }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Responda às perguntas do contrato. No contrato, a parte chamada Este contrato tem as perguntas que o modelo precisa. Elas dependem do modelo. Exemplos: O cliente é uma pessoa comprando para uso pessoal, familiar ou doméstico? Vendido durante uma visita à casa do cliente? O contrato também promete outras visitas depois desta? O prazo inicial é de 12 meses ou mais? É limpeza pós-obra ou para uma construtora? O imóvel tem mais de um uso? A empresa está registrada para recolher o imposto sobre vendas da Flórida? Como o contrato chama quem paga. Marque Eu disse ao cliente em voz alta que ele pode cancelar em até três dias úteis quando valer. Se o cliente agendou online, uma parte chamada Do agendamento online mostra as respostas já dadas. O Tipo de contrato e o modelo podem mudar até a empresa assinar. Trocar o tipo recomeça as cláusulas.",
-                "en": "Answer the questions of the agreement. In the contract, the part called This contract has the questions the template needs. They depend on the template. Examples: Is the customer an individual buying for personal, family or household use? Was this sold during a visit to the customer's home? Does the agreement also promise more visits after this one? Is the initial term 12 months or more? Is this a post-construction or builder clean? Does the property have more than one use? Is the company registered to collect Florida sales tax? What the agreement calls the paying party. Tick I told the customer out loud that they may cancel within three business days when it applies. If the customer booked online, a part called From the online booking shows the answers already given. The Kind of contract and the template can change until the company signs. Changing the kind starts the clauses over."
+                "pt": "Responda às perguntas do contrato. No rascunho, a parte Este contrato mostra o Tipo de contrato (1) e o Modelo do contrato de limpeza (2). Trocar o tipo ou o modelo troca as cláusulas, e depois que a empresa assina eles não mudam mais. Embaixo vêm perguntas com Sim e Não (3): o cliente é uma pessoa comprando para uso pessoal, familiar ou doméstico, foi vendido durante uma visita à casa do cliente, é limpeza pós-obra ou para uma construtora, e o imóvel tem mais de um uso. O Apex já preenche o que sabe do lead. Marque Eu disse ao cliente em voz alta que ele pode cancelar em até três dias úteis (4) quando isso vale. Uma nota embaixo dá o prazo de cancelamento.",
+                "en": "Answer the questions of the agreement. In the draft, the part This contract shows the Kind of contract (1) and the Cleaning agreement template (2). Changing the kind or the template changes the clauses, and once the company signs they cannot change. Below come questions with Yes and No (3): is the customer an individual buying for personal, family or household use, was this sold during a visit to the customer's home, is it a post-construction or builder clean, and does the property have more than one use. Apex already fills in what it knows from the lead. Tick I told the customer out loud that they may cancel within three business days (4) when it applies. A note below gives the cancellation deadline."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/cleaning-agreement/cleaning-04.pt.jpg",
+                "en": "help/img/guides/cleaning-agreement/cleaning-04.en.jpg"
+              }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Leia os avisos de limpeza. A parte chamada Avisos de limpeza inseridos por regra lista sete avisos, LC1 a LC7, cada um marcado como entra ou não entra, com o motivo. São, por exemplo, o aviso de cancelamento de serviços contínuos, o aviso e o formulário de cancelamento em três dias, a declaração de venda em domicílio da Flórida, o painel de renovação automática e o seu lembrete, a frase de imposto sobre vendas, e a regra sobre seguro, fiança e triagem. Você não pode editá-los. Eles entram ou não por regra, de acordo com as suas respostas. Avisos de construção não fazem parte de um contrato de limpeza.",
-                "en": "Read the cleaning notices. The part called Cleaning notices inserted by rule lists seven notices, LC1 to LC7, each marked in or out, with the reason. They are, for example, the continuing-services cancellation notice, the three-day cancellation notice and form, the Florida home solicitation statement, the automatic renewal panel and its reminder, the sales tax sentence, and the insurance, bonding and screening rule. You cannot edit them. They are in or out by rule, according to your answers. Construction notices are not part of a cleaning agreement."
+                "pt": "Leia os avisos de limpeza. A parte Avisos de limpeza inseridos por regra (1) lista os avisos LC1 a LC7, cada um marcado como entra ou não entra, com o motivo. Por exemplo, o aviso de cancelamento de serviços contínuos (LC1) entra (2) porque é serviço residencial recorrente para uma pessoa física. O aviso a cessionários (LC1-B) não entra (3) até um advogado fornecer o texto oficial. O painel de renovação automática (LC4) não entra (4) porque este contrato não tem renovação automática. Outros avisos são o cancelamento federal de três dias (LC2), a declaração de venda em domicílio da Flórida (LC3), o imposto sobre vendas (LC5), o seguro, a fiança e a triagem (LC6) e os avisos de obra (LC7). Você não pode editá-los: eles entram ou saem por regra, segundo as suas respostas.",
+                "en": "Read the cleaning notices. The part Cleaning notices inserted by rule (1) lists the notices LC1 to LC7, each marked in or out, with the reason. For example, the continuing-services cancellation notice (LC1) is in (2) because it is a residential recurring service for an individual. The warning to assignees (LC1-B) is out (3) until an attorney supplies the official wording. The automatic renewal panel (LC4) is out (4) because this agreement has no automatic renewal. Other notices are the federal three-day cancellation (LC2), the Florida home solicitation statement (LC3), the sales tax notes (LC5), the insurance, bonding and screening rule (LC6) and the construction notices (LC7). You cannot edit them: they are in or out by rule, according to your answers."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/cleaning-agreement/cleaning-05.pt.jpg",
+                "en": "help/img/guides/cleaning-agreement/cleaning-05.en.jpg"
+              }
             }
           ]
         }
       ],
-      "buttons": []
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Contrato de serviço de limpeza"
+            ],
+            "en": [
+              "Cleaning service agreement"
+            ]
+          },
+          "section": "cleaning",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ofícios da empresa"
+            ],
+            "en": [
+              "Trades the business does"
+            ]
+          },
+          "section": "cleaning",
+          "step": 1
+        }
+      ]
     },
     {
       "id": "services-list",

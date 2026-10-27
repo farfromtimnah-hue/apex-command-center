@@ -10816,8 +10816,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Registre um Notice to Owner. Quando um fornecedor ou subempreiteiro mandar um Notice to Owner, abra o projeto, role até Notices to Owner e liberações e toque em Registrar Notice to Owner. O Apex pergunta três coisas curtas, uma de cada vez: quem mandou (1), a data do aviso e o valor reclamado, que é opcional. Toque em Salvar (2) a cada uma.",
-                "en": "Record a Notice to Owner. When a supplier or subcontractor serves a Notice to Owner, open the project, scroll to Notices to Owner and lien releases and tap Record a Notice to Owner. Apex asks three short things one at a time: who served it (1), the date of the notice and the amount claimed, which is optional. Tap Save (2) after each one."
+                "pt": "Quando um fornecedor ou subempreiteiro mandar um Notice to Owner, toque em Negócio, depois Projetos, e abra o projeto (1).",
+                "en": "When a supplier or subcontractor serves a Notice to Owner, tap Business, then Projects, and open the project (1)."
               },
               "image": {
                 "pt": "help/img/guides/liens-and-final-affidavit/liens-01.pt.jpg",
@@ -10827,8 +10827,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Vigie a lista. Cada aviso (1) mostra o nome, o valor, a data e uma etiqueta vermelha, Sem liberação, até você guardar uma liberação dele. A linha vermelha (2) diz quantos ainda estão sem liberação final: não faça o pagamento final antes de ter a liberação final de cada um. Na Flórida, em geral, o subempreiteiro ou fornecedor precisa ser pago em até 45 dias depois que você recebe pelo trabalho dele, salvo disputa real. Toque em Registrar Notice to Owner (3) para outro, ou em Declaração de pagamento final (4).",
-                "en": "Watch the list. Each notice (1) shows the name, the amount, the date and a red tag, No release, until you keep a release for it. The red line (2) says how many are still without a final release: do not make the final payment before you have a final release from each one. Florida generally requires paying a subcontractor or supplier within 45 days after you are paid for their work, unless there is a genuine dispute. Tap Record a Notice to Owner (3) for another one, or Final payment affidavit (4)."
+                "pt": "Role até Notices to Owner e liberações (1). Na Flórida, em geral, o subempreiteiro ou fornecedor precisa ser pago em até 45 dias depois que você recebe pelo trabalho dele, salvo disputa real.",
+                "en": "Scroll to Notices to Owner and lien releases (1). Florida generally requires paying a subcontractor or supplier within 45 days after you are paid for their work, unless there is a genuine dispute."
               },
               "image": {
                 "pt": "help/img/guides/liens-and-final-affidavit/liens-02.pt.jpg",
@@ -10838,8 +10838,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Guarde as liberações. Toque em um aviso. Uma liberação condicional (2) vale quando o pagamento compensar. Uma liberação final, incondicional (3), vem depois que o pagamento compensou. Envie cada uma como foto ou PDF. Quando uma liberação final é enviada, a etiqueta muda. Remover (4) pede um motivo e guarda o registro.",
-                "en": "Keep the releases. Tap a notice. A conditional release (2) takes effect when the payment clears. A final, unconditional release (3) comes after the payment has cleared. Upload each one as a photo or PDF. When a final release is uploaded, the tag changes. Remove (4) asks for a reason and keeps the record."
+                "pt": "Toque em Registrar Notice to Owner (1). O Apex pergunta três coisas curtas, uma de cada vez.",
+                "en": "Tap Record a Notice to Owner (1). Apex asks three short things, one at a time."
               },
               "image": {
                 "pt": "help/img/guides/liens-and-final-affidavit/liens-03.pt.jpg",
@@ -10849,12 +10849,177 @@
             {
               "n": 4,
               "text": {
-                "pt": "Prepare a declaração de pagamento final. Antes do pagamento final, o cliente pode pedir uma declaração juramentada que diz quem já foi pago e quem ainda falta (1). O Apex preenche o valor do contrato, o que foi pago e o pagamento final, e avisa de qualquer aviso sem liberação (2). Toque em Baixar PDF da declaração (3). Em Onde reconhecer firma (notarize) (4), o Apex lista onde reconhecer: online, presencialmente ou com um notário seu. Leve o documento sem assinar. Depois envie a cópia assinada (5).",
-                "en": "Prepare the final payment affidavit. Before the final payment, the homeowner can ask for a sworn statement listing who has been paid and who is still owed (1). Apex fills in the contract amount, what was paid and the final payment, and warns about any notice that has no release (2). Tap Download affidavit (PDF) (3). Under Get it notarized (4), Apex lists where to notarize: online, in person, or with your own notary. Bring the document unsigned. Then upload the signed copy (5)."
+                "pt": "Primeiro, quem mandou o aviso (1). Digite o nome e toque em Salvar (2).",
+                "en": "First, who served the notice (1). Type the name and tap Save (2)."
               },
               "image": {
                 "pt": "help/img/guides/liens-and-final-affidavit/liens-04.pt.jpg",
                 "en": "help/img/guides/liens-and-final-affidavit/liens-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Segundo, a data do aviso (1). Escolha a data e toque em Salvar (2).",
+                "en": "Second, the date of the notice (1). Choose the date and tap Save (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-05.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Terceiro, o valor reclamado (1), que é opcional. Digite e toque em Salvar (2).",
+                "en": "Third, the amount claimed (1), which is optional. Type it and tap Save (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-06.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "O Apex avisa Registrado e o aviso fica salvo no projeto.",
+                "en": "Apex says Recorded and the notice is saved on the project."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-07.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Cada aviso (1) mostra o nome, o valor, a data e uma etiqueta vermelha, Sem liberação, até você guardar uma liberação dele.",
+                "en": "Each notice (1) shows the name, the amount, the date and a red tag, No release, until you keep a release for it."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-08.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "A linha vermelha (2) diz quantos ainda estão sem liberação final: não faça o pagamento final antes de ter a liberação final de cada um.",
+                "en": "The red line (2) says how many are still without a final release: do not make the final payment before you have a final release from each one."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-09.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Toque em Registrar Notice to Owner (3) para outro, ou em Declaração de pagamento final (4).",
+                "en": "Tap Record a Notice to Owner (3) for another one, or Final payment affidavit (4)."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-10.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Para guardar as liberações, toque em um aviso. Dois botões deixam você enviar uma liberação condicional (1) e uma liberação final (2). Remover (3) pede um motivo e guarda o registro.",
+                "en": "To keep the releases, tap a notice. Two buttons let you upload a conditional release (1) and a final release (2). Remove (3) asks for a reason and keeps the record."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-11.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Uma liberação condicional vale quando o pagamento compensar. Envie como foto ou PDF: o Apex mostra que ela foi registrada (1).",
+                "en": "A conditional release takes effect when the payment clears. Upload it as a photo or PDF: Apex shows it recorded (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-12.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Uma liberação final, incondicional, vem depois que o pagamento compensou. Envie como foto ou PDF: o Apex mostra que ela foi registrada (1).",
+                "en": "A final, unconditional release comes after the payment has cleared. Upload it as a photo or PDF: Apex shows it recorded (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-13.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Quando uma liberação final é enviada, a etiqueta muda (1) de Sem liberação para Liberação final.",
+                "en": "When a final release is uploaded, the tag changes (1) from No release to Final release."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-14.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Antes do pagamento final, o cliente pode pedir uma declaração juramentada que diz quem já foi pago e quem ainda falta (1). Toque em Declaração de pagamento final no projeto para abri-la.",
+                "en": "Before the final payment, the homeowner can ask for a sworn statement listing who has been paid and who is still owed (1). Tap Final payment affidavit on the project to open it."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-15.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "O Apex preenche o valor do contrato, o que foi pago e o pagamento final (2), e avisa de qualquer aviso sem liberação.",
+                "en": "Apex fills in the contract amount, what was paid and the final payment (2), and warns about any notice that has no release."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-16.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Toque em Baixar PDF da declaração (3).",
+                "en": "Tap Download affidavit (PDF) (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-17.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Em Onde reconhecer firma (notarize) (1), o Apex lista onde reconhecer: online, presencialmente ou com um notário seu. Leve o documento sem assinar.",
+                "en": "Under Get it notarized (1), Apex lists where to notarize: online, in person, or with your own notary. Bring the document unsigned."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-18.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "Depois envie a cópia assinada (foto ou PDF). Ela aparece em Cópias arquivadas (1).",
+                "en": "Then upload the signed copy (photo or PDF). It appears under Copies on file (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-19.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-19.en.jpg"
               }
             }
           ]
@@ -10871,7 +11036,7 @@
             ]
           },
           "section": "liens",
-          "step": 1
+          "step": 3
         },
         {
           "labels": {
@@ -10883,7 +11048,7 @@
             ]
           },
           "section": "liens",
-          "step": 4
+          "step": 15
         }
       ]
     },

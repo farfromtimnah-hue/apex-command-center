@@ -5382,8 +5382,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra o Financeiro. Toque em Negócio no menu de cima e depois em Financeiro (1). Ele fica entre Faturas e Preços.",
-                "en": "Open Finances. Tap Business in the top menu, then tap Finances (1). It sits between Invoices and Pricing."
+                "pt": "Toque em Negócio (1) no menu de cima. Abre um menu.",
+                "en": "Tap Business (1) in the top menu. A menu opens."
               },
               "image": {
                 "pt": "help/img/guides/finances/finances-01.pt.jpg",
@@ -5393,8 +5393,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Escolha o período. O cartão Período define quais datas a página mostra. Toque em Este mês, Mês passado, Este ano ou Tudo (1). Ou abra Escolher mês e escolha um mês da lista (2); o número entre parênteses é quantos lançamentos aquele mês tem. Ou defina você mesmo as datas De e Até (3). O botão Relatório (4) é explicado no passo 6.",
-                "en": "Choose the period. The Period card sets which dates the page shows. Tap This month, Last month, This year or All time (1). Or open Pick a month and choose a month from the list (2); the number in brackets is how many entries that month has. Or set the From and To dates yourself (3). The Report button (4) is explained in step 6."
+                "pt": "No menu, toque em Financeiro (1). Ele fica entre Faturas e Preços.",
+                "en": "In the menu, tap Finances (1). It sits between Invoices and Pricing."
               },
               "image": {
                 "pt": "help/img/guides/finances/finances-02.pt.jpg",
@@ -5404,8 +5404,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Leia o resumo mensal. O cartão Resumo mensal mostra o mês no alto, com duas barras (1): a barra verde com seta para cima é o dinheiro que entrou, e a barra vermelha com seta para baixo é o dinheiro que saiu. Embaixo, a tabela (2) mostra Entradas, Saídas, Resultado e Margem líquida. O Resultado é o que sobra: Entradas menos Saídas. A Margem líquida mostra esse resultado em percentual.",
-                "en": "Read the monthly summary. The Monthly summary card shows the month at the top with two bars (1): the green bar with an up arrow is the money that came in, and the red bar with a down arrow is the money that went out. Under it, the table (2) shows In, Out, Net and Net margin. Net is what is left: In minus Out. Net margin shows that result as a percent."
+                "pt": "O cartão Período define quais datas a página mostra. Toque em Este mês, Mês passado, Este ano ou Tudo (1).",
+                "en": "The Period card sets which dates the page shows. Tap This month, Last month, This year or All time (1)."
               },
               "image": {
                 "pt": "help/img/guides/finances/finances-03.pt.jpg",
@@ -5415,8 +5415,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Veja os seus lançamentos. O cartão Lançamentos lista cada lançamento do período (1). Cada linha mostra a descrição, a data, a categoria, o valor, e a palavra Entrada, para dinheiro que entrou, ou Saída, para dinheiro que saiu. Uma linha embaixo da lista conta os lançamentos, por exemplo 1 lançamento. Toque em + Novo lançamento (2) para adicionar um.",
-                "en": "Check your entries. The Entries card lists every entry of the period (1). Each row shows the description, the date, the category, the amount, and the word Entrada for money in or Saída for money out. A line under the list counts the entries, for example 1 entry. Tap + New entry (2) to add one."
+                "pt": "Ou abra Escolher mês (1) e escolha um mês da lista. O número entre parênteses é quantos lançamentos aquele mês tem.",
+                "en": "Or open Pick a month (1) and choose a month from the list. The number in brackets is how many entries that month has."
               },
               "image": {
                 "pt": "help/img/guides/finances/finances-04.pt.jpg",
@@ -5426,8 +5426,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Preencha um novo lançamento. O formulário Novo lançamento pede três coisas, cada uma marcada com asterisco: Descrição (1), Valor ($) (2) e Categoria (3). O tipo, Entrada ou Saída, é definido sozinho pela categoria que você escolher. Os demais campos podem ser preenchidos depois de salvar. Toque em Salvar (4) quando terminar, ou em Cancelar para sair sem salvar.",
-                "en": "Fill in a new entry. The New entry form asks for three things, each marked with a star: Description (1), Amount ($) (2) and Category (3). The type, Entrada or Saída, is set by itself from the category you pick. The other fields can be filled in after saving. Tap Save (4) when you are done, or Cancel to leave without saving. The names in the Category menu are written in Portuguese."
+                "pt": "Ou defina você mesmo as datas De (1) e Até (2).",
+                "en": "Or set the From (1) and To (2) dates yourself."
               },
               "image": {
                 "pt": "help/img/guides/finances/finances-05.pt.jpg",
@@ -5437,12 +5437,166 @@
             {
               "n": 6,
               "text": {
-                "pt": "Abra um relatório. Toque em Relatório, embaixo do cartão Período ou embaixo da lista de lançamentos. Abre um formulário, e ele fica em inglês mesmo com o portal em português. Toque em This month, Last month, This year ou Last year (Este mês, Mês passado, Este ano ou Ano passado) para preencher as datas (1), ou digite você mesmo as datas From e To (De e Até) (2). Prepared for, Title e Opening balance (Preparado para, Título e Saldo inicial) (3) não têm asterisco, então podem ficar vazios; o Title sugere Financial report e o Opening balance sugere 0.00. Toque em Open report (Abrir relatório) (4) para ver o relatório.",
-                "en": "Open a report. Tap Report, under the Period card or under the list of entries. A form opens, and it is in English even when the portal is in Portuguese. Tap This month, Last month, This year or Last year to fill the dates (1), or type your own From and To dates (2). Prepared for, Title and Opening balance (3) have no star, so you can leave them empty; Title suggests Financial report and Opening balance suggests 0.00. Tap Open report (4) to see the report."
+                "pt": "O botão Relatório (1) fica embaixo do cartão Período. Ele é explicado no passo 17.",
+                "en": "The Report button (1) is under the Period card. It is explained in step 17."
               },
               "image": {
                 "pt": "help/img/guides/finances/finances-06.pt.jpg",
                 "en": "help/img/guides/finances/finances-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "O cartão Resumo mensal mostra o mês no alto, com duas barras (1): a barra verde com seta para cima é o dinheiro que entrou, e a barra vermelha com seta para baixo é o dinheiro que saiu.",
+                "en": "The Monthly summary card shows the month at the top with two bars (1): the green bar with an up arrow is the money that came in, and the red bar with a down arrow is the money that went out."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/finances-07.pt.jpg",
+                "en": "help/img/guides/finances/finances-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Embaixo das barras, a tabela (2) mostra Entradas, Saídas, Resultado e Margem líquida. O Resultado é o que sobra: Entradas menos Saídas. A Margem líquida mostra esse resultado em percentual.",
+                "en": "Under the bars, the table (2) shows In, Out, Net and Net margin. Net is what is left: In minus Out. Net margin shows that result as a percent."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/finances-08.pt.jpg",
+                "en": "help/img/guides/finances/finances-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "O cartão Lançamentos lista cada lançamento do período (1). Cada linha mostra a descrição, a data, a categoria, o valor, e a palavra Entrada, para dinheiro que entrou, ou Saída, para dinheiro que saiu.",
+                "en": "The Entries card lists every entry of the period (1). Each row shows the description, the date, the category, the amount, and the word Entrada for money in or Saída for money out."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/finances-09.pt.jpg",
+                "en": "help/img/guides/finances/finances-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Uma linha embaixo da lista conta os lançamentos (1), por exemplo 10 lançamentos.",
+                "en": "A line under the list counts the entries (1), for example 10 entries."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/finances-10.pt.jpg",
+                "en": "help/img/guides/finances/finances-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Toque em + Novo lançamento (2) para adicionar um. Abre o formulário Novo lançamento.",
+                "en": "Tap + New entry (2) to add one. The form New entry opens."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/finances-11.pt.jpg",
+                "en": "help/img/guides/finances/finances-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "O formulário Novo lançamento pede três coisas, cada uma marcada com asterisco. Digite a Descrição (1), por exemplo Pool filter parts.",
+                "en": "The New entry form asks for three things, each marked with a star. Type the Description (1), for example Pool filter parts."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/finances-12.pt.jpg",
+                "en": "help/img/guides/finances/finances-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Digite o Valor ($) (1), por exemplo 120.",
+                "en": "Type the Amount ($) (1), for example 120."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/finances-13.pt.jpg",
+                "en": "help/img/guides/finances/finances-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Escolha a Categoria (1). O tipo, Entrada ou Saída, é definido sozinho pela categoria que você escolher. Os nomes no menu Categoria estão em português.",
+                "en": "Choose the Category (1). The type, Entrada or Saída, is set by itself from the category you pick. The names in the Category menu are written in Portuguese."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/finances-14.pt.jpg",
+                "en": "help/img/guides/finances/finances-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Toque em Salvar (1) quando terminar, ou em Cancelar (2) para sair sem salvar. Os demais campos podem ser preenchidos depois de salvar.",
+                "en": "Tap Save (1) when you are done, or Cancel (2) to leave without saving. The other fields can be filled in after saving."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/finances-15.pt.jpg",
+                "en": "help/img/guides/finances/finances-15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "O novo lançamento aparece na lista (1). Dinheiro que saiu aparece em vermelho, com a palavra Saída.",
+                "en": "The new entry appears in the list (1). Money out shows in red with the word Saída."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/finances-16.pt.jpg",
+                "en": "help/img/guides/finances/finances-16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Para abrir um relatório, toque em Relatório, embaixo do cartão Período ou embaixo da lista de lançamentos. Abre um formulário. Toque em Este mês, Mês passado, Este ano ou Ano passado (1) para preencher as datas.",
+                "en": "To open a report, tap Report, under the Period card or under the list of entries. A form opens. Tap This month, Last month, This year or Last year (1) to fill the dates."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/finances-17.pt.jpg",
+                "en": "help/img/guides/finances/finances-17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Ou digite você mesmo as datas De (1) e Até (2).",
+                "en": "Or type your own From (1) and To (2) dates."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/finances-18.pt.jpg",
+                "en": "help/img/guides/finances/finances-18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "Preparado para (1), Título (2) e Saldo inicial (3) não têm asterisco, então podem ficar vazios. O Título sugere Relatório financeiro e o Saldo inicial sugere 0.00.",
+                "en": "Prepared for (1), Title (2) and Opening balance (3) have no star, so you can leave them empty. Title suggests Financial report and Opening balance suggests 0.00."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/finances-19.pt.jpg",
+                "en": "help/img/guides/finances/finances-19.en.jpg"
+              }
+            },
+            {
+              "n": 20,
+              "text": {
+                "pt": "Toque em Abrir relatório (1) para ver o relatório.",
+                "en": "Tap Open report (1) to see the report."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/finances-20.pt.jpg",
+                "en": "help/img/guides/finances/finances-20.en.jpg"
               }
             }
           ]
@@ -5459,7 +5613,7 @@
             ]
           },
           "section": "finances",
-          "step": 4
+          "step": 11
         },
         {
           "labels": {
@@ -5471,11 +5625,9 @@
             ]
           },
           "section": "finances",
-          "step": 6
+          "step": 20
         },
         {
-          "section": "finances",
-          "step": 1,
           "labels": {
             "pt": [
               "Financeiro"
@@ -5483,7 +5635,9 @@
             "en": [
               "Finances"
             ]
-          }
+          },
+          "section": "finances",
+          "step": 2
         }
       ]
     },

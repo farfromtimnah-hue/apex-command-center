@@ -8699,34 +8699,188 @@
             {
               "n": 1,
               "text": {
-                "pt": "Salve o seu link de avaliação uma vez. Toque em Negócio, depois em Orçamentos, depois em Configurações, e role até Marketing. Cole o seu link de avaliação do Google na primeira caixa (1). No seu Perfil da Empresa no Google, escolha Pedir avaliações e copie o link. Toque em Como encontrar (2) se precisar de ajuda. A caixa embaixo (3) é o link da sua página, veja o guia Link na bio. O Apex salva o que você digitou quando você sai da caixa.",
-                "en": "Save your review link once. Tap Business, then Estimates, then Settings, and scroll to Marketing. Paste your Google review link in the first box (1). In your Google Business Profile, choose Ask for reviews and copy the link. Tap How to find it (2) if you need help. The box under it (3) is your own page link, see the Link in bio guide. Apex saves what you typed when you leave the box."
+                "pt": "Salve o seu link de avaliação uma vez. Toque em Negócio (1) no alto da tela.",
+                "en": "Save your review link once. Tap Business (1) at the top of the screen."
               },
               "image": {
-                "pt": "help/img/guides/ask-for-google-review/review-01.pt.jpg",
-                "en": "help/img/guides/ask-for-google-review/review-01.en.jpg"
+                "pt": "help/img/guides/ask-for-google-review/review-s01.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Abra o projeto. Toque em Negócio e depois em Projetos, e toque no projeto. Perto do topo da ficha, toque em Pedir avaliação no Google (2). O botão ao lado, Enviar cartão de contato (1), é explicado no guia do cartão de contato.",
-                "en": "Open the project. Tap Business, then Projects, and tap the project. Near the top of the sheet, tap Ask for a Google review (2). The button next to it, Send contact card (1), is explained in the contact card guide."
+                "pt": "No menu, toque em Orçamentos (1).",
+                "en": "In the menu, tap Estimates (1)."
               },
               "image": {
-                "pt": "help/img/guides/ask-for-google-review/review-02.pt.jpg",
-                "en": "help/img/guides/ask-for-google-review/review-02.en.jpg"
+                "pt": "help/img/guides/ask-for-google-review/review-s02.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Envie o pedido. Escolha como: Mensagem de texto ou WhatsApp (1), ou Abrir meu email ou Copiar para enviar pelo navegador (2). A mensagem (3) já vem escrita com o nome do cliente, o nome da sua empresa e o seu link de avaliação. Toque em Copiar mensagem (4) para colar em outro lugar. A linha acima da mensagem mostra qual número o WhatsApp vai abrir.",
-                "en": "Send the request. Choose how: Text message or WhatsApp (1), or Open my email app or Copy to send from a web email (2). The message (3) is already written with the customer's name, your business name and your review link. Tap Copy message (4) to paste it somewhere else. The line above the message shows which number WhatsApp will open."
+                "pt": "Toque em Configurações (1), ao lado de Orçamentos.",
+                "en": "Tap Settings (1), next to Estimates."
               },
               "image": {
-                "pt": "help/img/guides/ask-for-google-review/review-03.pt.jpg",
-                "en": "help/img/guides/ask-for-google-review/review-03.en.jpg"
+                "pt": "help/img/guides/ask-for-google-review/review-s03.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Role até a parte chamada Marketing (1).",
+                "en": "Scroll down to the part called Marketing (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-s04.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Cole o seu link de avaliação do Google na primeira caixa (1). O Apex salva o que você digitou quando você sai da caixa.",
+                "en": "Paste your Google review link in the first box (1). Apex saves what you typed when you leave the box."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-s05.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "No seu Perfil da Empresa no Google, escolha Pedir avaliações e copie o link (1), e cole na caixa acima.",
+                "en": "In your Google Business Profile, choose Ask for reviews and copy the link (1), then paste it in the box above."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-s06.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Toque em Como encontrar (1) se precisar de ajuda para achar o link.",
+                "en": "Tap How to find it (1) if you need help finding the link."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-s07.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "A caixa embaixo (1) é o link da sua página, veja o guia Link na bio.",
+                "en": "The box under it (1) is your own page link, see the Link in bio guide."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-s08.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Agora abra o projeto. Toque em Negócio e depois em Projetos (1).",
+                "en": "Now open the project. Tap Business, then Projects (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-s09.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Toque no projeto (1) na lista.",
+                "en": "Tap the project (1) in the list."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-s10.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Perto do topo da ficha, toque em Pedir avaliação no Google (1).",
+                "en": "Near the top of the sheet, tap Ask for a Google review (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-s11.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "O botão ao lado, Enviar cartão de contato (1), é explicado no guia do cartão de contato.",
+                "en": "The button next to it, Send contact card (1), is explained in the contact card guide."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-s12.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Envie o pedido. Escolha como: Mensagem de texto ou WhatsApp (1).",
+                "en": "Send the request. Choose how: Text message or WhatsApp (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-s13.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Ou escolha Abrir meu email (1) ou Copiar para enviar pelo navegador (2).",
+                "en": "Or choose Open my email app (1) or Copy to send from a web email (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-s14.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "A mensagem (1) já vem escrita com o nome do cliente, o nome da sua empresa e o seu link de avaliação.",
+                "en": "The message (1) is already written with the customer's name, your business name and your review link."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-s15.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Toque em Copiar mensagem (1) para colar em outro lugar.",
+                "en": "Tap Copy message (1) to paste it somewhere else."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-s16.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "A linha acima da mensagem (1) mostra qual número o WhatsApp vai abrir.",
+                "en": "The line above the message (1) shows which number WhatsApp will open."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-for-google-review/review-s17.pt.jpg",
+                "en": "help/img/guides/ask-for-google-review/review-s17.en.jpg"
               }
             }
           ]
@@ -8743,7 +8897,7 @@
             ]
           },
           "section": "review",
-          "step": 2
+          "step": 11
         }
       ]
     },

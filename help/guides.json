@@ -9740,32 +9740,211 @@
             {
               "n": 1,
               "text": {
-                "pt": "Guarde as fotos de antes e a lista de pendências. Abra o projeto (Negócio e depois Projetos) e role para baixo. Antes de começar a obra, toque em Adicionar fotos (1) e fotografe rachaduras, manchas, calçadas, grama e cercas, para o cliente confirmar que já estavam assim. No fim, ande pela obra com o cliente e toque em Adicionar pendência (3) para cada coisa a corrigir. Toque em um item (2) para marcar como feito: o Apex anota a hora e quem fez. Remover pede um motivo, e um item removido pode voltar.",
-                "en": "Keep the before photos and the punch list. Open the project (Business, then Projects) and scroll down. Before the work starts, tap Add photos (1) and photograph cracks, stains, driveways, lawn and fences, so the homeowner can confirm they were already like that. At the end, walk the job with the homeowner and tap Add item (3) for each thing to fix. Tap an item (2) to mark it done: Apex notes the time and who did it. Remove asks for a reason, and a removed item can be brought back."
+                "pt": "Abra o projeto: toque em Negócio, depois em Projetos, e toque no projeto (1). Role a ficha do projeto até as partes das fotos e das pendências.",
+                "en": "Open the project: tap Business, then Projects, then tap the project (1). Scroll down the project sheet to the photo and punch list parts."
               },
               "image": {
-                "pt": "help/img/guides/punch-list-and-completion/completion-01.pt.jpg",
-                "en": "help/img/guides/punch-list-and-completion/completion-01.en.jpg"
+                "pt": "help/img/guides/punch-list-and-completion/completion-s01.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Envie o aceite de conclusão. Quando todos os itens estão feitos, o botão Enviar aceite de conclusão aparece embaixo da lista (4 no passo anterior). Toque nele e escolha como enviar: Mensagem de texto ou WhatsApp (1). A mensagem (3) já vem escrita e tem o link onde o cliente confere a lista e assina. Se o projeto não tem telefone do cliente, o Apex avisa (2): coloque o telefone no lead do cliente primeiro, ou use Marcar como enviada sem abrir mensagem (4) se você mesmo vai mandar o link.",
-                "en": "Send the completion sign-off. When every item is done, the button Send completion sign-off appears below the list (4 in the step before). Tap it and choose how to send: Text message or WhatsApp (1). The message (3) is already written and has the link where the customer reviews the list and signs. If the project has no customer phone, Apex says so (2): add the phone to the customer's lead first, or use Mark as sent without opening a message (4) if you will send the link yourself."
+                "pt": "Antes de a obra começar, toque em Adicionar fotos (1) em Fotos de antes e fotografe rachaduras, manchas, calçadas, grama e cercas, para o cliente confirmar que já estavam assim.",
+                "en": "Before the work starts, tap Add photos (1) in Before-work photos and photograph cracks, stains, driveways, lawn and fences, so the homeowner can confirm they were already like that."
               },
               "image": {
-                "pt": "help/img/guides/punch-list-and-completion/completion-02.pt.jpg",
-                "en": "help/img/guides/punch-list-and-completion/completion-02.en.jpg"
+                "pt": "help/img/guides/punch-list-and-completion/completion-s02.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Acompanhe o que acontece. O aceite aparece na lista, embaixo dos itens, com o status: Enviado, Visto, Assinado ou Não concordou. Se o cliente não concorda, o motivo dele aparece ali. Se você mudar a lista depois de enviar, o aceite sem assinatura é anulado e você manda um novo com Reenviar aceite de conclusão. Quando o cliente assina, o projeto mostra Conclusão aceita por e o nome.",
-                "en": "Follow what happens. The sign-off shows in the list under the items with its status: Sent, Viewed, Signed or Declined. If the customer does not agree, their reason shows there. If you change the list after sending, the unsigned sign-off is voided and you send a new one with Resend completion sign-off. When the customer signs, the project shows Completion signed by and the name."
+                "pt": "No fim, ande pela obra com o cliente e toque em Adicionar pendência (1) para cada coisa a consertar.",
+                "en": "At the end, walk the job with the homeowner and tap Add item (1) for each thing to fix."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s03.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Abre uma janela. Digite a coisa a consertar na caixa (1).",
+                "en": "A window opens. Type the thing to fix in the box (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s04.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Toque em Salvar (1). O item aparece na lista com uma caixinha vazia.",
+                "en": "Tap Save (1). The item shows in the list with an empty box."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s05.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Quando o item for consertado, toque no item (1) para marcá-lo como feito.",
+                "en": "When the item is fixed, tap the item (1) to mark it done."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s06.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "O item fica riscado e o Apex anota a hora e quem fez (1).",
+                "en": "The item is crossed out and Apex notes the time and who did it (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s07.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Para tirar um item da lista, toque em Remover (1).",
+                "en": "To take an item out of the list, tap Remove (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s08.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "O Apex pede um motivo. Digite por que você está tirando o item na caixa (1).",
+                "en": "Apex asks for a reason. Type why you are removing the item in the box (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s09.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Toque em Salvar (1). O item sai da lista.",
+                "en": "Tap Save (1). The item leaves the list."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s10.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Um item removido fica guardado em Removidos (1). Toque nele para abrir a lista dos itens removidos.",
+                "en": "A removed item is kept under Removed (1). Tap it to open the list of removed items."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s11.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Um item removido pode voltar: toque em Restaurar (1).",
+                "en": "A removed item can be brought back: tap Restore (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s12.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Quando todos os itens estiverem feitos, o botão Enviar aceite de conclusão aparece embaixo da lista. Toque nele (1).",
+                "en": "When every item is done, the button Send completion sign-off appears below the list. Tap it (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s13.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Abre uma tela de envio. Escolha como enviar: Mensagem de texto (1) ou WhatsApp (2).",
+                "en": "A send screen opens. Choose how to send: Text message (1) or WhatsApp (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s14.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "A mensagem (1) já vem escrita e tem o link em que o cliente revisa a lista e assina. Leia antes de enviar.",
+                "en": "The message (1) is already written and has the link where the customer reviews the list and signs. Read it before you send."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s15.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Se o projeto não tem telefone do cliente, o Apex avisa: coloque o telefone no lead do cliente primeiro, ou toque em Marcar como enviada sem abrir mensagem (1) se você mesmo vai mandar o link.",
+                "en": "If the project has no customer phone, Apex says so: add the phone to the customer's lead first, or tap Mark as sent without opening a message (1) if you will send the link yourself."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s16.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "O aceite aparece na lista embaixo dos itens com o status (1): Enviado, Visto, Assinado ou Recusado. Se o cliente não concordar, o motivo dele aparece ali.",
+                "en": "The sign-off shows in the list under the items with its status (1): Sent, Viewed, Signed or Declined. If the customer does not agree, their reason shows there."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s17.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Se você mudar a lista depois de enviar, o aceite sem assinatura é anulado (1). Aí você manda um novo com Reenviar aceite de conclusão (2).",
+                "en": "If you change the list after sending, the unsigned sign-off is voided (1). Then you send a new one with Resend completion sign-off (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s18.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "Quando o cliente assina, o projeto mostra Aceite de conclusão assinado por e o nome.",
+                "en": "When the customer signs, the project shows Completion signed by and the name."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-s17.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-s17.en.jpg"
+              }
             }
           ]
         },
@@ -9779,45 +9958,133 @@
             {
               "n": 1,
               "text": {
-                "pt": "Tire as fotos de antes primeiro. Abra o projeto e role até Fotos de antes (condições existentes). Toque em Adicionar fotos e escolha uma imagem. Uma caixa pergunta What does this photo show? (optional) (em inglês). Digite uma nota curta (1) e toque em Save (2). Cancel (3) descarta a foto.",
-                "en": "Take the before photos first. Open the project and scroll to Before-work photos (existing conditions). Tap Add photos and pick a picture. A box asks What does this photo show? (optional). Type a short note (1) and tap Save (2). Cancel (3) drops the photo."
+                "pt": "Tire as fotos de antes primeiro. Abra o projeto e role até Fotos de antes (condições existentes) (1).",
+                "en": "Take the before photos first. Open the project and scroll to Before-work photos (existing conditions) (1)."
               },
               "image": {
-                "pt": "help/img/guides/punch-list-and-completion/ack-01.pt.jpg",
-                "en": "help/img/guides/punch-list-and-completion/ack-01.en.jpg"
+                "pt": "help/img/guides/punch-list-and-completion/ack-s01.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Veja a foto e o botão. A foto aparece com a sua nota embaixo. O botão Enviar para o cliente reconhecer (2) só aparece depois que há pelo menos uma foto no projeto. Adicionar fotos (1) adiciona mais.",
-                "en": "See the photo and the button. The photo shows with your note under it. The button Send for acknowledgment (2) shows only after at least one photo is on the project. Add photos (1) adds more."
+                "pt": "Toque em Adicionar fotos (1) e escolha uma foto.",
+                "en": "Tap Add photos (1) and pick a picture."
               },
               "image": {
-                "pt": "help/img/guides/punch-list-and-completion/ack-02.pt.jpg",
-                "en": "help/img/guides/punch-list-and-completion/ack-02.en.jpg"
+                "pt": "help/img/guides/punch-list-and-completion/ack-s02.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Abra a tela de envio. Toque em Enviar para o cliente reconhecer. Abre uma tela de envio, como a dos outros documentos: Mensagem de texto (1), WhatsApp (2), Abrir meu email (3), Marcar como enviada sem abrir mensagem (4) e Voltar (5). A mensagem vem do Apex com o link, então leia antes de enviar. No nosso teste o lead não tinha telefone, e a tela avisou. O Apex não envia sozinho: você aperta enviar no seu app de mensagens.",
-                "en": "Open the send screen. Tap Send for acknowledgment. A send screen opens, like the one for other documents: Text message (1), WhatsApp (2), Open my email app (3), Mark as sent without opening a message (4) and Back (5). The message comes from Apex with the link, so read it before you send. In our test the lead had no phone, so the screen said so. Apex does not send by itself: you press send in your messaging app."
+                "pt": "Uma caixa pergunta O que esta foto mostra? (opcional). Digite uma nota curta (1).",
+                "en": "A box asks What does this photo show? (optional). Type a short note (1)."
               },
               "image": {
-                "pt": "help/img/guides/punch-list-and-completion/ack-03.pt.jpg",
-                "en": "help/img/guides/punch-list-and-completion/ack-03.en.jpg"
+                "pt": "help/img/guides/punch-list-and-completion/ack-s03.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Acompanhe a resposta. Uma linha chamada Reconhecimento do cliente (1) aparece embaixo das fotos, com uma etiqueta e a hora. Abrir a tela de envio já marca como Enviado, mesmo que você não tenha enviado nada. Se você enviar de novo, a linha mais antiga mostra Anulado. Toque na linha para abrir.",
-                "en": "Follow the answer. A row called Homeowner acknowledgment (1) shows under the photos, with a tag and the time. Opening the send screen already marks it as Sent, even if you did not send anything. If you send again, the older row shows Void. Tap the row to open it."
+                "pt": "Toque em Salvar (1). Cancelar descarta a foto.",
+                "en": "Tap Save (1). Cancel drops the photo instead."
               },
               "image": {
-                "pt": "help/img/guides/punch-list-and-completion/ack-04.pt.jpg",
-                "en": "help/img/guides/punch-list-and-completion/ack-04.en.jpg"
+                "pt": "help/img/guides/punch-list-and-completion/ack-s04.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "A foto aparece (1) com a sua nota embaixo. O botão Enviar para o cliente reconhecer (2) só aparece depois de pelo menos uma foto no projeto. Adicionar fotos coloca mais.",
+                "en": "The photo shows (1) with your note under it. The button Send for acknowledgment (2) shows only after at least one photo is on the project. Add photos adds more."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/ack-s05.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Toque em Enviar para o cliente reconhecer (1).",
+                "en": "Tap Send for acknowledgment (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/ack-s06.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Abre uma tela de envio, como a dos outros documentos. Escolha Mensagem de texto (1), WhatsApp (2) ou Abrir meu email (3). A mensagem vem do Apex com o link.",
+                "en": "A send screen opens, like the one for other documents. Choose Text message (1), WhatsApp (2) or Open my email app (3). The message comes from Apex with the link."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/ack-s07.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Leia a mensagem antes de enviar. O Apex não envia sozinho: você aperta enviar no seu aplicativo de mensagens. Marcar como enviada sem abrir mensagem (1) e Voltar (2) ficam embaixo.",
+                "en": "Read the message before you send. Apex does not send by itself: you press send in your messaging app. Mark as sent without opening a message (1) and Back (2) are at the bottom."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/ack-s08.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Uma linha chamada Reconhecimento do cliente (1) aparece embaixo das fotos, com uma etiqueta e a hora. Abrir a tela de envio já marca como Enviado, mesmo que você não tenha mandado nada.",
+                "en": "A row called Homeowner acknowledgment (1) shows under the photos, with a tag and the time. Opening the send screen already marks it as Sent, even if you did not send anything."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/ack-s09.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Se você enviar de novo, a linha mais antiga mostra Anulado (1).",
+                "en": "If you send again, the older row shows Void (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/ack-s10.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Toque na linha (1) para abri-la.",
+                "en": "Tap the row (1) to open it."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/ack-s11.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "A linha abre em uma nova aba, do jeito que o cliente vê. Uma faixa amarela (1) diz que é uma prévia e que não foi enviada.",
+                "en": "The row opens in a new tab, the way the homeowner sees it. A yellow line (1) says it is a preview and was not sent."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/ack-s12.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-s12.en.jpg"
               }
             }
           ]
@@ -9827,16 +10094,26 @@
         {
           "labels": {
             "pt": [
-              "Enviar aceite de conclusão",
+              "Enviar aceite de conclusão"
+            ],
+            "en": [
+              "Send completion sign-off"
+            ]
+          },
+          "section": "completion",
+          "step": 13
+        },
+        {
+          "labels": {
+            "pt": [
               "Reenviar aceite de conclusão"
             ],
             "en": [
-              "Send completion sign-off",
               "Resend completion sign-off"
             ]
           },
           "section": "completion",
-          "step": 2
+          "step": 18
         },
         {
           "labels": {
@@ -9848,7 +10125,7 @@
             ]
           },
           "section": "completion",
-          "step": 1
+          "step": 3
         },
         {
           "labels": {
@@ -9860,7 +10137,7 @@
             ]
           },
           "section": "ack",
-          "step": 2
+          "step": 6
         }
       ]
     },

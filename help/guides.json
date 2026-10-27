@@ -25309,6 +25309,149 @@
           "step": 2
         }
       ]
+    },
+    {
+      "id": "admin-finance-bills",
+      "audience": "admin",
+      "title": {
+        "pt": "Financeiro: contas atrasadas, contas fixas e próximos 90 dias",
+        "en": "Financial: overdue bills, fixed bills and the next 90 days"
+      },
+      "summary": {
+        "pt": "Veja as contas atrasadas, o que precisa de você, as contas fixas e a previsão de 90 dias.",
+        "en": "See overdue bills, what needs you, fixed bills and the 90 day outlook."
+      },
+      "keywords": {
+        "pt": [
+          "contas atrasadas",
+          "contas fixas",
+          "90 dias",
+          "precisa de você",
+          "vincular transação",
+          "marcar pago"
+        ],
+        "en": [
+          "overdue bills",
+          "fixed bills",
+          "90 days",
+          "needs you",
+          "link transaction",
+          "mark paid"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "bills",
+          "title": {
+            "pt": "Contas",
+            "en": "Bills"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Na aba Saúde Financeira, a caixa Contas atrasadas (1) mostra contas e faturas que já deviam ter sido pagas. Os nomes e valores nas imagens são inventados.",
+                "en": "On the Financial Health tab, the box Overdue bills (1) shows bills and invoices that should already have been paid. Names and amounts in the pictures are made up."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-bills/bills-s01.pt.jpg",
+                "en": "help/img/guides/admin-finance-bills/bills-s01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Já parece pago, confirma? lista compras do banco que parecem pagar uma conta. Toque em Confirmar para aceitar. Não tocamos.",
+                "en": "Looks already paid, confirm? lists bank charges that seem to pay a bill. Tap Confirm to accept the match. We did not tap it."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-bills/bills-s02.pt.jpg",
+                "en": "help/img/guides/admin-finance-bills/bills-s02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Cada conta atrasada tem botões: Vincular transação liga uma compra do banco à conta, Marcar pago marca como paga, Paguei no cartão e Cancelei fecham de outros jeitos. Não tocamos neles.",
+                "en": "Each overdue bill has buttons: Link transaction ties a bank charge to the bill, Mark paid marks it paid, Paid with card and Cancelled close it in the other ways. We did not tap them."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-bills/bills-s03.pt.jpg",
+                "en": "help/img/guides/admin-finance-bills/bills-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Precisa de você é uma lista recolhida de perguntas que as regras automáticas não souberam responder, como uma compra sem categoria. Toque na seta para abrir e responda uma de cada vez. Sem imagem: ela lista compras reais.",
+                "en": "Needs you is a folded list of questions the automatic rules could not answer, such as a charge with no category. Tap its arrow to open it and answer one at a time. No picture: it lists real charges."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Próximos 90 dias (1) olha à frente na conta comercial. Diz em uma frase se o mês aperta e mostra com quanto começa o saldo, o ponto mais baixo e as entradas previstas. Precisa das contas fixas e dos valores combinados com os clientes.",
+                "en": "Next 90 days (1) looks ahead on the business account. It says in one sentence whether the month gets tight, and shows where the balance starts, its lowest point and the income expected. It needs fixed bills and agreed client terms to work."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-bills/bills-s05.pt.jpg",
+                "en": "help/img/guides/admin-finance-bills/bills-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Contas fixas (1) lista as suas contas do mês. Toque na seta para abrir a lista: dá para adicionar, editar ou remover uma conta, definir um período e arrastar para mudar a prioridade. Não mudamos nenhuma conta.",
+                "en": "Fixed bills (1) lists your monthly bills. Tap its arrow to open the list: you can add, edit or remove a bill, set a date range and drag a bill to set its priority. We did not change any bill."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-bills/bills-s06.pt.jpg",
+                "en": "help/img/guides/admin-finance-bills/bills-s06.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Vincular transação"
+            ],
+            "en": [
+              "Link transaction"
+            ]
+          },
+          "section": "bills",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Marcar pago"
+            ],
+            "en": [
+              "Mark paid"
+            ]
+          },
+          "section": "bills",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Paguei no cartão"
+            ],
+            "en": [
+              "Paid with card"
+            ]
+          },
+          "section": "bills",
+          "step": 3
+        }
+      ]
     }
   ],
   "pages": {
@@ -25386,7 +25529,8 @@
       "guides": [
         "admin-record-payment",
         "admin-invoices",
-        "admin-finance-categories"
+        "admin-finance-categories",
+        "admin-finance-bills"
       ],
       "overview": {
         "pt": "Aqui você acompanha o financeiro e as faturas.",

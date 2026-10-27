@@ -26551,6 +26551,234 @@
           "step": 3
         }
       ]
+    },
+    {
+      "id": "admin-contract-review",
+      "audience": "admin",
+      "title": {
+        "pt": "Revisão do contrato modelo: conferir as cláusulas",
+        "en": "Model contract review: check the clauses"
+      },
+      "summary": {
+        "pt": "Revisar cada cláusula do contrato modelo e enviar a revisão. A página é em português.",
+        "en": "Review each clause of the model contract and send the review. The page is in Portuguese."
+      },
+      "keywords": {
+        "pt": [
+          "revisão do contrato",
+          "cláusula",
+          "advogado",
+          "contrato modelo",
+          "enviar revisão",
+          "sugerir mudanças"
+        ],
+        "en": [
+          "contract review",
+          "clause",
+          "attorney",
+          "model contract",
+          "send review",
+          "suggest changes"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "review",
+          "title": {
+            "pt": "Revisar o contrato",
+            "en": "Review the contract"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra Revisão do contrato no menu da esquerda. Esta página serve para conferir o contrato modelo cláusula por cláusula. Ela é em português de propósito. O primeiro cartão, Controles (desenvolvedor), é para o desenvolvedor. A caixa (1) libera a revisão para o Pr. Rafael. Os campos (2) registram o nome do advogado, o número da Florida Bar e a data, e Registrar revisão do advogado (3) guarda esses dados. O status da versão aparece ao lado. Nada foi salvo nesta figura.",
+                "en": "Open Contract review in the left menu. This page is where the model contract is checked clause by clause. It is in Portuguese on purpose. The first card, Controls (developer), is for the developer. The box (1) releases the review to Pr. Rafael. The fields (2) record the attorney's name, Florida Bar number and date, and Register attorney review (3) saves them. The version status is shown beside them. Nothing was saved for this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-contract-review/review-01.pt.jpg",
+                "en": "help/img/guides/admin-contract-review/review-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Cada cláusula é um cartão (1) com o texto em inglês que vai para o contrato e as regras do bloco à direita. Em cada cláusula toque em OK como está (2) se estiver bem, ou em Sugerir mudanças (3) para escrever o que deve mudar. Na caixa da sugestão você pode digitar ou tocar em Ditar para falar, e depois tocar em Salvar mudanças. O cartão mostra a escolha e a data, por exemplo OK como está ou Mudanças sugeridas.",
+                "en": "Each clause is a card (1) with the English text that goes into the contract and the rules of the block on the right. For each clause tap OK como está (2) if it is fine, or Sugerir mudanças (3) to write what should change. In the suggestion box you can type or tap Ditar to speak, then tap Salvar mudanças. The card shows the choice and the date, for example OK como está or Mudanças sugeridas."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-contract-review/review-02.pt.jpg",
+                "en": "help/img/guides/admin-contract-review/review-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "A barra (1) conta quantas cláusulas foram revisadas, por exemplo 2 de 162. Toque em Enviar revisão (1) quando terminar, para enviar a revisão. Enviar para o seu advogado (PDF) imprime toda a biblioteca do contrato em PDF para mandar ao seu próprio advogado. Antes disso, o cartão Dados de conformidade guarda o bloco de contato do Recovery Fund e os documentos de piscina. Um contrato que precisa deles não pode ser enviado enquanto estiverem vazios.",
+                "en": "The bar (1) counts how many clauses were reviewed, for example 2 of 162. Tap Enviar revisão (1) when you finish, to send the review. Enviar para o seu advogado (PDF) prints the whole contract library as a PDF to send to your own attorney. Before that, the card Dados de conformidade holds the Recovery Fund contact block and the pool documents. A contract that needs them cannot be sent while they are empty."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-contract-review/review-03.pt.jpg",
+                "en": "help/img/guides/admin-contract-review/review-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "OK como está"
+            ],
+            "en": [
+              "OK como está"
+            ]
+          },
+          "section": "review",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Sugerir mudanças"
+            ],
+            "en": [
+              "Sugerir mudanças"
+            ]
+          },
+          "section": "review",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar revisão"
+            ],
+            "en": [
+              "Enviar revisão"
+            ]
+          },
+          "section": "review",
+          "step": 3
+        }
+      ]
+    },
+    {
+      "id": "admin-connections",
+      "audience": "admin",
+      "title": {
+        "pt": "Contas ligadas: Google Calendar, Zoho Books e Zoho Mail",
+        "en": "Linked accounts: Google Calendar, Zoho Books and Zoho Mail"
+      },
+      "summary": {
+        "pt": "Ver o status das ligações e saber quando usar Connect.",
+        "en": "See the status of the links and know when to use Connect."
+      },
+      "keywords": {
+        "pt": [
+          "google calendar",
+          "zoho books",
+          "zoho mail",
+          "connect",
+          "check status",
+          "ligação",
+          "integração"
+        ],
+        "en": [
+          "google calendar",
+          "zoho books",
+          "zoho mail",
+          "connect",
+          "check status",
+          "link",
+          "integration"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "connect",
+          "title": {
+            "pt": "Ver as ligações",
+            "en": "See the links"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra Adicionar Usuário no menu da esquerda e role para baixo da lista de usuários. Três cartões mostram as contas às quais o Apex está ligado: Google Calendar (1), Zoho Books (2) e Zoho Mail (3). Cada um diz Status: Connected quando funciona. Esses cartões estão em inglês nos dois idiomas.",
+                "en": "Open Add User in the left menu and scroll below the list of users. Three cards show the accounts Apex is linked to: Google Calendar (1), Zoho Books (2) and Zoho Mail (3). Each one says Status: Connected when it works. These cards are in English on both languages."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-connections/connect-01.pt.jpg",
+                "en": "help/img/guides/admin-connections/connect-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Toque em Check Status (2) para perguntar ao Apex se a ligação ainda funciona. Use Connect Google Calendar (1) só quando o status disser que não está conectado, por exemplo depois que o acesso venceu. Ele leva você ao Google para dar permissão ao Apex de novo. Os mesmos dois botões estão nos cartões do Zoho Books e do Zoho Mail. Não toque em Connect quando o status já diz Connected.",
+                "en": "Tap Check Status (2) to ask Apex if the link still works. Use Connect Google Calendar (1) only when the status says it is not connected, for example after the access ran out. It sends you to Google to give Apex permission again. The same two buttons are on the cards for Zoho Books and Zoho Mail. Do not tap Connect when the status already says Connected."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-connections/connect-02.pt.jpg",
+                "en": "help/img/guides/admin-connections/connect-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "O cartão do Zoho Mail também lista os emails que o Apex leu (1): a data, o assunto, a conta a que foi ligado e o resultado. parsed quer dizer que o Apex entendeu uma conta. unmatched quer dizer que não achou a qual conta pertence. rejected e ignored querem dizer que ele deixou o email de lado. Last read mostra quando o Apex olhou a caixa de entrada pela última vez. Os assuntos estão cobertos na figura.",
+                "en": "The Zoho Mail card also lists the emails Apex read (1): the date, the subject, the bill it was matched to and the result. parsed means Apex understood a bill. unmatched means it did not find which bill. rejected and ignored mean it left the email alone. Last read shows when Apex last looked at the inbox. The subjects are covered in the picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-connections/connect-03.pt.jpg",
+                "en": "help/img/guides/admin-connections/connect-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Check Status"
+            ],
+            "en": [
+              "Check Status"
+            ]
+          },
+          "section": "connect",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Connect Google Calendar"
+            ],
+            "en": [
+              "Connect Google Calendar"
+            ]
+          },
+          "section": "connect",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Connect Zoho Mail"
+            ],
+            "en": [
+              "Connect Zoho Mail"
+            ]
+          },
+          "section": "connect",
+          "step": 3
+        }
+      ]
     }
   ],
   "pages": {

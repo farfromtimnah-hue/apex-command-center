@@ -16816,8 +16816,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra e escolha a reunião. No registro do cliente, toque em Preparação da reunião, o botão dourado do alto. A Apex pergunta Qual é esta reunião?. 1. Escolha o tipo: Raio-X - Resultados, Kickoff, RDE semanal, Fechamento de ciclo ou Outra reunião. 2. Ver exemplo abre um exemplo, para a reunião de resultados do Raio-X.",
-                "en": "Open it and choose the meeting. On the client record, tap Preparação da reunião (Meeting prep), the gold button at the top. Apex asks Qual é esta reunião? (Which meeting is this?). 1. Choose the type: Raio-X - Resultados (X-Ray results), Kickoff, RDE semanal (Weekly RDE), Fechamento de ciclo (Cycle close) or Outra reunião (Another meeting). 2. Ver exemplo (See example) opens a sample, for the X-Ray results meeting."
+                "pt": "No registro do cliente, toque em Preparação da reunião (5), o botão dourado no alto. A figura é o registro do cliente de teste Marlow Pool & Patio. Os outros números são as setas (1) (2) e as duas etiquetas (3) (4).",
+                "en": "On the client record, tap Meeting prep (5), the gold button at the top. The picture is the record of the test client Marlow Pool & Patio. The other numbers are the arrows (1) (2) and the two pills (3) (4)."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-01.pt.jpg",
@@ -16827,12 +16827,100 @@
             {
               "n": 2,
               "text": {
-                "pt": "A página da reunião (aqui, Kickoff). É só para o consultor: o que você quiser mostrar ao cliente abre separado. 1. O topo diz o cliente, o dono e a reunião. 2. O que o sistema já responde: números que a Apex já tem, como as metas do mês, o dinheiro que entrou e saiu hoje, os leads de hoje e o pipeline aberto, para você não precisar perguntar ao cliente. 3. O que o sistema já sabe: o pacote, os donos e o Raio-X. 4. A reunião, passo a passo é o roteiro, um passo numerado de cada vez. Estas imagens usam o cliente de teste.",
-                "en": "The page for the meeting (here, Kickoff). It is for the consultant only: anything you want to show the client opens separately. 1. The top names the client, the owner and the meeting. 2. O que o sistema já responde (What the system already answers): numbers Apex already has, like the targets for the month, money in and out today, leads today and the open pipeline, so you do not need to ask the client. 3. O que o sistema já sabe (What the system already knows): the package, the owners and the X-Ray. 4. A reunião, passo a passo (The meeting, step by step) is the script, one numbered step at a time. These pictures use the test client."
+                "pt": "O Apex pergunta Qual é esta reunião? Escolha o tipo (1): Raio-X - Resultados, Kickoff, RDE semanal, Fechamento de ciclo ou Outra reunião. Ver exemplo (2) abre um modelo, para a reunião de resultados do Raio-X.",
+                "en": "Apex asks Which meeting is this? Choose the type (1): X-Ray - Results, Kickoff, Weekly RDE, Cycle close or Another meeting. See example (2) opens a sample, for the X-Ray results meeting."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-02.pt.jpg",
                 "en": "help/img/guides/admin-meeting-prep/prep-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "O exemplo abre a reunião de resultados do Raio-X com nomes de teste. O topo (1) nomeia o cliente, o dono e a reunião. Antes de começar (2) mostra quem participa e o multiplicador do pipeline. A pergunta do gargalo (3) tem uma caixa para escrever a resposta nas palavras do cliente.",
+                "en": "The example opens the X-Ray results meeting with test names. The top (1) names the client, the owner and the meeting. Before you start (2) shows who attends and the pipeline multiplier. The bottleneck question (3) has a box to write the answer in the client's words."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-meeting-prep/prep-03.pt.jpg",
+                "en": "help/img/guides/admin-meeting-prep/prep-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "De volta na escolha, toque em Kickoff. A página da reunião é só para o consultor: qualquer material mostrado ao cliente abre em separado (2). O topo (1) nomeia o cliente, o dono e a reunião.",
+                "en": "Back on the chooser, tap Kickoff. The page for the meeting is for the consultant only: anything you want to show the client opens separately (2). The top (1) names the client, the owner and the meeting."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-meeting-prep/prep-04.pt.jpg",
+                "en": "help/img/guides/admin-meeting-prep/prep-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "O que o sistema já responde (1) tem os números que a Apex já tem, como as metas do mês, o dinheiro que entrou e saiu hoje, os leads de hoje e o pipeline aberto, para você não precisar perguntar ao cliente. Os valores estão cobertos.",
+                "en": "O que o sistema já responde (What the system already answers) (1) has the numbers Apex already has, like the targets for the month, money in and out today, leads today and the open pipeline, so you do not need to ask the client. The amounts are covered."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-meeting-prep/prep-05.pt.jpg",
+                "en": "help/img/guides/admin-meeting-prep/prep-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "O que o sistema já sabe (1): o pacote, os donos e o Raio-X.",
+                "en": "O que o sistema já sabe (What the system already knows) (1): the package, the owners and the X-Ray."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-meeting-prep/prep-06.pt.jpg",
+                "en": "help/img/guides/admin-meeting-prep/prep-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "A reunião, passo a passo (1) é o roteiro, um passo numerado de cada vez. Cada passo tem botões, por exemplo para definir as metas na ficha do cliente (2) ou abrir o registro de hoje (3). Os botões não foram tocados.",
+                "en": "A reunião, passo a passo (The meeting, step by step) (1) is the script, one numbered step at a time. Each step has buttons, for example to set the targets on the client page (2) or to open today's entry (3). The buttons were not tapped."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-meeting-prep/prep-07.pt.jpg",
+                "en": "help/img/guides/admin-meeting-prep/prep-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "As metas, na ordem (1) lista os vinte e seis campos na ordem em que o cliente preenche. Cada um diz se é perguntado, derivado ou padrão Apex, e mostra o que já está definido. Os valores estão cobertos.",
+                "en": "As metas, na ordem (The targets, in order) (1) lists the twenty-six fields in the order the client fills them. Each says if it is asked, derived or an Apex default, and shows what is already set. Amounts are covered."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-meeting-prep/prep-08.pt.jpg",
+                "en": "help/img/guides/admin-meeting-prep/prep-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "O primeiro registro, indicador por indicador (1): ele pergunta o valor de hoje para cada um. Zero é um valor: precisa ser digitado, não pulado. A lista é só para ler.",
+                "en": "O primeiro registro, indicador por indicador (The first daily log, indicator by indicator) (1): he asks today's value for each one. Zero is a value: it gets typed, not skipped. The list is read only."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-meeting-prep/prep-09.pt.jpg",
+                "en": "help/img/guides/admin-meeting-prep/prep-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Depois da reunião (1) tem três conferências, cada uma com um botão: gerar e aprovar o resumo da sessão, confirmar as metas lançadas e combinar a próxima sessão. Os botões não foram tocados.",
+                "en": "Depois da reunião (After the meeting) (1) has three checks, each with a button: generate and approve the session summary, confirm the targets that were entered, and agree the next session. The buttons were not tapped."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-meeting-prep/prep-10.pt.jpg",
+                "en": "help/img/guides/admin-meeting-prep/prep-10.en.jpg"
               }
             }
           ]
@@ -16861,7 +16949,7 @@
             ]
           },
           "section": "prep",
-          "step": 1
+          "step": 2
         }
       ]
     },

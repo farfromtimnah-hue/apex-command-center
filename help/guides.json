@@ -15025,8 +15025,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra a página de entrar. Abra apex.resonateai.online no navegador. A página mostra a logo da Apex e as formas de entrar. No alto, à direita, um botão pequeno (1) troca o idioma: mostra EN para mudar para inglês e PT para mudar para português. As figuras mostram a página no iPhone.",
-                "en": "Open the sign in page. Open apex.resonateai.online in your browser. The page shows the Apex logo and the ways to sign in. At the top right, a small button (1) switches the language: it shows EN to change to English and PT to change to Portuguese. The pictures show the page on an iPhone."
+                "pt": "Abra apex.resonateai.online no navegador. A página mostra a logo da Apex e as formas de entrar (1). As figuras mostram a página no computador.",
+                "en": "Open apex.resonateai.online in your browser. The page shows the Apex logo and the ways to sign in (1). The pictures show the page on a computer."
               },
               "image": {
                 "pt": "help/img/guides/sign-in-screens/signin-01.pt.jpg",
@@ -15036,8 +15036,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Entre com uma passkey. Passkey é uma forma de entrar com o rosto, a digital ou a senha do seu celular ou computador. Você não digita nem lembra de nada. O botão Entrar com passkey (1) fica embaixo da caixa de usuário e senha. Toque nele e faça o que o seu aparelho pedir. Embaixo dele, uma nota (2) diz: em um computador novo, toque no botão e escolha usar um celular para ler o QR code.",
-                "en": "Sign in with a passkey. A passkey is a way to sign in with your face, your fingerprint or the passcode of your phone or computer. You do not type or remember anything. The button Sign in with passkey (1) is below the username and password box. Tap it and do what your device asks. Under it, a note (2) says: on a new computer, tap the button and choose to use a phone, then scan the QR code."
+                "pt": "No alto, à direita, um botão pequeno (1) troca o idioma: mostra EN para mudar para inglês e PT para mudar para português.",
+                "en": "At the top right, a small button (1) switches the language: it shows EN to change to English and PT to change to Portuguese."
               },
               "image": {
                 "pt": "help/img/guides/sign-in-screens/signin-02.pt.jpg",
@@ -15047,8 +15047,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Entre com usuário e senha. Se você recebeu um usuário e uma senha, digite nas caixas Usuário (1) e Senha (2) e toque em Entrar (3).",
-                "en": "Sign in with a username and password. If you were given a username and a password, type them in the boxes Username (1) and Password (2), then tap Sign in (3)."
+                "pt": "Entre com uma passkey. Passkey é uma forma de entrar com o rosto, a digital ou a senha do seu celular ou computador. Você não digita nem lembra de nada. O botão Entrar com passkey (1) fica embaixo da caixa de usuário e senha. Toque nele e faça o que o seu aparelho pedir. Esse botão não foi tocado na figura.",
+                "en": "Sign in with a passkey. A passkey is a way to sign in with your face, your fingerprint or the passcode of your phone or computer. You do not type or remember anything. The button Sign in with passkey (1) is below the username and password box. Tap it and do what your device asks. This button was not tapped in the picture."
               },
               "image": {
                 "pt": "help/img/guides/sign-in-screens/signin-03.pt.jpg",
@@ -15058,8 +15058,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Entre com o Google. Toque em Entrar com Google (1), o botão dourado no alto.",
-                "en": "Sign in with Google. Tap Sign in with Google (1), the gold button at the top."
+                "pt": "Embaixo do botão da passkey, uma nota (1) diz: em um computador novo, toque no botão e escolha usar um celular para ler o QR code.",
+                "en": "Under the passkey button, a note (1) says: on a new computer, tap the button and choose to use a phone, then scan the QR code."
               },
               "image": {
                 "pt": "help/img/guides/sign-in-screens/signin-04.pt.jpg",
@@ -15068,6 +15068,39 @@
             },
             {
               "n": 5,
+              "text": {
+                "pt": "Entre com usuário e senha. Se você recebeu um usuário e uma senha, digite nas caixas Usuário (1) e Senha (2). A figura mostra as caixas sem nada digitado.",
+                "en": "Sign in with a username and password. If you were given a username and a password, type them in the boxes Username (1) and Password (2). The picture shows the boxes with nothing typed."
+              },
+              "image": {
+                "pt": "help/img/guides/sign-in-screens/signin-05.pt.jpg",
+                "en": "help/img/guides/sign-in-screens/signin-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Depois toque em Entrar (1).",
+                "en": "Then tap Sign in (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/sign-in-screens/signin-06.pt.jpg",
+                "en": "help/img/guides/sign-in-screens/signin-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Entre com o Google. Toque em Entrar com Google (1), o botão dourado no alto.",
+                "en": "Sign in with Google. Tap Sign in with Google (1), the gold button at the top."
+              },
+              "image": {
+                "pt": "help/img/guides/sign-in-screens/signin-07.pt.jpg",
+                "en": "help/img/guides/sign-in-screens/signin-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
               "text": {
                 "pt": "A página do Google. Abre a página do próprio Google, Sign in with Google, que pede Email or phone (1). Digite o e-mail da sua conta Google e toque em Next (2). A figura mostra a página sem nada digitado.",
                 "en": "Google's own page. Google's own page opens, Sign in with Google, asking for Email or phone (1). Type the email of your Google account and tap Next (2). The picture shows the page with nothing typed."
@@ -15091,7 +15124,7 @@
             ]
           },
           "section": "signin",
-          "step": 2
+          "step": 3
         },
         {
           "labels": {
@@ -15103,7 +15136,7 @@
             ]
           },
           "section": "signin",
-          "step": 4
+          "step": 7
         }
       ]
     },

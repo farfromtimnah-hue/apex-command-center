@@ -27700,6 +27700,90 @@
           "step": 4
         }
       ]
+    },
+    {
+      "id": "admin-finance-terms",
+      "audience": "admin",
+      "title": {
+        "pt": "Financeiro: caixa de perguntas dos valores combinados e previsão de 6 meses",
+        "en": "Financial: client terms question box and 6 month forecast"
+      },
+      "summary": {
+        "pt": "Responda uma pergunta de cada vez sobre os valores combinados e veja a previsão de receita.",
+        "en": "Answer one question at a time about agreed terms and read the income forecast."
+      },
+      "keywords": {
+        "pt": [
+          "termos",
+          "valores combinados",
+          "perguntas",
+          "previsão",
+          "receita recorrente",
+          "ditar"
+        ],
+        "en": [
+          "terms",
+          "agreed terms",
+          "questions",
+          "forecast",
+          "recurring income",
+          "dictate"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "terms",
+          "title": {
+            "pt": "Valores combinados",
+            "en": "Agreed terms"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Na aba Saúde Financeira, a caixa de pergunta (1) faz uma pergunta de cada vez sobre um cliente cujos valores combinados ainda não são conhecidos: histórico de pagamentos, fim do contrato, desconto, plano ou cadastro. Os nomes e as perguntas na imagem são inventados.",
+                "en": "On the Financial Health tab, the question box (1) asks one question at a time about a client whose agreed terms are not known yet: payment history, contract end, discount, plan or intake. The names and questions in the picture are made up."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-terms/terms-s01.pt.jpg",
+                "en": "help/img/guides/admin-finance-terms/terms-s01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Digite a resposta na caixa, ou toque em Ditar e fale. Depois toque em Enviar. Se você não souber, toque em Não sei e a pergunta é pulada. Não respondemos nenhuma pergunta.",
+                "en": "Type the answer in the box, or tap Dictate and speak it. Then tap Send. If you do not know, tap I don't know and the question is skipped. We did not answer any question."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-terms/terms-s02.pt.jpg",
+                "en": "help/img/guides/admin-finance-terms/terms-s02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Previsão de receita recorrente (1) soma o que os clientes devem pagar por mês, usando só valores confirmados. Mostra o total por mês e uma linha por cliente. A linha diz sem plano ou pausado quando não há nada para contar.",
+                "en": "Recurring income forecast (1) adds up what clients are expected to pay each month, using only confirmed terms. It shows the total per month, then one line per client. A line says no plan or paused when there is nothing to count."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-terms/terms-s03.pt.jpg",
+                "en": "help/img/guides/admin-finance-terms/terms-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Abaixo da lista, uma tabela mostra os próximos 6 meses, uma coluna por mês. A previsão dos próximos 90 dias conta esta receita só para clientes com valores combinados. Sem imagem da tabela: ela mostra clientes e valores reais.",
+                "en": "Below the list, a table shows the next 6 months, one column per month. The next 90 days outlook counts this income only for clients with agreed terms. No picture of the table: it shows real clients and amounts."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
     }
   ],
   "pages": {
@@ -27781,7 +27865,8 @@
         "admin-finance-categories",
         "admin-finance-bills",
         "admin-finance-accounts",
-        "admin-finance-deposits"
+        "admin-finance-deposits",
+        "admin-finance-terms"
       ],
       "overview": {
         "pt": "Aqui você acompanha o financeiro e as faturas.",

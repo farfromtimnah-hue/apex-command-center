@@ -22998,6 +22998,117 @@
           "step": 5
         }
       ]
+    },
+    {
+      "id": "thumbtack-leads",
+      "audience": "client",
+      "who": [
+        "apex_seller"
+      ],
+      "title": {
+        "pt": "Leads do Thumbtack",
+        "en": "Thumbtack leads"
+      },
+      "summary": {
+        "pt": "Veja onde um lead do Thumbtack aparece no funil e o que a ficha dele mostra.",
+        "en": "See where a Thumbtack lead appears in your pipeline and what its sheet shows."
+      },
+      "keywords": {
+        "pt": [
+          "thumbtack",
+          "lead do thumbtack",
+          "funil",
+          "lead de teste",
+          "veio de",
+          "preço do lead"
+        ],
+        "en": [
+          "thumbtack",
+          "thumbtack lead",
+          "pipeline",
+          "test lead",
+          "came from",
+          "lead price"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "leads",
+          "title": {
+            "pt": "Leads do Thumbtack",
+            "en": "Thumbtack leads"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Com o Thumbtack conectado, todo lead novo do Thumbtack cai sozinho no seu funil. Para ver isso funcionando no ambiente de testes, toque em Enviar lead de teste (1) no cartão Leads do Thumbtack. Esse botão só aparece no ambiente de testes, nunca para um negócio de verdade. Toque nele uma vez.",
+                "en": "With Thumbtack connected, every new Thumbtack lead lands in your pipeline by itself. To see it work in the testing environment, tap Send a test lead (1) on the card Thumbtack leads. This button shows only in the testing environment, never for a real business. Tap it once."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-leads/leads-01.pt.jpg",
+                "en": "help/img/guides/thumbtack-leads/leads-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Depois de alguns segundos o cartão mostra quando chegou o último lead (1). O cartão ainda pode dizer Nenhum lead recebido ainda por um instante. Volte ao cartão mais tarde e ele atualiza.",
+                "en": "After a few seconds the card shows when the last lead came in (1). The card can still say No leads received yet for a moment. Come back to the card later and it updates."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-leads/leads-02.pt.jpg",
+                "en": "help/img/guides/thumbtack-leads/leads-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Abra Negócio, depois Pipeline. Um lead do Thumbtack é uma linha comum (1) no estágio Novo Lead, com o nome do cliente, o serviço e uma etiqueta se ninguém foi escolhido ainda. Digite o nome na caixa de busca para achar. A imagem usa o cliente de teste do ambiente de testes.",
+                "en": "Open Business, then Pipeline. A Thumbtack lead is a normal row (1) in the New Lead stage, with the customer's name, the service and a tag if nobody is assigned yet. Type the name in the search box to find it. The picture uses the test customer of the testing environment."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-leads/leads-03.pt.jpg",
+                "en": "help/img/guides/thumbtack-leads/leads-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Toque na linha para abrir a ficha do lead e role até a parte Do Thumbtack. Veio de (1) diz Thumbtack, então você sempre sabe de onde o lead veio. Serviço (2) é o que o cliente precisa. Preço do lead (3) é o que o Thumbtack cobrou pelo lead. Embaixo (4) ficam as respostas do cliente no Thumbtack, por exemplo a descrição, a frequência, o CEP e as preferências de deslocamento.",
+                "en": "Tap the row to open the lead sheet and scroll to the part called From Thumbtack. Came from (1) says Thumbtack, so you always know where the lead came from. Service (2) is what the customer needs. Lead price (3) is what Thumbtack charged for the lead. Below them (4) are the customer's answers on Thumbtack, for example the description, how often, the zip code and travel preferences."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-leads/leads-04.pt.jpg",
+                "en": "help/img/guides/thumbtack-leads/leads-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Responda ao lead como a qualquer outro lead: os botões de contato no alto da ficha e o guia Falar com um lead funcionam do mesmo jeito. Um lead que você já recebeu continua no seu funil mesmo se você desconectar o Thumbtack depois.",
+                "en": "Answer the lead like any other lead: the contact buttons at the top of the lead sheet, and the guide Contact a lead, work the same way. A lead you already received stays in your pipeline even if you disconnect Thumbtack later."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Enviar lead de teste"
+            ],
+            "en": [
+              "Send a test lead"
+            ]
+          },
+          "section": "leads",
+          "step": 1
+        }
+      ]
     }
   ],
   "pages": {
@@ -23026,7 +23137,8 @@
         "own-contract-upload",
         "cleaning-agreement",
         "thumbtack-connect",
-        "thumbtack-phone-numbers"
+        "thumbtack-phone-numbers",
+        "thumbtack-leads"
       ],
       "overview": {
         "pt": "Aqui você cria e envia orçamentos.",

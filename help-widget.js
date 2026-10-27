@@ -1131,12 +1131,19 @@
     // Buttons that already use right click (message templates) win.
     if (e.defaultPrevented) { return; }
     var hit = resolveFrom(e.target);
-    if (!hit) { return; }
+    var label = t("Aprender sobre este botão", "Learn about this button");
+    if (!hit) {
+      // A button with no guide of its own still gets our menu, so the browser menu never shows over the app.
+      var nb = e.target && e.target.nodeType === 1 ? e.target.closest("button,[role=button]") : null;
+      if (!nb || !guides || inEditable(nb) || nb.closest(".aphelp-root") || nb.closest("[data-no-help]")) { return; }
+      hit = { res: {}, el: nb };
+      label = t("Procurar no Aprenda", "Search in Learn");
+    }
     e.preventDefault();
     closeMenu();
     menuEl = el("div", "aphelp-root aphelp-menu");
     menuEl.setAttribute("role", "menu");
-    var item = button(null, t("Aprender sobre este botão", "Learn about this button"));
+    var item = button(null, label);
     item.setAttribute("role", "menuitem");
     item.addEventListener("click", function () { closeMenu(); openSheet(hit.res); });
     menuEl.appendChild(item);

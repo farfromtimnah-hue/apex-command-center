@@ -3300,6 +3300,18 @@
           },
           "section": "pricing",
           "step": 2
+        },
+        {
+          "section": "pricing",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Preços"
+            ],
+            "en": [
+              "Pricing"
+            ]
+          }
         }
       ]
     },
@@ -4296,6 +4308,20 @@
           },
           "section": "new-lead",
           "step": 2
+        },
+        {
+          "section": "see-leads",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Negócio",
+              "Pipeline"
+            ],
+            "en": [
+              "Business",
+              "Pipeline"
+            ]
+          }
         }
       ]
     },
@@ -4580,6 +4606,18 @@
           },
           "section": "more",
           "step": 3
+        },
+        {
+          "section": "view",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Agenda"
+            ],
+            "en": [
+              "Calendar"
+            ]
+          }
         }
       ]
     },
@@ -4883,6 +4921,18 @@
           },
           "section": "project",
           "step": 6
+        },
+        {
+          "section": "overview",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Projetos"
+            ],
+            "en": [
+              "Projects"
+            ]
+          }
         }
       ]
     },
@@ -5034,6 +5084,18 @@
           },
           "section": "finances",
           "step": 6
+        },
+        {
+          "section": "finances",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Financeiro"
+            ],
+            "en": [
+              "Finances"
+            ]
+          }
         }
       ]
     },
@@ -5214,6 +5276,18 @@
           },
           "section": "analytics",
           "step": 3
+        },
+        {
+          "section": "analytics",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Analytics"
+            ],
+            "en": [
+              "Analytics"
+            ]
+          }
         }
       ]
     },
@@ -5413,6 +5487,20 @@
           },
           "section": "login",
           "step": 1
+        },
+        {
+          "section": "goals",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Apex",
+              "Ritmo"
+            ],
+            "en": [
+              "Apex",
+              "Pace"
+            ]
+          }
         }
       ]
     },
@@ -5508,6 +5596,18 @@
           },
           "section": "documents",
           "step": 3
+        },
+        {
+          "section": "documents",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Documentos"
+            ],
+            "en": [
+              "Documents"
+            ]
+          }
         }
       ]
     },
@@ -5620,6 +5720,18 @@
           },
           "section": "home",
           "step": 2
+        },
+        {
+          "section": "home",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Início"
+            ],
+            "en": [
+              "Home"
+            ]
+          }
         }
       ]
     },
@@ -5998,6 +6110,18 @@
           },
           "section": "invoices",
           "step": 4
+        },
+        {
+          "section": "invoices",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Faturas"
+            ],
+            "en": [
+              "Invoices"
+            ]
+          }
         }
       ]
     },
@@ -7740,6 +7864,18 @@
           },
           "section": "help",
           "step": 1
+        },
+        {
+          "section": "help",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Ajuda"
+            ],
+            "en": [
+              "Help"
+            ]
+          }
         }
       ]
     },
@@ -7839,6 +7975,18 @@
           },
           "section": "devices",
           "step": 1
+        },
+        {
+          "section": "devices",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Meus aparelhos"
+            ],
+            "en": [
+              "My devices"
+            ]
+          }
         }
       ]
     },
@@ -7953,6 +8101,20 @@
           },
           "section": "plan",
           "step": 4
+        },
+        {
+          "section": "plan",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Execução",
+              "Tarefas"
+            ],
+            "en": [
+              "Execution",
+              "Tasks"
+            ]
+          }
         }
       ]
     },
@@ -8762,6 +8924,20 @@
           },
           "section": "learn",
           "step": 1
+        },
+        {
+          "section": "learn",
+          "step": 6,
+          "labels": {
+            "pt": [
+              "PT",
+              "EN"
+            ],
+            "en": [
+              "PT",
+              "EN"
+            ]
+          }
         }
       ]
     },
@@ -11607,7 +11783,20 @@
           ]
         }
       ],
-      "buttons": []
+      "buttons": [
+        {
+          "section": "xray",
+          "step": 1,
+          "labels": {
+            "pt": [
+              "Raio X"
+            ],
+            "en": [
+              "X-Ray"
+            ]
+          }
+        }
+      ]
     },
     {
       "id": "other-assessments",
@@ -12900,6 +13089,18 @@
           },
           "section": "cards",
           "step": 2
+        },
+        {
+          "section": "cards",
+          "step": 2,
+          "labels": {
+            "pt": [
+              "Enviar contrato"
+            ],
+            "en": [
+              "Send contract"
+            ]
+          }
         }
       ]
     },

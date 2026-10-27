@@ -23931,6 +23931,200 @@
           "step": 2
         }
       ]
+    },
+    {
+      "id": "meetings-and-booking",
+      "audience": "client",
+      "title": {
+        "pt": "Sua reunião com a Apex: escolha o horário e remarque",
+        "en": "Your meeting with Apex: pick a time and reschedule"
+      },
+      "summary": {
+        "pt": "Escolha o horário da sua reunião com a Apex, entre nela ou mude.",
+        "en": "Pick a time for your meeting with Apex, join it or move it."
+      },
+      "keywords": {
+        "pt": [
+          "reunião",
+          "card de reuniões",
+          "escolher horário",
+          "reagendar",
+          "entrar",
+          "como chegar",
+          "página de agendamento",
+          "agendar reunião",
+          "google meet"
+        ],
+        "en": [
+          "meeting",
+          "meetings card",
+          "pick a time",
+          "choose time",
+          "reschedule",
+          "join",
+          "directions",
+          "booking page",
+          "schedule meeting",
+          "google meet"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "meeting",
+          "title": {
+            "pt": "Escolher, entrar e remarcar",
+            "en": "Pick, join and reschedule"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Quando a Apex dá a você um link de agendamento e você ainda não escolheu o horário, a aba Início mostra um card chamado Sua reunião desta semana (1). Ele diz: Você ainda não escolheu um horário. Se a Apex não deu nenhum link e você não tem reunião, não aparece card.",
+                "en": "When Apex gives you a booking link and you have not picked a time yet, the Home tab shows a card called Your meeting this week (1). It says: You have not picked a time yet. If Apex gave you no link and you have no meeting, there is no card."
+              },
+              "image": {
+                "pt": "help/img/guides/meetings-and-booking/meeting-s01.pt.jpg",
+                "en": "help/img/guides/meetings-and-booking/meeting-s01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Toque em Escolher horário (2). Abre a página de agendamento da Apex.",
+                "en": "Tap Pick a time (2). The Apex booking page opens."
+              },
+              "image": {
+                "pt": "help/img/guides/meetings-and-booking/meeting-s02.pt.jpg",
+                "en": "help/img/guides/meetings-and-booking/meeting-s02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "A página de agendamento é só em português. Diz Vamos marcar nossa reunião, e o tempo da reunião, por exemplo 60 minutos. Em Que dia funciona melhor? toque em um ou mais dias (1).",
+                "en": "The booking page is only in Portuguese. It says Vamos marcar nossa reunião, which means Let's schedule our meeting, and the length of the meeting, for example 60 minutes. Under Que dia funciona melhor? (Which day works best?) tap one or more days (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/meetings-and-booking/meeting-s03.pt.jpg",
+                "en": "help/img/guides/meetings-and-booking/meeting-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Depois de tocar em um dia (1), toque em Ver horários (2).",
+                "en": "After you tap a day (1), tap Ver horários (See times) (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/meetings-and-booking/meeting-s04.pt.jpg",
+                "en": "help/img/guides/meetings-and-booking/meeting-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "A página Escolha o horário lista os horários livres mais próximos do seu costume (1). Toque no horário que você quer. No nosso teste não tocamos em nenhum horário, então nenhuma reunião foi marcada.",
+                "en": "The page Escolha o horário (Choose the time) lists the free times closest to your usual (1). Tap the time you want. We did not tap a time in our test, so no meeting was booked."
+              },
+              "image": {
+                "pt": "help/img/guides/meetings-and-booking/meeting-s05.pt.jpg",
+                "en": "help/img/guides/meetings-and-booking/meeting-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Se nenhum servir, toque em Mais cedo? (2) ou Mais tarde? (3) para ver outros.",
+                "en": "If none is good, tap Mais cedo? (Earlier?) (2) or Mais tarde? (Later?) (3) to see other times."
+              },
+              "image": {
+                "pt": "help/img/guides/meetings-and-booking/meeting-s06.pt.jpg",
+                "en": "help/img/guides/meetings-and-booking/meeting-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Se nenhum horário funcionar, toque em Nenhum destes funciona (4). A equipe da Apex então fala com você pelo WhatsApp para achar um horário melhor.",
+                "en": "If none of the times works, tap Nenhum destes funciona (None of these work) (4). The Apex team then contacts you on WhatsApp to find a better time."
+              },
+              "image": {
+                "pt": "help/img/guides/meetings-and-booking/meeting-s07.pt.jpg",
+                "en": "help/img/guides/meetings-and-booking/meeting-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Voltar aos dias (5) leva você de volta à lista de dias.",
+                "en": "Voltar aos dias (Back to the days) (5) takes you back to the list of days."
+              },
+              "image": {
+                "pt": "help/img/guides/meetings-and-booking/meeting-s08.pt.jpg",
+                "en": "help/img/guides/meetings-and-booking/meeting-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Confira a confirmação. A página diz Reunião confirmada, com o dia e o horário. Abaixo você vê o link do Google Meet, se a reunião for online, ou Presencial com o endereço. A página também diz que você vai receber um lembrete pelo WhatsApp no dia da reunião.",
+                "en": "Check the confirmation. The page says Reunião confirmada (Meeting confirmed) with the day and the time. Below it you see the Google Meet link for an online meeting, or Presencial (In person) with the address. The page also says you will get a reminder on WhatsApp on the day of the meeting."
+              },
+              "image": null
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Entre ou mude. De volta ao Início, o card agora mostra a sua reunião como Agendada, com o dia e o horário, e um botão Reagendar. Toque em Reagendar para abrir a página de agendamento de novo e escolher outro horário. Quando a reunião é hoje ou amanhã, o card se chama Próximas reuniões, mostra Hoje ou Amanhã com o horário, e tem um botão Entrar para reunião online, ou um botão Como chegar para reunião presencial.",
+                "en": "Join or move it. Back on Home, the card now shows your meeting as Scheduled, with the day and the time, and a Reschedule button. Tap Reschedule to open the booking page again and pick another time. When the meeting is today or tomorrow, the card is called Upcoming meetings, shows Today or Tomorrow with the time, and has a Join button for an online meeting, or a Directions button for a meeting in person."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Escolher horário"
+            ],
+            "en": [
+              "Pick a time"
+            ]
+          },
+          "section": "meeting",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Reagendar"
+            ],
+            "en": [
+              "Reschedule"
+            ]
+          },
+          "section": "meeting",
+          "step": 10
+        },
+        {
+          "labels": {
+            "pt": [
+              "Como chegar"
+            ],
+            "en": [
+              "Directions"
+            ]
+          },
+          "section": "meeting",
+          "step": 10
+        }
+      ],
+      "who": [
+        "office"
+      ]
     }
   ],
   "pages": {

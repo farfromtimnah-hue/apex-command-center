@@ -24285,6 +24285,145 @@
       "who": [
         "all"
       ]
+    },
+    {
+      "id": "push-notifications",
+      "audience": "client",
+      "title": {
+        "pt": "Notificações push: o que você recebe e como ligar ou desligar",
+        "en": "Push notifications: what you get and how to switch them on or off"
+      },
+      "summary": {
+        "pt": "Veja quais avisos a Apex manda para o seu iPhone e como controlá-los.",
+        "en": "See which alerts Apex sends to your iPhone and how to control them."
+      },
+      "keywords": {
+        "pt": [
+          "push",
+          "notificação push",
+          "notificações",
+          "avisos",
+          "lembrete",
+          "iphone",
+          "permitir notificações",
+          "desligar notificações",
+          "aviso de agendamento"
+        ],
+        "en": [
+          "push",
+          "push notification",
+          "notifications",
+          "alerts",
+          "reminder",
+          "iphone",
+          "allow notifications",
+          "turn off notifications",
+          "booking alert"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "push",
+          "title": {
+            "pt": "Receber avisos no iPhone",
+            "en": "Get alerts on your iPhone"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Notificação push é uma mensagem curta que aparece na tela do seu celular, mesmo com o Apex fechado. Ao tocar nela, abre a tela de que ela fala. Deixe ligadas: elas avisam quando um contrato é assinado, um cliente responde, chega um novo lead ou um compromisso está perto.",
+                "en": "A push notification is a short message that shows on your phone screen, even when Apex is closed. Tapping it opens the screen it is about. Keep them on: they tell you when a contract is signed, a customer answers, a new lead arrives or an appointment is close."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Instale o app Apex no seu iPhone (veja o guia Instalar o Apex no seu iPhone).",
+                "en": "Install the Apex app on your iPhone (see the guide Get Apex on your iPhone)."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Na primeira vez que você desbloqueia o app, o iPhone pergunta se o Apex pode mandar notificações. Toque em Permitir (1). O iPhone pergunta só uma vez.",
+                "en": "The first time you unlock the app, your iPhone asks if Apex may send you notifications. Tap Allow (1). The iPhone asks only once."
+              },
+              "image": {
+                "pt": "help/img/guides/push-notifications/push-s03.pt.jpg",
+                "en": "help/img/guides/push-notifications/push-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Se você tocar em Não Permitir (1), o iPhone não pergunta de novo. Então o único jeito de ligar é nos Ajustes (próximos passos).",
+                "en": "If you tap Don't Allow (1), the iPhone does not ask again. Then the only way to turn notifications on is in Settings (next steps)."
+              },
+              "image": {
+                "pt": "help/img/guides/push-notifications/push-s04.pt.jpg",
+                "en": "help/img/guides/push-notifications/push-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "A Apex manda uma notificação push quando: um cliente marca, muda ou cancela uma visita na sua página de agendamento; um contrato está esperando a sua assinatura; um cliente recusa ou pede mudanças; chega um novo lead pela sua página de indicação; e uma hora antes de um compromisso da sua agenda, como lembrete de tempo sensível. O texto de alguns avisos está só em português por enquanto.",
+                "en": "Apex sends you a push when: a customer books, changes or cancels a visit on your booking page; a contract is waiting for your signature; a customer declines or asks for changes; a new lead arrives from your referral page; and one hour before an appointment on your calendar, as a time sensitive reminder. The wording of a few alerts is only in Portuguese for now."
+              },
+              "image": null
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Para desligar ou ligar de novo, abra o app Ajustes do seu iPhone, toque em Apps, depois em Apex, depois em Notificações (1). Em alguns iPhones, Notificações fica na lista principal dos Ajustes.",
+                "en": "To switch them off or on again, open the Settings app of your iPhone, tap Apps, then tap Apex, then tap Notifications (1). On some iPhones, Notifications is in the main list of Settings."
+              },
+              "image": {
+                "pt": "help/img/guides/push-notifications/push-s06.pt.jpg",
+                "en": "help/img/guides/push-notifications/push-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Desligue ou ligue Permitir Notificações (1). Se você tocou em Não Permitir antes, este é o único jeito de ligar.",
+                "en": "Turn Allow Notifications (1) off or on. If you tapped Don't Allow before, this is the only way to turn it on."
+              },
+              "image": {
+                "pt": "help/img/guides/push-notifications/push-s07.pt.jpg",
+                "en": "help/img/guides/push-notifications/push-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Notificações de Tempo Sensível (1) devem ficar ligadas, para o lembrete de uma hora antes do compromisso chegar na hora.",
+                "en": "Time Sensitive Notifications (1) should stay on, so the reminder one hour before an appointment arrives right away."
+              },
+              "image": {
+                "pt": "help/img/guides/push-notifications/push-s08.pt.jpg",
+                "en": "help/img/guides/push-notifications/push-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "No site não existe essa opção. As notificações push funcionam só no app Apex do iPhone. O site no computador ou no navegador do celular não envia notificações.",
+                "en": "On the website there is no switch. Push notifications work only in the Apex iPhone app. The website on a computer or in a phone browser does not send them."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [],
+      "who": [
+        "all"
+      ]
     }
   ],
   "pages": {

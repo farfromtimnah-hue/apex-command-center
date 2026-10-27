@@ -11772,8 +11772,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Encontre a galeria. Abra Negócio, depois Orçamentos, depois a aba Configurações, e role até Imagem de capa. É a imagem no topo dos documentos que o seu cliente abre. Toque no seu ramo (1), como Piscinas ou Pavers, e a prévia embaixo mostra a foto em um orçamento de exemplo com o seu logo e as suas cores. Exclusivas aparece primeiro quando o Apex tem fotos feitas só para você.",
-                "en": "Find the gallery. Open Business, then Estimates, then the Settings tab, and scroll to Cover image. It is the picture at the top of the documents your customer opens. Tap your industry (1), such as Pools or Pavers, and the preview below shows the photo on a sample estimate with your logo and your colors. Exclusive appears first when Apex has photos made just for you."
+                "pt": "Toque em Negócio (1) no menu de cima. Abre um menu.",
+                "en": "Tap Business (1) in the top menu. A menu opens."
               },
               "image": {
                 "pt": "help/img/guides/cover-image/cover-01.pt.jpg",
@@ -11783,8 +11783,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Escolha a foto. Toque em Próxima ou Anterior (1) para navegar. O contador mostra onde você está, por exemplo 2 / 3. Quando gostar de uma, toque em Usar esta imagem (2). Quando você está vendo a foto que já usa, o botão diz Em uso nos seus documentos.",
-                "en": "Pick the photo. Tap Next or Previous (1) to browse. The counter shows where you are, for example 2 / 3. When you like one, tap Use this image (2). When you are looking at the photo you already use, the button says In use on your documents."
+                "pt": "No menu, toque em Orçamentos (1).",
+                "en": "In the menu, tap Estimates (1)."
               },
               "image": {
                 "pt": "help/img/guides/cover-image/cover-02.pt.jpg",
@@ -11794,8 +11794,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Use a sua própria foto. Toque em Enviar a minha própria imagem (1) e escolha um arquivo JPG, PNG ou WebP de até 5 MB. Depois toque em Ver a minha imagem enviada (2): a prévia abre com as suas ferramentas de ajuste. Você pode voltar a ela quando quiser.",
-                "en": "Use your own photo. Tap Upload my own image (1) and choose a JPG, PNG or WebP file up to 5 MB. Then tap See my uploaded image (2): the preview opens with the adjustment tools. You can come back to it whenever you want."
+                "pt": "Toque na aba Configurações (1) e role até Imagem de capa. É a imagem no topo dos documentos que o seu cliente abre.",
+                "en": "Tap the Settings tab (1) and scroll to Cover image. It is the picture at the top of the documents your customer opens."
               },
               "image": {
                 "pt": "help/img/guides/cover-image/cover-03.pt.jpg",
@@ -11805,12 +11805,155 @@
             {
               "n": 4,
               "text": {
-                "pt": "Ajuste a sua foto. Tom dos quadros (1): escolha Escuro ou Claro. As setas (2) movem a foto um pouco a cada toque, para aparecer a parte que você quer. Espelhar (3) vira a foto como um espelho. Aproximar (4) deixa maior, 10 por cento a cada toque, e mostra a porcentagem. Redefinir (5) volta a foto ao começo. Quando estiver bom, toque em Usar a minha imagem assim (6): aparece Imagem de capa salva.",
-                "en": "Adjust your photo. Tile tone (1): pick Dark or Light. The arrows (2) move the photo a little each time you tap, so the part you want shows. Flip (3) mirrors the photo. Zoom in (4) makes it bigger, 10 percent each tap, and shows the percent. Reset (5) puts the photo back as it was. When it looks right, tap Use my image like this (6): Cover image saved appears."
+                "pt": "Toque no seu ramo (1), como Piscinas ou Pavers, e a prévia (2) embaixo mostra a foto em um orçamento de exemplo com o seu logo e as suas cores. Exclusivas aparece primeiro quando o Apex tem fotos feitas só para você.",
+                "en": "Tap your industry (1), such as Pools or Pavers, and the preview (2) below shows the photo on a sample estimate with your logo and your colors. Exclusive appears first when Apex has photos made just for you."
               },
               "image": {
                 "pt": "help/img/guides/cover-image/cover-04.pt.jpg",
                 "en": "help/img/guides/cover-image/cover-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Toque em Próxima ou Anterior (1) para navegar. O contador mostra onde você está, por exemplo 2 / 3.",
+                "en": "Tap Next or Previous (1) to browse. The counter shows where you are, for example 2 / 3."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-05.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Quando gostar de uma foto, toque em Usar esta imagem (2).",
+                "en": "When you like a photo, tap Use this image (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-06.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "O Apex avisa Imagem de capa salva. A foto já está nos seus documentos.",
+                "en": "Apex says Cover image saved. The photo is now on your documents."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-07.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Quando você está vendo a foto que já usa, o botão (2) diz Em uso nos seus documentos.",
+                "en": "When you are looking at the photo you already use, the button (2) says In use on your documents."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-08.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Para usar a sua própria foto, toque em Enviar a minha própria imagem (1) e escolha um arquivo JPG, PNG ou WebP de até 5 MB.",
+                "en": "To use your own photo, tap Upload my own image (1) and choose a JPG, PNG or WebP file up to 5 MB."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-09.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Depois toque em Ver a minha imagem enviada (1): a prévia abre com as suas ferramentas de ajuste. Você pode voltar a ela quando quiser.",
+                "en": "Then tap See my uploaded image (1): the preview opens with the adjustment tools. You can come back to it whenever you want."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-10.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Tom dos quadros (1): escolha Escuro ou Claro.",
+                "en": "Tile tone (1): pick Dark or Light."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-11.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "As setas (2) movem a foto um pouco a cada toque, para aparecer a parte que você quer.",
+                "en": "The arrows (2) move the photo a little each time you tap, so the part you want shows."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-12.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Espelhar (3) vira a foto como um espelho.",
+                "en": "Flip (3) mirrors the photo."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-13.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Aproximar (4) deixa maior, 10 por cento a cada toque, e mostra a porcentagem.",
+                "en": "Zoom in (4) makes it bigger, 10 percent each tap, and shows the percent."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-14.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Redefinir (5) volta a foto ao começo.",
+                "en": "Reset (5) puts the photo back as it was."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-15.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Quando estiver bom, toque em Usar a minha imagem assim (6).",
+                "en": "When it looks right, tap Use my image like this (6)."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-16.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Aparece Imagem de capa salva.",
+                "en": "Cover image saved appears."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-17.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-17.en.jpg"
               }
             }
           ]
@@ -11827,7 +11970,7 @@
             ]
           },
           "section": "cover",
-          "step": 2
+          "step": 6
         },
         {
           "labels": {
@@ -11839,7 +11982,7 @@
             ]
           },
           "section": "cover",
-          "step": 3
+          "step": 9
         },
         {
           "labels": {
@@ -11851,7 +11994,7 @@
             ]
           },
           "section": "cover",
-          "step": 3
+          "step": 10
         },
         {
           "labels": {
@@ -11863,7 +12006,7 @@
             ]
           },
           "section": "cover",
-          "step": 4
+          "step": 16
         }
       ]
     },

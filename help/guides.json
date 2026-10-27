@@ -23513,6 +23513,145 @@
           "step": 2
         }
       ]
+    },
+    {
+      "id": "permissiveness-xray",
+      "audience": "client",
+      "who": [
+        "office",
+        "lead"
+      ],
+      "title": {
+        "pt": "Raio X de Permissividade: responda e veja o resultado",
+        "en": "Permissiveness X-Ray: answer it and read the result"
+      },
+      "summary": {
+        "pt": "Dê uma nota de 0 a 10 para 4 indicadores, envie e leia o resultado.",
+        "en": "Rate 4 indicators from 0 to 10, submit and read the result."
+      },
+      "keywords": {
+        "pt": [
+          "raio x de permissividade",
+          "permissividade",
+          "cultura",
+          "produtividade",
+          "nota de 0 a 10",
+          "concluir"
+        ],
+        "en": [
+          "permissiveness x-ray",
+          "permissiveness",
+          "culture",
+          "productivity",
+          "rate 0 to 10",
+          "finish"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "answer",
+          "title": {
+            "pt": "Responder o diagnóstico",
+            "en": "Answer the assessment"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o Raio X de Permissividade. Toque em Apex, depois em Atribuídos e em Abrir em Raio X de Permissividade. Veja o guia Suas ferramentas: os diagnósticos que a Apex liberou.",
+                "en": "Open the Permissiveness X-Ray. Tap Apex, then Assigned, then Open on Permissiveness X-Ray. See the guide Your tools: the assessments Apex gave you."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Comece. A primeira página diz: São 4 indicadores. Em cada um, dê uma nota de 0 a 10 para a sua realidade de hoje. Suas respostas são salvas automaticamente, você pode parar e continuar depois. A linha 0 de 4 respostas preenchidas conta as suas respostas. Toque em Começar (1).",
+                "en": "Start. The first page says: There are 4 indicators. For each, rate your reality today from 0 to 10. Your answers are saved automatically, you can stop and pick up later. The line 0 of 4 answers filled in counts your answers. Tap Start (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/permissiveness-xray/answer-02.pt.jpg",
+                "en": "help/img/guides/permissiveness-xray/answer-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Responda um indicador. Cada um tem uma fileira de números de 0 a 10. Embaixo dos números uma legenda mostra os níveis: 0 a 3 Crítico (vermelho), 4 a 7 Atenção (amarelo), 8 a 10 Adequado (verde). Toque no número que combina com a sua realidade hoje, por exemplo 9 (1). Ele fica da cor do nível e o número no alto sobe.",
+                "en": "Answer an indicator. Each one has a row of numbers from 0 to 10. Under the numbers a key shows the levels: 0 to 3 Critical (red), 4 to 7 Attention (yellow), 8 to 10 Adequate (green). Tap the number that matches your reality today, for example 9 (1). It turns the color of its level and the count at the top goes up."
+              },
+              "image": {
+                "pt": "help/img/guides/permissiveness-xray/answer-03.pt.jpg",
+                "en": "help/img/guides/permissiveness-xray/answer-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Responda os outros 3 indicadores. São Competência de Gestão, Permissividade de Resultado (o quanto a empresa tolera resultados abaixo da meta) e Permissividade de Comportamento (o quanto tolera comportamentos desalinhados à cultura). Toque em um número em cada um.",
+                "en": "Answer the other 3 indicators. They are Management Competence, Result Permissiveness (how much the company tolerates results below target) and Behaviour Permissiveness (how much it tolerates behaviour out of line with the culture). Tap one number for each."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Termine. No fim da página, toque em Concluir (1). Embaixo dele, Salvar e continuar depois sai da página e guarda as suas respostas.",
+                "en": "Finish. At the bottom of the page tap Finish (1). Under it, Save and continue later leaves the page and keeps your answers."
+              },
+              "image": {
+                "pt": "help/img/guides/permissiveness-xray/answer-05.pt.jpg",
+                "en": "help/img/guides/permissiveness-xray/answer-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Confirme o envio. A Apex pergunta: Enviar suas respostas? Depois de concluir, não será possível alterá-las. Toque em Sim, enviar minhas respostas (1). Toque em Continuar editando para voltar.",
+                "en": "Confirm the submit. Apex asks: Submit your answers? They cannot be changed after finishing. Tap Yes, submit my answers (1). Tap Keep editing to go back."
+              },
+              "image": {
+                "pt": "help/img/guides/permissiveness-xray/answer-06.pt.jpg",
+                "en": "help/img/guides/permissiveness-xray/answer-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Leia o resultado. A página diz Raio X de Permissividade concluído: Obrigado! Seu diagnóstico foi enviado. A nota (1) vem em pontos, numa escala de -20 a 20, com uma etiqueta, por exemplo Resultado Empresarial em Atenção. Embaixo, cada um dos 4 indicadores tem uma linha com a nota, por exemplo Competência de Liderança 9/10, e uma etiqueta, por exemplo Adequado.",
+                "en": "Read your result. The page says Permissiveness X-Ray completed: Thank you! Your diagnostic has been submitted. The score (1) is in points, on a scale from -20 to 20, with a tag, for example Business Result Needs Attention. Below it, each of the 4 indicators has a row with its score, for example Leadership Competence 9/10, and a tag, for example Adequate."
+              },
+              "image": {
+                "pt": "help/img/guides/permissiveness-xray/answer-07.pt.jpg",
+                "en": "help/img/guides/permissiveness-xray/answer-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Abra o relatório completo. Embaixo da lista, toque em Ver relatório completo. Embaixo do botão a página diz: Seu consultor vai apresentar o relatório completo com o plano de ação prioritário. Você acha o relatório de novo em Documentos, em Diagnósticos e relatórios concluídos.",
+                "en": "Open the full report. Under the list, tap View full report. Under the button the page says: Your consultant will walk you through the full report and the priority action plan. You can find the report again in Documents, under Completed assessments & reports."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Permissividade"
+            ],
+            "en": [
+              "Permissiveness"
+            ]
+          },
+          "section": "answer",
+          "step": 2
+        }
+      ]
     }
   ],
   "pages": {
@@ -23769,7 +23908,8 @@
         "business-xray",
         "other-assessments",
         "management-xray",
-        "leadership-xray"
+        "leadership-xray",
+        "permissiveness-xray"
       ],
       "overview": {
         "pt": "Aqui ficam os documentos, os arquivos e os relatórios.",
@@ -23942,7 +24082,8 @@
         "assigned-tools",
         "other-assessments",
         "management-xray",
-        "leadership-xray"
+        "leadership-xray",
+        "permissiveness-xray"
       ],
       "overview": {
         "pt": "Aqui ficam os diagnósticos que a Apex liberou para você. Toque em Abrir para responder um.",
@@ -23999,6 +24140,19 @@
       "overview": {
         "pt": "Aqui você responde o Raio X de Liderança e vê o resultado.",
         "en": "Here you answer the Leadership X-Ray and see the result."
+      }
+    },
+    "permxray": {
+      "title": {
+        "pt": "Permissividade",
+        "en": "Permissiveness"
+      },
+      "guides": [
+        "permissiveness-xray"
+      ],
+      "overview": {
+        "pt": "Aqui você responde o Raio X de Permissividade e vê o resultado.",
+        "en": "Here you answer the Permissiveness X-Ray and see the result."
       }
     }
   }

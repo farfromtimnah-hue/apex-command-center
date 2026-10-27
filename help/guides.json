@@ -25779,6 +25779,280 @@
           "step": 3
         }
       ]
+    },
+    {
+      "id": "admin-seller-diagnostics",
+      "audience": "admin",
+      "title": {
+        "pt": "Diagnóstico de Vendedores: ler o desempenho de quem vende",
+        "en": "Seller Diagnostics: read how the salespeople are doing"
+      },
+      "summary": {
+        "pt": "Valores, tabela por vendedor, conversão e objeções de um cliente.",
+        "en": "Values, per-salesperson table, conversion and objections for one client."
+      },
+      "keywords": {
+        "pt": [
+          "diagnóstico de vendedores",
+          "vendedor",
+          "coaching",
+          "valor fechado",
+          "conversão",
+          "objeção"
+        ],
+        "en": [
+          "seller diagnostics",
+          "salesperson",
+          "coaching",
+          "closed value",
+          "conversion",
+          "objection"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "seller",
+          "title": {
+            "pt": "Ler o diagnóstico",
+            "en": "Read the diagnostics"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra a ficha de um cliente e toque em Diagnóstico de Vendedores. O botão só aparece quando o cliente tem um login de vendedor. Leia o aviso primeiro (2): este é material de coaching, ele cita pessoas pelo nome e o cliente não vê esta página. Toque em Voltar ao cliente (1) para sair. Escolha Todos os vendedores ou uma pessoa nos botões (3). Os nomes dos vendedores nas figuras estão trocados.",
+                "en": "Open a client record and tap Seller diagnostics. The button only shows when the client has a salesperson login. Read the warning first (2): this is coaching material, it names people, and the client cannot see this page. Tap Back to client (1) to leave. Pick All salespeople or one person with the buttons (3). The salesperson names in the pictures are replaced."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-seller-diagnostics/seller-01.pt.jpg",
+                "en": "help/img/guides/admin-seller-diagnostics/seller-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Valores (1) mostra três totais: valor fechado, valor em pipeline ativo e valor total perdido. Embaixo de cada total o Apex diz sobre quantos leads ele foi somado. Quando poucos leads têm valor, o número é só um mínimo parcial. A lista Precisa de conferência mostra projetos sem lead ligado. Eles ficam fora do valor fechado até alguém ligar cada um a um lead fechado.",
+                "en": "Values (1) shows three totals: closed value, active pipeline value and total lost value. Under each total Apex says how many leads it was added over. When few leads have a value, the number is only a partial minimum. The list Needs checking lists projects with no lead linked to them. They stay out of the closed value until someone links them to a closed lead."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-seller-diagnostics/seller-02.pt.jpg",
+                "en": "help/img/guides/admin-seller-diagnostics/seller-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Por vendedor (1) é uma tabela com uma linha para cada pessoa: Fechado, Pipeline ativo e Perdido. Embaixo de cada valor você vê de quantos negócios ou leads ele vem. As colunas são somas, não proporções. As linhas ficam em ordem de valor fechado.",
+                "en": "By salesperson (1) is a table with one row for each person: Closed, Active pipeline and Lost. Under each amount you see how many deals or leads it covers. The columns are sums, not ratios. Rows are sorted by closed value."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-seller-diagnostics/seller-03.pt.jpg",
+                "en": "help/img/guides/admin-seller-diagnostics/seller-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Conversão e esforço (1) mostra as tentativas por conversa, a taxa de fechamento, o ticket médio e quantos toques foram precisos para fechar ou perder. Dias parado em cada etapa mostra onde os leads esperam. Qualquer proporção calculada sobre menos de 5 leads diz sem dados suficientes ainda, em vez de mostrar um número.",
+                "en": "Conversion and effort (1) shows attempts per conversation, the closing ratio, the average deal value and how many touches it took to close or lose. Days sitting in each stage shows where leads wait. Any ratio worked out on fewer than 5 leads says not enough data yet, instead of showing a number."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-seller-diagnostics/seller-04.pt.jpg",
+                "en": "help/img/guides/admin-seller-diagnostics/seller-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Objeção e desfecho (1) mostra por quais objeções esta pessoa fechou e contra quais perdeu. Objeções mais comuns (2) mostra o que o vendedor escreveu ao lado de cada objeção. A distância entre a escolha e a nota é o diagnóstico.",
+                "en": "Objection to outcome (1) shows which objections this person closed through and lost to. Most common objections (2) shows what the salesperson wrote beside each objection. The distance between the choice and the note is the diagnosis."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-seller-diagnostics/seller-05.pt.jpg",
+                "en": "help/img/guides/admin-seller-diagnostics/seller-05.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Voltar ao cliente"
+            ],
+            "en": [
+              "Back to client"
+            ]
+          },
+          "section": "seller",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Todos os vendedores"
+            ],
+            "en": [
+              "All salespeople"
+            ]
+          },
+          "section": "seller",
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "admin-client-login-access",
+      "audience": "admin",
+      "title": {
+        "pt": "Acesso do cliente: logins, campos e segurança",
+        "en": "Client access: logins, fields and security"
+      },
+      "summary": {
+        "pt": "Botões do cartão Portal do Cliente, logins de vendedor e Segurança do login.",
+        "en": "The Client Portal buttons, salesperson logins and Login security."
+      },
+      "keywords": {
+        "pt": [
+          "login",
+          "portal do cliente",
+          "editar campos",
+          "assentos",
+          "reenviar acesso",
+          "segurança do login",
+          "passkey",
+          "vendedor"
+        ],
+        "en": [
+          "login",
+          "client portal",
+          "edit fields",
+          "seats",
+          "resend access",
+          "login security",
+          "passkey",
+          "salesperson"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "access",
+          "title": {
+            "pt": "Dar e cuidar do acesso",
+            "en": "Give and look after access"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Na ficha do cliente, o cartão Portal do Cliente mostra o login que foi criado e a última vez que o cliente entrou. Os botões são Redefinir Senha (1), Enviar link do app (2), Enviar novo login (link) (3) e Editar Campos (4). Embaixo há duas chaves, Registro diário e Metas. Quando uma está desligada, ela deixa de aparecer no login e vai para o fim de Mais, mas o cliente ainda consegue chegar nela.",
+                "en": "On a client record, the card Client Portal shows the login that was created and the last time the client signed in. The buttons are Reset Password (1), Send app link (2), Send new login (link) (3) and Edit Fields (4). Under them are two switches, Daily log and Goals. When one is off, it is no longer shown at login and goes to the end of More, but the client can still reach it."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-login-access/access-01.pt.jpg",
+                "en": "help/img/guides/admin-client-login-access/access-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Toque em Editar Campos para escolher quais números este cliente preenche todo dia. Marque os indicadores que valem para ele (1) e escreva a meta mensal de cada um (2). Os marcados como automático são calculados pelo Apex, então você não muda. Toque em Salvar (3) para guardar. Nada foi salvo nesta figura.",
+                "en": "Tap Edit Fields to choose which numbers this client fills in every day. Tick the indicators that apply (1) and write the monthly target for each one (2). The ones marked automatic are worked out by Apex, so you cannot change them. Tap Save (3) to keep the changes. Nothing was saved for this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-login-access/access-02.pt.jpg",
+                "en": "help/img/guides/admin-client-login-access/access-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "O cartão Logins de Vendedor lista o que o cliente pediu. Solicitações pendentes (1) espera por você: aprovar uma solicitação cria um login de verdade e mostra a senha temporária uma única vez. Logins ativos (2) lista todos os logins de vendedor, com Revogar para tirar um. Diagnóstico de vendedores (3) abre a página de coaching, veja o guia sobre ela.",
+                "en": "The card Salesperson Logins lists what the client asked for. Pending requests (1) waits for you: approving a request creates a real login and shows the temporary password only once. Active logins (2) lists every salesperson login, with Revoke to take one away. Seller diagnostics (3) opens the coaching page, see the guide about it."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-login-access/access-03.pt.jpg",
+                "en": "help/img/guides/admin-client-login-access/access-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Mais abaixo, o cartão Segurança do login tem os assentos. Assentos mostra quantos logins estão em uso, quantos estão incluídos e o pico. O menu (1) escolhe o que acontece no limite: Count only, Notify the owner ou Block at the limit. Escreva o número de assentos e toque em Save. Origem do negócio (2) diz se o negócio veio direto da Apex (consultoria) ou do cadastro público. Este cartão está em inglês nos dois idiomas.",
+                "en": "Further down, the card Login security has the seats. Seats shows how many logins are in use, how many are included and the peak. The menu (1) chooses what happens at the limit: Count only, Notify the owner or Block at the limit. Write the number of seats and tap Save. Business source (2) says if the business came from Apex direct (consulting) or from public signup. This card is in English on both languages."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-login-access/access-04.pt.jpg",
+                "en": "help/img/guides/admin-client-login-access/access-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Turn off the old login for this business (3) desliga o login antigo de usuário e senha do negócio. Depois disso o dono só entra pelo novo login com passkey. O usuário antigo aparece acima do botão.",
+                "en": "Turn off the old login for this business (3) switches off the old username and password login for the business. After that the owner can only sign in with the new passkey login. The old username is shown above the button."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-login-access/access-05.pt.jpg",
+                "en": "help/img/guides/admin-client-login-access/access-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Resend access (4) cria um novo link de convite para o novo login do dono, por exemplo quando o primeiro convite se perdeu. Owner's device: lost, replaced or leaving (5) pergunta o que aconteceu. Escolha Comprou celular novo, ou Perdido ou roubado e depois quando foi perdido. O Apex revisa a atividade desde então.",
+                "en": "Resend access (4) makes a new invitation link for the owner's new login, for example when the first invitation was lost. Owner's device: lost, replaced or leaving (5) asks what happened. Choose Got a new phone, or Lost or stolen and then when it was lost. Apex reviews the activity since then."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-login-access/access-06.pt.jpg",
+                "en": "help/img/guides/admin-client-login-access/access-06.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Editar Campos"
+            ],
+            "en": [
+              "Edit Fields"
+            ]
+          },
+          "section": "access",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Revogar"
+            ],
+            "en": [
+              "Revoke"
+            ]
+          },
+          "section": "access",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Reenviar acesso",
+              "Resend access"
+            ],
+            "en": [
+              "Resend access"
+            ]
+          },
+          "section": "access",
+          "step": 6
+        }
+      ]
     }
   ],
   "pages": {

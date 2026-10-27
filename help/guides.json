@@ -24567,6 +24567,125 @@
           "step": 2
         }
       ]
+    },
+    {
+      "id": "admin-tell-us-goal-approvals",
+      "audience": "admin",
+      "title": {
+        "pt": "Conte pra nós e aprovações de metas no dashboard",
+        "en": "Tell us and goal approvals on the dashboard"
+      },
+      "summary": {
+        "pt": "Avise o suporte que algo não funciona ou que você precisa de algo, e aprove ou rejeite uma meta que um cliente propôs.",
+        "en": "Tell support that something is not working or that you need something, and approve or reject a goal a client proposed."
+      },
+      "keywords": {
+        "pt": [
+          "conte pra nós",
+          "algo não está funcionando",
+          "preciso de algo",
+          "ditar",
+          "suporte",
+          "aprovações de metas",
+          "aprovar",
+          "rejeitar",
+          "meta proposta"
+        ],
+        "en": [
+          "tell us",
+          "something is not working",
+          "i need something",
+          "dictate",
+          "support",
+          "goal approvals",
+          "approve",
+          "reject",
+          "proposed goal"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "dash",
+          "title": {
+            "pt": "Conte pra nós e aprovações de metas",
+            "en": "Tell us and goal approvals"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra a caixa Conte pra nós. Ela fica no Dashboard, embaixo das listas. Ela pergunta Como podemos ajudar? e tem dois botões: Algo não está funcionando (1) e Eu preciso de algo (2). Toque no que combina.",
+                "en": "Open the Tell us box. It is on the Dashboard, under the lists. It asks How can we help? It has two buttons: Something is not working (1) and I need something (2). Tap the one that fits."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tell-us-goal-approvals/dash-01.pt.jpg",
+                "en": "help/img/guides/admin-tell-us-goal-approvals/dash-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Escreva o seu aviso. Uma caixa abre embaixo dos botões. Digite na caixa (1) ou toque em Ditar (2) e fale em voz alta. Toque em Enviar (3) para mandar ao suporte. Não toque em Enviar só para testar.",
+                "en": "Write your note. A box opens under the buttons. Type in the box (1), or tap Dictate (2) and say it out loud. Tap Send (3) to send it to support. Do not tap Send only to test it."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tell-us-goal-approvals/dash-02.pt.jpg",
+                "en": "help/img/guides/admin-tell-us-goal-approvals/dash-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Aprovações de metas. Quando um cliente propõe uma nova meta do mês, uma caixa chamada Aprovações de Metas aparece no fim do Dashboard, com um número vermelho. A linha mostra o cliente, a meta, o mês, o número Atual e o Proposto, a data e quem propôs. Toque em Aprovar (1) para aceitar ou em Rejeitar (2) para recusar. A caixa fica escondida quando nada espera.",
+                "en": "Goal approvals. When a client proposes a new monthly goal, a box called Goal Approvals appears at the bottom of the Dashboard, with a red number. The row shows the client, the goal, the month, the Current number and the Proposed number, the date and who proposed it. Tap Approve (1) to accept it or Reject (2) to refuse it. The box is hidden when nothing waits."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tell-us-goal-approvals/dash-03.pt.jpg",
+                "en": "help/img/guides/admin-tell-us-goal-approvals/dash-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Algo não está funcionando"
+            ],
+            "en": [
+              "Something is not working"
+            ]
+          },
+          "section": "dash",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Eu preciso de algo"
+            ],
+            "en": [
+              "I need something"
+            ]
+          },
+          "section": "dash",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Rejeitar meta"
+            ],
+            "en": [
+              "Reject goal"
+            ]
+          },
+          "section": "dash",
+          "step": 3
+        }
+      ]
     }
   ],
   "pages": {
@@ -24893,7 +25012,8 @@
       },
       "guides": [
         "admin-dashboard-reminders",
-        "admin-menu-language-learn"
+        "admin-menu-language-learn",
+        "admin-tell-us-goal-approvals"
       ],
       "overview": {
         "pt": "Aqui você vê o que precisa de você hoje: lembretes de reunião, faturas, tarefas e horários esperando o cliente.",

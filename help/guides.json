@@ -27784,6 +27784,122 @@
         }
       ],
       "buttons": []
+    },
+    {
+      "id": "admin-prep-weekly-rde",
+      "audience": "admin",
+      "title": {
+        "pt": "Preparação da reunião: RDE semanal",
+        "en": "Meeting prep: the weekly RDE"
+      },
+      "summary": {
+        "pt": "Percorra a página do RDE semanal: os indicadores do pior para o melhor, a semana dia a dia, as telas de pipeline, projetos e financeiro, e o depois da reunião.",
+        "en": "Walk through the weekly RDE page: the indicators worst first, the week day by day, the pipeline, projects and finances screens, and the after-meeting list."
+      },
+      "keywords": {
+        "pt": [
+          "rde semanal",
+          "preparação da reunião",
+          "indicadores",
+          "semana dia a dia",
+          "faltando",
+          "meta",
+          "pipeline",
+          "financeiro"
+        ],
+        "en": [
+          "weekly rde",
+          "meeting prep",
+          "indicators",
+          "week day by day",
+          "missing",
+          "goal",
+          "pipeline",
+          "finances"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "rde",
+          "title": {
+            "pt": "Preparação: RDE semanal",
+            "en": "Prep: the weekly RDE"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Os indicadores, o pior primeiro. Abra a página de preparação de uma reunião semanal. O cartão do alto diz RDE semanal e que a página é só para o consultor. Este cartão (1) lista cada indicador com o que foi feito, a meta e quanto falta, em vermelho. As maiores diferenças vêm primeiro, então você começa pelo que dói. Ver os outros indicadores abre o resto.",
+                "en": "The indicators, worst first. Open the prep page of a weekly meeting. The top card says Weekly RDE and that the page is for the consultant only. This card (1) lists each indicator with what was done, the goal and how much is missing, in red. The biggest gaps come first, so you start with what hurts. See the other indicators opens the rest."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-weekly-rde/rde-01.pt.jpg",
+                "en": "help/img/guides/admin-prep-weekly-rde/rde-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "A semana, dia a dia. Este cartão (1) tem setas para ir às outras semanas e mostra as datas da semana. Cada dia é um quadro: Completo, ou Não trabalhou. Uma linha explica que um zero registrado e um dia não preenchido não são a mesma coisa, e que a diferença está nomeada aqui dia a dia.",
+                "en": "The week, day by day. This card (1) has arrows to go to the other weeks and shows the dates of the week. Each day is a tile: Completed, or Not scheduled. A line explains that a logged zero and a day nobody filled in are not the same thing, and that the difference is named here day by day."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-weekly-rde/rde-02.pt.jpg",
+                "en": "help/img/guides/admin-prep-weekly-rde/rde-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Veja as telas reais. O cartão Pipeline, projetos e margem (1) abre as telas reais, para ir lead a lead e projeto a projeto: Abrir o pipeline e Abrir os projetos. O cartão Financeiro tem Abrir o financeiro. São somente leitura: para alterar, use a tela da equipe ou o login do próprio cliente.",
+                "en": "Look at the real screens. The card Pipeline, projects and margin (1) opens the real screens, to go lead by lead and project by project: Open the pipeline and Open the projects. The card Finances has Open the finances. They are read only: to change anything, use the staff screen or the client's own login."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-weekly-rde/rde-03.pt.jpg",
+                "en": "help/img/guides/admin-prep-weekly-rde/rde-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Depois da reunião. Marque Gerar e aprovar o resumo da sessão e toque em Abrir a sessão. Depois de aprovado, o relatório fica arquivado na sessão e o cliente é avisado de que chega em 24 horas. Marque Combinar a próxima sessão e toque em Abrir a agenda. O cartão é o (1).",
+                "en": "After the meeting. Tick Generate and approve the session summary and tap Open the session. Once approved, the report is filed against the session and the client is told it arrives within 24 hours. Tick Agree the next session and tap Open the calendar. The card is (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-weekly-rde/rde-04.pt.jpg",
+                "en": "help/img/guides/admin-prep-weekly-rde/rde-04.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Indicadores do pior ao melhor"
+            ],
+            "en": [
+              "Indicators worst first"
+            ]
+          },
+          "section": "rde",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Abrir o pipeline pela preparação"
+            ],
+            "en": [
+              "Open the pipeline from the prep"
+            ]
+          },
+          "section": "rde",
+          "step": 3
+        }
+      ]
     }
   ],
   "pages": {
@@ -28203,7 +28319,8 @@
       "guides": [
         "admin-meeting-prep",
         "admin-prep-xray-results",
-        "admin-prep-kickoff"
+        "admin-prep-kickoff",
+        "admin-prep-weekly-rde"
       ],
       "overview": {
         "pt": "Aqui o consultor se prepara para a reunião com um cliente.",

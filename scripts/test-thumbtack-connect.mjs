@@ -81,7 +81,7 @@ function world(opts) {
     tt.calls.push({ method: method, host: u.origin, path: u.pathname, search: u.search, headers: headers, form: form, json: json });
     if (tt.down) { throw new Error("connect ECONNREFUSED " + url); }
     const J = (body, status) => new Response(JSON.stringify(body), { status: status || 200, headers: { "Content-Type": "application/json" } });
-    if (u.origin === "https://auth.thumbtack.com" && u.pathname === "/oauth2/token") {
+    if (u.origin === "https://staging-auth.thumbtack.com" && u.pathname === "/oauth2/token") {
       if (headers.Authorization !== "Basic " + Buffer.from(CLIENT_ID + ":" + SECRET).toString("base64")) { return J({ error: "invalid_client" }, 401); }
       if (form.grant_type === "authorization_code") {
         if (form.code !== CODE) { return J({ error: "invalid_grant", error_description: "The code was used. code=" + form.code }, 400); }
@@ -187,6 +187,9 @@ function hook(w, body, over) {
   const prodOnly = world({ env: { THUMBTACK_ENV: "production", THUMBTACK_STAGING_CLIENT_ID: CLIENT_ID, THUMBTACK_STAGING_CLIENT_SECRET: SECRET, TOKEN_ENC_KEY: ENV_OK.TOKEN_ENC_KEY } });
   const pst = await read(await prodOnly.F.handleGetGmThumbtackStatus("c1", get("/x"), prodOnly.env));
   ok(pst.data.available === false, "production mode with only the STAGING credentials is not available (they are never reused)");
+  const prodHost = world({ env: { THUMBTACK_ENV: "production", THUMBTACK_CLIENT_ID: CLIENT_ID, THUMBTACK_CLIENT_SECRET: SECRET, TOKEN_ENC_KEY: ENV_OK.TOKEN_ENC_KEY } });
+  const prodStart = await read(await prodHost.F.handlePostGmThumbtackConnect("c1", post("/x"), prodHost.env));
+  ok(new URL(prodStart.data.url).origin === "https://auth.thumbtack.com", "production mode signs in at the production host");
   const stOnly = world({ env: { THUMBTACK_CLIENT_ID: CLIENT_ID, THUMBTACK_CLIENT_SECRET: SECRET, TOKEN_ENC_KEY: ENV_OK.TOKEN_ENC_KEY } });
   const sst = await read(await stOnly.F.handleGetGmThumbtackStatus("c1", get("/x"), stOnly.env));
   ok(sst.data.available === false, "staging mode with only the PRODUCTION credentials is not available (they are never reused)");
@@ -224,7 +227,8 @@ let W = null;
   W = w;
   const c = await connect(w);
   const url = new URL(c.started.data.url);
-  ok(url.origin === "https://auth.thumbtack.com" && url.pathname === "/oauth2/auth", "connect: the sign-in address is Thumbtack's authorize address");
+  ok(url.origin === "https://staging-auth.thumbtack.com" && url.pathname === "/oauth2/auth", "connect: in staging mode the sign-in address is Thumbtack's STAGING authorize address");
+  ok(url.searchParams.get("audience") === "urn:partner-api", "connect: the sign-in request carries audience=urn:partner-api");
   ok(url.searchParams.get("client_id") === CLIENT_ID && url.searchParams.get("response_type") === "code", "connect: it carries the app id and response_type=code");
   ok(url.searchParams.get("redirect_uri") === API + "/api/thumbtack/callback", "connect: the redirect address is this Worker's callback");
   const scopes = String(url.searchParams.get("scope")).split(" ");

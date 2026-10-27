@@ -38033,8 +38033,8 @@ async function handleGetMetaDeletionStatus(code, request, env) {
 // EVERY Thumbtack address and parameter is in THUMBTACK below, and only there.
 // Read from Thumbtack's OpenAPI file (api.thumbtack.com/docs/thumbtack_api_latest.json,
 // version 4.0.0). NOTHING here was run against Thumbtack yet: correct THUMBTACK
-// after the first staging test (the staging sign-in host and how the token
-// call authenticates are the two guesses).
+// after the first staging test (how the token call authenticates is the one
+// remaining guess; the sign-in host was confirmed from Thumbtack's docs).
 //
 // Tokens are stored sealed with tokenSeal and are never returned to the
 // browser and never logged. The tables arrive in migrations/thumbtack_connect.sql.
@@ -38046,10 +38046,13 @@ var THUMBTACK = {
     // This Worker's own public address (the same one the Request Access form got).
     worker_origin: "https://apex-api.farfromtimnah.workers.dev",
     api_origin: { staging: "https://staging-api.thumbtack.com/api", production: "https://api.thumbtack.com/api" },
-    // The spec names only the production sign-in host. For staging set the
-    // Worker variable THUMBTACK_AUTH_ORIGIN (no trailing slash) once Thumbtack's
-    // staging email names it.
-    auth_origin: { staging: "https://auth.thumbtack.com", production: "https://auth.thumbtack.com" },
+    // Thumbtack's "Environments" doc page: staging sign-in is staging-auth.thumbtack.com
+    // and the first test (2026-10-27) proved the production host refuses the
+    // staging client ("The requested OAuth 2.0 Client does not exist").
+    // THUMBTACK_AUTH_ORIGIN (no trailing slash) overrides either.
+    auth_origin: { staging: "https://staging-auth.thumbtack.com", production: "https://auth.thumbtack.com" },
+    // Required in the sign-in request (Authentication doc page).
+    audience: "urn:partner-api",
     authorize_path: "/oauth2/auth",
     token_path: "/oauth2/token",
     // How the token call proves who we are: "basic" = HTTP Basic header,
@@ -38202,6 +38205,7 @@ function thumbtackAuthorizeUrl(cfg, state) {
     return cfg.auth_origin + THUMBTACK.authorize_path +
         "?client_id=" + encodeURIComponent(cfg.client_id) +
         "&response_type=code" +
+        "&audience=" + encodeURIComponent(THUMBTACK.audience) +
         "&redirect_uri=" + encodeURIComponent(thumbtackRedirectUri()) +
         "&scope=" + encodeURIComponent(THUMBTACK.scopes.join(" ")) +
         "&state=" + encodeURIComponent(state);

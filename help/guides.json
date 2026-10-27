@@ -7490,29 +7490,178 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra o lead e role até o fim. Toque em + Adicionar PDF ou foto (1) para guardar um arquivo no lead, por exemplo um orçamento assinado, uma licença ou fotos do local. Um arquivo pode ter até 15 MB e você pode remover depois. Em Notas, escreva o que quer lembrar na caixa (2) e toque em Adicionar (3). Em Histórico (4) você vê o que aconteceu com o lead.",
-                "en": "Open the lead and scroll to the bottom. Tap + Add PDF or photo (1) to keep a file on the lead, for example a signed estimate, a permit or site photos. A file can be up to 15 MB and you can remove it later. Under Notes, write what you want to remember in the box (2) and tap Add (3). Under History (4) you see what happened to the lead."
+                "pt": "Abra o lead: toque nele (1) na lista do Pipeline. A folha do lead abre.",
+                "en": "Open the lead: tap it (1) in the Pipeline list. The lead sheet opens."
               },
               "image": {
-                "pt": "help/img/guides/lead-notes-files-history/lead-01.pt.jpg",
-                "en": "help/img/guides/lead-notes-files-history/lead-01.en.jpg"
+                "pt": "help/img/guides/lead-notes-files-history/lead-s01.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Entenda como funcionam as notas e o histórico. Cada nota mostra a data e quem escreveu, a mais nova primeiro. Você só pode editar ou apagar as suas próprias notas. O Histórico lista quem fez o quê e quando: o lead criado, mudanças de estágio, mudanças em um campo (o valor antigo e o novo) e cada evento de orçamento. Leads mais antigos podem dizer que ainda não há nada registrado.",
-                "en": "Know how notes and history work. Each note shows the date and who wrote it, newest first. You can edit or delete only your own notes. History lists who did what and when: the lead created, stage moves, changes to a field (the old value and the new one) and every estimate event. Older leads may say that nothing was recorded yet."
+                "pt": "Role a folha do lead para baixo até a parte chamada Arquivos (1).",
+                "en": "Scroll down the lead sheet to the part called Files (1)."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s02.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s02.en.jpg"
+              }
             },
             {
               "n": 3,
               "text": {
-                "en": "Delete a lead. At the very bottom of the lead sheet, tap Delete lead. Apex asks you to confirm and warns that this cannot be undone. Tap Keep the lead if you are not sure. Use it only for a lead that was created by mistake: to close a real lead that did not buy, move it to the Lost stage instead.",
-                "pt": "Exclua um lead. No final da ficha do lead, toque em Excluir lead. O Apex pede a confirmação e avisa que essa ação não pode ser desfeita. Toque em Manter o lead se não tiver certeza. Use só para um lead criado por engano: para encerrar um lead de verdade que não comprou, mude o estágio para Perdido."
+                "pt": "Toque em + Adicionar PDF ou foto (1) para guardar um arquivo no lead, por exemplo um orçamento assinado, uma licença ou fotos do local.",
+                "en": "Tap + Add PDF or photo (1) to keep a file on the lead, for example a signed estimate, a permit or site photos."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s03.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Escolha o arquivo. Ele aparece na lista em Arquivos (1). Um arquivo pode ter até 15 MB.",
+                "en": "Pick the file. It appears in the list under Files (1). A file can be up to 15 MB."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s04.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Para tirar um arquivo depois, toque no × (1) nele. O Apex pede a sua confirmação antes de tirar o arquivo.",
+                "en": "To remove a file later, tap the × (1) on it. Apex asks you to confirm before it removes the file."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s05.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Em Notas, escreva o que você quer lembrar na caixa (1).",
+                "en": "Under Notes, write what you want to remember in the box (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s06.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Toque em Adicionar (1). O Apex mostra uma mensagem curta dizendo que a nota foi adicionada.",
+                "en": "Tap Add (1). Apex shows a short message that the note was added."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s07.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Cada nota mostra a data e quem escreveu (1), a mais nova primeiro.",
+                "en": "Each note shows the date and who wrote it (1), newest first."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s08.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Você só pode editar ou excluir as suas próprias notas: toque em Editar ou Excluir (1) embaixo da nota. Excluir pede confirmação.",
+                "en": "You can edit or delete only your own notes: tap Edit or Delete (1) under the note. Delete asks you to confirm."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s09.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Em Histórico (1) você vê o que aconteceu com o lead.",
+                "en": "Under History (1) you see what happened to the lead."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s10.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "O Histórico lista quem fez o quê e quando (1): o lead criado, as mudanças de estágio, as mudanças de um campo (o valor antigo e o novo) e cada evento de orçamento.",
+                "en": "History lists who did what and when (1): the lead created, stage moves, changes to a field (the old value and the new one) and every estimate event."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s11.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Leads mais antigos podem dizer que nada foi registrado ainda.",
+                "en": "Older leads may say that nothing was recorded yet."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s11.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s11.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Para excluir um lead, role até o fim da folha do lead e toque em Excluir lead (1).",
+                "en": "To delete a lead, scroll to the very bottom of the lead sheet and tap Delete lead (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s13.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "O Apex pede a sua confirmação (1) e avisa que não pode ser desfeito. Sim, excluir o lead exclui de vez.",
+                "en": "Apex asks you to confirm (1) and warns that this cannot be undone. Yes, delete the lead deletes it for good."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s14.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Toque em Manter o lead (1) se você não tiver certeza. Nada é excluído.",
+                "en": "Tap Keep the lead (1) if you are not sure. Nothing is deleted."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s15.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Use Excluir lead só para um lead criado por engano. Para encerrar um lead de verdade que não comprou, mova-o para o estágio Perdido.",
+                "en": "Use Delete lead only for a lead that was created by mistake. To close a real lead that did not buy, move it to the Lost stage instead."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-s14.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-s14.en.jpg"
+              }
             }
           ]
         }
@@ -7528,7 +7677,7 @@
             ]
           },
           "section": "lead",
-          "step": 1
+          "step": 3
         },
         {
           "labels": {
@@ -7540,7 +7689,7 @@
             ]
           },
           "section": "lead",
-          "step": 3
+          "step": 13
         }
       ]
     },

@@ -47,3 +47,8 @@ clients/
 # a later session can grep and edit by mistake. Swept in accidentally by a
 # `git add -A` on 2026-08-11 and removed the same night.
 www/
+
+# Learn (Aprenda) private pictures and videos: never committed. They are uploaded
+# to the private R2 bucket with scripts/help-media-upload.mjs and served only
+# through the Worker (signed links). See help/README.md.
+help-private/

@@ -15359,16 +15359,19 @@
             {
               "n": 1,
               "text": {
-                "pt": "O que é. O Dashboard é a primeira página do app da equipe. Ele muda conforme quem entrou. Este guia mostra o dashboard da Alice, de operações e finanças. O Rafa vê as próximas reuniões, o microfone para marcar uma reunião por voz e a revisão de contrato. A Nicole, como desenvolvedora, vê as filas que precisam dela.",
-                "en": "What it is. The Dashboard is the first page of the staff app. It changes with who signs in. This guide shows the dashboard of Alice, the operations and finance person. Rafa sees his upcoming meetings, the microphone to book a meeting by voice and the contract review. Nicole, as developer, sees the queues that need her."
+                "pt": "O Dashboard é a primeira página do app da equipe. Ele muda conforme quem entrou. O Rafa vê as próximas reuniões, o microfone e a revisão de contrato. A Nicole, como desenvolvedora, vê as filas que precisam dela. Este é o da Alice, de operações e finanças: Visão Geral (1), Falar reunião (2) e + Nova Sessão (3). A figura foi feita com a visão do desenvolvedor trocada para Alice, e o nome e a foto estão trocados.",
+                "en": "The Dashboard is the first page of the staff app. It changes with who signs in. Rafa sees his upcoming meetings, the microphone and the contract review. Nicole, as developer, sees the queues that need her. This is Alice's, the operations and finance person: Overview (1), Speak a meeting (2) and + New Session (3). The picture was taken with the developer view switched to Alice, and the name and photo are replaced."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-dashboard-reminders/today-01.pt.jpg",
+                "en": "help/img/guides/admin-dashboard-reminders/today-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "O topo do dashboard da Alice. 1. Cinco cartões: Faturas não enviadas, Faturas vencidas com o total, Lembretes de reunião, Tarefas e Envios pendentes (de recursos). 2. Lembretes de Reunião lista cada reunião das próximas 24 horas, para ninguém esquecer de lembrar o cliente. 3. Enviar Lembrete abre o WhatsApp com o lembrete já escrito. Envie de lá. 4. O lápis muda o texto dessa mensagem de lembrete. Os nomes das reuniões estão escondidos nesta imagem.",
-                "en": "The top of Alice's dashboard. 1. Five tiles: Faturas não enviadas (invoices not sent), Faturas vencidas (overdue invoices) with the total, Lembretes de reunião (meeting reminders), Tarefas (tasks) and Envios pendentes (pending sends of resources). 2. Lembretes de Reunião lists every meeting in the next 24 hours, so nobody forgets to remind the client. 3. Enviar Lembrete (Send Reminder) opens WhatsApp with the reminder already written. Send it from there. 4. The pencil changes the words of that reminder message. Meeting names are hidden in this picture."
+                "pt": "Cinco cartões mostram o trabalho do dia: Faturas não enviadas (1), Faturas vencidas com o total (2), Lembretes de reunião (3), Tarefas (4) e Envios pendentes (de recursos) (5). O valor é um valor de teste.",
+                "en": "Five tiles show the work of the day: Unsent invoices (1), Overdue invoices with the total (2), Meeting reminders (3), Tasks (4) and Pending sends of resources (5). The amount is a test value."
               },
               "image": {
                 "pt": "help/img/guides/admin-dashboard-reminders/today-02.pt.jpg",
@@ -15378,10 +15381,79 @@
             {
               "n": 3,
               "text": {
-                "pt": "Abaixo dos lembretes. Tarefas para você mostra as suas tarefas abertas, e Passei para outros mostra as tarefas que você entregou a alguém. Mais embaixo, Aguardando horário é a lista de links de horário esperando o cliente: veja o guia Enviar horários.",
-                "en": "Below the reminders. Tarefas para você (Tasks for you) shows your open tasks, and Passei para outros (Given to others) shows the tasks you handed to someone. Further down, Aguardando horário is the list of time links waiting for the client: see the guide Enviar horários."
+                "pt": "Embaixo dos cartões, uma barra (1) mostra quantos recursos foram enviados, por exemplo 0 de 0.",
+                "en": "Under the tiles, a bar (1) shows how many resources were sent, for example 0 of 0."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-dashboard-reminders/today-03.pt.jpg",
+                "en": "help/img/guides/admin-dashboard-reminders/today-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Lembretes de Reunião (1) lista cada reunião das próximas 24 horas, para ninguém esquecer de lembrar o cliente. Os nomes das reuniões estão trocados por nomes de teste na figura.",
+                "en": "Meeting Reminders (1) lists every meeting in the next 24 hours, so nobody forgets to remind the client. Meeting names are replaced with test names in the picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-dashboard-reminders/today-04.pt.jpg",
+                "en": "help/img/guides/admin-dashboard-reminders/today-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Enviar Lembrete (1) abre o WhatsApp com o lembrete já escrito. Envie de lá. Ele não foi tocado nesta figura, porque chega a um cliente.",
+                "en": "Send Reminder (1) opens WhatsApp with the reminder already written. Send it from there. It was not tapped for this picture, because it reaches a client."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-dashboard-reminders/today-05.pt.jpg",
+                "en": "help/img/guides/admin-dashboard-reminders/today-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "O lápis (1) ao lado muda o texto dessa mensagem de lembrete. Toque nele.",
+                "en": "The pencil (1) next to it changes the words of that reminder message. Tap it."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-dashboard-reminders/today-06.pt.jpg",
+                "en": "help/img/guides/admin-dashboard-reminders/today-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "A mensagem abre (1). Ela diz que é a mensagem enviada daqui e que vale para todos. As partes entre chaves (2) são preenchidas pela Apex: deixe do jeito que estão. Toque em Salvar (3) para guardar o texto novo, ou em Cancelar (4) para fechar sem salvar.",
+                "en": "The message opens (1). It says it is the message sent from here and that it saves for everyone. The pieces in curly brackets (2) are filled in by Apex: keep them as they are. Tap Save (3) to keep the new words, or Cancel (4) to close without saving."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-dashboard-reminders/today-07.pt.jpg",
+                "en": "help/img/guides/admin-dashboard-reminders/today-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Tarefas para você (1) mostra as suas tarefas abertas. Passei para outros (2) mostra as tarefas que você entregou a alguém.",
+                "en": "Tasks for you (1) shows your open tasks. Given to others (2) shows the tasks you handed to someone."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-dashboard-reminders/today-08.pt.jpg",
+                "en": "help/img/guides/admin-dashboard-reminders/today-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Mais embaixo, Aguardando horário (1) é a lista de links de horário esperando o cliente: veja o guia Enviar horários. Calendário (2) abre o calendário. Os nomes dos clientes estão trocados por nomes de teste.",
+                "en": "Further down, Waiting on a time (1) is the list of time links waiting for the client: see the guide Send times. Calendar (2) opens the calendar. Client names are replaced with test names."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-dashboard-reminders/today-09.pt.jpg",
+                "en": "help/img/guides/admin-dashboard-reminders/today-09.en.jpg"
+              }
             }
           ]
         }
@@ -15397,7 +15469,7 @@
             ]
           },
           "section": "today",
-          "step": 2
+          "step": 5
         }
       ]
     },

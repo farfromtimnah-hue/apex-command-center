@@ -87,6 +87,106 @@ var FIREBASE_CERTS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/sec
 var CLAUDE_API_URL     = "https://api.anthropic.com/v1/messages";
 var CLAUDE_MODEL       = "claude-sonnet-4-6";
 
+// ---------------------------------------------------------------------------
+// Daily Claude caps (security phase A, 2026-10-26)
+//
+// Every route that reaches the Claude API asks claudeBudgetGate() first. The
+// counters live in a SQLite backed Durable Object (class ClaudeBudget, binding
+// CLAUDE_BUDGET), never in D1: the D1 free quota is shared by the whole account.
+// One object per person per UTC day, and one global object per UTC day.
+// Change a number here and deploy; nothing else needs to know it.
+// ---------------------------------------------------------------------------
+var CLAUDE_DAILY_ASK_PER_LOGIN = 60;    // Learn "Ask here" questions per login per day
+var CLAUDE_DAILY_SUGGEST_PER_LOGIN = 15;    // Learn suggestion chat turns per login per day
+var CLAUDE_DAILY_OTHER_PER_LOGIN = 200;   // every other Claude handler, all together, per login per day
+var CLAUDE_DAILY_GLOBAL = 2000;  // Claude calls per day across everything and everyone
+var CLAUDE_DAILY_MISS_PER_LOGIN = 10;    // help_gaps rows (unanswered Ask questions) per login per day
+// Kinds that FAIL CLOSED when the Durable Object itself fails (no Claude call).
+// Everything else fails open: staff tools and the bill email cron are business critical.
+var CLAUDE_BUDGET_FAIL_CLOSED = { ask: true, suggest: true };
+var CLAUDE_BUDGET_LIMITS = {
+    ask: CLAUDE_DAILY_ASK_PER_LOGIN, suggest: CLAUDE_DAILY_SUGGEST_PER_LOGIN,
+    other: CLAUDE_DAILY_OTHER_PER_LOGIN, miss: CLAUDE_DAILY_MISS_PER_LOGIN, global: CLAUDE_DAILY_GLOBAL
+};
+
+// check(kind) adds one to the counter of this kind and says whether it was
+// allowed. Atomic: the Durable Object runs one call at a time and the read and
+// the write below have no await between them. A refused call is not counted.
+// kind "cron" is the internal 5 minute job: it adds one to the global total
+// and is never refused. The object deletes itself two days after first use.
+export class ClaudeBudget {
+    constructor(ctx, env) {
+        this.ctx = ctx;
+        this.sql = ctx.storage.sql;
+        this.sql.exec("CREATE TABLE IF NOT EXISTS counts (kind TEXT PRIMARY KEY, n INTEGER NOT NULL)");
+    }
+    async check(kind) {
+        var always = kind === "cron";
+        if (always) { kind = "global"; }
+        var limit = CLAUDE_BUDGET_LIMITS[kind];
+        if (!(limit > 0)) { return { ok: false, n: 0, limit: 0 }; }
+        var rows = this.sql.exec("SELECT n FROM counts WHERE kind = ?", kind).toArray();
+        var n = rows.length ? rows[0].n : 0;
+        if (n >= limit && !always) { return { ok: false, n: n, limit: limit }; }
+        this.sql.exec("INSERT INTO counts (kind, n) VALUES (?, 1) ON CONFLICT(kind) DO UPDATE SET n = n + 1", kind);
+        if ((await this.ctx.storage.getAlarm()) === null) { await this.ctx.storage.setAlarm(Date.now() + 2 * 86400000); }
+        return { ok: true, n: n + 1, limit: limit };
+    }
+    async alarm() { await this.ctx.storage.deleteAll(); }
+}
+
+// A stable id of the VERIFIED person, never a request field.
+function claudeBudgetPersonId(user) {
+    if (!user) { return ""; }
+    if (user.email) { return "e:" + String(user.email).toLowerCase(); }
+    if (user.username && user.client_id) { return "c:" + user.username + "@" + user.client_id; }
+    return "r:" + String(user.role || "unknown");
+}
+
+function claudeBudgetCall(env, name, kind) {
+    var ns = env && env.CLAUDE_BUDGET;
+    if (!ns) { throw new Error("CLAUDE_BUDGET binding missing"); }
+    return ns.get(ns.idFromName(name)).check(kind);
+}
+
+// null = go ahead. A Response = stop, send it, and make no Claude call.
+// kind: "ask" | "suggest" | "other" | "cron" (cron: user may be null).
+async function claudeBudgetGate(env, user, kind) {
+    var day = new Date().toISOString().slice(0, 10);
+    try {
+        if (kind !== "cron") {
+            var mine = await claudeBudgetCall(env, "u:" + claudeBudgetPersonId(user) + ":" + day, kind);
+            if (!mine || !mine.ok) {
+                return jsonErr2("Limite diário atingido. Tente de novo amanhã.", "Daily limit reached. Try again tomorrow.", 429, { capped: true });
+            }
+        }
+        var all = await claudeBudgetCall(env, "g:" + day, kind === "cron" ? "cron" : "global");
+        if (!all || !all.ok) {
+            return jsonErr2("O assistente está com muita procura hoje. Tente de novo amanhã.", "The assistant is very busy today. Try again tomorrow.", 429, { capped: true });
+        }
+        return null;
+    } catch (e) {
+        console.error("claude budget: counter unavailable (" + (e && e.name) + ")");
+        if (CLAUDE_BUDGET_FAIL_CLOSED[kind] === true) {
+            return jsonErr2("O assistente não está disponível agora. Tente de novo em alguns minutos.", "The assistant is not available right now. Try again in a few minutes.", 503);
+        }
+        return null;
+    }
+}
+
+// Unanswered Ask questions: true while this login is under its small daily
+// number of help_gaps rows. If the counter fails, no row is written.
+async function claudeBudgetMissAllowed(env, user) {
+    try {
+        var day = new Date().toISOString().slice(0, 10);
+        var r = await claudeBudgetCall(env, "u:" + claudeBudgetPersonId(user) + ":" + day, "miss");
+        return !!(r && r.ok);
+    } catch (e) {
+        console.error("claude budget: miss counter unavailable (" + (e && e.name) + ")");
+        return false;
+    }
+}
+
 // Locked to the app's own origin (2026-08-05). It was "*", which let any site
 // on the internet issue credentialed-by-header requests against every route
 // here -- including the finance and Plaid endpoints -- using a token lifted
@@ -2159,6 +2259,9 @@ async function handlePostSummarize(request, env) {
         await env.DB.prepare(
             "INSERT INTO client_login_attempts (id, username, ip) VALUES (?, ?, ?)"
         ).bind(crypto.randomUUID(), uidKey, null).run();
+
+        var capped = await claudeBudgetGate(env, user, "other");
+        if (capped) { return capped; }
 
         // Only sections whose checkbox is enabled are requested from the model.
         // The summary is generated via two concurrent Claude calls instead of one —
@@ -5272,7 +5375,7 @@ async function handlePatchTask(id, request, env) {
         var newEn = null;
         var newPt = null;
         if (translateDesc) {
-            var tr = await taskTranslate(env, words, user.role);
+            var tr = await taskTranslate(env, words, user.role, user);
             if (tr) {
                 try {
                     // "AND description = ?": never onto words edited again meanwhile.
@@ -5595,6 +5698,8 @@ async function handlePostSessionsVoice(request, env) {
             // limit is a convenience, not a spending control.
             return jsonErr("Recording is too long. Keep it under a couple of minutes.", 413);
         }
+        var capped = await claudeBudgetGate(env, user, "other");
+        if (capped) { return capped; }
 
         var transcript = "";
         try {
@@ -9659,7 +9764,7 @@ async function handlePostTaskNote(id, request, env) {
         // other-language version is asked for now and written only if it
         // arrives: taskTranslate never throws and gives up after a few seconds.
         if (taskInvolvesDeveloper(found.task.assigned_to, found.task.created_by_role)) {
-            var tr = await taskTranslate(env, note.body, user.role);
+            var tr = await taskTranslate(env, note.body, user.role, user);
             if (tr) {
                 var noteColumn = tr.column === "description_en" ? "body_en" : "body_pt";
                 try {
@@ -10168,10 +10273,12 @@ function taskTranslatePrompt(text, column) {
 // null when there is none (not a staff author, the model failed, answered
 // nothing, or took longer than TASK_TRANSLATE_TIMEOUT_MS). ONE model call.
 // Never throws. column is the tasks column; a note uses body_en / body_pt.
-async function taskTranslate(env, text, authorRole) {
+async function taskTranslate(env, text, authorRole, user) {
     var column = taskTranslationColumn(authorRole);
     var words = String(text || "").trim();
     if (!column || !words) { return null; }
+    // Over the daily cap there is simply no translation; the words are already saved.
+    if (await claudeBudgetGate(env, user, "other")) { return null; }
     var timer = null;
     try {
         var late = new Promise(function(resolve) {
@@ -10260,6 +10367,8 @@ async function handlePostTasksVoice(request, env, now) {
             return jsonErr2("Grava\u00e7\u00e3o longa demais. Fale por menos de 5 minutos.",
                             "Recording is too long. Keep it under 5 minutes.", 413);
         }
+        var capped = await claudeBudgetGate(env, user, "other");
+        if (capped) { return capped; }
         var langHint = String(form.get("lang") || "") === "en" ? "en" : "pt";
         var who = actorName(user) || "user";
 
@@ -10557,7 +10666,7 @@ async function handlePostTaskTyped(request, env) {
             // other-language version is asked for now and written only if it
             // arrives: taskTranslate never throws and gives up after a few seconds.
             if (taskInvolvesDeveloper(assignedTo, user.role)) {
-                var tr = await taskTranslate(env, row.description, user.role);
+                var tr = await taskTranslate(env, row.description, user.role, user);
                 if (tr) {
                     try {
                         await env.DB.prepare("UPDATE tasks SET " + tr.column + " = ? WHERE id = ?").bind(tr.text, row.id).run();
@@ -12508,6 +12617,9 @@ async function handlePostFinanceStatementUpload(request, env) {
 
         var text = await file.text();
         if (!text || !text.trim()) { return jsonErr("File is empty", 400); }
+
+        var capped = await claudeBudgetGate(env, user, "other");
+        if (capped) { return capped; }
 
         var claudeRes = await fetch(CLAUDE_API_URL, {
             method: "POST",
@@ -42598,6 +42710,8 @@ async function handlePostFinanceNewCategorizationRun(request, env) {
 
         var merchants = pending.results || [];
         if (merchants.length === 0) { return jsonOk(out); }
+        var capped = await claudeBudgetGate(env, user, "other");
+        if (capped) { return capped; }
 
         var cats = await env.DB.prepare(
             "SELECT id, name_pt, kind FROM categories WHERE archived = 0 AND kind != 'transfer' ORDER BY sort_order"
@@ -43479,6 +43593,8 @@ async function pollForwardedBillEmailOne(env, accountId, accessToken, msg, activ
             return;
         }
 
+        // Internal job, no person: counted in the global daily total, never refused.
+        await claudeBudgetGate(env, null, "cron");
         var parsed = await billEmailAskClaude(env, activeBills, plainText, pdfBase64);
         var validated = billEmailValidateExtraction(parsed, activeBills, today);
 
@@ -58085,6 +58201,8 @@ async function handlePutMeetingPrepBottleneck(clientId, request, env) {
             matched    = existing.matched_patterns;
             matchedFor = existing.matched_for;
         } else if (text && text.trim()) {
+            var capped = await claudeBudgetGate(env, user, "other");
+            if (capped) { return capped; }
             var pats = await matchBottleneckPatterns(env, text);
             if (pats) {
                 matched    = JSON.stringify(pats);
@@ -59113,6 +59231,9 @@ async function handlePostGmContractOwnTemplate(clientId, request, env) {
         if (lawyerRaw !== "yes" && lawyerRaw !== "no") {
             return jsonErr2("Diga se um advogado já revisou este contrato.", "Say whether a lawyer has reviewed this contract.", 400);
         }
+
+        var capped = await claudeBudgetGate(env, a.user, "other");
+        if (capped) { return capped; }
 
         var bytes = await file.arrayBuffer();
         var id = crypto.randomUUID();
@@ -63155,6 +63276,8 @@ async function handlePostVendorQuestionAnswer(questionId, request, env) {
         // Her words, word for word, saved before anything else can fail.
         await env.DB.prepare("UPDATE vendor_questions SET answer_raw = ? WHERE id = ?").bind(answerText, questionId).run();
 
+        var capped = await claudeBudgetGate(env, a.user, "other");
+        if (capped) { return capped; }
         var userKey = (a.user && (a.user.email || a.user.role)) || "unknown";
         if (await vendorQuestionRateLimited(env, userKey)) {
             return jsonErr2("Muitas tentativas. Espere um minuto.", "Too many attempts. Wait a minute.", 429);
@@ -64065,6 +64188,8 @@ async function handlePostClientTermsAnswer(clientId, request, env) {
             "ON CONFLICT(client_id) DO UPDATE SET raw_json = ?, updated_at = ?"
         ).bind(clientId, JSON.stringify(rawMap), nowIso, JSON.stringify(rawMap), nowIso).run();
 
+        var capped = await claudeBudgetGate(env, a.user, "other");
+        if (capped) { return capped; }
         var userKey = (a.user && (a.user.email || a.user.role)) || "unknown";
         if (await clientTermsRateLimited(env, userKey)) {
             return jsonErr2("Muitas tentativas. Espere um minuto.", "Too many attempts. Wait a minute.", 429);
@@ -64207,6 +64332,8 @@ async function handlePostClientTermsInterpret(clientId, request, env) {
         var row = await env.DB.prepare("SELECT answers_json FROM client_terms WHERE client_id = ?").bind(clientId).first();
         var answers = row ? JSON.parse(row.answers_json || "{}") : {};
         var openKeys = clientTermsQuestionsFor(client).map(function(q) { return q.key; }).filter(function(k) { return !(k in answers); });
+        var capped = await claudeBudgetGate(env, a.user, "other");
+        if (capped) { return capped; }
         var userKey = (a.user && (a.user.email || a.user.role)) || "unknown";
         if (await clientTermsRateLimited(env, userKey)) {
             return jsonErr2("Muitas tentativas. Espere um minuto.", "Too many attempts. Wait a minute.", 429);
@@ -64623,6 +64750,9 @@ async function handlePostHelpAsk(request, env) {
         // call; the question is noted as a missing guide, exactly as a miss would be.
         var result = { found: false, guide_ids: [], best: null, reply: "", other_side: [], kind: "missing_guide" };
         if (index.text && body.log_gap !== true) {
+            // Daily cap per login and for everything, in the Durable Object. Fails closed.
+            var capped = await claudeBudgetGate(env, user, "ask");
+            if (capped) { return capped; }
             var res;
             try {
                 res = await fetch(CLAUDE_API_URL, {
@@ -64651,7 +64781,8 @@ async function handlePostHelpAsk(request, env) {
         var logged = false;
         // Only a feature that exists without a guide is noted for the writers. A request
         // for something Apex does not do, or an unclear question, writes nothing here.
-        if (!result.found && result.kind === "missing_guide") {
+        // Over the small daily miss number, the row is skipped (the person still gets the answer).
+        if (!result.found && result.kind === "missing_guide" && await claudeBudgetMissAllowed(env, user)) {
             // One parameterized row so the missing guide can be written. No email, no name.
             try {
                 await env.DB.prepare(
@@ -64869,6 +65000,10 @@ async function handlePostHelpSuggest(request, env) {
         transcript.forEach(function(m) { if (m.role === "assistant") { asked++; } else { answers++; } });
         // The end is forced in code, not only in the prompt, so a fourth question is never asked.
         var forced = asked >= HELP_SUGGEST_MAX_QUESTIONS || (finish && asked >= 1) || answers >= HELP_SUGGEST_MAX_QUESTIONS + 1;
+
+        // Daily cap per login and for everything, in the Durable Object. Fails closed.
+        var capped = await claudeBudgetGate(env, user, "suggest");
+        if (capped) { return capped; }
 
         var lines = transcript.map(function(m) { return (m.role === "assistant" ? "Apex: " : "Person: ") + m.text; });
         var res;
@@ -65091,6 +65226,9 @@ async function handlePostSupportMessage(request, env) {
             "If something is broken, give at most ONE troubleshooting tip ONLY if it is one of: refresh the page, check the language toggle, sign out and sign back in -- never invent a tip beyond these three. " +
             "Then tell her plainly the report was sent. " +
             "You have two read-only tools: lookup_invoice and lookup_client. Use them only to verify a specific invoice number or client name she mentioned -- never to browse.";
+
+        var capped = await claudeBudgetGate(env, a.user, "other");
+        if (capped) { return capped; }
 
         var messages = cleanTranscript.map(function(m) { return { role: m.role, content: m.text }; });
 

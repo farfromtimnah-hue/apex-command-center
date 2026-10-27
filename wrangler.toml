@@ -68,6 +68,18 @@ binding = "BROWSER"
 [images]
 binding = "IMAGES"
 
+# Daily Claude caps (security phase A, 2026-10-26): counters for every route that
+# calls the Claude API. A SQLite backed Durable Object, NOT D1 (the D1 free quota
+# is shared by the whole account). One object per login per UTC day plus one
+# global object per day; each deletes itself two days after first use.
+[[durable_objects.bindings]]
+name       = "CLAUDE_BUDGET"
+class_name = "ClaudeBudget"
+
+[[migrations]]
+tag                = "v1-claude-budget"
+new_sqlite_classes = ["ClaudeBudget"]
+
 [vars]
 FIREBASE_PROJECT_ID          = "apex-command-center-4b038"
 # Task 1.5: Twilio. GitHub's push protection blocks a Twilio Account/API-key

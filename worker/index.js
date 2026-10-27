@@ -38032,9 +38032,14 @@ async function handleGetMetaDeletionStatus(code, request, env) {
 //
 // EVERY Thumbtack address and parameter is in THUMBTACK below, and only there.
 // Read from Thumbtack's OpenAPI file (api.thumbtack.com/docs/thumbtack_api_latest.json,
-// version 4.0.0). NOTHING here was run against Thumbtack yet: correct THUMBTACK
-// after the first staging test (how the token call authenticates is the one
-// remaining guess; the sign-in host was confirmed from Thumbtack's docs).
+// version 4.0.0) and Thumbtack's doc pages (Environments, Authentication). RUN
+// AGAINST THUMBTACK STAGING on 2026-10-27 and it worked: the sign-in host is
+// staging-auth.thumbtack.com (the production host refuses a staging client),
+// the sign-in request carries audience=urn:partner-api, the token call works
+// with HTTP Basic, the webhook was created, the sample lead arrived, and
+// Disconnect then Connect again worked. NOT yet run against PRODUCTION
+// (production credentials come after Thumbtack's Help Article form).
+// Notes: knowledge/thumbtack-connect-build-spec-2026-10-27.md in the vault.
 //
 // Tokens are stored sealed with tokenSeal and are never returned to the
 // browser and never logged. The tables arrive in migrations/thumbtack_connect.sql.

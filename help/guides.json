@@ -279,33 +279,20 @@
         {
           "id": "more",
           "title": {
-            "pt": "Mais jeitos de montar e enviar um contrato",
-            "en": "More ways to build and send a contract"
+            "pt": "Mais jeitos de enviar um contrato",
+            "en": "More ways to send a contract"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "pt": "Mais de um orçamento aceito. Se o lead tem mais de um orçamento aceito, tocar em Criar contrato a partir do orçamento aceito abre uma janela com os orçamentos, cada um com uma caixa. Marque os que entram neste contrato. O Total do contrato, embaixo da lista, soma os marcados. Toque em Criar contrato. Se você não marcar nenhum, o Apex pede pelo menos um. Este passo vem do código do aplicativo: o nosso projeto de teste tem um orçamento aceito.",
-                "en": "More than one accepted estimate. If the lead has more than one accepted estimate, tapping Create contract from the accepted estimate opens a window with the estimates, each with a tick box. Tick the ones this contract includes. The Contract total under the list adds them up. Tap Create contract. If you tick none, Apex asks for at least one. This step comes from the app's code: our test project has one accepted estimate."
+                "pt": "Envie a cópia assinada. Quando os dois lados assinaram, abra o contrato e toque em Enviar cópia assinada. Abre a tela Enviar cópia assinada, com Mensagem de texto (1), WhatsApp (2), Abrir meu email (3) e Copiar para enviar pelo navegador (4), e a mensagem pronta (5) com o link do contrato. O guia Enviar um documento por email mostra os botões de email passo a passo. Para registrar sem abrir uma mensagem, toque em Marcar como enviada sem abrir mensagem (6): a tela se fecha.",
+                "en": "Send the signed copy. When both sides have signed, open the contract and tap Send signed copy. The screen Send signed copy opens, with Text message (1), WhatsApp (2), Open my email app (3) and Copy to send from a web email (4), and the message ready (5) with the contract link. The guide Send a document by email shows the email buttons step by step. To log it without opening a message, tap Mark as sent without opening a message (6): the screen closes."
               },
-              "image": null
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Envie também por email. A tela onde você envia o contrato tem quatro botões: Mensagem de texto, WhatsApp, Abrir meu email e Copiar para enviar pelo navegador. O guia Enviar um documento por email mostra os botões de email passo a passo. Eles funcionam do mesmo jeito para o contrato, o aditivo e os outros documentos.",
-                "en": "Send by email too. The screen where you send the contract has four buttons: Text message, WhatsApp, Open my email app and Copy to send from a web email. The guide Send a document by email shows the email buttons step by step. They work the same for the contract, the change order and the other documents."
-              },
-              "image": null
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Envie a cópia assinada. Quando os dois lados assinaram, abra o contrato e toque em Enviar cópia assinada. Abre a mesma tela de envio, com a mensagem da cópia assinada. Envie por Mensagem de texto, WhatsApp ou email, ou toque no botão para marcar como enviada sem abrir uma mensagem. Este passo vem do código do aplicativo: a prévia do teste não conseguiu abrir a tela de envio.",
-                "en": "Send the signed copy. When both sides signed, open the contract and tap Send signed copy. It opens the same send screen, with the message for the signed copy. Send it with Text message, WhatsApp or email, or tap the button to mark it as sent without opening a message. This step comes from the app's code: the test preview could not open the send screen."
-              },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/contract/more-01.pt.jpg",
+                "en": "help/img/guides/contract/more-01.en.jpg"
+              }
             }
           ]
         }
@@ -361,6 +348,30 @@
           },
           "section": "send-contract",
           "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar cópia assinada"
+            ],
+            "en": [
+              "Send signed copy"
+            ]
+          },
+          "section": "more",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar cópia assinada"
+            ],
+            "en": [
+              "Send signed copy"
+            ]
+          },
+          "section": "more",
+          "step": 1
         }
       ]
     },
@@ -403,181 +414,139 @@
           "id": "send-change-order",
           "title": {
             "pt": "Enviar um aditivo (change order)",
-            "en": "Send a change order (aditivo)"
+            "en": "Send a change order"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "pt": "Abra o contrato assinado e toque em + Aditivo. Um contrato assinado não muda. Qualquer mudança vira um aditivo.",
-                "en": "Open the signed contract and tap + Aditivo. A signed contract does not change. Any change becomes an aditivo."
+                "pt": "Abra o contrato assinado e toque em + Aditivo (2). Um contrato assinado pelas duas partes não muda: a nota (1) diz que, para mudar, você cria um aditivo. Para achar o contrato, toque em Negócio e depois em Contratos, e abra o contrato na lista Assinados.",
+                "en": "Open the signed contract and tap + Change order (2). A contract signed by both sides does not change: the note (1) says that to change it you create a change order. To find the contract, tap Business, then Contracts, and open the contract in the Signed list."
               },
               "image": {
-                "pt": "help/img/guides/change-order/send-change-order-01.jpg",
-                "en": "help/img/guides/change-order/send-change-order-01.jpg"
+                "pt": "help/img/guides/change-order/send-change-order-01.pt.jpg",
+                "en": "help/img/guides/change-order/send-change-order-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Escreva o que muda e escolha o item. Escreva a mudança em uma frase e toque em + no item da tabela de preços.",
-                "en": "Write what changes and choose the item. Write the change in one sentence and tap + on the item from the price list."
+                "pt": "Escreva o que muda e escolha os itens. A janela se chama Novo aditivo. Escreva o que muda em uma frase na primeira caixa (1). Em Remover do orçamento aceito, o botão − (2) à direita de uma linha tira essa linha: ela vira um crédito pelo valor cobrado. Em Itens da tabela de preços, o botão + (3) adiciona um item pelo preço da tabela e o botão − remove um. A caixa Buscar item (4) acha um item pelo nome.",
+                "en": "Write what changes and pick the items. The window is called New change order. Write what changes in one sentence in the first box (1). Under Remove from the accepted estimate, the button − (2) at the right of a line takes that line out: it becomes a credit at the rate charged. Under Items from the price list, the button + (3) adds an item at the price list price and the button − removes one. The box Search items (4) finds an item by name."
               },
               "image": {
-                "pt": "help/img/guides/change-order/send-change-order-02.jpg",
-                "en": "help/img/guides/change-order/send-change-order-02.jpg"
+                "pt": "help/img/guides/change-order/send-change-order-02.pt.jpg",
+                "en": "help/img/guides/change-order/send-change-order-02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Confira o preço e toque em Criar aditivo. A mudança no preço aparece antes de você criar.",
-                "en": "Check the price and tap Criar aditivo. The price change shows before you create it."
+                "pt": "Confira as linhas. Embaixo, Linhas do aditivo (uma remoção vira crédito) mostra cada linha com o nome, a quantidade, o preço e o menu Adicionar ou Remover (1). Uma linha do orçamento aceito diz do orçamento aceito, pelo valor cobrado (2) e mostra o valor em negativo. Uma linha avulsa, criada com + Linha avulsa, tem três caixas para os custos (3): Material, Mão de obra e Outros. Toque em × (4) à direita de uma linha para tirá-la do aditivo.",
+                "en": "Check the lines. Further down, Change order lines (a removal is a credit) shows each line with the name, the quantity, the price and the menu Add or Remove (1). A line from the accepted estimate says from the accepted estimate, at the rate charged (2) and shows the amount as a minus. A line you add with + Custom line has three boxes for the costs (3): Materials, Labor and Other. Tap × (4) at the right of a line to take it out of the change order."
               },
               "image": {
-                "pt": "help/img/guides/change-order/send-change-order-03.jpg",
-                "en": "help/img/guides/change-order/send-change-order-03.jpg"
+                "pt": "help/img/guides/change-order/send-change-order-03.pt.jpg",
+                "en": "help/img/guides/change-order/send-change-order-03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "O aditivo foi criado. Toque em Assinar pela empresa.",
-                "en": "The aditivo was created. Tap Assinar pela empresa."
+                "pt": "Defina o preço, os dias e as parcelas, e crie. A Mudança no preço (1) soma todas as linhas, e uma remoção conta como menos. Em Impacto no prazo (2), digite quantos dias úteis o aditivo soma; um número negativo encurta a obra. Em Parcelas, escolha Ajustar as faturas em aberto (3) ou Nova parcela só para o aditivo (4). Toque em Criar aditivo (5). O Apex avisa Aditivo criado e abre o aditivo como Rascunho. Cancelar fecha a janela sem salvar.",
+                "en": "Set the price, the days and the payments, and create it. Change in price (1) adds up all the lines, and a removal counts as minus. Under Schedule impact (working days; negative shortens) (2), type how many working days the change adds. A negative number shortens the job. Under Payment schedule, choose Adjust the unpaid invoices (3) or New invoice step for the change (4). Tap Create change order (5). Apex says Change order created and opens it as a Draft. Cancel closes the window without saving."
               },
               "image": {
-                "pt": "help/img/guides/change-order/send-change-order-04.jpg",
-                "en": "help/img/guides/change-order/send-change-order-04.jpg"
+                "pt": "help/img/guides/change-order/send-change-order-04.pt.jpg",
+                "en": "help/img/guides/change-order/send-change-order-04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Marque a caixa e assine pela empresa. É o mesmo caminho do contrato.",
-                "en": "Tick the box and sign for the company. It is the same path as the contract."
+                "pt": "Assine pela empresa. No aditivo, toque em Assinar pela empresa. Escolha Nome digitado ou Desenhar (1), marque Concordo em assinar eletronicamente este aditivo em nome da empresa (2) e toque em Assinar pela empresa (3). O Apex avisa Assinado pela empresa. Agora envie ao cliente.",
+                "en": "Sign for the company. In the change order, tap Sign as company. Choose Type my name or Draw (1), tick I agree to sign this change order electronically on behalf of the company (2) and tap Sign as company (3). Apex says Signed by the company. Now send it to the homeowner."
               },
               "image": {
-                "pt": "help/img/guides/change-order/send-change-order-05.jpg",
-                "en": "help/img/guides/change-order/send-change-order-05.jpg"
+                "pt": "help/img/guides/change-order/send-change-order-05.pt.jpg",
+                "en": "help/img/guides/change-order/send-change-order-05.en.jpg"
               }
             },
             {
               "n": 6,
               "text": {
-                "pt": "Toque em Enviar ao cliente. O status muda para Assinado pela empresa.",
-                "en": "Tap Enviar ao cliente. The status changes to Assinado pela empresa."
+                "pt": "Toque em Enviar ao cliente. O status (1) passa a Assinado pela empresa. Toque em Enviar ao cliente (2). O aditivo também tem Ver como o cliente, Baixar PDF, Desativar link e Anular.",
+                "en": "Tap Send to the homeowner. The status (1) now says Company signed. Tap Send to the homeowner (2). The change order also has Preview as customer, Download PDF, Disable link and Void."
               },
               "image": {
-                "pt": "help/img/guides/change-order/send-change-order-06.jpg",
-                "en": "help/img/guides/change-order/send-change-order-06.jpg"
+                "pt": "help/img/guides/change-order/send-change-order-06.pt.jpg",
+                "en": "help/img/guides/change-order/send-change-order-06.en.jpg"
               }
             },
             {
               "n": 7,
               "text": {
-                "pt": "Toque em WhatsApp. Você também pode enviar por Mensagem de texto.",
-                "en": "Tap WhatsApp. You can also send by Mensagem de texto."
+                "pt": "Escolha como enviar. A tela Enviar aditivo tem Mensagem de texto (1), WhatsApp (2), Abrir meu email (3) e Copiar para enviar pelo navegador (4), com a mensagem pronta (5) e o link do cliente. Para enviar sem abrir mensagem, toque em Marcar como enviada sem abrir mensagem (6): o Apex avisa Aditivo marcado como enviado.",
+                "en": "Choose how to send it. The screen Send change order has Text message (1), WhatsApp (2), Open my email app (3) and Copy to send from a web email (4), with the message ready (5) and the customer link. To send without opening a message, tap Mark as sent without opening a message (6): Apex says the change order was marked as sent."
               },
               "image": {
-                "pt": "help/img/guides/change-order/send-change-order-07.jpg",
-                "en": "help/img/guides/change-order/send-change-order-07.jpg"
+                "pt": "help/img/guides/change-order/send-change-order-07.pt.jpg",
+                "en": "help/img/guides/change-order/send-change-order-07.en.jpg"
               }
             },
             {
               "n": 8,
               "text": {
-                "pt": "O cliente recebe este link no WhatsApp. A mensagem chega com o link do aditivo. (Mensagem do cliente · inglês)",
-                "en": "The customer receives this link on WhatsApp. The message arrives with the aditivo link. (Customer's message · English)"
+                "pt": "O cliente assina. Na tela do cliente (em inglês), ele confere o aditivo e preenche Your full name (1), marca a caixa de consentimento eletrônico (2) e toca em Sign change order (3). O nome do negócio e o e-mail estão cobertos na imagem.",
+                "en": "The customer signs. On the customer's screen (in English), they check the change order, fill in Your full name (1), tick the electronic consent box (2) and tap Sign change order (3). The business email is covered in the picture."
               },
               "image": {
-                "pt": "help/img/guides/change-order/send-change-order-08.jpg",
-                "en": "help/img/guides/change-order/send-change-order-08.jpg"
+                "pt": "help/img/guides/change-order/send-change-order-08.pt.jpg",
+                "en": "help/img/guides/change-order/send-change-order-08.en.jpg"
               }
             },
             {
               "n": 9,
               "text": {
-                "pt": "O cliente assina o aditivo. Marca a caixa de consentimento e toca em Sign change order. (Tela do cliente · inglês)",
-                "en": "The customer signs the aditivo. Ticks the consent box and taps Sign change order. (Customer's screen · English)"
+                "pt": "O cliente vê que está assinado. A página mostra Signed by both parties (1) e, embaixo, a assinatura da empresa (2) e a assinatura do cliente (3), cada uma com o nome, a data e a hora, e o método.",
+                "en": "The customer sees it is signed. The page shows Signed by both parties (1) and, below it, the company signature (2) and the customer signature (3), each with the name, the date and time, and the method."
               },
               "image": {
-                "pt": "help/img/guides/change-order/send-change-order-09.jpg",
-                "en": "help/img/guides/change-order/send-change-order-09.jpg"
+                "pt": "help/img/guides/change-order/send-change-order-09.pt.jpg",
+                "en": "help/img/guides/change-order/send-change-order-09.en.jpg"
               }
             },
             {
               "n": 10,
               "text": {
-                "pt": "O cliente vê que o aditivo está assinado. A página mostra Signed by both parties. (Tela do cliente · inglês)",
-                "en": "The customer sees the aditivo is signed. The page shows Signed by both parties. (Customer's screen · English)"
+                "pt": "Veja o aditivo assinado no Apex. O status (1) diz Assinado pelos dois. Os botões agora são Ver como o cliente (2), Baixar PDF, Desativar link (3, veja o guia Desativar ou ativar o link do cliente) e Enviar cópia assinada (4).",
+                "en": "See the signed change order in Apex. The status (1) says Fully signed. The buttons are now Preview as customer (2), Download PDF, Disable link (3, see the guide Turn a customer link off or on) and Send signed copy (4)."
               },
               "image": {
-                "pt": "help/img/guides/change-order/send-change-order-10.jpg",
-                "en": "help/img/guides/change-order/send-change-order-10.jpg"
+                "pt": "help/img/guides/change-order/send-change-order-10.pt.jpg",
+                "en": "help/img/guides/change-order/send-change-order-10.en.jpg"
               }
             },
             {
               "n": 11,
               "text": {
-                "pt": "O contrato mostra o novo valor. Valor atual é o novo preço. Valor original continua visível.",
-                "en": "The contract shows the new price. Valor atual is the new price. Valor original stays visible."
+                "pt": "O contrato mostra o novo preço. No contrato, o Valor atual (1) é o preço novo, e o Valor original (2) continua visível. Neste exemplo, o contrato de $6,500.00 passou a $7,300.00.",
+                "en": "The contract shows the new price. In the contract, Current amount (1) is the new price, and Original amount (2) stays visible. In this example, the $6,500.00 contract became $7,300.00."
               },
               "image": {
-                "pt": "help/img/guides/change-order/send-change-order-11.jpg",
-                "en": "help/img/guides/change-order/send-change-order-11.jpg"
+                "pt": "help/img/guides/change-order/send-change-order-11.pt.jpg",
+                "en": "help/img/guides/change-order/send-change-order-11.en.jpg"
               }
             },
             {
               "n": 12,
               "text": {
-                "pt": "O projeto lista o aditivo e a fatura. Em Aditivos aparece o aditivo assinado. Em Faturas aparece uma fatura em rascunho.",
-                "en": "The project lists the aditivo and the invoice. Under Aditivos you see the signed aditivo. Under Faturas you see a draft invoice."
+                "pt": "O projeto lista o aditivo e a fatura. Na janela do projeto, a parte Aditivos mostra o aditivo assinado (3), com o preço de antes e de depois e os dias. A parte Contrato mostra o contrato com o novo valor (2). Como escolhemos Nova parcela só para o aditivo, a parte Faturas mostra uma fatura nova em rascunho (1) para o aditivo.",
+                "en": "The project lists the change order and the invoice. In the project window, the part Change orders shows the signed change order (3), with the price before and after and the days. The part Contract shows the contract with the new amount (2). Because we chose New invoice step for the change, the part Invoices shows a new draft invoice (1) for the change order."
               },
               "image": {
-                "pt": "help/img/guides/change-order/send-change-order-12.jpg",
-                "en": "help/img/guides/change-order/send-change-order-12.jpg"
-              }
-            }
-          ]
-        },
-        {
-          "id": "builder",
-          "title": {
-            "pt": "Um aditivo maior",
-            "en": "A bigger change order"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Abra o construtor e escolha as linhas. Abra o contrato assinado e toque em + Aditivo. A tela se chama Novo aditivo. Escreva o que muda em uma frase, na primeira caixa. Se o orçamento aceito tem linhas, a parte Remover do orçamento aceito (1) lista as linhas com quantidade e preço. Toque no botão de menos (2) à direita de uma linha para tirá-la: ela vira um crédito pelo preço que foi cobrado. Em Itens da tabela de preços, toque em + (3) para somar um item, ou em − (4) para tirar um, pelo preço da tabela. A caixa de busca (5) acha um item pelo nome.",
-                "en": "Open the builder and pick the lines. Open the signed contract and tap + Change order. The sheet is called New change order. Write what changes in one sentence in the first box. If the accepted estimate has lines, the part Remove from the accepted estimate (1) lists them with quantity and price. Tap the minus button (2) at the right of a line to take it out: it becomes a credit at the price that was charged. Under Items from the price list, tap + (3) to add an item, or − (4) to remove one, at the price list price. The search box (5) finds an item by name."
-              },
-              "image": {
-                "pt": "help/img/guides/change-order/builder-01.pt.jpg",
-                "en": "help/img/guides/change-order/builder-01.en.jpg"
-              }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Confira e mude as linhas. Em Linhas do aditivo (remoção vira crédito), cada linha mostra o nome, a quantidade × o preço, e um menu, Adicionar ou Remover (1). Uma linha removida conta como menos. Uma linha do orçamento aceito diz do orçamento aceito, pelo valor cobrado. Uma linha que você põe à mão com + Linha avulsa tem caixas para Material (2), Mão de obra e Outros (3). Só você vê esses custos. Eles mantêm os custos do projeto certos. Toque em × à direita de uma linha para tirá-la do aditivo.",
-                "en": "Check and change the lines. Under Change order lines (a removal is a credit), each line shows the name, the quantity × the price, and a menu, Add or Remove (1). A removed line counts as a minus. A line from the accepted estimate says from the accepted estimate, at the rate charged. A line you add by hand with + Custom line has boxes for Materials (2), Labor and Other (3). Only you see these costs. They keep the costs of the project right. Tap × at the right of a line to delete the line from the change order."
-              },
-              "image": {
-                "pt": "help/img/guides/change-order/builder-02.pt.jpg",
-                "en": "help/img/guides/change-order/builder-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Defina o preço, os dias e o pagamento. Mudança no preço (1) soma todas as linhas, e uma remoção conta como menos. Impacto no prazo (dias úteis; negativo encurta) (2): digite quantos dias úteis a mudança soma. Um número negativo encurta o serviço. Em Parcelas, escolha Ajustar as faturas em aberto (3), ou Nova parcela só para o aditivo (4), que cria uma fatura só para este aditivo. Toque em Criar aditivo (5). Cancelar fecha a tela sem salvar.",
-                "en": "Set the price, the days and the payment. Change in price (1) adds up all the lines, and a removal counts as minus. Schedule impact (working days; negative shortens) (2): type how many working days the change adds. A negative number shortens the job. Under Payment schedule, choose Adjust the unpaid invoices (3), or New invoice step for the change (4), which adds one invoice only for this change order. Tap Create change order (5). Cancel closes the sheet without saving."
-              },
-              "image": {
-                "pt": "help/img/guides/change-order/builder-03.pt.jpg",
-                "en": "help/img/guides/change-order/builder-03.en.jpg"
+                "pt": "help/img/guides/change-order/send-change-order-12.pt.jpg",
+                "en": "help/img/guides/change-order/send-change-order-12.en.jpg"
               }
             }
           ]
@@ -592,32 +561,13 @@
             {
               "n": 1,
               "text": {
-                "pt": "Leia o Resumo. Na tela do aditivo, o Resumo mostra o Contrato, o Preço antes (1), a Mudança, o Novo preço (2), o Prazo em dias úteis (3) e as Parcelas (4): faturas em aberto ajustadas, ou uma nova parcela. Embaixo, Linhas lista cada linha, e Assinaturas mostra quem assinou e quando. Se o preço do contrato mudou depois que você criou o aditivo, uma nota vermelha avisa e mostra os novos preços de antes e depois.",
-                "en": "Read the Summary. On the change order sheet, the Summary shows the Contract, Price before (1), Change, New price (2), Schedule in working days (3) and Payments (4): unpaid invoices adjusted, or a new invoice step. Under it, Lines lists each line, and Signatures shows who signed and when. If the price of the contract changed after you created the change order, a red note says so and shows the new before and after prices."
+                "pt": "Leia o Resumo. Na janela do aditivo, o Resumo mostra o Contrato, o Preço antes (1), a Mudança, o Novo preço (2), o Prazo em dias úteis (3) e as Parcelas (4): faturas em aberto ajustadas ou uma nova parcela para o aditivo. Embaixo, Linhas lista cada linha do aditivo.",
+                "en": "Read the Summary. On the change order window, the Summary shows the Contract, Price before (1), Change, New price (2), Schedule in working days (3) and Payments (4): unpaid invoices adjusted, or a new invoice step for the change. Below it, Lines lists each line of the change order."
               },
               "image": {
                 "pt": "help/img/guides/change-order/read-01.pt.jpg",
                 "en": "help/img/guides/change-order/read-01.en.jpg"
               }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Use os botões de um aditivo assinado. Quando os dois lados assinaram, a tela tem Ver como o cliente, Baixar PDF, Desativar link (1, veja o guia Desativar ou ativar o link do cliente) e Enviar cópia assinada (2). Enviar cópia assinada abre a mesma tela de envio dos outros documentos, com os botões Mensagem de texto, WhatsApp, Abrir meu email e Copiar para enviar pelo navegador, e um botão para marcar como enviada sem abrir uma mensagem. O nosso teste não conseguiu abrir essa tela, então esta parte vem do código do aplicativo.",
-                "en": "Use the buttons of a signed change order. When both sides signed, the sheet has Preview as customer, Download PDF, Disable link (1, see the guide Turn a customer link off or on) and Send signed copy (2). Send signed copy opens the same send screen as the other documents, with the buttons Text message, WhatsApp, Open my email app and Copy to send from a web email, and a button to mark it as sent without opening a message. Our test could not open that screen, so this part comes from the app's code."
-              },
-              "image": {
-                "pt": "help/img/guides/change-order/read-02.pt.jpg",
-                "en": "help/img/guides/change-order/read-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Veja o efeito nas faturas. Quando um aditivo assinado muda uma fatura que o seu cliente já recebeu, a fatura mostra uma etiqueta vermelha, Alterada depois de enviada: reenviar, e a tela do aditivo cita a fatura em uma nota vermelha. Envie essa fatura ao cliente de novo (veja o guia Faturas e pagamentos: crie e registre).",
-                "en": "See the effect on the invoices. When a signed change order changes an invoice that your customer already received, the invoice shows a red tag, Changed after sending: resend, and the change order sheet names the invoice in a red note. Send that invoice to the customer again (see the guide Invoices and payments)."
-              },
-              "image": null
             }
           ]
         },
@@ -631,8 +581,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Ache o botão Anular. Abra um aditivo que ainda não está assinado pelos dois. Embaixo do status você vê Assinar pela empresa (1), Ver como o cliente (2) e Anular (3). Anular é só para o dono. O botão não aparece quando o aditivo já está assinado pelos dois, ou já está anulado.",
-                "en": "Find the Void button. Open a change order that is not fully signed. Under the status you see Sign as company (1), Preview as customer (2) and Void (3). Void is only for the owner. It does not show when the change order is already fully signed, or already void."
+                "pt": "Ache o botão Anular. Abra um aditivo que ainda não foi assinado pelas duas partes. Embaixo do status você vê Assinar pela empresa (1), Ver como o cliente (2) e Anular (3).",
+                "en": "Find the Void button. Open a change order that is not signed by both sides yet. Under the status you see Sign as company (1), Preview as customer (2) and Void (3)."
               },
               "image": {
                 "pt": "help/img/guides/change-order/void-01.pt.jpg",
@@ -642,12 +592,23 @@
             {
               "n": 2,
               "text": {
-                "pt": "Escreva o motivo. Uma caixa chamada Motivo da anulação (1) abre. Digite por que você cancela e toque em Salvar. O motivo é obrigatório: sem ele, o Apex pede. O aditivo continua na lista com o status Anulado. Toque em Cancelar para sair sem anular. No nosso teste não tocamos em Salvar.",
-                "en": "Write the reason. A box called Void reason (1) opens. Type why you cancel it, and tap Save. A reason is required: without one, Apex asks for it. The change order stays in the list with the status Void. Tap Cancel to leave without voiding. We did not tap Save in our test."
+                "pt": "Escreva o motivo. Abre a janela Motivo da anulação. Escreva por que você cancela, na caixa (1), e toque em Salvar (2). Sem um motivo, o Apex pede que você escreva. Cancelar (3) fecha a janela sem anular.",
+                "en": "Write the reason. The window Void reason opens. Type why you cancel it in the box (1) and tap Save (2). Without a reason, Apex asks you to write one. Cancel (3) closes the window without voiding."
               },
               "image": {
                 "pt": "help/img/guides/change-order/void-02.pt.jpg",
                 "en": "help/img/guides/change-order/void-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Veja o aditivo anulado. O status (1) passa a Anulado, e o Apex avisa que o aditivo foi anulado. Só ficam os botões Ver como o cliente (2) e Baixar PDF (3). O aditivo continua na lista do projeto.",
+                "en": "See the voided change order. The status (1) now says Void, and Apex says the change order was voided. Only the buttons Preview as customer (2) and Download PDF (3) are left. The change order stays in the project list."
+              },
+              "image": {
+                "pt": "help/img/guides/change-order/void-03.pt.jpg",
+                "en": "help/img/guides/change-order/void-03.en.jpg"
               }
             }
           ]
@@ -660,8 +621,7 @@
               "+ Aditivo"
             ],
             "en": [
-              "+ Change order",
-              "+ Aditivo"
+              "+ Change order"
             ]
           },
           "section": "send-change-order",
@@ -673,12 +633,59 @@
               "Criar aditivo"
             ],
             "en": [
-              "Create change order",
-              "Criar aditivo"
+              "Create change order"
             ]
           },
           "section": "send-change-order",
-          "step": 3
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar ao cliente"
+            ],
+            "en": [
+              "Send to the homeowner"
+            ]
+          },
+          "section": "send-change-order",
+          "step": 6
+        },
+        {
+          "labels": {
+            "pt": [
+              "Marcar como enviada sem abrir mensagem"
+            ],
+            "en": [
+              "Mark as sent without opening a message"
+            ]
+          },
+          "section": "send-change-order",
+          "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Anular"
+            ],
+            "en": [
+              "Void"
+            ]
+          },
+          "section": "void",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Motivo da anulação"
+            ],
+            "en": [
+              "Void reason"
+            ]
+          },
+          "section": "void",
+          "step": 2
         }
       ]
     },

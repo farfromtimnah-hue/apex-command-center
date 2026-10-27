@@ -22863,6 +22863,141 @@
           "step": 11
         }
       ]
+    },
+    {
+      "id": "thumbtack-phone-numbers",
+      "audience": "client",
+      "who": [
+        "apex_seller"
+      ],
+      "title": {
+        "pt": "Telefones no Thumbtack",
+        "en": "Phone numbers on Thumbtack"
+      },
+      "summary": {
+        "pt": "Adicione os telefones que o Thumbtack usa para o identificador de chamadas e para falar com o cliente.",
+        "en": "Add the phone numbers Thumbtack uses for caller ID and for talking to the customer."
+      },
+      "keywords": {
+        "pt": [
+          "thumbtack",
+          "telefone",
+          "identificador de chamadas",
+          "número",
+          "adicionar telefone"
+        ],
+        "en": [
+          "thumbtack",
+          "phone number",
+          "caller id",
+          "number",
+          "add phone"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "phones",
+          "title": {
+            "pt": "Telefones no Thumbtack",
+            "en": "Phone numbers on Thumbtack"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra Negócio, depois Orçamentos, depois Configurações, e role até o cartão Leads do Thumbtack. O cartão precisa mostrar o seu negócio como recebendo leads. Em Telefones no Thumbtack, toque em Ver telefones (1).",
+                "en": "Open Business, then Estimates, then Settings, and scroll to the card Thumbtack leads. The card must show your business as receiving leads. Under Phone numbers on Thumbtack, tap Show phone numbers (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-phone-numbers/phones-01.pt.jpg",
+                "en": "help/img/guides/thumbtack-phone-numbers/phones-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Os números que o Thumbtack já tem aparecem em uma lista (1). Embaixo fica um formulário com Nome da pessoa (2), Telefone (EUA) (3) e o botão Adicionar telefone (4).",
+                "en": "The numbers Thumbtack already holds are listed (1). Under them is a form with Person's name (2), Phone (US) (3) and the button Add phone number (4)."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-phone-numbers/phones-02.pt.jpg",
+                "en": "help/img/guides/thumbtack-phone-numbers/phones-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Digite o Nome da pessoa (1). É o nome para o identificador de chamadas, por exemplo Test Contact.",
+                "en": "Type the Person's name (1). This is the name for the caller ID, for example Test Contact."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-phone-numbers/phones-03.pt.jpg",
+                "en": "help/img/guides/thumbtack-phone-numbers/phones-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Digite o telefone dos EUA em Telefone (EUA) (1), dez dígitos, sem espaços. O Thumbtack confere o número e recusa um que não seja válido. A imagem usa um número inventado.",
+                "en": "Type the US phone number in Phone (US) (2), ten digits, with no spaces. Thumbtack checks the number and refuses one that is not valid. The picture uses a made-up number."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-phone-numbers/phones-04.pt.jpg",
+                "en": "help/img/guides/thumbtack-phone-numbers/phones-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Toque em Adicionar telefone (1).",
+                "en": "Tap Add phone number (4)."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-phone-numbers/phones-05.pt.jpg",
+                "en": "help/img/guides/thumbtack-phone-numbers/phones-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Uma mensagem diz Telefone adicionado, e o número aparece na lista (1) com o nome que você digitou. Se o Thumbtack recusar, nada é adicionado e o número não aparece.",
+                "en": "A message says Phone number added, and the number shows in the list (1) with the name you typed. If Thumbtack refuses it, nothing is added and the number is not shown."
+              },
+              "image": {
+                "pt": "help/img/guides/thumbtack-phone-numbers/phones-06.pt.jpg",
+                "en": "help/img/guides/thumbtack-phone-numbers/phones-06.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Ver telefones"
+            ],
+            "en": [
+              "Show phone numbers"
+            ]
+          },
+          "section": "phones",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Adicionar telefone"
+            ],
+            "en": [
+              "Add phone number"
+            ]
+          },
+          "section": "phones",
+          "step": 5
+        }
+      ]
     }
   ],
   "pages": {
@@ -22890,7 +23025,8 @@
         "services-list",
         "own-contract-upload",
         "cleaning-agreement",
-        "thumbtack-connect"
+        "thumbtack-connect",
+        "thumbtack-phone-numbers"
       ],
       "overview": {
         "pt": "Aqui você cria e envia orçamentos.",

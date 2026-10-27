@@ -12156,12 +12156,67 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra o link. O dono do negócio envia um link para você. Abra o link no navegador do celular ou do computador. A página diz Olá, com o seu nome (1), e depois o nome do negócio e o seu tipo de acesso (2). O passo 1 é Código por SMS (3): Vamos enviar um código por SMS para o seu celular, com o meio escondido. Toque em Enviar código (4). A Apex manda o código para esse número, então deixe esse celular com você. Passkey é uma forma de entrar com rosto, digital ou a senha do aparelho, sem senha para lembrar.",
-                "en": "Open the link. The owner of the business sends you a link. Open it in the browser of your phone or computer. The page says Hi, with your name (1), then the name of the business and your type of access (2). Step 1 is Code by text (3): We will text a code to your mobile number, with the middle hidden. Tap Send code (4). Apex sends the code to that number, so keep that phone with you. A passkey is a way to sign in with face, fingerprint or the device passcode, with no password to remember."
+                "pt": "Abra o link. O dono do negócio envia um link para você. Abra o link no navegador do celular ou do computador (1).",
+                "en": "Open the link. The owner of the business sends you a link. Open it in the browser of your phone or computer (1)."
               },
               "image": {
-                "pt": "help/img/guides/invited-person-sign-in/invite-01.pt.jpg",
-                "en": "help/img/guides/invited-person-sign-in/invite-01.en.jpg"
+                "pt": "help/img/guides/invited-person-sign-in/invite-s01.pt.jpg",
+                "en": "help/img/guides/invited-person-sign-in/invite-s01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "A página diz Olá, com o seu nome (1).",
+                "en": "The page says Hi, with your name (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/invited-person-sign-in/invite-s02.pt.jpg",
+                "en": "help/img/guides/invited-person-sign-in/invite-s02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Depois mostra o nome do negócio (1) e o seu tipo de acesso (2).",
+                "en": "Then it shows the name of the business (1) and your type of access (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/invited-person-sign-in/invite-s03.pt.jpg",
+                "en": "help/img/guides/invited-person-sign-in/invite-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "O passo 1 é Código por SMS (1): Vamos enviar um código por SMS para o seu celular, com o meio escondido.",
+                "en": "Step 1 is Code by text (1): We will text a code to your mobile number, with the middle hidden."
+              },
+              "image": {
+                "pt": "help/img/guides/invited-person-sign-in/invite-s04.pt.jpg",
+                "en": "help/img/guides/invited-person-sign-in/invite-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Toque em Enviar código (1). A Apex manda o código para esse número, então deixe esse celular com você.",
+                "en": "Tap Send code (1). Apex sends the code to that number, so keep that phone with you."
+              },
+              "image": {
+                "pt": "help/img/guides/invited-person-sign-in/invite-s05.pt.jpg",
+                "en": "help/img/guides/invited-person-sign-in/invite-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Passkey é uma forma de entrar com rosto, digital ou a senha do aparelho, sem senha para lembrar.",
+                "en": "A passkey is a way to sign in with face, fingerprint or the device passcode, with no password to remember."
+              },
+              "image": {
+                "pt": "help/img/guides/invited-person-sign-in/invite-s05.pt.jpg",
+                "en": "help/img/guides/invited-person-sign-in/invite-s05.en.jpg"
               }
             }
           ]
@@ -12178,7 +12233,7 @@
             ]
           },
           "section": "invite",
-          "step": 1
+          "step": 5
         }
       ]
     },

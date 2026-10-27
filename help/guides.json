@@ -28740,6 +28740,114 @@
           "step": 6
         }
       ]
+    },
+    {
+      "id": "admin-finance-overview",
+      "audience": "admin",
+      "title": {
+        "pt": "Financeiro: visão geral, orçamentos e lista de transações",
+        "en": "Financial: overview, budgets and the transactions list"
+      },
+      "summary": {
+        "pt": "Entenda as abas, os totais, os orçamentos por categoria e os filtros da lista de transações.",
+        "en": "Understand the tabs, the totals, the category budgets and the transactions filters."
+      },
+      "keywords": {
+        "pt": [
+          "financeiro",
+          "totais",
+          "orçamentos",
+          "transações",
+          "filtros",
+          "editar seções",
+          "linha por linha"
+        ],
+        "en": [
+          "financial",
+          "totals",
+          "budgets",
+          "transactions",
+          "filters",
+          "edit sections",
+          "line by line"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "ov",
+          "title": {
+            "pt": "Visão geral",
+            "en": "Overview"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra Financeiro no menu da esquerda. Três abas (1) ficam embaixo dos totais: Saúde Financeira, Faturas e Categorias. Os nomes e valores nas imagens são inventados.",
+                "en": "Open Financial in the left menu. Three tabs (1) sit under the totals: Financial Health, Invoices and Categories. Names and amounts in the pictures are made up."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-overview/ov-s01.pt.jpg",
+                "en": "help/img/guides/admin-finance-overview/ov-s01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Os quatro cartões no alto são Dá pra usar, Entrou (mês), Saiu (mês) e Líquido. Embaixo de Entrou e Saiu, Ver linha por linha (2) abre o extrato do mês, com seletor de mês. Não abrimos.",
+                "en": "The four tiles at the top are Available to use, In (month), Out (month) and Net. Under In and Out, See line by line (2) opens the ledger of the month, with a month picker. We did not open it."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-overview/ov-s02.pt.jpg",
+                "en": "help/img/guides/admin-finance-overview/ov-s02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Editar seções (1) deixa você reordenar os cartões da Saúde Financeira, recolher ou voltar para a ordem original. Não mudamos nada.",
+                "en": "Edit sections (1) lets you reorder the cards of Financial Health, collapse them, or reset them to the original order. We did not change anything."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-overview/ov-s03.pt.jpg",
+                "en": "help/img/guides/admin-finance-overview/ov-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Orçamentos por categoria (1) mostra cada orçamento como gasto contra o limite, a média semanal, as semanas que faltam, e um aviso vermelho quando o mês deve passar do limite. Adicionar orçamento cria um novo. Não criamos nenhum.",
+                "en": "Category budgets (1) shows each budget as spent against the limit, the weekly average, the weeks left, and a red note when the month is projected to go over. Add budget adds a new one. We did not add one."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-overview/ov-s04.pt.jpg",
+                "en": "help/img/guides/admin-finance-overview/ov-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Transações (1) é a lista das compras do banco. Filtros: buscar na descrição, escolher uma conta, Todos ou entradas ou saídas, uma categoria, uma data de início e fim, e Incluir transferências. Mostrar mais carrega mais linhas. As linhas estão cobertas de cinza porque mostram lojas reais.",
+                "en": "Transactions (1) is the list of bank charges. Filters: search the description, choose an account, All or money in or out, a category, a start and end date, and Include transfers. Show more loads more rows. The rows are covered grey here because they show real merchants."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-overview/ov-s05.pt.jpg",
+                "en": "help/img/guides/admin-finance-overview/ov-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Em uma linha, toque no botão da categoria para escolher uma. Uma janela pergunta se vale só para esta compra, para esta e as futuras, ou para todo o histórico. Um botão marca a compra como transferência. Não categorizamos nada. Sem imagem: abre sobre uma compra real.",
+                "en": "On a row, tap the category button to pick a category. A window asks if it applies to this charge only, to this and future charges, or to all history. A switch marks the charge as a transfer. We did not categorize anything. No picture: it opens on a real charge."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
     }
   ],
   "pages": {
@@ -28822,7 +28930,8 @@
         "admin-finance-bills",
         "admin-finance-accounts",
         "admin-finance-deposits",
-        "admin-finance-terms"
+        "admin-finance-terms",
+        "admin-finance-overview"
       ],
       "overview": {
         "pt": "Aqui você acompanha o financeiro e as faturas.",

@@ -2029,35 +2029,159 @@
             {
               "n": 1,
               "text": {
-                "pt": "O que é. Uma lista de tarefas para Nicole, Rafa e Alice. Adicione tarefas digitando, colando uma lista ou falando. Passe tarefas uns para os outros, abra cada uma, converse dentro dela, use as etiquetas e o prazo, e marque como feita. O botão do microfone, Falar minhas tarefas, transforma o que você fala em tarefas separadas. No iPhone, toque em Permitir na primeira vez que ele pedir.",
-                "en": "What it is. A task list for Nicole, Rafa and Alice. Add tasks by typing, pasting a list or speaking. Give them to each other, open them, keep a conversation inside each one, set a pill and a due date, and tick them off. The microphone button, Speak my tasks, turns what you say into separate tasks. On the iPhone, tap Allow the first time it asks."
+                "pt": "Uma lista de tarefas para Nicole, Rafa e Alice. Adicione tarefas digitando, colando uma lista ou falando. Passe tarefas uns para os outros, abra cada uma, converse dentro dela, use as etiquetas e o prazo, e marque como feita. Abra Tarefas (1) no menu da esquerda.",
+                "en": "A task list for Nicole, Rafa and Alice. Add tasks by typing, pasting a list or speaking. Give them to each other, open them, keep a conversation inside each one, set a pill and a due date, and tick them off. Open Tasks (1) in the left menu."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-tasks/tasks-s01.pt.jpg",
+                "en": "help/img/guides/admin-tasks/tasks-s01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "A página Tarefas. Abra Tarefas no menu da esquerda. Adicionar tarefa é onde você digita ou cola uma tarefa. Falar minhas tarefas transforma o que você fala em tarefas.",
-                "en": "The Tasks page. Open Tasks in the left menu. Add task is where you type or paste a task. Speak my tasks turns what you say into tasks."
+                "pt": "Adicionar tarefa (1) é onde você digita ou cola uma tarefa. Falar minhas tarefas (2) transforma o que você fala em tarefas separadas. No iPhone, toque em Permitir na primeira vez que ele pedir.",
+                "en": "Add task (1) is where you type or paste a task. Speak my tasks (2) turns what you say into separate tasks. On the iPhone, tap Allow the first time it asks."
               },
               "image": {
-                "pt": "help/img/guides/admin-tasks/tasks-02.pt.jpg",
-                "en": "help/img/guides/admin-tasks/tasks-02.en.jpg"
+                "pt": "help/img/guides/admin-tasks/tasks-s02.pt.jpg",
+                "en": "help/img/guides/admin-tasks/tasks-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Adicionar tarefa: o formulário. 1. O que precisa ser feito. 2. Para quem: para mim, Rafa ou Alice (a pessoa recebe uma notificação). 3. Cliente, se for de um cliente. 4. Prazo, se tiver. 5. Adicionar.",
-                "en": "Add task: the form. 1. What needs to be done. 2. For whom: for me, Rafa or Alice (they get a notification). 3. Client, if it belongs to one. 4. Due date, if it has one. 5. Add."
+                "pt": "Toque em Adicionar tarefa e digite o que precisa ser feito (1).",
+                "en": "Tap Add task, then type what needs to be done (1)."
               },
               "image": {
-                "pt": "help/img/guides/admin-tasks/tasks-03.pt.jpg",
-                "en": "help/img/guides/admin-tasks/tasks-03.en.jpg"
+                "pt": "help/img/guides/admin-tasks/tasks-s03.pt.jpg",
+                "en": "help/img/guides/admin-tasks/tasks-s03.en.jpg"
               }
             },
             {
               "n": 4,
+              "text": {
+                "pt": "Escolha Para quem (1): para mim, Rafa ou Alice. Rafa e Alice recebem uma notificação.",
+                "en": "Choose For whom (1): for me, Rafa or Alice. Rafa and Alice get a notification."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks/tasks-s04.pt.jpg",
+                "en": "help/img/guides/admin-tasks/tasks-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Escolha um Cliente (1) se a tarefa for de um cliente.",
+                "en": "Pick a Client (1) if the task belongs to one."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks/tasks-s05.pt.jpg",
+                "en": "help/img/guides/admin-tasks/tasks-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Defina um Prazo (1) se a tarefa tiver.",
+                "en": "Set a Due date (1) if the task has one."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks/tasks-s06.pt.jpg",
+                "en": "help/img/guides/admin-tasks/tasks-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Toque em Adicionar (1).",
+                "en": "Tap Add (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks/tasks-s07.pt.jpg",
+                "en": "help/img/guides/admin-tasks/tasks-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "A página diz Tarefa adicionada, e a tarefa aparece na sua lista (1).",
+                "en": "The page says Task added, and the task shows in your list (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks/tasks-s08.pt.jpg",
+                "en": "help/img/guides/admin-tasks/tasks-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Toque no texto da tarefa para abrir. 1. Editar muda o texto. 2. Duas etiquetas: Em andamento e Aguardando cliente. 3. Prazo: escolha uma data e ela salva; o link remover tira o prazo. 4. A caixa de notas.",
+                "en": "Tap the words of the task to open it. 1. Edit changes the words. 2. Two pills: Working on it and Waiting on client. 3. Due date: pick a date and it saves; the clear link removes it. 4. The notes box."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks/tasks-s09.pt.jpg",
+                "en": "help/img/guides/admin-tasks/tasks-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Toque em Em andamento (1). A etiqueta fica escura e a página diz Salvo. Não existe botão Salvar: toda mudança salva sozinha.",
+                "en": "Tap Working on it (1). The pill turns dark and the page says Saved. There is no Save button: every change saves by itself."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks/tasks-s10.pt.jpg",
+                "en": "help/img/guides/admin-tasks/tasks-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Escreva uma nota e toque em Adicionar nota. Ela aparece com o nome, a data e a hora (1). Na conta do desenvolvedor toda nota aparece como Sistema.",
+                "en": "Write a note and tap Add note. It appears with the name, date and time (1). On the developer account every note shows as System."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks/tasks-s11.pt.jpg",
+                "en": "help/img/guides/admin-tasks/tasks-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Sem abrir nada, a lista (1) mostra a última nota, o prazo e a etiqueta. Tarefas sem notas ou etiquetas ficam limpas.",
+                "en": "Without opening anything, the list (1) shows the latest note, the due date and the pill. Tasks with no notes or pills stay clean."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks/tasks-s12.pt.jpg",
+                "en": "help/img/guides/admin-tasks/tasks-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Para marcar como feita, toque no círculo (1) na frente da tarefa.",
+                "en": "To tick a task off, tap the circle (1) in front of it."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks/tasks-s13.pt.jpg",
+                "en": "help/img/guides/admin-tasks/tasks-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "A tarefa sai da lista aberta e aparece em Concluídas, com dia e hora. Tarefas concluídas não têm etiqueta.",
+                "en": "The task leaves your open list and appears in Done, with the day and time. Done tasks carry no pill."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-tasks/tasks-s14.pt.jpg",
+                "en": "help/img/guides/admin-tasks/tasks-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
               "text": {
                 "pt": "Cole uma lista inteira. Você pode colar uma lista inteira. Caixinhas, marcadores e números funcionam. Um título vai na frente de cada item abaixo dele, e um item com o visto verde já entra como feito.",
                 "en": "Paste a whole list. A list can be pasted into the box. Boxes, bullets and numbers all work. A heading line goes in front of every item under it, and an item with a green check mark is saved as already done."
@@ -2068,7 +2192,7 @@
               }
             },
             {
-              "n": 5,
+              "n": 16,
               "text": {
                 "pt": "Uma tarefa para cada item. A página diz \"4 tarefas adicionadas\". Os três itens abertos são tarefas separadas, cada uma começando com o título. O item marcado foi direto para Concluídas.",
                 "en": "One task for each item. The page says \"4 tasks added.\" The three open items are separate tasks, each starting with the heading. The checked item went straight to Done."
@@ -2079,40 +2203,7 @@
               }
             },
             {
-              "n": 6,
-              "text": {
-                "pt": "Abra uma tarefa. Toque nas palavras de qualquer tarefa. 1. Editar muda o texto. 2. Duas etiquetas: Em andamento e Aguardando cliente. 3. Prazo. 4. As notas, uma depois da outra.",
-                "en": "Open a task. Tap the words of any task. 1. Edit changes the words. 2. Two pills: Working on it and Waiting on client. 3. Due date. 4. The notes, one after another."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-tasks/tasks-06.pt.jpg",
-                "en": "help/img/guides/admin-tasks/tasks-06.en.jpg"
-              }
-            },
-            {
-              "n": 7,
-              "text": {
-                "pt": "Em andamento. Toque em Em andamento. A etiqueta fica escura e a página diz \"Saved\". Não existe botão Salvar: cada mudança salva sozinha.",
-                "en": "Working on it. Tap Working on it. The pill turns dark and the page says \"Saved.\" There is no Save button: every change saves by itself."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-tasks/tasks-07.pt.jpg",
-                "en": "help/img/guides/admin-tasks/tasks-07.en.jpg"
-              }
-            },
-            {
-              "n": 8,
-              "text": {
-                "pt": "Adicione uma nota. Escreva uma nota e toque em Adicionar nota. Ela aparece com o nome, a data e a hora. Aqui a etiqueta também foi trocada para Aguardando cliente.",
-                "en": "Add a note. Write a note and tap Add note. It appears with the name, date and time. Here the pill was also switched to Waiting on client."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-tasks/tasks-08.pt.jpg",
-                "en": "help/img/guides/admin-tasks/tasks-08.en.jpg"
-              }
-            },
-            {
-              "n": 9,
+              "n": 17,
               "text": {
                 "pt": "Uma conversa dentro da tarefa. As notas ficam em ordem, e todos acompanham o que aconteceu e por quê. Na conta do desenvolvedor toda nota aparece como \"System\". Alice e Rafa aparecem com os próprios nomes e fotos.",
                 "en": "A conversation in the task. Notes stack up in order, so everyone can follow what happened and why. On the developer account every note shows as \"System\". Alice and Rafa show with their own names and photos."
@@ -2123,18 +2214,7 @@
               }
             },
             {
-              "n": 10,
-              "text": {
-                "pt": "Defina um prazo. Escolha uma data e ela salva. A data aparece ao lado e o link \"clear\" (limpar) tira o prazo.",
-                "en": "Set a due date. Pick a date and it saves. The date shows next to the box and the \"clear\" link removes it."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-tasks/tasks-10.pt.jpg",
-                "en": "help/img/guides/admin-tasks/tasks-10.en.jpg"
-              }
-            },
-            {
-              "n": 11,
+              "n": 18,
               "text": {
                 "pt": "Troque a etiqueta quando quiser. O cliente respondeu? Adicione a nota e toque em Em andamento de novo. O histórico de notas continua.",
                 "en": "Switch the pill any time. Client answered? Add the note, then tap Working on it again. The history of notes stays."
@@ -2145,7 +2225,7 @@
               }
             },
             {
-              "n": 12,
+              "n": 19,
               "text": {
                 "pt": "Corrija o texto. Editar abre o texto numa caixa. Salvar guarda a mudança, Cancelar deixa a tarefa como estava.",
                 "en": "Fix the words. Edit opens the words in a box. Save keeps the change, Cancel leaves the task as it was."
@@ -2153,28 +2233,6 @@
               "image": {
                 "pt": "help/img/guides/admin-tasks/tasks-12.pt.jpg",
                 "en": "help/img/guides/admin-tasks/tasks-12.en.jpg"
-              }
-            },
-            {
-              "n": 13,
-              "text": {
-                "pt": "O que a lista mostra. Sem abrir nada: a última nota e quantas notas existem, o prazo e a etiqueta. Tarefas sem notas ou etiquetas ficam limpas.",
-                "en": "What the list shows. Without opening anything: the latest note and how many notes there are, the due date, and the pill. Tasks with no notes or pills stay clean."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-tasks/tasks-13.pt.jpg",
-                "en": "help/img/guides/admin-tasks/tasks-13.en.jpg"
-              }
-            },
-            {
-              "n": 14,
-              "text": {
-                "pt": "Marque como feita. Toque no círculo na frente da tarefa. Ela sai da lista aberta e aparece em Concluídas, com dia e hora. Tarefas concluídas não têm etiqueta.",
-                "en": "Tick it off. Tap the circle in front of a task. It leaves your open list and appears in Done, with the day and time. Done tasks carry no pill."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-tasks/tasks-14.pt.jpg",
-                "en": "help/img/guides/admin-tasks/tasks-14.en.jpg"
               }
             }
           ]

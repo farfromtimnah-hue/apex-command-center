@@ -26152,6 +26152,92 @@
           "step": 2
         }
       ]
+    },
+    {
+      "id": "admin-notifications",
+      "audience": "admin",
+      "title": {
+        "pt": "Notificações: receber os avisos do Apex no celular",
+        "en": "Notifications: get Apex alerts on your phone"
+      },
+      "summary": {
+        "pt": "Ligar as notificações neste aparelho e saber quais avisos chegam.",
+        "en": "Turn on notifications on this device and know which alerts arrive."
+      },
+      "keywords": {
+        "pt": [
+          "notificações",
+          "avisos",
+          "push",
+          "celular",
+          "permitir",
+          "enviar teste"
+        ],
+        "en": [
+          "notifications",
+          "alerts",
+          "push",
+          "phone",
+          "allow",
+          "send test"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "notif",
+          "title": {
+            "pt": "Ligar as notificações",
+            "en": "Turn on notifications"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra Configurações no menu da esquerda e toque em Notificações no alto. A última seção da página é Notificações (1). Ela diz que os avisos do Apex chegam direto no seu celular, e que o app precisa estar instalado na tela de início do iPhone primeiro. Instale o app antes de continuar.",
+                "en": "Open Settings in the left menu, then tap Notifications at the top. The last section of the page is Notifications (1). It says Apex alerts go straight to your phone, and that the app must be installed on the Home Screen of your iPhone first. Install the app before you go on."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-notifications/notif-01.pt.jpg",
+                "en": "help/img/guides/admin-notifications/notif-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Ligue a chave Notificações neste dispositivo (2). O celular ou o navegador pede para permitir notificações. Toque em Permitir. A chave vale só para este aparelho, então ligue de novo em cada celular ou computador que você usa. Quando está ligada, aparece o botão Enviar teste, para você conferir que um aviso chega.",
+                "en": "Turn on the switch Notifications on this device (2). The phone or browser asks you to allow notifications. Tap Allow. The switch works for this device only, so turn it on again on each phone or computer you use. When it is on, a Send test button appears, so you can check that an alert arrives."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-notifications/notif-02.pt.jpg",
+                "en": "help/img/guides/admin-notifications/notif-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Quais avisos chegam? Por exemplo uma nota em uma tarefa, um cliente pedindo ajuda, um contrato esperando assinatura ou assinado, um cliente que escreveu uma cláusula própria, lembretes de contas para a Alice e um aviso quando a conta de email precisa de atenção. Cada pessoa recebe só os avisos do seu perfil.",
+                "en": "Which alerts come? For example a note on a task, a client asking for help, a contract waiting to be signed or signed, a client who wrote a custom clause, bill reminders for Alice, and a warning when the email account needs a look. Each person receives only the alerts for their own role."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Enviar teste"
+            ],
+            "en": [
+              "Send test"
+            ]
+          },
+          "section": "notif",
+          "step": 2
+        }
+      ]
     }
   ],
   "pages": {

@@ -3399,8 +3399,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Preços. Toque em Negócio e depois em Preços. A página se chama Tabela de preços e custos (1): o que cada item custa contra o que você cobra. A linha embaixo (2) conta os seus itens e quantos têm os custos preenchidos. Os botões (3) mostram Todos ou só os itens que faltam dados.",
-                "en": "Open Pricing. Tap Business, then Pricing. The page is called Pricing & costs (1): what each item costs against what you charge. The line under it (2) counts your items and how many have their costs filled in. The buttons (3) show All or only the items that need info."
+                "pt": "Toque em Negócio (1) na fileira de abas no alto. No menu que abre, toque em Preços (2).",
+                "en": "Tap Business (1) in the row of tabs at the top. In the menu that opens, tap Pricing (2)."
               },
               "image": {
                 "pt": "help/img/guides/pricing-setup/pricing-01.pt.jpg",
@@ -3410,8 +3410,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Leia a lista. Cada linha (1) mostra o nome do item, depois a categoria, a unidade, o custo e a venda, depois o detalhamento do custo, e à direita a margem em dólares e em percentual (2). A etiqueta dourada Faltam dados (3) marca um item que ainda precisa de informação, por exemplo a descrição para o cliente. Toque em Faltam dados no alto para ver só esses itens, e em Todos para ver todos de novo.",
-                "en": "Read the list. Each row (1) shows the item name, then its category, unit, cost and price, then the cost breakdown, and on the right the margin in dollars and percent (2). The gold tag Needs info (3) marks an item that still needs information, for example the customer description. Tap Needs info at the top to see only those items, and All to see every item again."
+                "pt": "A página se chama Tabela de preços e custos (1): o que cada item custa contra o que você cobra. A linha embaixo (2) conta os seus itens e quantos têm os custos preenchidos. Os botões (3) mostram Todos ou só os itens que faltam dados.",
+                "en": "The page is called Pricing & costs (1): what each item costs against what you charge. The line under it (2) counts your items and how many have their costs filled in. The buttons (3) show All or only the items that need info."
               },
               "image": {
                 "pt": "help/img/guides/pricing-setup/pricing-02.pt.jpg",
@@ -3421,12 +3421,56 @@
             {
               "n": 3,
               "text": {
-                "pt": "Adicione itens. No fim da lista, toque em + Novo item (1) para adicionar um item. Toque em Importar planilha (2) para trazer uma planilha de preços. O guia Tabela de preços: adicione um item e importe uma planilha mostra cada tela do item novo e da importação.",
-                "en": "Add items. At the bottom of the list, tap + New item (1) to add one item. Tap Import spreadsheet (2) to bring in a pricing spreadsheet. The guide Price list: add an item and import a spreadsheet shows every screen of the new item form and of the import."
+                "pt": "Cada linha (1) mostra o nome do item, depois a categoria, a unidade, o custo e a venda, depois o detalhamento do custo. À direita (2) está a margem em dólares e em percentual. Os valores em dinheiro estão cobertos na figura.",
+                "en": "Each row (1) shows the item name, then its category, unit, cost and price, then the cost breakdown. On the right (2) is the margin in dollars and percent. The money amounts are covered in the picture."
               },
               "image": {
                 "pt": "help/img/guides/pricing-setup/pricing-03.pt.jpg",
                 "en": "help/img/guides/pricing-setup/pricing-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "A etiqueta dourada Faltam dados (1) marca um item que ainda precisa de informação, por exemplo a descrição para o cliente.",
+                "en": "The gold tag Needs info (1) marks an item that still needs information, for example the customer description."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-setup/pricing-04.pt.jpg",
+                "en": "help/img/guides/pricing-setup/pricing-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Toque em Faltam dados (1) no alto para ver só os itens que ainda precisam de informação.",
+                "en": "Tap Needs info (1) at the top to see only the items that still need information."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-setup/pricing-05.pt.jpg",
+                "en": "help/img/guides/pricing-setup/pricing-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Toque em Todos (1) para ver todos os itens de novo.",
+                "en": "Tap All (1) to see every item again."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-setup/pricing-06.pt.jpg",
+                "en": "help/img/guides/pricing-setup/pricing-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "No fim da lista, toque em + Novo item (1) para adicionar um item. Toque em Importar planilha (2) para trazer uma planilha de preços. O guia Tabela de preços: adicione um item e importe uma planilha mostra cada tela dos dois.",
+                "en": "At the bottom of the list, tap + New item (1) to add one item. Tap Import spreadsheet (2) to bring in a pricing spreadsheet. The guide Price list: add an item and import a spreadsheet shows every screen of both."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-setup/pricing-07.pt.jpg",
+                "en": "help/img/guides/pricing-setup/pricing-07.en.jpg"
               }
             }
           ]
@@ -3436,26 +3480,14 @@
         {
           "labels": {
             "pt": [
-              "+ Novo item"
+              "Preços"
             ],
             "en": [
-              "+ New item"
+              "Pricing"
             ]
           },
           "section": "pricing",
-          "step": 3
-        },
-        {
-          "labels": {
-            "pt": [
-              "Importar planilha"
-            ],
-            "en": [
-              "Import spreadsheet"
-            ]
-          },
-          "section": "pricing",
-          "step": 3
+          "step": 1
         },
         {
           "labels": {
@@ -3467,19 +3499,31 @@
             ]
           },
           "section": "pricing",
-          "step": 2
+          "step": 4
         },
         {
-          "section": "pricing",
-          "step": 1,
           "labels": {
             "pt": [
-              "Preços"
+              "+ Novo item"
             ],
             "en": [
-              "Pricing"
+              "+ New item"
             ]
-          }
+          },
+          "section": "pricing",
+          "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Importar planilha"
+            ],
+            "en": [
+              "Import spreadsheet"
+            ]
+          },
+          "section": "pricing",
+          "step": 7
         }
       ]
     },

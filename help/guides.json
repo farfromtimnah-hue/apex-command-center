@@ -21169,6 +21169,131 @@
         }
       ],
       "buttons": []
+    },
+    {
+      "id": "seller-your-portal",
+      "audience": "client",
+      "who": [
+        "seller"
+      ],
+      "title": {
+        "pt": "Sua tela de vendedor",
+        "en": "Your salesperson screen"
+      },
+      "summary": {
+        "pt": "Veja o que aparece para você como vendedor e o que fica de fora.",
+        "en": "See what you get as a salesperson, and what stays out of view."
+      },
+      "keywords": {
+        "pt": [
+          "vendedor",
+          "vendedora",
+          "minha tela",
+          "abas",
+          "o que eu vejo",
+          "menu",
+          "agenda",
+          "documentos",
+          "salesperson"
+        ],
+        "en": [
+          "salesperson",
+          "seller",
+          "my screen",
+          "tabs",
+          "what can I see",
+          "menu",
+          "calendar",
+          "documents"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "tour",
+          "title": {
+            "pt": "As abas do vendedor",
+            "en": "The salesperson tabs"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Quando você entra como vendedor, o portal mostra só três abas: Negócio (1), Agenda (2) e Apex (3). Não há Início nem Analytics. O nome da empresa no alto é o negócio para o qual você vende.",
+                "en": "When you sign in as a salesperson, the portal shows only three tabs: Business (1), Calendar (2) and Apex (3). There is no Home and no Analytics. The company name at the top is the business you sell for."
+              },
+              "image": {
+                "pt": "help/img/guides/seller-your-portal/tour-01.pt.jpg",
+                "en": "help/img/guides/seller-your-portal/tour-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Toque em Negócio. Um menu abre (1) com cinco lugares: Pipeline, Orçamentos, Contratos, Projetos e Preços.",
+                "en": "Tap Business. A menu opens (1) with five places: Pipeline, Estimates, Contracts, Projects and Pricing."
+              },
+              "image": {
+                "pt": "help/img/guides/seller-your-portal/tour-02.pt.jpg",
+                "en": "help/img/guides/seller-your-portal/tour-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "No Pipeline, os números no alto (1) contam só os seus leads. Você não vê os leads de outros vendedores. Projetos, orçamentos, contratos e faturas seguem a mesma regra: só os dos seus leads.",
+                "en": "In the Pipeline, the numbers at the top (1) count only your own leads. You do not see the leads of other salespeople. Projects, estimates, contracts and invoices follow the same rule: only the ones of your own leads."
+              },
+              "image": {
+                "pt": "help/img/guides/seller-your-portal/tour-03.pt.jpg",
+                "en": "help/img/guides/seller-your-portal/tour-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Os Projetos são só de leitura para você. Você pode olhar, mas não mudar.",
+                "en": "Projects are read only for you. You can look, but not change them."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Toque em Apex. Um menu pequeno abre (1) com Aprenda, a biblioteca de guias, e Documentos, o material de vendas que a empresa compartilhou com você.",
+                "en": "Tap Apex. A small menu opens (1) with Learn, the library of guides, and Documents, the sales material the company shared with you."
+              },
+              "image": {
+                "pt": "help/img/guides/seller-your-portal/tour-04.pt.jpg",
+                "en": "help/img/guides/seller-your-portal/tour-04.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Toque em Agenda (1). Todo horário ocupado aparece como Horário reservado, e os nomes dos clientes ficam escondidos. Assim você vê quais horários estão livres sem ver as visitas dos outros.",
+                "en": "Tap Calendar (1). Every busy time shows as Booked, and the names of the customers are hidden. This way you can see which times are free without seeing other people's visits."
+              },
+              "image": {
+                "pt": "help/img/guides/seller-your-portal/tour-05.pt.jpg",
+                "en": "help/img/guides/seller-your-portal/tour-05.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "No alto, à direita, ficam Ajuda (1) e Ajustes (2). Os Ajustes têm o seu idioma e a sua senha. Os ajustes do negócio, o financeiro e a lista de pessoas não aparecem para um vendedor.",
+                "en": "At the top right are Help (1) and Settings (2). Settings has your language and your password. The business settings, the finances and the list of people are not there for a salesperson."
+              },
+              "image": {
+                "pt": "help/img/guides/seller-your-portal/tour-06.pt.jpg",
+                "en": "help/img/guides/seller-your-portal/tour-06.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": []
     }
   ],
   "pages": {
@@ -21271,7 +21396,8 @@
         "estimate-three-options",
         "customer-answers-to-estimates",
         "services-list",
-        "lead-fields"
+        "lead-fields",
+        "seller-your-portal"
       ],
       "overview": {
         "pt": "Aqui você vê a lista dos seus leads no Pipeline, filtra por estágio e cadastra um novo lead.",

@@ -27053,6 +27053,116 @@
           "step": 7
         }
       ]
+    },
+    {
+      "id": "admin-client-results",
+      "audience": "admin",
+      "title": {
+        "pt": "Resultados do cliente: crescimento, semana de registros e presença digital",
+        "en": "Client results: growth, entry week and digital presence"
+      },
+      "summary": {
+        "pt": "A aba Resultados da ficha do cliente.",
+        "en": "The Results tab of the client record."
+      },
+      "keywords": {
+        "pt": [
+          "resultados",
+          "crescimento",
+          "registrar crescimento",
+          "semana de registros",
+          "presença digital"
+        ],
+        "en": [
+          "results",
+          "growth",
+          "log entry",
+          "entry week",
+          "digital presence"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "results",
+          "title": {
+            "pt": "Aba Resultados",
+            "en": "Results tab"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Na ficha do cliente, abra a aba Resultados. O cartão Crescimento mostra como a receita do cliente cresceu. Média mensal e Total composto (2) são calculados a partir das entradas abaixo. Cada entrada tem um lápis (3) para corrigir. Toque em + Registrar (1) para incluir um mês. O cartão Presença Digital tem o seu próprio botão Editar (4).",
+                "en": "On a client record, open the tab Results. The card Growth shows how the client's revenue grew. Monthly average and Compounded total (2) are worked out from the entries below. Each entry has a pencil (3) to correct it. Tap + Log Entry (1) to add a month. The card Digital Presence has its own Edit button (4)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-results/results-01.pt.jpg",
+                "en": "help/img/guides/admin-client-results/results-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Em Registrar Crescimento Mensal, escolha o Mês atual (1). Em Mês base (2) escreva cada trabalho e o valor, com + receita para mais linhas. Faça o mesmo em Mês atual, receitas (3). O Apex soma as linhas e calcula o crescimento. Toque em Salvar (4). Há uma entrada por mês: salvar o mesmo mês de novo corrige o valor. Inserir % diretamente serve quando você já sabe a porcentagem. Nada foi salvo nesta figura.",
+                "en": "In Log Monthly Growth, choose the Current month (1). Under Baseline month (2) write each job and its value, with + revenue for more lines. Do the same under Current month, revenue (3). Apex adds the lines and works out the growth. Tap Save (4). There is one entry per month: saving the same month again corrects the value. Enter % directly is for when you already know the percent. Nothing was saved for this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-results/results-02.pt.jpg",
+                "en": "help/img/guides/admin-client-results/results-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Semana de Registros mostra o registro diário do cliente em uma semana. As setas (1) vão para a semana antes ou depois. Cada dia (2) mostra se o registro foi Completed ou Not scheduled. Embaixo, Ver registros do mês (3) lista as entradas de um mês anterior.",
+                "en": "Entry Week shows the client's daily log for one week. The arrows (1) go to the week before or after. Each day (2) shows if the log was Completed or Not scheduled. Under it, See entries for month (3) lists the entries of an earlier month."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-results/results-03.pt.jpg",
+                "en": "help/img/guides/admin-client-results/results-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Toque em Editar em Presença Digital. Escolha o lugar (1): Website, Instagram, TikTok, LinkedIn, Facebook, Google Business ou YouTube. Cole o endereço em URL (2). + Adicionar Nota de Revisão (3) deixa você escrever o que acha daquela página. Toque em Salvar (4). Nada foi salvo nesta figura.",
+                "en": "Tap Edit on Digital Presence. Choose the place (1): Website, Instagram, TikTok, LinkedIn, Facebook, Google Business or YouTube. Paste the address in URL (2). + Add Review Note (3) lets you write what you think about that page. Tap Save (4). Nothing was saved for this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-results/results-04.pt.jpg",
+                "en": "help/img/guides/admin-client-results/results-04.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "+ Registrar"
+            ],
+            "en": [
+              "+ Log Entry"
+            ]
+          },
+          "section": "results",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Presença Digital"
+            ],
+            "en": [
+              "Digital Presence"
+            ]
+          },
+          "section": "results",
+          "step": 4
+        }
+      ]
     }
   ],
   "pages": {

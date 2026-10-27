@@ -6125,8 +6125,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra o Ritmo. Toque em Apex na fileira de abas no alto. Abre um menu com Atribuídos, Ritmo, Execução, Tarefas e Documentos. Toque em Ritmo (1).",
-                "en": "Open Pace. Tap Apex in the row of tabs at the top. A menu opens with Assigned, Pace, Execution, Tasks and Documents. Tap Pace (1)."
+                "pt": "Toque em Apex (1) na fileira de abas no alto. A aba Apex fica na ponta direita da fileira.",
+                "en": "Tap Apex (1) in the row of tabs at the top. The Apex tab is at the right end of the row."
               },
               "image": {
                 "pt": "help/img/guides/monthly-goals/goals-01.pt.jpg",
@@ -6136,8 +6136,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Veja o registro diário e o mês. No alto, o cartão Registro diário (1) mostra como você está; quando nada está atrasado, ele diz All caught up, no pending days (tudo em dia, nenhum dia pendente), em inglês mesmo com o portal em português. Embaixo, Suas metas mensais (2) mostra o mês com uma seta de cada lado para trocar de mês. Quando o mês seguinte ainda não tem metas, uma barra clara (3) avisa e tem um botão para definir as metas, por exemplo Definir metas de November 2026.",
-                "en": "Check the daily log and the month. At the top, the Daily Log card (1) says where you are; when nothing is late it reads All caught up, no pending days. Under it, Your monthly goals (2) shows the month with an arrow on each side to change the month. When the next month has no goals yet, a light bar (3) says so and has a button to set them, for example Set November 2026 goals. The daily log message is in English even when the portal is in Portuguese."
+                "pt": "Abre um menu (1) com Aprenda, Ritmo, Execução, Tarefas e Documentos. Toque em Ritmo (2).",
+                "en": "A menu opens (1) with Learn, Pace, Execution, Tasks and Documents. Tap Pace (2)."
               },
               "image": {
                 "pt": "help/img/guides/monthly-goals/goals-02.pt.jpg",
@@ -6147,8 +6147,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Leia a lista de metas. As metas são divididas em quatro áreas: Financial (1), Clients and market (3), Processes e Growth. Cada linha (2) tem o nome de um número e a meta do mês, por exemplo Revenue Today com meta de $50,000. Nesta página os nomes das áreas e dos números ficam em inglês nos dois idiomas.",
-                "en": "Read the list of goals. The goals are split into four areas: Financial (1), Clients and market (3), Processes and Growth. Each row (2) has the name of a number and the goal for the month, for example Revenue Today with a goal of $50,000. On this page the names of the areas and numbers are in English in both languages."
+                "pt": "A página Ritmo abre. No alto, o cartão Registro diário (1) diz em que ponto você está. Quando nada está atrasado, ele diz Tudo em dia, nenhum dia pendente.",
+                "en": "The Pace page opens. At the top, the Daily Log card (1) says where you are. When nothing is late it reads All caught up, no pending days."
               },
               "image": {
                 "pt": "help/img/guides/monthly-goals/goals-03.pt.jpg",
@@ -6158,8 +6158,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Abra o formulário de metas. Role até o fim da lista e toque em Editar metas de (o mês) (1). É o mesmo botão para metas que você define pela primeira vez e para metas que você quer mudar.",
-                "en": "Open the goals form. Scroll to the end of the list and tap Edit goals for (the month) (1). It is the same button for goals you are setting for the first time and for goals you want to change."
+                "pt": "Abaixo, o cartão Suas metas mensais (1) mostra o mês no meio. Uma seta de cada lado (2 e 3) muda o mês. Ele abre no mês atual, aqui Outubro 2026.",
+                "en": "Under it, the card Your monthly goals (1) shows the month in the middle. An arrow on each side (2 and 3) changes the month. It opens on the current month, here October 2026."
               },
               "image": {
                 "pt": "help/img/guides/monthly-goals/goals-04.pt.jpg",
@@ -6169,12 +6169,111 @@
             {
               "n": 5,
               "text": {
-                "pt": "Preencha as metas, uma área de cada vez. O formulário diz Seção 1 de 4 no alto (1). A seção 1 é Financeiro (2): cada caixa guarda a meta de um número, e as caixas já mostram as suas metas atuais. Toque em Continuar (3) para ir para a próxima seção. Toque em Sair (4) para sair do formulário. As quatro seções seguem as mesmas quatro áreas da lista.",
-                "en": "Fill in the goals, one area at a time. The form says Section 1 of 4 at the top (1). Section 1 is Financial (2): each box holds the goal for one number, and the boxes already show your current goals. Tap Continue (3) to go to the next section. Tap Exit (4) to leave the form. The four sections follow the same four areas as the list."
+                "pt": "Uma barra clara (1) fala do mês seguinte. Quando esse mês já tem metas, ela diz isso e tem o botão Revisar. Quando não tem, ela diz isso e tem um botão para definir, por exemplo Definir metas de Novembro 2026.",
+                "en": "A light bar (1) talks about the next month. When that month already has goals, it says so and has a Review button. When it has none, it says that and has a button to set them, for example Set November 2026 goals."
               },
               "image": {
                 "pt": "help/img/guides/monthly-goals/goals-05.pt.jpg",
                 "en": "help/img/guides/monthly-goals/goals-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Toque na seta da direita. O mês (1) muda para Novembro 2026 e a lista mostra as metas desse mês.",
+                "en": "Tap the right arrow. The month (1) changes to November 2026 and the list shows the goals of that month."
+              },
+              "image": {
+                "pt": "help/img/guides/monthly-goals/goals-06.pt.jpg",
+                "en": "help/img/guides/monthly-goals/goals-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Role para baixo. As metas ficam em quatro áreas: Financeiro, Clientes e Mercado (1), Processos (2) e Crescimento. Cada área tem o título em dourado.",
+                "en": "Scroll down. The goals are split into four areas: Financial, Clients and Market (1), Processes (2) and Growth. Each area has its title in gold."
+              },
+              "image": {
+                "pt": "help/img/guides/monthly-goals/goals-07.pt.jpg",
+                "en": "help/img/guides/monthly-goals/goals-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Cada linha (1) tem o nome de um número e a meta do mês, por exemplo Leads Gerados com meta de 150. Os nomes seguem o idioma do portal.",
+                "en": "Each row (1) has the name of a number and the goal for the month, for example Leads Generated with a goal of 150. The names follow the language of the portal."
+              },
+              "image": {
+                "pt": "help/img/guides/monthly-goals/goals-08.pt.jpg",
+                "en": "help/img/guides/monthly-goals/goals-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Role até o fim da lista e toque no botão dourado (1). Ele diz Definir / editar metas deste mês, ou Editar metas de Novembro 2026 quando você olha outro mês. É o mesmo botão para metas novas e para mudanças.",
+                "en": "Scroll to the end of the list and tap the gold button (1). It reads Set / edit this month's goals, or Edit goals for November 2026 when you look at another month. It is the same button for first-time goals and for changes."
+              },
+              "image": {
+                "pt": "help/img/guides/monthly-goals/goals-09.pt.jpg",
+                "en": "help/img/guides/monthly-goals/goals-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "O formulário de metas abre. No alto ele diz Seção 1 de 4 (1). As quatro seções seguem as mesmas quatro áreas da lista.",
+                "en": "The goals form opens. At the top it says Section 1 of 4 (1). The four sections follow the same four areas as the list."
+              },
+              "image": {
+                "pt": "help/img/guides/monthly-goals/goals-10.pt.jpg",
+                "en": "help/img/guides/monthly-goals/goals-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "A Seção 1 é Financeiro (1). Cada caixa (2) guarda a meta de um número, e as caixas já mostram suas metas atuais. Digite um número novo para mudar uma.",
+                "en": "Section 1 is Financial (1). Each box (2) holds the goal for one number, and the boxes already show your current goals. Type a new number to change one."
+              },
+              "image": {
+                "pt": "help/img/guides/monthly-goals/goals-11.pt.jpg",
+                "en": "help/img/guides/monthly-goals/goals-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Toque em Continuar (1) para ir à próxima seção.",
+                "en": "Tap Continue (1) to go to the next section."
+              },
+              "image": {
+                "pt": "help/img/guides/monthly-goals/goals-12.pt.jpg",
+                "en": "help/img/guides/monthly-goals/goals-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Abre a Seção 2 de 4 (1), com as metas de Clientes e Mercado. O botão Anterior, à esquerda, volta à seção de antes.",
+                "en": "Section 2 of 4 opens (1), with the Clients and Market goals. A Back button on the left goes to the section before."
+              },
+              "image": {
+                "pt": "help/img/guides/monthly-goals/goals-13.pt.jpg",
+                "en": "help/img/guides/monthly-goals/goals-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Toque em Sair (1) para sair do formulário. O Apex volta à página Início. A última seção tem o botão Salvar no lugar de Continuar.",
+                "en": "Tap Exit (1) to leave the form. Apex goes back to the Home page. The last section has a Save button instead of Continue."
+              },
+              "image": {
+                "pt": "help/img/guides/monthly-goals/goals-14.pt.jpg",
+                "en": "help/img/guides/monthly-goals/goals-14.en.jpg"
               }
             }
           ]
@@ -6208,12 +6307,23 @@
             {
               "n": 3,
               "text": {
-                "pt": "Veja a proposta no formulário. Se você abrir o formulário de novo, a caixa (1) ainda mostra o número atual, e uma linha embaixo (2) diz Proposto com o número novo e aguardando aprovação.",
-                "en": "See the proposal in the form. If you open the form again, the box (1) still shows the current number, and a line under it (2) says Proposed with the new number and awaiting approval."
+                "en": "Look at the list of the month. The goal keeps its old number (2), and a tag (1) shows Proposed, the new number and awaiting approval. The Apex team decides.",
+                "pt": "Veja a lista do mês. A meta mantém o número antigo (2), e uma etiqueta (1) mostra Proposto, o número novo e aguardando aprovação. A equipe Apex decide."
               },
               "image": {
-                "pt": "help/img/guides/monthly-goals/approval-03.pt.jpg",
-                "en": "help/img/guides/monthly-goals/approval-03.en.jpg"
+                "pt": "help/img/guides/monthly-goals/approval-04.pt.jpg",
+                "en": "help/img/guides/monthly-goals/approval-04.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "en": "Open the form again with Edit goals for the month. The box (1) still shows the current number, and a line under it (2) says Proposed with the new number and awaiting approval.",
+                "pt": "Abra o formulário de novo com Editar metas do mês. A caixa (1) ainda mostra o número atual, e uma linha embaixo (2) diz Proposto com o número novo e aguardando aprovação."
+              },
+              "image": {
+                "pt": "help/img/guides/monthly-goals/approval-05.pt.jpg",
+                "en": "help/img/guides/monthly-goals/approval-05.en.jpg"
               }
             }
           ]
@@ -6250,7 +6360,7 @@
             ]
           },
           "section": "goals",
-          "step": 4
+          "step": 9
         },
         {
           "labels": {

@@ -7756,56 +7756,232 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra a fatura. Toque em Negócio e depois em Faturas, e toque na fatura. Role a ficha para baixo. Em uma fatura vencida você vê Adicionar juros de atraso (1), Crédito (2), Reembolso (3) e Anular fatura (4). Cada um pede um motivo e deixa um registro: nada é apagado.",
-                "en": "Open the invoice. Tap Business, then Invoices, and tap the invoice. Scroll down the sheet. For an overdue invoice you see Add late fee (1), Credit (2), Refund (3) and Void invoice (4). Every one of them asks for a reason and keeps a record: nothing is deleted."
+                "pt": "Abra a fatura. Toque em Negócio e depois em Faturas (1).",
+                "en": "Open the invoice. Tap Business, then Invoices (1)."
               },
               "image": {
-                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-01.pt.jpg",
-                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-01.en.jpg"
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s01.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Adicione juros de atraso. O botão mostra o valor, por exemplo $189.58. Toque nele. O Apex preenche o motivo para você (1) e explica como contou (2): juros simples sobre o valor em aberto, contados a partir do vencimento, só nos dias que ainda não foram cobrados. Toque em Salvar (3) para adicionar. O Apex nunca adiciona juros sozinho. O percentual vem das regras de atraso nas configurações dos documentos (veja o guia Formas de pagamento, prazos e atraso).",
-                "en": "Add a late fee. The button shows the amount, for example $189.58. Tap it. Apex fills in the reason for you (1) and explains how it counted (2): simple interest on the unpaid amount, counted from the due date, only for days not charged before. Tap Save (3) to add it. Apex never adds a late fee by itself. The percent comes from the late payment rules in your document settings (see the Payment methods, terms and late payment guide)."
+                "pt": "Toque na fatura (1) na lista.",
+                "en": "Tap the invoice (1) in the list."
               },
               "image": {
-                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-02.pt.jpg",
-                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-02.en.jpg"
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s02.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Dê um crédito. Um crédito diminui o que o cliente deve, por exemplo quando um allowance custou menos do que o planejado. Digite o Valor (1) e o Motivo (2), que é obrigatório, e toque em Salvar (3).",
-                "en": "Give a credit. A credit lowers what the customer owes, for example when an allowance cost less than planned. Type the Amount (1) and the Reason (2), which is required, then tap Save (3)."
+                "pt": "Role a ficha para baixo. Em uma fatura vencida você vê Adicionar juros de atraso (1), Crédito (2), Reembolso (3) e Anular fatura (4).",
+                "en": "Scroll down the sheet. For an overdue invoice you see Add late fee (1), Credit (2), Refund (3) and Void invoice (4)."
               },
               "image": {
-                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-03.pt.jpg",
-                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-03.en.jpg"
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s03.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Reembolse dinheiro. Um reembolso registra dinheiro que você devolveu ao cliente. Digite o Valor (1), escolha o Pagamento de onde ele sai (2), escreva o Motivo (3) e toque em Salvar (4). A lista mostra só pagamentos que já foram verificados.",
-                "en": "Refund money. A refund records money you returned to the customer. Type the Amount (1), choose the Payment it comes from (2), write the Reason (3) and tap Save (4). The list shows only payments that were already verified."
+                "pt": "Cada um pede um motivo e deixa um registro: nada é apagado.",
+                "en": "Every one of them asks for a reason and keeps a record: nothing is deleted."
               },
               "image": {
-                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-04.pt.jpg",
-                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-04.en.jpg"
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s03.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s03.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Anule uma fatura. Toque em Anular fatura. Se a fatura já tem pagamentos, o Apex avisa Estorne os pagamentos primeiro. Estorne cada pagamento com o botão Estornar ao lado dele, com um motivo, e depois anule a fatura. A fatura fica guardada como anulada.",
-                "en": "Void an invoice. Tap Void invoice. If the invoice already has payments, Apex stops you and says Reverse the payments first. Reverse each payment with the Reverse button next to it, with a reason, and then void the invoice. The invoice is kept as void."
+                "pt": "Adicione juros de atraso. O botão mostra o valor, por exemplo $189.58. Toque nele (1).",
+                "en": "Add a late fee. The button shows the amount, for example $189.58. Tap it (1)."
               },
               "image": {
-                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-05.pt.jpg",
-                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-05.en.jpg"
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s05.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "O Apex preenche o motivo para você (1) e explica como contou (2): juros simples sobre o valor em aberto, contados a partir do vencimento, só nos dias que ainda não foram cobrados.",
+                "en": "Apex fills in the reason for you (1) and explains how it counted (2): simple interest on the unpaid amount, counted from the due date, only for days not charged before."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s06.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Toque em Salvar (1) para adicionar. O Apex nunca adiciona juros sozinho.",
+                "en": "Tap Save (1) to add it. Apex never adds a late fee by itself."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s07.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "O percentual vem das regras de atraso nas configurações dos documentos (veja o guia Formas de pagamento, prazos e atraso).",
+                "en": "The percent comes from the late payment rules in your document settings (see the Payment methods, terms and late payment guide)."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s07.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s07.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Dê um crédito. Um crédito diminui o que o cliente deve, por exemplo quando um allowance custou menos do que o planejado. Toque em Crédito (1).",
+                "en": "Give a credit. A credit lowers what the customer owes, for example when an allowance cost less than planned. Tap Credit (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s09.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Digite o Valor (1) do crédito.",
+                "en": "Type the Amount (1) of the credit."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s10.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Digite o Motivo (1). Ele é obrigatório.",
+                "en": "Type the Reason (1). It is required."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s11.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Toque em Salvar (1).",
+                "en": "Tap Save (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s12.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Reembolse dinheiro. Um reembolso registra dinheiro que você devolveu ao cliente. Toque em Reembolso (1).",
+                "en": "Refund money. A refund records money you returned to the customer. Tap Refund (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s13.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Digite o Valor (1) que você devolveu.",
+                "en": "Type the Amount (1) you returned."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s14.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Escolha o Pagamento de onde ele sai (1). A lista mostra só pagamentos que já foram verificados.",
+                "en": "Choose the Payment it comes from (1). The list shows only payments that were already verified."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s15.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Escreva o Motivo (1).",
+                "en": "Write the Reason (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s16.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Toque em Salvar (1).",
+                "en": "Tap Save (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s17.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Anule uma fatura. Toque em Anular fatura (1).",
+                "en": "Void an invoice. Tap Void invoice (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s18.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "Se a fatura já tem pagamentos, o Apex avisa Estorne os pagamentos primeiro.",
+                "en": "If the invoice already has payments, Apex stops you and says Reverse the payments first."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s19.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s19.en.jpg"
+              }
+            },
+            {
+              "n": 20,
+              "text": {
+                "pt": "Estorne cada pagamento com o botão Estornar (1) ao lado dele, com um motivo.",
+                "en": "Reverse each payment with the Reverse button (1) next to it, with a reason."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s20.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s20.en.jpg"
+              }
+            },
+            {
+              "n": 21,
+              "text": {
+                "pt": "Depois anule a fatura. A fatura fica guardada como anulada.",
+                "en": "Then void the invoice. The invoice is kept as void."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-s18.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-s18.en.jpg"
               }
             }
           ]
@@ -7822,7 +7998,7 @@
             ]
           },
           "section": "adjust",
-          "step": 4
+          "step": 13
         },
         {
           "labels": {
@@ -7834,7 +8010,7 @@
             ]
           },
           "section": "adjust",
-          "step": 5
+          "step": 18
         },
         {
           "labels": {
@@ -7846,7 +8022,7 @@
             ]
           },
           "section": "adjust",
-          "step": 3
+          "step": 9
         }
       ]
     },
@@ -14796,34 +14972,155 @@
             {
               "n": 1,
               "text": {
-                "pt": "Leia a cor da etiqueta. Abra Negócio, depois Orçamentos. Cada orçamento tem uma etiqueta à direita. Amarelo (1) quer dizer Enviado há menos de 24 horas. Laranja (2) quer dizer 24 horas sem resposta. Vermelho (3) quer dizer 48 horas ou mais sem resposta. Verde quer dizer Aceito. Cinza quer dizer Rascunho, Substituído, Mudanças pedidas, Recusado ou Expirado. O olho quer dizer que o cliente abriu o orçamento. Abrir não é resposta, então a etiqueta de um orçamento aberto mantém a cor. Os botões no alto filtram por situação. Um botão de Mudanças pedidas, Recusado ou Expirado só aparece quando você tem pelo menos um.",
-                "en": "Read the color of the pill. Open Business, then Estimates. Each estimate has a pill at the right. Yellow (1) means Sent less than 24 hours ago. Orange (2) means 24 hours with no answer. Red (3) means 48 hours or more with no answer. Green means Accepted. Grey means Draft, Superseded, Changes requested, Declined or Expired. The eye means your customer opened the estimate. Opening it is not an answer, so the pill of an opened estimate keeps its color. The chips at the top filter by status. A chip for Changes requested, Declined or Expired shows up only when you have at least one."
+                "pt": "Toque em Negócio e escolha Orçamentos (1) no menu.",
+                "en": "Tap Business, then choose Estimates (1) in the menu."
               },
               "image": {
-                "pt": "help/img/guides/customer-answers-to-estimates/colors-01.pt.jpg",
-                "en": "help/img/guides/customer-answers-to-estimates/colors-01.en.jpg"
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-s01.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Leia os lembretes. Abra um orçamento. Abaixo do total, uma linha vermelha (2) pode aparecer. Não aberto há 2 dias quer dizer que passaram 48 horas e o cliente ainda não abriu. Expira em 48 horas quer dizer que a data de Válido até está perto. As mesmas linhas aparecem na lista de orçamentos. A cor da etiqueta (1) é a que você viu na lista.",
-                "en": "Read the reminders. Open an estimate. Under the total, a red line (2) can appear. Not opened after 2 days means 48 hours passed and your customer has not opened it. Expires in 48 hours means the Valid until date is close. The same lines show in the list of estimates. The color of the pill (1) is the one you saw in the list."
+                "pt": "Cada orçamento da lista tem uma etiqueta à direita (1). A etiqueta diz em que pé está o orçamento.",
+                "en": "Each estimate in the list has a pill at the right (1). The pill tells where the estimate is."
               },
               "image": {
-                "pt": "help/img/guides/customer-answers-to-estimates/colors-02.pt.jpg",
-                "en": "help/img/guides/customer-answers-to-estimates/colors-02.en.jpg"
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-s02.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Veja o que o cliente vê. Toque em Ver como o cliente (3). O orçamento abre em uma aba nova, do jeito que o cliente vê. Atenção: o Apex conta isso como o cliente abrindo o orçamento. A etiqueta ganha o olho (Aberto) e o lembrete Não aberto sai.",
-                "en": "Check what your customer sees. Tap Preview as customer (3). The estimate opens in a new tab, the way your customer sees it. Careful: Apex counts this as your customer opening the estimate. The pill gets the eye (Viewed) and the reminder Not opened goes away."
+                "pt": "Vermelho (1) quer dizer 48 horas ou mais sem resposta.",
+                "en": "Red (1) means 48 hours or more with no answer."
               },
               "image": {
-                "pt": "help/img/guides/customer-answers-to-estimates/colors-03.pt.jpg",
-                "en": "help/img/guides/customer-answers-to-estimates/colors-03.en.jpg"
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-s03.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Amarelo quer dizer Enviado há menos de 24 horas. Laranja quer dizer 24 horas sem resposta.",
+                "en": "Yellow means Sent less than 24 hours ago. Orange means 24 hours with no answer."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-s03.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-s03.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Verde (1) quer dizer Aceito. Cinza (2) quer dizer Rascunho, Substituído, Mudanças pedidas, Recusado ou Expirado.",
+                "en": "Green (1) means Accepted. Grey (2) means Draft, Superseded, Changes requested, Declined or Expired."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-s05.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "O olho (1) quer dizer que o seu cliente abriu o orçamento. Abrir não é uma resposta, então a etiqueta de um orçamento aberto mantém a cor.",
+                "en": "The eye (1) means your customer opened the estimate. Opening it is not an answer, so the pill of an opened estimate keeps its color."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-s06.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "As fichas no alto (1) filtram a lista por status. Uma ficha de Mudanças pedidas, Recusado ou Expirado só aparece quando você tem pelo menos um.",
+                "en": "The chips at the top (1) filter the list by status. A chip for Changes requested, Declined or Expired shows up only when you have at least one."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-s07.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Os lembretes aparecem em vermelho embaixo do orçamento na lista (1): Não aberto há 2 dias quer dizer que passaram 48 horas e o seu cliente não abriu. Expira em 48 horas quer dizer que a data de Válido até está perto.",
+                "en": "Reminders show in red under the estimate in the list (1): Not opened after 2 days means 48 hours passed and your customer has not opened it. Expires in 48 hours means the Valid until date is close."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-s08.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Toque em um orçamento (1) da lista para abri-lo.",
+                "en": "Tap an estimate (1) in the list to open it."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-s09.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Embaixo do total, a mesma linha vermelha (1) aparece de novo.",
+                "en": "Under the total, the same red line (1) shows again."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-s10.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "A cor da etiqueta (1) é a mesma que você viu na lista.",
+                "en": "The color of the pill (1) is the one you saw in the list."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-s11.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Para conferir o que o seu cliente vê, toque em Ver como o cliente (1).",
+                "en": "To check what your customer sees, tap Preview as customer (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-s12.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "O orçamento abre em uma nova aba, do jeito que o seu cliente vê. O número da licença está coberto na imagem.",
+                "en": "The estimate opens in a new tab, the way your customer sees it. The license number is covered in the picture."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-s13.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Cuidado: o Apex conta isso como o seu cliente abrindo o orçamento. De volta ao portal, a etiqueta ganha o olho (1), mostra Aberto e o lembrete Não aberto some.",
+                "en": "Careful: Apex counts this as your customer opening the estimate. Back in the portal, the pill gets the eye (1), shows Viewed, and the reminder Not opened goes away."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-s14.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-s14.en.jpg"
               }
             }
           ]
@@ -14838,78 +15135,133 @@
             {
               "n": 1,
               "text": {
-                "pt": "O cliente pede mudanças ou recusa. Na página do orçamento, embaixo, o cliente pode escrever o que quer mudar e tocar em Send change request (1), ou tocar em Decline this estimate (3), com um motivo se quiser (2). A tela do cliente é em inglês.",
-                "en": "Your customer asks for changes or declines. At the bottom of the estimate page, the customer can write what they want changed and tap Send change request (1), or tap Decline this estimate (3), with a reason if they want (2). The customer's screen is in English."
+                "pt": "No fim da página do orçamento, o cliente pode escrever o que quer mudar na caixa (1). A tela do cliente é em inglês.",
+                "en": "At the bottom of the estimate page, the customer can write what they want changed in the box (1). The customer's screen is in English."
               },
               "image": {
-                "pt": "help/img/guides/customer-answers-to-estimates/answers-01.pt.jpg",
-                "en": "help/img/guides/customer-answers-to-estimates/answers-01.en.jpg"
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-s01.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "O que o cliente vê depois de pedir mudanças. A página mostra um cartão Changes requested (1) com as palavras do cliente e a frase de que ele ainda pode aceitar esta versão.",
-                "en": "What the customer sees after asking for changes. The page shows a card Changes requested (1) with the customer's words and a line that they can still accept this version."
+                "pt": "Aí o cliente toca em Send change request (1).",
+                "en": "Then the customer taps Send change request (1)."
               },
               "image": {
-                "pt": "help/img/guides/customer-answers-to-estimates/answers-02.pt.jpg",
-                "en": "help/img/guides/customer-answers-to-estimates/answers-02.en.jpg"
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-s02.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Quando o cliente recusa. Ele pode escrever um motivo (1) e toca em Decline this estimate (2). A página passa a dizer Declined.",
-                "en": "When the customer declines. They can write a reason (1) and tap Decline this estimate (2). The page then says Declined."
+                "pt": "Ou o cliente pode escrever um motivo, se quiser, na caixa embaixo de Decline (1).",
+                "en": "Or the customer can write a reason, if they want, in the box under Decline (1)."
               },
               "image": {
-                "pt": "help/img/guides/customer-answers-to-estimates/answers-03.pt.jpg",
-                "en": "help/img/guides/customer-answers-to-estimates/answers-03.en.jpg"
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-s03.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Veja a resposta no lead. Na parte Orçamentos da ficha do lead, o orçamento mostra a etiqueta cinza Mudanças pedidas (ou Recusado) e uma linha vermelha: Pediu mudanças: e o texto do cliente. A mesma linha aparece na lista de orçamentos, e o histórico do lead registra a resposta.",
-                "en": "See the answer on the lead. In the Estimates part of the lead sheet, the estimate shows the grey pill Changes requested (or Declined) and a red line: Requested changes: and the customer's text. The same line shows in the list of estimates, and the lead history records the answer."
+                "pt": "E tocar em Decline this estimate (1). A página passa a dizer Declined.",
+                "en": "And tap Decline this estimate (1). The page then says Declined."
               },
               "image": {
-                "pt": "help/img/guides/customer-answers-to-estimates/answers-04.pt.jpg",
-                "en": "help/img/guides/customer-answers-to-estimates/answers-04.en.jpg"
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-s04.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-s04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Veja no Início. Um cartão chamado Respostas dos clientes (1), com um número, aparece no Início. Cada linha diz quem pediu mudanças ou recusou, o orçamento, as palavras do cliente (ou sem motivo escrito) e a hora. Toque em Marcar como visto (2) quando ler: a linha some. Só o dono vê esse cartão, nunca um vendedor.",
-                "en": "See it on Home. A card called Customer responses (1), with a number, shows on Home. Each row says who asked for changes or declined, which estimate, the customer's words (or no reason given) and the time. Tap Mark as seen (2) when you have read it: the row goes away. Only the owner sees this card, never a salesperson."
+                "pt": "Depois de pedir mudanças, a página do cliente mostra um cartão Changes requested com as palavras do cliente e uma linha dizendo que ele ainda pode aceitar esta versão.",
+                "en": "After asking for changes, the customer's page shows a card Changes requested with the customer's words and a line that they can still accept this version."
               },
               "image": {
-                "pt": "help/img/guides/customer-answers-to-estimates/answers-05.pt.jpg",
-                "en": "help/img/guides/customer-answers-to-estimates/answers-05.en.jpg"
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-s02.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-s02.en.jpg"
               }
             },
             {
               "n": 6,
               "text": {
-                "pt": "O cliente pede um orçamento novo. Depois da data de Válido até, o link do cliente diz This estimate has expired e mostra o botão Request an updated estimate (1). Quando o cliente toca, o botão passa a dizer Request sent.",
-                "en": "Your customer asks for an updated estimate. After the Valid until date, the customer link says This estimate has expired and shows a button, Request an updated estimate (1). When the customer taps it, the button reads Request sent."
+                "pt": "Quando o cliente recusa, ele pode escrever um motivo e tocar em Decline this estimate. A página passa a dizer Declined.",
+                "en": "When the customer declines, they can write a reason and tap Decline this estimate. The page then says Declined."
               },
               "image": {
-                "pt": "help/img/guides/customer-answers-to-estimates/answers-06.pt.jpg",
-                "en": "help/img/guides/customer-answers-to-estimates/answers-06.en.jpg"
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-s04.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-s04.en.jpg"
               }
             },
             {
               "n": 7,
               "text": {
-                "pt": "Veja o pedido de novo orçamento. Abra o orçamento expirado. Em Dados, a linha Pedido de mudança (1) diz que o cliente pediu um orçamento novo depois de vencer. O status continua Expirado. Para responder, toque em Criar revisão: o assistente abre com os dados do cliente. Mude o que precisar, ponha uma data nova em Válido até e envie de novo.",
-                "en": "See the request for a new estimate. Open the expired estimate. In Details, the row Change request (1) says the customer requested an updated estimate after expiry. The status stays Expired. To answer, tap Create revision: the wizard opens with the customer's details. Change what you need, set a new Valid until date and send it again."
+                "pt": "Na parte de Orçamentos da ficha do lead, o orçamento mostra a etiqueta cinza Mudanças pedidas (ou Recusado) e uma linha vermelha: Mudanças pedidas: e o texto do cliente. A mesma linha aparece na lista de orçamentos, e o histórico do lead registra a resposta.",
+                "en": "In the Estimates part of the lead sheet, the estimate shows the grey pill Changes requested (or Declined) and a red line: Requested changes: and the customer's text. The same line shows in the list of estimates, and the lead history records the answer."
               },
               "image": {
-                "pt": "help/img/guides/customer-answers-to-estimates/answers-07.pt.jpg",
-                "en": "help/img/guides/customer-answers-to-estimates/answers-07.en.jpg"
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-s04.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-s04.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Um cartão chamado Respostas dos clientes (1), com um número, aparece no Início. Cada linha diz quem pediu mudanças ou recusou, qual orçamento, as palavras do cliente (ou sem motivo) e a hora. Só o dono vê este cartão, nunca um vendedor.",
+                "en": "A card called Customer responses (1), with a number, shows on Home. Each row says who asked for changes or declined, which estimate, the customer's words (or no reason given) and the time. Only the owner sees this card, never a salesperson."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-s08.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Toque em Marcar como visto (1) quando você ler: a linha some.",
+                "en": "Tap Mark as seen (1) when you have read it: the row goes away."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-s09.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Depois da data de Válido até, o link do cliente diz This estimate has expired e mostra um botão, Request an updated estimate. Quando o cliente toca nele, o botão passa a dizer Request sent.",
+                "en": "After the Valid until date, the customer link says This estimate has expired and shows a button, Request an updated estimate. When the customer taps it, the button reads Request sent."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-s04.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-s04.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Abra o orçamento expirado. Em Dados, a linha Pedido de mudança (1) diz que o cliente pediu um orçamento atualizado depois de expirar. O status continua Expirado.",
+                "en": "Open the expired estimate. In Details, the row Change request (1) says the customer requested an updated estimate after expiry. The status stays Expired."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-s11.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Para responder, toque em Criar revisão (1): o assistente abre com os dados do cliente. Mude o que precisar, ponha uma nova data de Válido até e envie de novo.",
+                "en": "To answer, tap Create revision (1): the wizard opens with the customer's details. Change what you need, set a new Valid until date and send it again."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-s12.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-s12.en.jpg"
               }
             }
           ]
@@ -14926,7 +15278,7 @@
             ]
           },
           "section": "answers",
-          "step": 5
+          "step": 9
         }
       ]
     },

@@ -28335,6 +28335,180 @@
           "step": 1
         }
       ]
+    },
+    {
+      "id": "admin-prep-another-meeting",
+      "audience": "admin",
+      "title": {
+        "pt": "Preparação da reunião: outra reunião, montada por você",
+        "en": "Meeting prep: another meeting, built by you"
+      },
+      "summary": {
+        "pt": "Monte a sua própria reunião: marque os blocos que vai usar, use um modelo salvo ou crie um bloco novo no meio da reunião.",
+        "en": "Build your own meeting: tick the blocks you will use, use a saved template or make a new block in the middle of the meeting."
+      },
+      "keywords": {
+        "pt": [
+          "outra reunião",
+          "montar a reunião",
+          "blocos",
+          "modelos salvos",
+          "criar bloco",
+          "campo",
+          "usar nesta reunião"
+        ],
+        "en": [
+          "another meeting",
+          "build the meeting",
+          "blocks",
+          "saved templates",
+          "build the block",
+          "field",
+          "use in this meeting"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "am",
+          "title": {
+            "pt": "Preparação: outra reunião",
+            "en": "Prep: another meeting"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Escolha os blocos. Para uma reunião que não é de um tipo padrão, abra a preparação com o tipo Outra reunião. O cartão Monte a reunião (1) diz: marque o que você vai usar, mude a qualquer momento, até durante a reunião. Cada linha é um bloco das outras preparações, por exemplo O que o sistema já responde, Indicadores pior primeiro, A semana dia a dia, As notas do Raio-X, Histórias, Os planos. Marque os que quiser e eles aparecem embaixo.",
+                "en": "Pick the blocks. For a meeting that is not one of the standard types, open the prep with the type Another meeting. The card Build the meeting (1) says: tick what you will use, change it any time, even mid-meeting. Each line is a block from the other preps, for example What the system already answers, Indicators worst first, The week day by day, X-Ray scores, Stories, The plans. Tick the ones you want and they appear below."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-another-meeting/am-01.pt.jpg",
+                "en": "help/img/guides/admin-prep-another-meeting/am-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Use um modelo salvo. Em Modelos salvos, cada botão (1) é um conjunto de blocos que você salvou antes. Toque em um e os blocos dele ficam marcados para você.",
+                "en": "Use a saved template. Under Saved templates, each button (1) is a set of blocks you saved before. Tap one and its blocks are ticked for you."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-another-meeting/am-02.pt.jpg",
+                "en": "help/img/guides/admin-prep-another-meeting/am-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Os seus blocos. No fim da lista, os blocos que você criou mostram a etiqueta seus. Embaixo da lista, Não achou? Crie o bloco (1) abre um pequeno formulário para fazer um novo. Funciona agora, nesta reunião. Depois a Apex constrói direito.",
+                "en": "Your own blocks. At the end of the list, the blocks you made show a tag yours. Under the list, Not there? Build the block (1) opens a small form to make a new one. It works now, in this meeting. Apex builds it properly afterwards."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-another-meeting/am-03.pt.jpg",
+                "en": "help/img/guides/admin-prep-another-meeting/am-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Crie um bloco. No formulário Novo bloco, digite o Título do bloco (1). Cada campo tem uma Pergunta e um tipo, por exemplo Texto curto (2). + Campo (3) junta mais uma pergunta, e o X tira uma. Toque em Usar nesta reunião (4) para pôr o bloco na página.",
+                "en": "Make a block. In the form New block, type the Block title (1). Each field has a Question and a type, for example Short text (2). + Field (3) adds another question, and the X removes one. Tap Use in this meeting (4) to add the block to the page."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-another-meeting/am-04.pt.jpg",
+                "en": "help/img/guides/admin-prep-another-meeting/am-04.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Criar bloco novo na reunião"
+            ],
+            "en": [
+              "Build a new block in the meeting"
+            ]
+          },
+          "section": "am",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Modelos salvos da reunião"
+            ],
+            "en": [
+              "Saved meeting templates"
+            ]
+          },
+          "section": "am",
+          "step": 2
+        }
+      ]
+    },
+    {
+      "id": "admin-pdf-archive",
+      "audience": "admin",
+      "title": {
+        "pt": "Arquivo de PDFs e envios pendentes",
+        "en": "PDF Archive and pending sends"
+      },
+      "summary": {
+        "pt": "Ler os PDFs das sessões e saber o que são os envios pendentes.",
+        "en": "Read the session PDFs and know what pending sends are."
+      },
+      "keywords": {
+        "pt": [
+          "arquivo de pdfs",
+          "pdf",
+          "relatório da sessão",
+          "envios pendentes",
+          "abrir pdf"
+        ],
+        "en": [
+          "pdf archive",
+          "pdf",
+          "session report",
+          "pending sends",
+          "open pdf"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "pdf",
+          "title": {
+            "pt": "PDFs das sessões",
+            "en": "Session PDFs"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra Documentos no menu da esquerda e toque em Arquivo de PDFs. A lista (1) guarda os PDFs dos relatórios das sessões que a Apex fez, uma linha para cada: o cliente e a data da sessão. Toque em Abrir PDF (2) em uma linha para ler. Os nomes dos clientes na figura estão trocados.",
+                "en": "Open Documents in the left menu and tap PDF Archive. The list (1) holds the PDF reports of the sessions Apex made, one line for each: the client and the session date. Tap Open PDF (2) on a line to read it. The client names in the picture are replaced."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-pdf-archive/pdf-01.pt.jpg",
+                "en": "help/img/guides/admin-pdf-archive/pdf-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O cartão Envios pendentes no alto da página conta os recursos que esperam para ser enviados a um cliente. Mostra 0 quando nada espera. Quando passa de 0, uma faixa com um botão de WhatsApp para cada linha aparece na página Clientes.",
+                "en": "The tile Pending sends at the top of the page counts resources that are waiting to be sent to a client. It shows 0 when nothing is waiting. When it is above 0, a strip with a WhatsApp button for each line appears on the Clients page."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
     }
   ],
   "pages": {
@@ -28759,7 +28933,8 @@
         "admin-prep-kickoff",
         "admin-prep-weekly-rde",
         "admin-prep-cycle-close",
-        "admin-packages-screen"
+        "admin-packages-screen",
+        "admin-prep-another-meeting"
       ],
       "overview": {
         "pt": "Aqui o consultor se prepara para a reunião com um cliente.",
@@ -28890,4 +29065,120 @@
       }
     }
   }
+}ne.",
+        "en": "Here are your alerts: subcontractor documents that are expiring and estimates your customers signed online."
+      }
+    },
+    "assigned": {
+      "title": {
+        "pt": "Atribuídos",
+        "en": "Assigned"
+      },
+      "guides": [
+        "assigned-tools",
+        "other-assessments",
+        "management-xray",
+        "leadership-xray",
+        "permissiveness-xray",
+        "failures-xray",
+        "growth-pillars"
+      ],
+      "overview": {
+        "pt": "Aqui ficam os diagnósticos que a Apex liberou para você. Toque em Abrir para responder um.",
+        "en": "Here are the assessments Apex gave you. Tap Open to answer one."
+      }
+    },
+    "feedback360": {
+      "title": {
+        "pt": "Feedback 360º",
+        "en": "360º Feedback"
+      },
+      "guides": [
+        "other-assessments"
+      ],
+      "overview": {
+        "pt": "São 7 perguntas de Sim ou Não. Suas respostas são salvas sozinhas.",
+        "en": "There are 7 Yes or No questions. Your answers are saved by themselves."
+      }
+    },
+    "xray": {
+      "title": {
+        "pt": "Raio X Empresarial",
+        "en": "Business X-Ray"
+      },
+      "guides": [
+        "business-xray"
+      ],
+      "overview": {
+        "pt": "Aqui você lê o resultado do seu Raio X Empresarial.",
+        "en": "Here you read the result of your Business X-Ray."
+      }
+    },
+    "mgmtxray": {
+      "title": {
+        "pt": "Raio X Gestão",
+        "en": "Mgmt X-Ray"
+      },
+      "guides": [
+        "management-xray"
+      ],
+      "overview": {
+        "pt": "Aqui você responde o Raio X de Gestão e vê o resultado.",
+        "en": "Here you answer the Management X-Ray and see the result."
+      }
+    },
+    "leadxray": {
+      "title": {
+        "pt": "Raio X Liderança",
+        "en": "Leadership X-Ray"
+      },
+      "guides": [
+        "leadership-xray"
+      ],
+      "overview": {
+        "pt": "Aqui você responde o Raio X de Liderança e vê o resultado.",
+        "en": "Here you answer the Leadership X-Ray and see the result."
+      }
+    },
+    "permxray": {
+      "title": {
+        "pt": "Permissividade",
+        "en": "Permissiveness"
+      },
+      "guides": [
+        "permissiveness-xray"
+      ],
+      "overview": {
+        "pt": "Aqui você responde o Raio X de Permissividade e vê o resultado.",
+        "en": "Here you answer the Permissiveness X-Ray and see the result."
+      }
+    },
+    "falhasxray": {
+      "title": {
+        "pt": "Raio X Falhas",
+        "en": "Failures X-Ray"
+      },
+      "guides": [
+        "failures-xray"
+      ],
+      "overview": {
+        "pt": "Aqui você responde o Raio X Falhas e vê o resultado.",
+        "en": "Here you answer the Failures X-Ray and see the result."
+      }
+    },
+    "pilares": {
+      "title": {
+        "pt": "Pilares",
+        "en": "Growth Pillars"
+      },
+      "guides": [
+        "growth-pillars"
+      ],
+      "overview": {
+        "pt": "Aqui você responde os Pilares de Crescimento e vê o resultado.",
+        "en": "Here you answer the Growth Pillars and see the result."
+      }
+    }
+  }
 }
+

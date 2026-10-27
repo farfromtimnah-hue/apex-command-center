@@ -8369,10 +8369,13 @@
             {
               "n": 4,
               "text": {
-                "pt": "Crie uma revisão quando o preço ou o serviço mudar. Toque em Criar revisão. O Apex mostra Revisão criada e abre um novo rascunho com o número seguinte, por exemplo R3. Mude o que precisar e envie de novo. O orçamento antigo fica guardado e não pode mais ser mudado. Se o cliente abrir o link antigo, ele é levado para a versão mais nova.",
-                "en": "Create a revision when the price or the work changes. Tap Create revision. Apex shows Revision created and opens a new draft with the next number, for example R3. Change what you need and send it again. The old estimate is kept and can no longer be changed. If the customer opens the old link, they are sent to the newest version."
+                "pt": "Crie uma revisão quando o preço ou o serviço mudar. Toque em Criar revisão. O Apex mostra Revisão criada e abre um novo rascunho com o número seguinte, por exemplo R3. Mude o que precisar e envie de novo. O orçamento antigo fica guardado e não pode mais ser mudado. Se o cliente abrir o link antigo, ele é levado para a versão mais nova. Na figura o novo rascunho é EST-0035-R2 (1), com o status Rascunho (2).",
+                "en": "Create a revision when the price or the work changes. Tap Create revision. Apex shows Revision created and opens a new draft with the next number, for example R3. Change what you need and send it again. The old estimate is kept and can no longer be changed. If the customer opens the old link, they are sent to the newest version. In the picture the new draft is EST-0035-R2 (1), with the status Draft (2)."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/revise-or-void-estimate/manage-04.pt.jpg",
+                "en": "help/img/guides/revise-or-void-estimate/manage-04.en.jpg"
+              }
             },
             {
               "n": 5,

@@ -16381,20 +16381,34 @@
             {
               "n": 1,
               "text": {
-                "pt": "O que é. Só entram no app da equipe as pessoas cujo email Google está na lista de usuários aprovados. Esta página é para o desenvolvedor. Abra Adicionar Usuário no menu da esquerda. A página em si está escrita em inglês.",
-                "en": "What it is. Only people whose Google email is on the list of approved users can sign in to the staff app. This page is for the developer. Open Adicionar Usuário in the left menu. The page itself is written in English."
+                "pt": "Só entram no app da equipe as pessoas cujo email do Google está na lista de usuários aprovados. Esta página é para o desenvolvedor. Abra Adicionar Usuário no menu da esquerda. O formulário Adicionar / Atualizar Usuario tem Email do Google (1), Perfil (2) e Salvar (3).",
+                "en": "Only people whose Google email is on the list of approved users can sign in to the staff app. This page is for the developer. Open Add User in the left menu. The form Add / Update User has Google Email (1), Role (2) and Save (3)."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-add-user/users-01.pt.jpg",
+                "en": "help/img/guides/admin-add-user/users-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Adicione ou mude um usuário. 1. Google Email: digite o endereço Gmail com o qual a pessoa entra. 2. Role (função): escolha Alice, Rafa, Developer e assim por diante. A função decide quais páginas a pessoa vê. 3. Toque em Save. Se o email já estiver na lista, Save muda a função dele. 4. Approved Users é a lista de todos que têm acesso, cada um com sua função. Os emails estão escondidos nesta imagem.",
-                "en": "Add or change a user. 1. Google Email: type the Gmail address the person signs in with. 2. Role: choose Alice, Rafa, Developer and so on. The role decides which pages the person sees. 3. Tap Save. If the email is already on the list, Save changes its role. 4. Approved Users is the list of everyone who has access, each with a role. The emails are hidden in this picture."
+                "pt": "Escreva o endereço Gmail com o qual a pessoa entra (1). Escolha o perfil (2): Alice, Rafa ou Developer. O perfil decide quais páginas a pessoa vê. Toque em Salvar (3). Se o email já está na lista, Salvar muda o perfil dele. Nada foi salvo nesta figura.",
+                "en": "Type the Gmail address the person signs in with (1). Choose the role (2): Alice, Rafa or Developer. The role decides which pages the person sees. Tap Save (3). If the email is already on the list, Save changes its role. Nothing was saved for this picture."
               },
               "image": {
                 "pt": "help/img/guides/admin-add-user/users-02.pt.jpg",
                 "en": "help/img/guides/admin-add-user/users-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Usuarios Aprovados (1) é a lista de todos que têm acesso, cada um com um perfil. Os emails estão trocados por emails de teste na figura.",
+                "en": "Approved Users (1) is the list of everyone who has access, each with a role. The emails are replaced by test emails in the picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-add-user/users-03.pt.jpg",
+                "en": "help/img/guides/admin-add-user/users-03.en.jpg"
               }
             }
           ]

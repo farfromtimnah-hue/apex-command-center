@@ -12330,8 +12330,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra a etapa Produtos. Comece um orçamento a partir de um lead (o guia Criar e enviar um orçamento mostra como). A etapa 3 de 8 se chama Produtos. A tabela de preços aparece por categoria. O Apex já marca com quantidade 1 os itens que combinam com o serviço do lead, e mostra essas categorias primeiro. Para mudar, digite a quantidade (1) na caixa ao lado do item. Se você deixar a caixa vazia ou digitar 0, a linha sai do orçamento.",
-                "en": "Open the Products step. Start an estimate from a lead (the guide Create and send an estimate shows how). Step 3 of 8 is called Products. Your price list is grouped by category. Apex already fills in a quantity of 1 for the items that match the lead's service, and shows those categories first. To change it, type the quantity (1) in the box next to the item. If you leave the box empty or type 0, the line comes out of the estimate."
+                "pt": "Abra a etapa Produtos. Comece um orçamento a partir de um lead (o guia Criar e enviar um orçamento mostra como). A etapa 3 de 8 se chama Produtos. A tabela de preços aparece por categoria. O Apex já marca com quantidade 1 os itens que combinam com o serviço do lead, e mostra essas categorias primeiro.",
+                "en": "Open the Products step. Start an estimate from a lead (the guide Create and send an estimate shows how). Step 3 of 8 is called Products. Your price list is grouped by category. Apex already fills in a quantity of 1 for the items that match the lead's service, and shows those categories first."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/lines-01.pt.jpg",
@@ -12341,8 +12341,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Leia uma linha escolhida. Embaixo da tabela, em Linhas escolhidas, cada linha mostra o nome, a quantidade, o preço de uma unidade (1) e o tipo da linha (2). A linha pequena embaixo faz a conta, por exemplo 400 sq ft × $18.50 = $7,400.00. A caixa (3) é a descrição para o cliente. Ela começa com a descrição da sua tabela de preços e você pode escrever outra. O que está nela aparece embaixo da linha no orçamento que o seu cliente abre.",
-                "en": "Read a chosen line. Under the list, in Chosen lines, each line shows the name, the quantity, the price of one unit (1) and the line type (2). The small line under the numbers does the math, for example 400 sq ft × $18.50 = $7,400.00. The box (3) is the customer description. It starts with the description from your price list and you can write another one. What is in it appears under the line on the estimate your customer opens."
+                "pt": "Para mudar a quantidade, digite na caixa ao lado do item (1), por exemplo 400. Se você deixar a caixa vazia ou digitar 0, a linha sai do orçamento.",
+                "en": "To change a quantity, type it in the box next to the item (1), for example 400. If you leave the box empty or type 0, the line comes out of the estimate."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/lines-02.pt.jpg",
@@ -12352,8 +12352,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Mude o preço de uma linha. Digite outro preço na caixa do preço da unidade. O Apex pergunta Por que o preço mudou? e mostra o preço da tabela ao lado do novo, por exemplo $18.50 → $19.50. Escreva o motivo na caixa (1) e toque em Salvar (2). Só este orçamento muda. Se você tocar em Cancelar, ou salvar sem motivo, o preço volta ao da tabela e o Apex avisa. O motivo aparece só para você, no orçamento salvo, em Preços alterados.",
-                "en": "Change the price of a line. Type a different price in the unit price box. Apex asks Why did the rate change? and shows the price list price next to the new price, for example $18.50 → $19.50. Write the reason in the box (1) and tap Save (2). Only this estimate changes. If you tap Cancel, or save without a reason, the price goes back to the price list price and Apex tells you. The reason shows only to you, on the saved estimate, under Rate overrides."
+                "pt": "Leia uma linha escolhida. Embaixo da tabela, em Linhas escolhidas, cada linha mostra o nome, a quantidade, o preço de uma unidade (1) e o tipo da linha (2). A linha pequena embaixo faz a conta, por exemplo 400 sq ft × $18.50 = $7,400.00.",
+                "en": "Read a chosen line. Under the list, in Chosen lines, each line shows the name, the quantity, the price of one unit (1) and the line type (2). The small line under the numbers does the math, for example 400 sq ft × $18.50 = $7,400.00."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/lines-03.pt.jpg",
@@ -12363,8 +12363,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Adicione uma linha que não está na tabela. Embaixo da lista, toque em + Linha avulsa. Uma linha nova abre. Digite o nome (1), a quantidade e o preço. O menu do tipo (2) tem três opções. Normal é uma linha comum. Incluído mostra a palavra Incluído e nenhum preço, e conta $0 no total. Allowance conta o valor no total e mostra a palavra Allowance, então o cliente vê que é uma verba. No orçamento do cliente, uma linha Allowance também diz Valor final acertado na fatura. Use a caixa (3) para explicar a linha.",
-                "en": "Add a line that is not on your price list. Under the list, tap + Custom line. A new line opens. Type the name (1), the quantity and the price. The line type menu (2) has three choices. Standard is a regular line. Included shows the word Included and no price, and counts $0 in the total. Allowance counts its amount in the total and shows the word Allowance, so your customer sees it is an allowance. On the customer's estimate, an Allowance line also says Final amount reconciled on the invoice. Use the box (3) to explain the line."
+                "pt": "A caixa (1) é a descrição para o cliente. Ela começa com a descrição da sua tabela de preços e você pode escrever outra. O que está nela aparece embaixo da linha no orçamento que o seu cliente abre.",
+                "en": "The box (1) is the customer description. It starts with the description from your price list and you can write another one. What is in it appears under the line on the estimate your customer opens."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/lines-04.pt.jpg",
@@ -12374,12 +12374,100 @@
             {
               "n": 5,
               "text": {
-                "pt": "Adicionais. A etapa 4 de 8 é Adicionais: extras que o seu cliente pode somar. Ela lista só os itens da tabela de preços cujo Tipo é Adicional (add-on), e só das categorias que você já usou na etapa 3. Digite a quantidade (1) ao lado de um item. Se não houver adicionais para as categorias escolhidas, a tela diz isso. Você ainda pode tocar em + Linha avulsa (2) para um extra feito na hora. Esta etapa é opcional: toque em Continuar para pular.",
-                "en": "Add-ons. Step 4 of 8 is Add-ons: extra items your customer can add. It lists only the price list items whose Type is Add-on, and only from the categories you already used in step 3. Type the quantity (1) next to an item. If there are no add-ons for the chosen categories, the screen says so. You can still tap + Custom line (2) to add an extra by hand. This step is optional: tap Continue to skip it."
+                "pt": "Mude o preço de uma linha. Digite outro preço na caixa do preço da unidade. O Apex pergunta Por que o preço mudou? (1) e mostra o preço da tabela ao lado do novo, por exemplo $18.50 → $19.50.",
+                "en": "Change the price of a line. Type a different price in the unit price box. Apex asks Why did the rate change? (1) and shows the price list price next to the new price, for example $18.50 → $19.50."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/lines-05.pt.jpg",
                 "en": "help/img/guides/estimate-line-details/lines-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Escreva o motivo na caixa (1) e toque em Salvar (2). Só este orçamento muda. O motivo aparece só para você, no orçamento salvo, em Preços alterados. Ele também fica registrado no histórico do lead.",
+                "en": "Write the reason in the box (1) and tap Save (2). Only this estimate changes. The reason shows only to you, on the saved estimate, under Rate overrides. It is also recorded in the lead's history."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/lines-06.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/lines-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Se você tocar em Cancelar, ou salvar sem motivo, o preço volta ao da tabela e o Apex avisa (1).",
+                "en": "If you tap Cancel, or save without a reason, the price goes back to the price list price and Apex tells you (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/lines-07.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/lines-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Adicione uma linha que não está na tabela. Embaixo da lista, toque em + Linha avulsa (1). Uma linha nova abre.",
+                "en": "Add a line that is not on your price list. Under the list, tap + Custom line (1). A new line opens."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/lines-08.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/lines-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Digite o nome (1), a quantidade (2) e o preço (3) da linha nova.",
+                "en": "Type the name (1), the quantity (2) and the price (3) of the new line."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/lines-09.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/lines-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "O menu do tipo da linha (1) tem três opções. Normal é uma linha comum. Incluído mostra a palavra Incluído e nenhum preço, e conta $0 no total. Allowance conta o valor no total e mostra a palavra Allowance, então o cliente vê que é uma verba.",
+                "en": "The line type menu (1) has three choices. Standard is a regular line. Included shows the word Included and no price, and counts $0 in the total. Allowance counts its amount in the total and shows the word Allowance, so your customer sees it is an allowance."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/lines-10.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/lines-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Escolha Allowance e use a caixa (1) para explicar a linha. No orçamento do cliente, uma linha Allowance também diz Valor final acertado na fatura.",
+                "en": "Pick Allowance and use the box (1) to explain the line. On the customer's estimate, an Allowance line also says Final amount reconciled on the invoice."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/lines-11.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/lines-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Adicionais. A etapa 4 de 8 é Adicionais: itens extras que o cliente pode incluir. Ela lista só os itens da tabela cujo Tipo é Adicional, e só das categorias que você já usou na etapa 3. Digite a quantidade ao lado do item. Se não houver nenhum, a tela avisa (1).",
+                "en": "Add-ons. Step 4 of 8 is Add-ons: extra items your customer can add. It lists only the price list items whose Type is Add-on, and only from the categories you already used in step 3. Type the quantity next to an item. If there are none, the screen says so (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/lines-12.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/lines-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Você ainda pode tocar em + Linha avulsa (1) para adicionar um extra à mão. Esta etapa é opcional: toque em Continuar (2) para pular.",
+                "en": "You can still tap + Custom line (1) to add an extra by hand. This step is optional: tap Continue (2) to skip it."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/lines-13.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/lines-13.en.jpg"
               }
             }
           ]
@@ -12394,8 +12482,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Leia os números. A etapa 5 de 8 se chama Números. Ela mostra um subtotal para cada categoria (1), o Desconto (2), que é um só para a opção inteira e nunca um por linha, e o Total (3). Embaixo fica a parte Interno (não impresso) (4). Ela mostra o Custo dividido em material, mão de obra e outros, a Comissão e a Margem. Margem é o que sobra do total depois dos custos e da comissão. Só você vê essa parte. Ela nunca é impressa.",
-                "en": "Read the numbers. Step 5 of 8 is called Numbers. It shows a subtotal for each category (1), the Discount (2), which is one for the whole option and never one per line, and the Total (3). Below it is the part called Internal (never printed) (4). It shows Cost split into materials, labor and other, the Commission and the Margin. Margin is what is left of the total after costs and commission. Only you see this part. It is never printed."
+                "pt": "Leia os números. A etapa 5 de 8 se chama Números. Ela mostra um subtotal por categoria (1), o Desconto (2), que é um só para a opção inteira e nunca um por linha, e o Total (3).",
+                "en": "Read the numbers. Step 5 of 8 is called Numbers. It shows a subtotal for each category (1), the Discount (2), which is one for the whole option and never one per line, and the Total (3)."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/numbers-01.pt.jpg",
@@ -12405,8 +12493,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Entenda os avisos de margem. Um sinal vermelho aparece perto da Margem (1) quando o total é $0.00 ou quando a margem fica abaixo da margem mínima que você definiu (por exemplo abaixo da margem mínima de 30%). A linha embaixo do número diz qual é o caso. Uma linha avulsa sem custo ganha um aviso vermelho próprio (2), porque ela conta $0 de custo na margem. O aviso nunca impede nada: você ainda pode salvar e enviar.",
-                "en": "Understand the margin warnings. A red warning sign shows next to the Margin (1) when the total is $0.00 or when the margin is lower than the minimum margin you set (for example below the minimum margin of 30%). The line under the number says which one it is. A custom line with no cost gets its own red note (2), because it counts as $0 cost in the margin. The warning never stops you: you can still save and send."
+                "pt": "Abaixo fica a parte Interno (não impresso) (1). Ela mostra o Custo dividido em material, mão de obra e outros (2), a Comissão (3) e a Margem (4). Margem é o que sobra do total depois dos custos e da comissão. Só você vê esta parte. Ela nunca é impressa.",
+                "en": "Below it is the part called Internal (never printed) (1). It shows Cost split into materials, labor and other (2), the Commission (3) and the Margin (4). Margin is what is left of the total after costs and commission. Only you see this part. It is never printed."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/numbers-02.pt.jpg",
@@ -12416,8 +12504,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Escreva os termos e as notas. A etapa 7 de 8 é Termos. Válido até é o último dia do orçamento. Incluído e Não incluído dizem o que o preço cobre e o que não cobre. Notas ao cliente (1) é impressa no orçamento, então o cliente lê. Notas internas (2) nunca é impressa: é só para você e a sua equipe.",
-                "en": "Write the terms and the notes. Step 7 of 8 is Terms. Valid until is the last day of the estimate. Included and Excluded say what the price covers and what it does not. Notes to customer (1) is printed on the estimate, so your customer reads it. Internal notes (2) is never printed: it is only for you and your team."
+                "pt": "Entenda os avisos de margem. Um sinal de aviso vermelho aparece ao lado da Margem (1) quando o total é $0.00 ou quando a margem está abaixo da margem mínima que você definiu. Aqui um desconto de 25% deixa abaixo da margem mínima de 30%. A linha embaixo do número diz qual é o caso. O aviso nunca impede: você ainda pode salvar e enviar.",
+                "en": "Understand the margin warnings. A red warning sign shows next to the Margin (1) when the total is $0.00 or when the margin is lower than the minimum margin you set. Here a 25% discount puts it below the minimum margin of 30%. The line under the number says which one it is. The warning never stops you: you can still save and send."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/numbers-03.pt.jpg",
@@ -12427,8 +12515,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Veja os mesmos números no orçamento salvo. Abra o orçamento (Negócio, Orçamentos, e toque nele) e role até Interno (não impresso). Você vê Custo, Comissão e Margem (1), com o mesmo aviso, a nota vermelha da linha sem custo (3) e Preços alterados (2), com o preço da tabela, o novo preço e o motivo que você escreveu.",
-                "en": "See the same numbers on the saved estimate. Open the estimate (Business, then Estimates, then tap it) and scroll to Internal (never printed). You see Cost, Commission and Margin (1), with the same warning, the red note about the line with no cost (3) and Rate overrides (2), with the price list price, the new price and the reason you wrote."
+                "pt": "Uma linha avulsa sem custo ganha o próprio aviso vermelho (1), porque conta como custo $0 na margem.",
+                "en": "A custom line with no cost gets its own red note (1), because it counts as $0 cost in the margin."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/numbers-04.pt.jpg",
@@ -12438,12 +12526,56 @@
             {
               "n": 5,
               "text": {
-                "pt": "Veja as notas no orçamento salvo. Mais embaixo, em Pagamento e termos, você vê as parcelas, Incluído, Não incluído, Notas ao cliente (1) e Notas internas (2), com a marca nunca impressas.",
-                "en": "See the notes on the saved estimate. Further down, under Payment and terms, you see the schedule, Included, Excluded, Notes to customer (1) and Internal notes (2), marked never printed."
+                "pt": "Escreva os termos. A etapa 7 de 8 é Termos. Válido até (1) é o último dia do orçamento. Incluído (2) e Não incluído (3) dizem o que o preço cobre e o que não cobre.",
+                "en": "Write the terms. Step 7 of 8 is Terms. Valid until (1) is the last day of the estimate. Included (2) and Excluded (3) say what the price covers and what it does not."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/numbers-05.pt.jpg",
                 "en": "help/img/guides/estimate-line-details/numbers-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Notas ao cliente (1) é impressa no orçamento, então o seu cliente lê. Notas internas (2) nunca é impressa: é só para você e sua equipe.",
+                "en": "Notes to customer (1) is printed on the estimate, so your customer reads it. Internal notes (2) is never printed: it is only for you and your team."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/numbers-06.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/numbers-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Veja os mesmos números no orçamento salvo. Abra o orçamento (Negócio, depois Orçamentos, e toque nele) e role até Interno (não impresso). Você vê o Custo (1), a Margem com o mesmo aviso (2) e o aviso vermelho da linha sem custo (3).",
+                "en": "See the same numbers on the saved estimate. Open the estimate (Business, then Estimates, then tap it) and scroll to Internal (never printed). You see Cost (1), Margin with the same warning (2) and the red note about the line with no cost (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/numbers-07.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/numbers-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Preços alterados (1) mostra o preço da tabela, o novo preço e o motivo que você escreveu.",
+                "en": "Rate overrides (1) lists the price list price, the new price and the reason you wrote."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/numbers-08.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/numbers-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Veja as notas no orçamento salvo. Mais abaixo, em Pagamento e termos, você vê as parcelas, Incluído, Não incluído, Notas ao cliente (1) e Notas internas (2), marcadas como nunca impressas.",
+                "en": "See the notes on the saved estimate. Further down, under Payment and terms, you see the schedule, Included, Excluded, Notes to customer (1) and Internal notes (2), marked never printed."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/numbers-09.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/numbers-09.en.jpg"
               }
             }
           ]
@@ -12460,7 +12592,7 @@
             ]
           },
           "section": "lines",
-          "step": 4
+          "step": 8
         },
         {
           "labels": {
@@ -12472,7 +12604,7 @@
             ]
           },
           "section": "lines",
-          "step": 3
+          "step": 5
         }
       ]
     },

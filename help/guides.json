@@ -26446,6 +26446,111 @@
           "step": 3
         }
       ]
+    },
+    {
+      "id": "admin-settings-hours-alerts",
+      "audience": "admin",
+      "title": {
+        "pt": "Configurações: uso de SMS, disponibilidade e notificações",
+        "en": "Settings: SMS usage, availability and notifications"
+      },
+      "summary": {
+        "pt": "Veja o contador de SMS, defina os horários que o cliente vê no link de agendamento e ligue os avisos do Apex neste aparelho.",
+        "en": "See the SMS counter, set the times a client sees on the booking link and turn on Apex alerts on this device."
+      },
+      "keywords": {
+        "pt": [
+          "uso de sms",
+          "disponibilidade",
+          "horário de trabalho",
+          "aviso mínimo",
+          "dias de trabalho",
+          "notificações",
+          "avisos",
+          "link de agendamento"
+        ],
+        "en": [
+          "sms usage",
+          "availability",
+          "working hours",
+          "minimum notice",
+          "working days",
+          "notifications",
+          "alerts",
+          "booking link"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "hours",
+          "title": {
+            "pt": "Horários, SMS e avisos",
+            "en": "Hours, SMS and alerts"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Uso de SMS. Embaixo das opções de pagamentos do Apex Club, a caixa Uso de SMS (1) mostra dois contadores: Códigos de acesso (passkey), por exemplo 0/30 hoje e 0/600 neste mês, e Lembretes de reunião, por exemplo 0/60 hoje e 0/600 neste mês. O primeiro número é quantos textos saíram, o segundo é o limite.",
+                "en": "SMS usage. Under the Apex Club payments options, the box SMS usage (1) shows two counters: Passkey login codes, for example 0/30 today and 0/600 this month, and Meeting reminders, for example 0/60 today and 0/600 this month. The first number is how many texts went out, the second is the limit."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-settings-hours-alerts/hours-01.pt.jpg",
+                "en": "help/img/guides/admin-settings-hours-alerts/hours-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Disponibilidade. Estas regras definem os horários que o cliente vê no link de agendamento. Defina Início do dia, Fim do dia, Aviso mínimo em horas, Máximo de reuniões por dia e Duração padrão (1). Defina o Deslocamento padrão (2). Toque nos Dias de trabalho (3) em que você atende. A linha embaixo mostra o que os clientes podem marcar. Toque em Salvar (4).",
+                "en": "Availability. These rules set the times a client sees on the booking link. Set Day starts, Day ends, Minimum notice in hours, Maximum meetings per day and Default duration (1). Set the Default travel time (2). Tap the Working days (3) you work. The line under them shows what clients can book. Tap Save (4)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-settings-hours-alerts/hours-02.pt.jpg",
+                "en": "help/img/guides/admin-settings-hours-alerts/hours-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Notificações neste dispositivo. Em Notificações, o texto diz que os avisos do Apex vão direto para o seu celular e que precisa do app instalado na tela de início. Ligue o botão (1) para receber os avisos do Apex neste dispositivo.",
+                "en": "Notifications on this device. Under Notifications, the text says Apex alerts straight to your phone and that it needs the app installed on your Home Screen. Turn the switch (1) on to get Apex alerts on this device."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-settings-hours-alerts/hours-03.pt.jpg",
+                "en": "help/img/guides/admin-settings-hours-alerts/hours-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Salvar disponibilidade"
+            ],
+            "en": [
+              "Save availability"
+            ]
+          },
+          "section": "hours",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Notificações neste dispositivo"
+            ],
+            "en": [
+              "Notifications on this device"
+            ]
+          },
+          "section": "hours",
+          "step": 3
+        }
+      ]
     }
   ],
   "pages": {
@@ -26793,7 +26898,8 @@
         "admin-message-templates",
         "admin-menu-language-learn",
         "admin-settings-pictures-message",
-        "admin-settings-packages-payment"
+        "admin-settings-packages-payment",
+        "admin-settings-hours-alerts"
       ],
       "overview": {
         "pt": "Aqui você muda os textos das mensagens de WhatsApp, os pacotes, os dados de pagamento e a disponibilidade.",

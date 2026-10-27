@@ -12227,8 +12227,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra o Aprenda. Toque em Apex (1) nas abas e depois em Aprenda (2). A biblioteca abre na própria página. O botão Voltar leva você de volta ao portal.",
-                "en": "Open Learn. Tap Apex (1) on the tabs, then tap Learn (2). The library opens on its own page. The Back button takes you back to the portal."
+                "pt": "Toque em Apex (1) na fileira de abas no alto.",
+                "en": "Tap Apex (1) on the row of tabs at the top."
               },
               "image": {
                 "pt": "help/img/guides/use-learn-and-language/learn-01.pt.jpg",
@@ -12238,8 +12238,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Pergunte com as suas palavras. Digite uma palavra ou uma pergunta inteira na caixa de busca (1), por exemplo como enviar uma fatura. Depois toque em Buscar (2) ou aperte Enter. Você não precisa saber o nome do guia.",
-                "en": "Ask in your own words. Type a word or a whole question in the search box (1), for example how do I send an invoice. Then tap Search (2) or press Enter. You do not need the exact name of the guide."
+                "pt": "Um menu abre (1). Toque em Aprenda (2). A biblioteca abre na própria página.",
+                "en": "A menu opens (1). Tap Learn (2). The library opens on its own page."
               },
               "image": {
                 "pt": "help/img/guides/use-learn-and-language/learn-02.pt.jpg",
@@ -12249,8 +12249,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Abra o guia. A Apex responde em uma ou duas linhas (1) e mostra o guia que serve. Toque em Ver passo a passo (2) para ler com figuras. Toque em Copiar link (3) para mandar o guia a alguém da equipe. Quando o guia tem vídeo, aparece a etiqueta Vídeo (4).",
-                "en": "Open the guide. Apex answers in one or two lines (1) and shows the guide that fits. Tap See step by step (2) to read it with pictures. Tap Copy link (3) to send the guide to a teammate."
+                "pt": "Esta é a página Aprenda. O botão Voltar (1) leva você de volta ao portal.",
+                "en": "This is the Learn page. The Back button (1) takes you back to the portal."
               },
               "image": {
                 "pt": "help/img/guides/use-learn-and-language/learn-03.pt.jpg",
@@ -12260,8 +12260,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Aprenda a partir de qualquer botão. No computador, clique com o botão direito no botão (2). Um menuzinho (1) diz Aprender sobre este botão. A própria página do Aprenda explica: no app do celular, toque e segure o botão.",
-                "en": "Learn from any button. On a computer, right click the button (2). A small menu (1) says Learn about this button. The Learn page itself explains: in the phone app, press and hold the button."
+                "pt": "Pergunte com as suas palavras. Digite uma palavra ou uma pergunta inteira na caixa de busca (1), por exemplo como envio uma fatura. Você não precisa do nome exato do guia.",
+                "en": "Ask in your own words. Type a word or a whole question in the search box (1), for example how do I send an invoice. You do not need the exact name of the guide."
               },
               "image": {
                 "pt": "help/img/guides/use-learn-and-language/learn-04.pt.jpg",
@@ -12271,8 +12271,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "O guia abre no passo certo. Toque em Aprender sobre este botão. Abre um cartão do Aprenda no passo que explica aquele botão, com a figura. Neste exemplo, o botão Criar link de convite abriu o passo 3 do guia Adicionar pessoas e escolher o acesso. Toque no X para fechar.",
-                "en": "The guide opens at the right step. Click Learn about this button. A Learn card opens at the step that explains that button, with its picture. In this example, the button Create invite link opened step 3 of the guide Add people and choose their access. Tap the X to close."
+                "pt": "Toque em Buscar (1) ou aperte Enter.",
+                "en": "Tap Search (1) or press Enter."
               },
               "image": {
                 "pt": "help/img/guides/use-learn-and-language/learn-05.pt.jpg",
@@ -12282,8 +12282,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Troque o idioma. No alto, à direita, o botão (1) mostra o idioma para o qual você pode mudar: EN muda a página para inglês e PT muda de volta para português. Os guias seguem o idioma da tela.",
-                "en": "Switch the language. At the top right, the button (1) shows the language you can change to: EN switches the page to English and PT switches it back to Portuguese. The guides follow the language of the screen."
+                "pt": "O Apex responde em uma ou duas linhas (1) e mostra o guia que combina.",
+                "en": "Apex answers in one or two lines (1) and shows the guide that fits."
               },
               "image": {
                 "pt": "help/img/guides/use-learn-and-language/learn-06.pt.jpg",
@@ -12293,12 +12293,56 @@
             {
               "n": 7,
               "text": {
-                "pt": "Assista ao vídeo. Alguns guias têm vídeo. Ao abrir o guia, um cartão no alto (1) diz Assistir ao vídeo. Toque nele e o vídeo toca ali mesmo, na página. Embaixo (2) a página diz: Ou siga os passos abaixo. Por enquanto os vídeos existem só em português. Voltar (3) leva à biblioteca.",
-                "en": "Watch a video. For now the videos exist only in Portuguese. When you open a guide in English there is no video card, as in the picture: you read the steps with pictures. Switch to PT (1) to see the video card. Back (2) takes you to the library."
+                "pt": "Toque em Ver passo a passo (1) para ler o guia com imagens. Toque em Copiar link (2) para mandar o guia a um colega.",
+                "en": "Tap See step by step (1) to read the guide with pictures. Tap Copy link (2) to send the guide to a teammate."
               },
               "image": {
                 "pt": "help/img/guides/use-learn-and-language/learn-07.pt.jpg",
                 "en": "help/img/guides/use-learn-and-language/learn-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Aprenda a partir de qualquer botão. No computador, clique com o botão direito no botão (2). Um menuzinho (1) diz Aprender sobre este botão. A própria página do Aprenda explica: no app do celular, toque e segure o botão.",
+                "en": "Learn from any button. On a computer, right click the button (2). A small menu (1) says Learn about this button. The Learn page itself explains: in the phone app, press and hold the button."
+              },
+              "image": {
+                "pt": "help/img/guides/use-learn-and-language/learn-08.pt.jpg",
+                "en": "help/img/guides/use-learn-and-language/learn-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "O guia abre no passo certo. Toque em Aprender sobre este botão. Abre um cartão do Aprenda no passo que explica aquele botão, com a figura. Neste exemplo, o botão Criar link de convite abriu o passo 3 do guia Adicionar pessoas e escolher o acesso. Toque no X para fechar.",
+                "en": "The guide opens at the right step. Click Learn about this button. A Learn card opens at the step that explains that button, with its picture. In this example, the button Create invite link opened step 3 of the guide Add people and choose their access. Tap the X to close."
+              },
+              "image": {
+                "pt": "help/img/guides/use-learn-and-language/learn-09.pt.jpg",
+                "en": "help/img/guides/use-learn-and-language/learn-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "en": "Switch the language. At the top right, the button (1) shows the language you can change to: EN switches the page to English and PT switches it back to Portuguese. The guides follow the language of the screen.",
+                "pt": "Troque o idioma. No alto, à direita, o botão (1) mostra o idioma para o qual você pode mudar: EN muda a página para inglês e PT muda de volta para português. Os guias seguem o idioma da tela."
+              },
+              "image": {
+                "pt": "help/img/guides/use-learn-and-language/learn-10.pt.jpg",
+                "en": "help/img/guides/use-learn-and-language/learn-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Assista ao vídeo. Alguns guias têm vídeo. Ao abrir o guia, um cartão no alto (1) diz Assistir ao vídeo. Toque nele e o vídeo toca ali mesmo, na página. Embaixo (2) a página diz: Ou siga os passos abaixo. Por enquanto os vídeos existem só em português. Voltar (3) leva à biblioteca.",
+                "en": "Watch a video. For now the videos exist only in Portuguese. When you open a guide in English there is no video card, as in the picture: you read the steps with pictures. Switch to PT (1) to see the video card. Back (2) takes you to the library."
+              },
+              "image": {
+                "pt": "help/img/guides/use-learn-and-language/learn-11.pt.jpg",
+                "en": "help/img/guides/use-learn-and-language/learn-11.en.jpg"
               }
             }
           ]
@@ -12319,7 +12363,7 @@
         },
         {
           "section": "learn",
-          "step": 6,
+          "step": 10,
           "labels": {
             "pt": [
               "PT",

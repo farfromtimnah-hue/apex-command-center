@@ -3159,65 +3159,167 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra as configurações dos documentos. Toque em Negócio, depois em Orçamentos e depois em Configurações. As seções de pagamentos e prazos ficam mais embaixo, em Pagamentos e prazos.",
-                "en": "Open the document settings. Tap Business, then Estimates, then Settings. The sections for payments and terms are further down the page, under Payments & terms."
+                "pt": "Toque em Negócio (1) na fileira de abas no alto. Um menu abre. Toque em Orçamentos (2).",
+                "en": "Tap Business (1) in the row of tabs at the top. A menu opens. Tap Estimates (2)."
               },
               "image": {
-                "en": "help/img/guides/payments-and-terms/terms-01.en.jpg",
-                "pt": "help/img/guides/payments-and-terms/terms-01.pt.jpg"
+                "pt": "help/img/guides/payments-and-terms/terms-01.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Escolha as formas de pagamento que você aceita. Em Formas de pagamento aceitas, marque as formas que você aceita: só as marcadas aparecem nos seus documentos. Algumas têm uma linha para o detalhe, como o número do Zelle ou em nome de quem fazer o cheque. Para pagamento com cartão, veja o guia Configurar pagamentos por cartão.",
-                "en": "Choose the payment methods you accept. Under Accepted payment methods, tick the ways you accept payment: only the ticked ones print on your documents. Some have a line for the detail, such as the Zelle number or who to make the check out to. For card payments, see the guide Set up card payments."
+                "pt": "Toque em Configurações (1), a segunda aba ao lado de Orçamentos. A página de configurações dos documentos abre. As seções de pagamentos e prazos ficam mais abaixo, em Pagamentos e prazos.",
+                "en": "Tap Settings (1), the second tab next to Estimates. The Document settings page opens. The sections for payments and terms are further down the page, under Payments & terms."
               },
               "image": {
-                "en": "help/img/guides/payments-and-terms/terms-02.en.jpg",
-                "pt": "help/img/guides/payments-and-terms/terms-02.pt.jpg"
+                "pt": "help/img/guides/payments-and-terms/terms-02.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Defina os prazos. Em Prazos, preencha Validade do orçamento (dias), Prazo de pagamento padrão e, quando escolher a opção personalizada, o número de Dias.",
-                "en": "Set your terms. Under Terms, fill in Estimate valid for (days), Default payment terms and, when you pick a custom option, the number of Days."
+                "pt": "Role até Pagamentos e prazos (1). A primeira parte é Formas de pagamento aceitas.",
+                "en": "Scroll down to Payments & terms (1). The first part is Accepted payment methods."
               },
               "image": {
-                "en": "help/img/guides/payments-and-terms/terms-03.en.jpg",
-                "pt": "help/img/guides/payments-and-terms/terms-03.pt.jpg"
+                "pt": "help/img/guides/payments-and-terms/terms-03.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Veja os modelos de parcelamento. Em Modelos de parcelamento você vê formas prontas de dividir um pagamento, como Deposit 50% / Completion 50% e Thirds. Cada modelo é uma lista de etapas, e as etapas precisam somar exatamente 100%. A tela mostra Total: 100% quando a soma fecha. Toque em + Etapa para adicionar uma etapa a um modelo.",
-                "en": "Review your payment schedule presets. Under Payment schedule presets you see ready-made ways to split a payment, such as Deposit 50% / Completion 50% and Thirds. Each preset is a list of steps, and the steps must total exactly 100%. The screen shows Total: 100% when it adds up. Tap + Step to add a step to a preset."
+                "pt": "Em Formas de pagamento aceitas, marque as formas que você aceita, por exemplo Dinheiro (1). Só as marcadas aparecem nos documentos. O Apex salva na hora e mostra Salvo.",
+                "en": "Under Accepted payment methods, tick the ways you accept payment, for example Cash (1). Only the ticked ones print on your documents. Apex saves at once and shows Saved."
               },
               "image": {
-                "en": "help/img/guides/payments-and-terms/terms-04.en.jpg",
-                "pt": "help/img/guides/payments-and-terms/terms-04.pt.jpg"
+                "pt": "help/img/guides/payments-and-terms/terms-04.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Defina as regras de atraso. Em Margem e atraso, a Margem mínima mostra o mesmo valor dos Projetos: o assistente avisa quando um orçamento fica abaixo dela, e você muda em Projetos. Juros por atraso (% ao ano) e Dias de carência são com você. Juros em branco significa sem juros. A tela lembra que a lei da Flórida (§687.03) limita os juros a 18% ao ano (1,5% ao mês).",
-                "en": "Set the late payment rules. Under Margin and late payment, Minimum margin shows the same value as on Projects: the builder warns when an estimate falls below it, and you change it on Projects. Late payment interest (% per year) and Grace days are yours to fill in. A blank interest means no penalty. The screen notes that Florida law (§687.03) caps interest at 18% per year (1.5% per month)."
+                "pt": "Algumas formas têm uma linha para o detalhe: o número do Zelle (1), o nome para quem fazer o cheque (2), ou os dados da transferência (3).",
+                "en": "Some methods have a line for the detail: the Zelle number (1), who to make the check out to (2), or the bank transfer details (3)."
               },
               "image": {
-                "en": "help/img/guides/payments-and-terms/terms-05.en.jpg",
-                "pt": "help/img/guides/payments-and-terms/terms-05.pt.jpg"
+                "pt": "help/img/guides/payments-and-terms/terms-05.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-05.en.jpg"
               }
             },
             {
               "n": 6,
               "text": {
-                "pt": "Veja o histórico de alterações. Em Mensagens de envio, toque em Ver histórico de alterações. Uma folha chamada Histórico de alterações lista cada mudança nestes ajustes: o nome do ajuste, o valor antigo, uma seta, o valor novo, quem mudou e quando. Quando nada foi mudado ainda, ela diz Nenhuma alteração ainda.",
-                "en": "See the change history. Under Send messages, tap View change history. A sheet called Change history lists each change to these settings: the name of the setting, the old value, an arrow, the new value, who changed it and when. When nothing was changed yet, it says No changes yet."
+                "pt": "Cartão / Stripe (1) fica marcado quando os pagamentos com cartão estão conectados. As faturas então mostram o botão de pagamento com cartão, e o pagamento é registrado automaticamente. Para pagamentos com cartão, veja o guia Configurar pagamentos por cartão.",
+                "en": "Card / Stripe (1) is ticked when card payments are connected. Invoices then show the card payment button, and the payment is recorded automatically. For card payments, see the guide Set up card payments."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/payments-and-terms/terms-06.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Em Prazos, preencha Validade do orçamento (dias) (1) e Prazo de pagamento padrão (2). Quando você escolhe Outro (dias), preencha também o número de Dias (3).",
+                "en": "Under Terms, fill in Estimate valid for (days) (1) and Default payment terms (2). When you pick Custom (days), also fill in the number of Days (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/payments-and-terms/terms-07.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Em Modelos de parcelamento você vê formas prontas de dividir um pagamento, como Deposit 50% / Completion 50% (1) e Thirds. Cada modelo é uma lista de etapas.",
+                "en": "Under Payment schedule presets you see ready-made ways to split a payment, such as Deposit 50% / Completion 50% (1) and Thirds. Each preset is a list of steps."
+              },
+              "image": {
+                "pt": "help/img/guides/payments-and-terms/terms-08.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "As etapas de um modelo precisam somar exatamente 100%. A tela mostra Total: 100% (1) com um visto quando a soma fecha.",
+                "en": "The steps of a preset must total exactly 100%. The screen shows Total: 100% (1) with a check mark when it adds up."
+              },
+              "image": {
+                "pt": "help/img/guides/payments-and-terms/terms-09.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Toque em + Etapa (1) para adicionar uma etapa a um modelo.",
+                "en": "Tap + Step (1) to add a step to a preset."
+              },
+              "image": {
+                "pt": "help/img/guides/payments-and-terms/terms-10.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Uma etapa nova e vazia (1) aparece. A linha embaixo (2) fica vermelha e diz que o total precisa ser 100%. Preencha um nome e uma porcentagem, ou toque no X para remover a etapa.",
+                "en": "A new empty step (1) appears. The line under it (2) turns red and says the total must be 100%. Fill in a name and a percent, or tap the X to remove the step."
+              },
+              "image": {
+                "pt": "help/img/guides/payments-and-terms/terms-11.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Em Margem e atraso, Margem mínima (1) mostra o mesmo valor dos Projetos: o assistente avisa quando um orçamento fica abaixo dela, e você muda em Projetos. Juros por atraso (% ao ano) (2) e Dias de carência (3) são seus para preencher.",
+                "en": "Under Margin and late payment, Minimum margin (1) shows the same value as on Projects: the builder warns when an estimate falls below it, and you change it on Projects. Late payment interest (% per year) (2) and Grace days (3) are yours to fill in."
+              },
+              "image": {
+                "pt": "help/img/guides/payments-and-terms/terms-12.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Juros em branco significam sem penalidade. A tela avisa (1) que a lei da Flórida (§687.03) limita os juros a 18% ao ano (1,5% ao mês).",
+                "en": "A blank interest means no penalty. The screen notes (1) that Florida law (§687.03) caps interest at 18% per year (1.5% per month)."
+              },
+              "image": {
+                "pt": "help/img/guides/payments-and-terms/terms-13.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Em Mensagens de envio, toque em Ver histórico de alterações (1).",
+                "en": "Under Send messages, tap View change history (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/payments-and-terms/terms-14.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Uma folha chamada Histórico de alterações abre. Ela lista cada mudança nessas configurações (1): o nome da configuração, o valor antigo, uma seta, o valor novo, quem mudou e quando. Quando nada foi mudado ainda, ela diz Nenhuma alteração ainda.",
+                "en": "A sheet called Change history opens. It lists each change to these settings (1): the name of the setting, the old value, an arrow, the new value, who changed it and when. When nothing was changed yet, it says No changes yet."
+              },
+              "image": {
+                "pt": "help/img/guides/payments-and-terms/terms-15.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/terms-15.en.jpg"
+              }
             }
           ]
         }
@@ -3233,7 +3335,7 @@
             ]
           },
           "section": "terms",
-          "step": 4
+          "step": 10
         },
         {
           "labels": {
@@ -3245,7 +3347,7 @@
             ]
           },
           "section": "terms",
-          "step": 6
+          "step": 14
         }
       ]
     },

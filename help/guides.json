@@ -24686,6 +24686,138 @@
           "step": 3
         }
       ]
+    },
+    {
+      "id": "admin-finance-categories",
+      "audience": "admin",
+      "title": {
+        "pt": "Financeiro: categorias, regras e categorizar compras",
+        "en": "Financial: categories, rules and sorting charges"
+      },
+      "summary": {
+        "pt": "Veja o que ainda não tem categoria, crie categorias e entenda as regras automáticas.",
+        "en": "See what has no category, add categories and understand the automatic rules."
+      },
+      "keywords": {
+        "pt": [
+          "categorias",
+          "categorizar",
+          "regras",
+          "nova categoria",
+          "automaticamente",
+          "financeiro"
+        ],
+        "en": [
+          "categories",
+          "categorize",
+          "rules",
+          "new category",
+          "auto-categorize",
+          "financial"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "cat",
+          "title": {
+            "pt": "Categorias",
+            "en": "Categories"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra Financeiro no menu da esquerda e toque na aba Categorias (1). Aqui o dinheiro é separado em grupos. É opcional: os saldos e o fluxo funcionam sem isto. Os nomes e valores nas imagens são inventados.",
+                "en": "Open Financial in the left menu, then tap the Categories tab (1). This is where the money is sorted into groups. It is optional: balances and cash flow work without it. Names and amounts in the pictures are made up."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-categories/cat-s01.pt.jpg",
+                "en": "help/img/guides/admin-finance-categories/cat-s01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "A caixa Ainda não categorizado mostra o dinheiro que ainda não tem categoria. Categorizar agora (1) abre uma compra de cada vez. Você escolhe a categoria e se vale só para esta compra, para esta e as futuras, ou para todo o histórico. No nosso teste não tocamos.",
+                "en": "The box Not categorized yet shows the money that has no category. Categorize now (1) opens one charge at a time. You choose the category, then whether it applies to this charge only, to this and future charges, or to all history. We did not tap it in our test."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-categories/cat-s02.pt.jpg",
+                "en": "help/img/guides/admin-finance-categories/cat-s02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Categorizar automaticamente (2) pede ao Claude para separar as compras sem categoria por você. Confira o resultado depois. No nosso teste não tocamos.",
+                "en": "Auto-categorize (2) asks Claude to sort the uncategorized charges for you. Check the result afterwards. We did not tap it in our test."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-categories/cat-s03.pt.jpg",
+                "en": "help/img/guides/admin-finance-categories/cat-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Suas categorias (1) lista todas as categorias em três grupos: Entrada, Saída e Transferência. + Nova categoria (2) cria uma, e ela aparece na hora na lista de cada transação. Não criamos nenhuma.",
+                "en": "Your categories (1) lists every category in three groups: Money in, Money out and Transfer. + New category (2) adds one, and it appears at once in the list of every transaction. We did not add one."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-categories/cat-s04.pt.jpg",
+                "en": "help/img/guides/admin-finance-categories/cat-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Regras é uma lista mais abaixo nesta aba. Cada regra separa sozinha todas as compras futuras daquela loja, então o trabalho diminui a cada mês. Use o menu da regra para mudar a categoria, ou Excluir para apagar a regra. Sem imagem: a lista mostra lojas reais.",
+                "en": "Rules is a list lower on this tab. Each rule sorts every future charge from that shop on its own, so the work shrinks every month. Use the menu on a rule to change its category, or Excluir to delete the rule. No picture: the list shows real shops."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Categorizar agora"
+            ],
+            "en": [
+              "Categorize now"
+            ]
+          },
+          "section": "cat",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Categorizar automaticamente"
+            ],
+            "en": [
+              "Auto-categorize"
+            ]
+          },
+          "section": "cat",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Nova categoria"
+            ],
+            "en": [
+              "New category"
+            ]
+          },
+          "section": "cat",
+          "step": 4
+        }
+      ]
     }
   ],
   "pages": {
@@ -24762,7 +24894,8 @@
       },
       "guides": [
         "admin-record-payment",
-        "admin-invoices"
+        "admin-invoices",
+        "admin-finance-categories"
       ],
       "overview": {
         "pt": "Aqui você acompanha o financeiro e as faturas.",

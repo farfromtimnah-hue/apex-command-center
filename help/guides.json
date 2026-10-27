@@ -23652,6 +23652,145 @@
           "step": 2
         }
       ]
+    },
+    {
+      "id": "failures-xray",
+      "audience": "client",
+      "who": [
+        "office",
+        "lead"
+      ],
+      "title": {
+        "pt": "Raio X Falhas: responda e veja o resultado",
+        "en": "Failures X-Ray: answer it and read the result"
+      },
+      "summary": {
+        "pt": "Dê uma nota de 0 a 10 para 27 itens sobre o que acontece na sua empresa, envie e leia o resultado.",
+        "en": "Rate 27 items from 0 to 10 for how much each happens in your company, submit and read the result."
+      },
+      "keywords": {
+        "pt": [
+          "raio x falhas",
+          "falhas operacionais",
+          "sobrevivência",
+          "eficiência operacional",
+          "27 itens",
+          "concluir"
+        ],
+        "en": [
+          "failures x-ray",
+          "operational failures",
+          "survival",
+          "operational efficiency",
+          "27 items",
+          "finish"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "answer",
+          "title": {
+            "pt": "Responder o diagnóstico",
+            "en": "Answer the assessment"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o Raio X Falhas. Toque em Apex, depois em Atribuídos e em Abrir em Raio X Falhas. Veja o guia Suas ferramentas: os diagnósticos que a Apex liberou.",
+                "en": "Open the Failures X-Ray. Tap Apex, then Assigned, then Open on Failures X-Ray. See the guide Your tools: the assessments Apex gave you."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Comece. A primeira página diz: São 27 itens. Em cada um, dê uma nota de 0 a 10 para o quanto aquilo acontece hoje na sua empresa. 0 significa que não acontece, 10 que acontece o tempo todo. Suas respostas são salvas automaticamente, você pode parar e continuar depois. A linha 0 de 27 respostas preenchidas conta as suas respostas. Toque em Começar (1).",
+                "en": "Start. The first page says: There are 27 items. For each, rate from 0 to 10 how much it happens in your company today. 0 means it does not happen, 10 that it happens constantly. Your answers are saved automatically, you can stop and pick up later. The line 0 of 27 answers filled in counts your answers. Tap Start (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/failures-xray/answer-02.pt.jpg",
+                "en": "help/img/guides/failures-xray/answer-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Responda um item. Cada item cita uma falha, por exemplo Falta de direcionamento claro. Toque em um número de 0 a 10 para o quanto aquilo acontece, por exemplo 2 (1). Aqui a legenda é ao contrário: 0 a 3 Adequado (verde), 4 a 7 Atenção (amarelo), 8 a 10 Crítico (vermelho).",
+                "en": "Answer an item. Each item names a failure, for example Lack of clear direction. Tap a number from 0 to 10 for how much it happens, for example 2 (1). Here the key is the other way round: 0 to 3 Adequate (green), 4 to 7 Attention (yellow), 8 to 10 Critical (red)."
+              },
+              "image": {
+                "pt": "help/img/guides/failures-xray/answer-03.pt.jpg",
+                "en": "help/img/guides/failures-xray/answer-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Responda os outros 26 itens. Role para baixo e toque em um número em cada um. Os itens vêm em grupos, o primeiro se chama Falhas operacionais. Cada toque é salvo sozinho, então você pode parar a qualquer hora e continuar depois.",
+                "en": "Answer the other 26 items. Scroll down and tap one number for each. The items come in groups, the first one is called Operational failures. Every tap is saved by itself, so you can stop at any time and pick up later."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Termine. No fim da página, toque em Concluir (1). Embaixo dele, Salvar e continuar depois sai da página e guarda as suas respostas.",
+                "en": "Finish. At the bottom of the page tap Finish (1). Under it, Save and continue later leaves the page and keeps your answers."
+              },
+              "image": {
+                "pt": "help/img/guides/failures-xray/answer-05.pt.jpg",
+                "en": "help/img/guides/failures-xray/answer-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Confirme o envio. A Apex pergunta: Enviar suas respostas? Depois de concluir, não será possível alterá-las. Toque em Sim, enviar minhas respostas (1). Toque em Continuar editando para voltar.",
+                "en": "Confirm the submit. Apex asks: Submit your answers? They cannot be changed after finishing. Tap Yes, submit my answers (1). Tap Keep editing to go back."
+              },
+              "image": {
+                "pt": "help/img/guides/failures-xray/answer-06.pt.jpg",
+                "en": "help/img/guides/failures-xray/answer-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Leia o resultado. A página diz Raio X Falhas concluído: Obrigado! Seu diagnóstico foi enviado. A nota (1) mostra a porcentagem e os pontos de 100, por exemplo 80% e 80/100, com uma etiqueta, por exemplo Nível de Saúde Excelente. Embaixo, cada um dos 27 itens tem uma linha com a nota, por exemplo Falta de direcionamento claro 2/10, e uma etiqueta, por exemplo Adequado.",
+                "en": "Read your result. The page says Failures X-Ray completed: Thank you! Your diagnostic has been submitted. The score (1) shows the percent and the points out of 100, for example 80% and 80/100, with a tag, for example Excellent Health Level. Below it, each of the 27 items has a row with its score, for example Lack of clear direction 2/10, and a tag, for example Adequate."
+              },
+              "image": {
+                "pt": "help/img/guides/failures-xray/answer-07.pt.jpg",
+                "en": "help/img/guides/failures-xray/answer-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Abra o relatório completo. Embaixo da lista, toque em Ver relatório completo. Embaixo do botão a página diz: Seu consultor vai apresentar o relatório completo com o plano de ação prioritário. Você acha o relatório de novo em Documentos, em Diagnósticos e relatórios concluídos.",
+                "en": "Open the full report. Under the list, tap View full report. Under the button the page says: Your consultant will walk you through the full report and the priority action plan. You can find the report again in Documents, under Completed assessments & reports."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Raio X Falhas"
+            ],
+            "en": [
+              "Failures X-Ray"
+            ]
+          },
+          "section": "answer",
+          "step": 2
+        }
+      ]
     }
   ],
   "pages": {
@@ -23909,7 +24048,8 @@
         "other-assessments",
         "management-xray",
         "leadership-xray",
-        "permissiveness-xray"
+        "permissiveness-xray",
+        "failures-xray"
       ],
       "overview": {
         "pt": "Aqui ficam os documentos, os arquivos e os relatórios.",
@@ -24083,7 +24223,8 @@
         "other-assessments",
         "management-xray",
         "leadership-xray",
-        "permissiveness-xray"
+        "permissiveness-xray",
+        "failures-xray"
       ],
       "overview": {
         "pt": "Aqui ficam os diagnósticos que a Apex liberou para você. Toque em Abrir para responder um.",
@@ -24153,6 +24294,19 @@
       "overview": {
         "pt": "Aqui você responde o Raio X de Permissividade e vê o resultado.",
         "en": "Here you answer the Permissiveness X-Ray and see the result."
+      }
+    },
+    "falhasxray": {
+      "title": {
+        "pt": "Raio X Falhas",
+        "en": "Failures X-Ray"
+      },
+      "guides": [
+        "failures-xray"
+      ],
+      "overview": {
+        "pt": "Aqui você responde o Raio X Falhas e vê o resultado.",
+        "en": "Here you answer the Failures X-Ray and see the result."
       }
     }
   }

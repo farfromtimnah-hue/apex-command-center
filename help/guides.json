@@ -17737,10 +17737,13 @@
             {
               "n": 5,
               "text": {
-                "pt": "O dono vê o botão Desativar link. O vendedor não. Em uma fatura, a etiqueta vermelha no alto é outra coisa: quer dizer que a fatura precisa ser enviada de novo, veja o guia de faturas e pagamentos.",
-                "en": "The owner sees the Disable link button. A salesperson does not. For an invoice, the red tag at the top is a different thing: it means the invoice must be sent again, see the guide on invoices and payments."
+                "pt": "O dono vê o botão Desativar link (1), aqui em um orçamento. O vendedor não. Em uma fatura, a etiqueta vermelha no alto é outra coisa: quer dizer que a fatura precisa ser enviada de novo, veja o guia de faturas e pagamentos.",
+                "en": "The owner sees the Disable link button (1), here on an estimate. A salesperson does not. For an invoice, the red tag at the top is a different thing: it means the invoice must be sent again, see the guide on invoices and payments."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/turn-customer-link-off/link-05.pt.jpg",
+                "en": "help/img/guides/turn-customer-link-off/link-05.en.jpg"
+              }
             },
             {
               "n": 6,

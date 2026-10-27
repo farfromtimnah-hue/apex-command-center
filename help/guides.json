@@ -8510,8 +8510,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra os ajustes da página de indicação. Toque em Ajustes no alto à direita e role até Página de indicação. É a página pública que os links dos seus parceiros abrem. Os ajustes só mudam como ela aparece para os seus clientes. Escolha o Idioma inicial (1): quem abrir ainda pode trocar o idioma, isto só define em qual ele abre. Defina a Cor de fundo (2) e a Cor de destaque (3), digitando o código da cor. Deixe um campo vazio para voltar ao padrão. O seu logo (4) aparece na página: para trocar, toque no logo no topo da aba Início.",
-                "en": "Open the referral page settings. Tap Settings at the top right and scroll to Referral page. This is the public page your partners' links open. The settings only change how it looks to your customers. Choose the Starting language (1): the visitor can still switch language, this only sets which one it opens in. Set the Background color (2) and the Accent color (3) by typing the color code. Leave a field empty to go back to the default. Your logo (4) appears on the page: to change it, tap the logo at the top of the Home tab."
+                "pt": "Toque em Ajustes (1) no alto à direita do portal.",
+                "en": "Tap Settings (1) at the top right of the portal."
               },
               "image": {
                 "pt": "help/img/guides/referral-page-settings/page-01.pt.jpg",
@@ -8521,12 +8521,78 @@
             {
               "n": 2,
               "text": {
-                "pt": "Salve. Role até o fim de Suas listas e toque em Salvar ajustes (1). O mesmo botão salva as suas listas e a margem mínima. Aparece Ajustes salvos. Depois, abra a página de indicação de um parceiro: a cor nova já aparece nela.",
-                "en": "Save. Scroll to the end of Your lists and tap Save settings (1). The same button saves your lists and the minimum margin. Settings saved appears. Then open a partner's referral page: the new color already shows on it."
+                "pt": "Role até Página de indicação (1). É a página pública que os links dos seus parceiros abrem. Os ajustes só mudam como ela aparece para os seus clientes.",
+                "en": "Scroll to Referral page (1). This is the public page your partners' links open. The settings only change how it looks to your customers."
               },
               "image": {
                 "pt": "help/img/guides/referral-page-settings/page-02.pt.jpg",
                 "en": "help/img/guides/referral-page-settings/page-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Escolha o Idioma inicial (1). Quem abrir ainda pode trocar o idioma: isto só define em qual ele abre.",
+                "en": "Choose the Starting language (1). The visitor can still switch language: this only sets which one it opens in."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-page-settings/page-03.pt.jpg",
+                "en": "help/img/guides/referral-page-settings/page-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Defina a Cor de fundo (1), digitando o código da cor.",
+                "en": "Set the Background color (1) by typing the color code."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-page-settings/page-04.pt.jpg",
+                "en": "help/img/guides/referral-page-settings/page-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Defina a Cor de destaque (1) do mesmo jeito. Deixe um campo vazio para voltar ao padrão.",
+                "en": "Set the Accent color (1) the same way. Leave a field empty to go back to the default."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-page-settings/page-05.pt.jpg",
+                "en": "help/img/guides/referral-page-settings/page-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "O seu logo (1) aparece na página. Para trocar, toque no logo no topo da aba Início.",
+                "en": "Your logo (1) appears on the page. To change it, tap the logo at the top of the Home tab."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-page-settings/page-06.pt.jpg",
+                "en": "help/img/guides/referral-page-settings/page-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Role até o fim de Suas listas e toque em Salvar ajustes (1). O mesmo botão salva as suas listas e a margem mínima.",
+                "en": "Scroll to the end of Your lists and tap Save settings (1). The same button saves your lists and the minimum margin."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-page-settings/page-07.pt.jpg",
+                "en": "help/img/guides/referral-page-settings/page-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Aparece Ajustes salvos. Depois, abra a página de indicação de um parceiro: a cor nova já aparece nela.",
+                "en": "Settings saved appears. Then open a partner's referral page: the new color already shows on it."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-page-settings/page-08.pt.jpg",
+                "en": "help/img/guides/referral-page-settings/page-08.en.jpg"
               }
             }
           ]
@@ -8541,10 +8607,13 @@
             {
               "n": 1,
               "text": {
-                "pt": "Uma lista de serviços também aparece como opções nesta página. Você a edita em outro lugar: Negócio, depois Orçamentos, depois Configurações, depois Serviços. O guia Sua lista de serviços mostra como adicionar e remover um serviço.",
-                "en": "A list of services also appears as options on this page. You edit it in a different place: Business, then Estimates, then Settings, then Services. The guide Your list of services shows how to add and remove a service."
+                "pt": "Uma lista de serviços também aparece como opções nesta página. Você a edita em outro lugar: Negócio, depois Orçamentos, depois Configurações, depois Serviços (1). O guia Sua lista de serviços mostra como adicionar e remover um serviço.",
+                "en": "A list of services also appears as options on this page. You edit it in a different place: Business, then Estimates, then Settings, then Services (1). The guide Your list of services shows how to add and remove a service."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/referral-page-settings/services-01.pt.jpg",
+                "en": "help/img/guides/referral-page-settings/services-01.en.jpg"
+              }
             }
           ]
         }

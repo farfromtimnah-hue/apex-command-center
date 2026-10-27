@@ -27163,6 +27163,122 @@
           "step": 4
         }
       ]
+    },
+    {
+      "id": "admin-finance-accounts",
+      "audience": "admin",
+      "title": {
+        "pt": "Financeiro: contas do banco, sincronizar e pró-labore",
+        "en": "Financial: bank accounts, sync and owner pay"
+      },
+      "summary": {
+        "pt": "Entenda os cartões das contas, a sincronização com o banco, o pró-labore e as transferências suspeitas.",
+        "en": "Understand the account cards, the bank sync, owner pay and suspected transfers."
+      },
+      "keywords": {
+        "pt": [
+          "contas",
+          "banco",
+          "sincronizar",
+          "plaid",
+          "pró-labore",
+          "transferências",
+          "conectar"
+        ],
+        "en": [
+          "accounts",
+          "bank",
+          "sync",
+          "plaid",
+          "owner pay",
+          "transfers",
+          "connect"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "acc",
+          "title": {
+            "pt": "Contas",
+            "en": "Accounts"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Na aba Saúde Financeira, os dois cartões de conta (1) mostram Conta comercial e Conta pessoal. Cada um mostra Dá pra usar, o saldo no banco e quatro números do mês: Entrou, Saiu, Saiu para suas contas e Mudança na conta. Uma nota diz quanto ainda está pendente e pode mudar. Os nomes e valores nas imagens são inventados.",
+                "en": "On the Financial Health tab, the two account cards (1) show Business account and Personal account. Each shows Available to use, the bank balance, and four numbers for the month: In, Out, Moved to your accounts and Change in account. A note says how much is still pending and may change. Names and amounts in the pictures are made up."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-accounts/acc-s01.pt.jpg",
+                "en": "help/img/guides/admin-finance-accounts/acc-s01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Sincronizar pede ao banco as últimas compras e saldos. A página mostra então quando foi a última atualização. Se o banco avisar que a conexão quebrou, um aviso oferece Reconectar, e Conectar de novo se isso não resolver. Não tocamos neles.",
+                "en": "Sync now asks the bank for the latest charges and balances. The page then shows when it was last updated. If the bank says a link is broken, a banner offers Reconnect, and Link again if that does not work. We did not tap them."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Pró-labore (1) mostra o que o dono tirou da empresa: a média por mês e quantos pagamentos nos últimos meses. Toque na seta para abrir.",
+                "en": "Owner pay (1) shows what the owner took out of the business: the average per month and how many payments over the last months. Tap its arrow to open it."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-finance-accounts/acc-s03.pt.jpg",
+                "en": "help/img/guides/admin-finance-accounts/acc-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Transferências suspeitas lista dinheiro que parece mudança entre as suas próprias contas. Toque na seta para abrir. Em cada uma, É transferência confirma, Sempre confirma e lembra do pagador, e Não é diz que não é transferência. Não tocamos. Sem imagem: a lista mostra contas reais.",
+                "en": "Suspected transfers lists money that looks like a move between your own accounts. Tap its arrow to open it. For each one, Is a transfer confirms it, Always confirms it and remembers the payer, and Not one says it is not a transfer. We did not tap them. No picture: the list shows real accounts."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Contas conectadas lista cada conta bancária conectada, comercial ou pessoal. Dá para adicionar uma conta comercial ou pessoal, e marcar cada conta nova como comercial ou pessoal. A marca pode ser mudada depois. Sem imagem: mostra nomes reais de contas.",
+                "en": "Linked accounts lists every connected bank account, business or personal. You can add a business or personal account, and tag each new account as business or personal. You can change the tag later. No picture: it shows real account names."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Reconectar"
+            ],
+            "en": [
+              "Reconnect"
+            ]
+          },
+          "section": "acc",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Conectar de novo"
+            ],
+            "en": [
+              "Link again"
+            ]
+          },
+          "section": "acc",
+          "step": 2
+        }
+      ]
     }
   ],
   "pages": {
@@ -27242,7 +27358,8 @@
         "admin-record-payment",
         "admin-invoices",
         "admin-finance-categories",
-        "admin-finance-bills"
+        "admin-finance-bills",
+        "admin-finance-accounts"
       ],
       "overview": {
         "pt": "Aqui você acompanha o financeiro e as faturas.",

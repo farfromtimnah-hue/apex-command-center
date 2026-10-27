@@ -97,7 +97,7 @@ const publicIds = REAL.guides.filter((g) => (g.who || []).includes("public")).ma
 
 // ================================================================ A. every role against every guide
 {
-  const counts = { owner: 70, partner: 70, staff_finance: 56, staff: 47, seller: 33, lead: 9, alice: 86, rafa: 86, developer: 86, none: 2 };
+  const counts = { owner: 73, partner: 73, staff_finance: 56, staff: 47, seller: 36, lead: 9, alice: 92, rafa: 92, developer: 92, none: 2 };
   TOKENS.forEach((r) => {
     const got = idsFor(r);
     const core2 = allIds.filter((id) => core.guideVisibleTo(REAL.guides.find((g) => g.id === id), REAL.groups, r));
@@ -138,9 +138,9 @@ const publicIds = REAL.guides.filter((g) => (g.who || []).includes("public")).ma
 // ================================================================ C. filterGuides and the guide list route
 {
   const f = W.helpFilterGuides(REAL, "seller", "admin");
-  ok(f.guides.length === 33 && !("groups" in f) && f.guides.every((g) => !("who" in g)), "filterGuides for a seller: 33 guides, no groups, no who lists");
+  ok(f.guides.length === 36 && !("groups" in f) && f.guides.every((g) => !("who" in g)), "filterGuides for a seller: 36 guides, no groups, no who lists");
   ok(Object.keys(f.pages).every((k) => f.pages[k].guides.every((id) => f.guides.some((g) => g.id === id))), "the screen overviews list only visible guides");
-  ok(W.helpFilterGuides(REAL, "alice", "client").guides.length === 70 && W.helpFilterGuides(REAL, "alice", "admin").guides.length === 16, "staff pick a side: 70 client guides or 16 admin guides");
+  ok(W.helpFilterGuides(REAL, "alice", "client").guides.length === 76 && W.helpFilterGuides(REAL, "alice", "admin").guides.length === 16, "staff pick a side: 76 client guides or 16 admin guides");
   ok(JSON.stringify(W.helpFilterGuides(REAL, "staff", "x").guides.map((g) => g.id)) === JSON.stringify(core.filterGuides(REAL, "staff", "x").guides.map((g) => g.id)), "parity: filterGuides agrees between the Worker and HelpCore");
 }
 
@@ -166,7 +166,7 @@ async function payload(key, query, extraHeaders, status, secret) {
   const o = await payload("owner", "?lang=pt");
   ok(o.res.headers.get("Cache-Control") === "private, no-store", "guide list: Cache-Control is private, no-store");
   ok(!o.res.headers.get("Set-Cookie"), "guide list: no Set-Cookie");
-  ok(o.json.guides.length === 70 && o.json.audience === "client" && o.json.lang === "pt", "an owner gets 70 client guides in Portuguese");
+  ok(o.json.guides.length === 73 && o.json.audience === "client" && o.json.lang === "pt", "an owner gets 73 client guides in Portuguese");
   const text = JSON.stringify(o.json);
   ok(!/"who"|"groups"/.test(text), "the answer carries no who list and no groups object");
   ok(!/apex\.resonateai\.online\/help\//.test(text) && !/"help\/img\//.test(text), "no public static address of any picture or video is in the answer");
@@ -175,7 +175,7 @@ async function payload(key, query, extraHeaders, status, secret) {
   o.json.guides.forEach((g) => g.sections.forEach((s) => s.steps.forEach((st) => { if (st.image) { imgs.push(st.image.pt); } })));
   ok(imgs.length > 300 && imgs.every((u) => typeof u === "string" && u.startsWith(ORIGIN + "/api/help/file/help/img/guides/") && /[?&]e=\d+&g=owner&s=[a-f0-9]{64}$/.test(u)), "every picture is a signed link on the Worker (" + imgs.length + " links)");
   const vids = o.json.guides.filter((g) => g.video && g.video.pt).map((g) => g.video.pt);
-  ok(vids.length === 6 && vids.every((v) => v.src.startsWith(ORIGIN + "/api/help/file/help/video/") && v.poster.startsWith(ORIGIN + "/api/help/file/help/video/")), "the six videos and posters are signed links");
+  ok(vids.length === 7 && vids.every((v) => v.src.startsWith(ORIGIN + "/api/help/file/help/video/") && v.poster.startsWith(ORIGIN + "/api/help/file/help/video/")), "the seven videos and posters are signed links");
   ok(o.json.guides.every((g) => g.buttons === undefined || g.buttons.every((b) => b.labels.pt && b.labels.en)), "button labels keep both languages (they match words on the page)");
   const en = await payload("owner", "?lang=en");
   ok(en.json.lang === "en" && en.json.guides.every((g) => g.title.en && g.title.pt === undefined), "English comes back as English only");
@@ -185,7 +185,7 @@ async function payload(key, query, extraHeaders, status, secret) {
   // a seller
   const s = await payload("seller", "?lang=pt&role=developer&audience=admin&login_role=owner&who=owner", { "X-Role": "developer", "X-Login-Role": "owner" });
   const sIds = s.json.guides.map((g) => g.id);
-  ok(s.json.audience === "client" && sIds.length === 33 && sIds.join() === idsFor("seller").join(), "a seller who sends role=developer, audience=admin and other fields still gets the 33 seller guides");
+  ok(s.json.audience === "client" && sIds.length === 36 && sIds.join() === idsFor("seller").join(), "a seller who sends role=developer, audience=admin and other fields still gets the 33 seller guides");
   const sText = JSON.stringify(s.json);
   ok(!/guides\/(card-payments-setup|finances|analytics|daily-log)\//.test(sText), "a seller's answer holds no picture link of an owner only guide");
   const ownerOnly = allIds.filter((id) => !sIds.includes(id));
@@ -196,7 +196,7 @@ async function payload(key, query, extraHeaders, status, secret) {
   // staff
   const a = await payload("alice", "?lang=pt&audience=admin");
   const c = await payload("rafa", "?lang=pt&audience=client");
-  ok(a.json.audience === "admin" && a.json.guides.length === 16 && c.json.audience === "client" && c.json.guides.length === 70, "staff may ask for either side");
+  ok(a.json.audience === "admin" && a.json.guides.length === 16 && c.json.audience === "client" && c.json.guides.length === 76, "staff may ask for either side");
   const d = await payload("developer", "?lang=pt");
   ok(d.json.audience === "admin", "staff with no audience field start on the admin side");
   const sf = await payload("staff", "?lang=pt&audience=admin");

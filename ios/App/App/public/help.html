@@ -1006,6 +1006,15 @@
         view.appendChild(retry);
         return;
       }
+      if (!g && !signedIn()) {
+        // A link to a guide that is only for signed in owners (for example from Thumbtack's partner help page):
+        // a visitor who is signed out is sent to the sign in page, not told the guide does not exist.
+        view.appendChild(el("p", "state", t("Este guia é para quem já usa o Apex. Entre na sua conta para ver.", "This guide is for people who use Apex. Sign in to your account to see it.")));
+        var si = btn("btn-primary small", t("Entrar", "Sign in"));
+        si.addEventListener("click", function () { window.location.href = "portal.html"; });
+        view.appendChild(si);
+        return;
+      }
       if (!g) { view.appendChild(el("p", "state", t("Não encontramos esse guia.", "We could not find that guide."))); return; }
       view.classList.add("fade");
       view.appendChild(el("h1", "guide-title", L(g.title)));

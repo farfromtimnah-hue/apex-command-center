@@ -22633,7 +22633,7 @@
       "id": "thumbtack-connect",
       "audience": "client",
       "who": [
-        "apex_seller"
+        "setup"
       ],
       "title": {
         "pt": "Conectar o Thumbtack",
@@ -22877,7 +22877,7 @@
       "id": "thumbtack-phone-numbers",
       "audience": "client",
       "who": [
-        "apex_seller"
+        "setup"
       ],
       "title": {
         "pt": "Telefones no Thumbtack",
@@ -23012,7 +23012,7 @@
       "id": "thumbtack-leads",
       "audience": "client",
       "who": [
-        "apex_seller"
+        "setup"
       ],
       "title": {
         "pt": "Leads do Thumbtack",

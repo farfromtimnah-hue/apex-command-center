@@ -6824,8 +6824,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra o Início. Toque em Início, a primeira aba da fileira no alto (1). O Início mostra listas do que pede a sua atenção. Duas delas são Documentos de subempreiteiros vencendo (2) e Assinados online pelo cliente. Cada linha de subempreiteiro tem o nome, qual documento está com problema, por exemplo seguro (COI) venceu em uma data, e uma etiqueta vermelha. COI quer dizer certificado de seguro.",
-                "en": "Open Home. Tap Home, the first tab in the row at the top (1). Home shows lists of what needs your attention. Two of them are Subcontractor documents expiring (2) and Signed online by the customer. Each subcontractor row has the name, which document is the problem, for example insurance (COI) expired on a date, and a red tag. COI means certificate of insurance."
+                "pt": "Toque em Início (1), a primeira aba da fileira no alto.",
+                "en": "Tap Home (1), the first tab in the row at the top."
               },
               "image": {
                 "pt": "help/img/guides/home-alerts/home-01.pt.jpg",
@@ -6835,8 +6835,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Veja o que falta para um subempreiteiro. Toque em um subempreiteiro para abrir os dados: Nome, Ofício, Número da licença, Endereço, Telefone, Seguro (COI) vence em, Workers' comp e Workers' comp vence em. Toque em uma linha que diz toque para preencher para preenchê-la. A linha com a data do COI (1) é a que está vencida. As linhas vermelhas (2) dizem o que falta, por exemplo sem número de licença. Toque em Enviar COI (foto ou PDF) ou Enviar workers' comp (foto ou PDF) (3) para adicionar o documento. Ver COI abre o que já está guardado.",
-                "en": "See what is missing for a subcontractor. Tap a subcontractor to open the details: Name, Trade, License number, Address, Telephone, Insurance certificate (COI) expires, Workers' comp and Workers' comp expires. Tap a row that says tap to fill to fill it in. The row with the COI date (1) is the one that is expired. Red lines (2) say what is missing, for example no license number on file. Tap Upload COI (photo or PDF) or Upload workers' comp (photo or PDF) (3) to add the document. View COI opens the one on file."
+                "pt": "O Início mostra listas do que precisa da sua atenção. Role até duas delas: Documentos de subempreiteiros vencendo (1) e Assinados online pelo cliente (2).",
+                "en": "Home shows lists of what needs your attention. Scroll down to two of them: Subcontractor documents expiring (1) and Signed online by the customer (2)."
               },
               "image": {
                 "pt": "help/img/guides/home-alerts/home-02.pt.jpg",
@@ -6846,12 +6846,56 @@
             {
               "n": 3,
               "text": {
-                "pt": "Veja o que os seus clientes assinaram. Em Assinados online pelo cliente (1), cada linha diz quem assinou qual orçamento, o valor, a data e a hora, e uma etiqueta verde aceito. Os nomes dos clientes estão borrados nesta imagem. Toque em uma linha para abrir esse orçamento.",
-                "en": "Check what your customers signed. Under Signed online by the customer (1), each row says who signed which estimate, the amount, the date and time, and a green accepted tag. The customers' names are blurred in this picture. Tap a row to open that estimate."
+                "pt": "Cada linha de subempreiteiro (1) tem o nome, qual documento é o problema, por exemplo seguro (COI) venceu em uma data, e uma etiqueta vermelha. COI quer dizer certificado de seguro.",
+                "en": "Each subcontractor row (1) has the name, which document is the problem, for example insurance (COI) expired on a date, and a red tag. COI means certificate of insurance."
               },
               "image": {
                 "pt": "help/img/guides/home-alerts/home-03.pt.jpg",
                 "en": "help/img/guides/home-alerts/home-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Toque em um subempreiteiro para abrir os dados: Nome, Ofício, Número da licença, Endereço, Telefone, Seguro (COI) vence em, Workers' comp e Workers' comp vence em. A linha com a data do COI (1) é a que está vencida. Linhas vermelhas (2) dizem o que falta, por exemplo sem número de licença. Toque em uma linha que diz toque para preencher para preencher.",
+                "en": "Tap a subcontractor to open the details: Name, Trade, License number, Address, Telephone, Insurance certificate (COI) expires, Workers' comp and Workers' comp expires. The row with the COI date (1) is the one that is expired. Red lines (2) say what is missing, for example no license number on file. Tap a row that says tap to fill to fill it in."
+              },
+              "image": {
+                "pt": "help/img/guides/home-alerts/home-04.pt.jpg",
+                "en": "help/img/guides/home-alerts/home-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Role até o fim dos dados. Toque em Enviar COI (foto ou PDF) (1) ou Enviar workers' comp (foto ou PDF) (2) para adicionar o documento. Ver COI (3) abre o que está guardado.",
+                "en": "Scroll to the end of the details. Tap Upload COI (photo or PDF) (1) or Upload workers' comp (photo or PDF) (2) to add the document. View COI (3) opens the one on file."
+              },
+              "image": {
+                "pt": "help/img/guides/home-alerts/home-05.pt.jpg",
+                "en": "help/img/guides/home-alerts/home-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Veja o que seus clientes assinaram. Em Assinados online pelo cliente (1), cada linha diz quem assinou qual orçamento, o valor, a data e a hora, e uma etiqueta verde de aceito. Os nomes dos clientes estão cobertos nesta imagem.",
+                "en": "Check what your customers signed. Under Signed online by the customer (1), each row says who signed which estimate, the amount, the date and time, and a green accepted tag. The customers' names are covered in this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/home-alerts/home-06.pt.jpg",
+                "en": "help/img/guides/home-alerts/home-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Toque em uma linha para abrir esse orçamento. A folha do orçamento abre (1) com o status, o total e os botões.",
+                "en": "Tap a row to open that estimate. The estimate sheet opens (1) with its status, total and buttons."
+              },
+              "image": {
+                "pt": "help/img/guides/home-alerts/home-07.pt.jpg",
+                "en": "help/img/guides/home-alerts/home-07.en.jpg"
               }
             }
           ]
@@ -6868,7 +6912,7 @@
             ]
           },
           "section": "home",
-          "step": 2
+          "step": 5
         },
         {
           "labels": {
@@ -6880,7 +6924,7 @@
             ]
           },
           "section": "home",
-          "step": 2
+          "step": 5
         },
         {
           "section": "home",

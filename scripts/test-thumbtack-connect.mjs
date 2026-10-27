@@ -16,7 +16,7 @@ const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientA
   "tokenEncKey", "tokenIsSealed", "tokenSeal", "tokenOpen", "bytesToB64", "b64ToBytes", "gmStr", "gmEstNewToken",
   "gmLogLeadEvents", "gmInsertLead", "gmClientPushTargets", "clientRequestAllowed", "sellerRequestAllowed",
   "metaHex", "metaHmac", "metaSafeEqual", "metaScrub", "metaPlain", "metaAfter", "metaFmtPhone", "metaNyStamp",
-  "thumbtackSettings", "thumbtackTablesReady", "thumbtackNotAvailable", "thumbtackOwnerGuard", "thumbtackRedirectUri",
+  "thumbtackSettings", "thumbtackClientAllowed", "thumbtackTablesReady", "thumbtackNotAvailable", "thumbtackOwnerGuard", "thumbtackRedirectUri",
   "thumbtackWebhookUrl", "thumbtackHeaderValue", "thumbtackFetch", "thumbtackApi", "thumbtackErrTransient", "thumbtackTokenCall",
   "thumbtackAuthorizeUrl", "thumbtackBack", "thumbtackStateUse", "thumbtackFlagReconnect", "thumbtackAccessToken",
   "thumbtackStatusPayload", "thumbtackSubscribe", "thumbtackRemoveConnection", "thumbtackGrantedBusinesses", "thumbtackAfter",
@@ -34,7 +34,7 @@ const CODE = "TTCODE-ddd444";
 const NEW_ACCESS = "TTACCESS-new-eee555";
 const NEW_REFRESH = "TTREFRESH-new-fff666";
 const HIDDEN = [SECRET, ACCESS, REFRESH, CODE, NEW_ACCESS, NEW_REFRESH];
-const ENV_OK = { THUMBTACK_STAGING_CLIENT_ID: CLIENT_ID, THUMBTACK_STAGING_CLIENT_SECRET: SECRET, TOKEN_ENC_KEY: Buffer.alloc(32, 7).toString("base64") };
+const ENV_OK = { THUMBTACK_STAGING_CLIENTS: "c1", THUMBTACK_STAGING_CLIENT_ID: CLIENT_ID, THUMBTACK_STAGING_CLIENT_SECRET: SECRET, TOKEN_ENC_KEY: Buffer.alloc(32, 7).toString("base64") };
 
 const OWNER = { role: "client", client_id: "c1", login_role: "client", display_name: "Zeta Owner", username: "zeta" };
 const SELLER = { role: "client", client_id: "c1", login_role: "seller", seller_name: "Maria Silva", display_name: "Maria Silva", username: "maria" };
@@ -201,6 +201,28 @@ function hook(w, body, over) {
   ok(c2.status === 503, "tables not migrated yet: connect answers 503");
   const h2 = await read(await w2.F.handlePostThumbtackWebhook("a".repeat(48), post("/x", negotiation(1)), w2.env));
   ok(h2.status === 404 || h2.status === 503, "tables not migrated yet: the webhook does not crash (" + h2.status + ")");
+}
+
+// ── staging is only for the businesses on the allow list
+{
+  const noList = world({ env: { THUMBTACK_STAGING_CLIENT_ID: CLIENT_ID, THUMBTACK_STAGING_CLIENT_SECRET: SECRET, TOKEN_ENC_KEY: ENV_OK.TOKEN_ENC_KEY } });
+  const s1 = await read(await noList.F.handleGetGmThumbtackStatus("c1", get("/x"), noList.env));
+  ok(s1.data.available === false, "staging: with no allow list set, only the test client is allowed, so another business sees not available");
+  const c1 = await read(await noList.F.handlePostGmThumbtackConnect("c1", post("/x"), noList.env));
+  ok(c1.status === 503, "staging: another business cannot start a connection (503)");
+  const listed = world({ env: { THUMBTACK_STAGING_CLIENTS: "c2, c1", THUMBTACK_STAGING_CLIENT_ID: CLIENT_ID, THUMBTACK_STAGING_CLIENT_SECRET: SECRET, TOKEN_ENC_KEY: ENV_OK.TOKEN_ENC_KEY } });
+  const s2 = await read(await listed.F.handleGetGmThumbtackStatus("c1", get("/x"), listed.env));
+  ok(s2.data.available === true, "staging: a business on the list sees the card");
+  user = RIVAL;
+  const s3 = await read(await listed.F.handleGetGmThumbtackStatus("c2", get("/x"), listed.env));
+  ok(s3.data.available === true, "staging: the list can name more than one business");
+  user = OWNER;
+  const none = world({ env: { THUMBTACK_STAGING_CLIENTS: "", THUMBTACK_STAGING_CLIENT_ID: CLIENT_ID, THUMBTACK_STAGING_CLIENT_SECRET: SECRET, TOKEN_ENC_KEY: ENV_OK.TOKEN_ENC_KEY } });
+  const s4 = await read(await none.F.handleGetGmThumbtackStatus("c1", get("/x"), none.env));
+  ok(s4.data.available === false, "staging: an empty list allows nobody");
+  const prodAll = world({ env: { THUMBTACK_ENV: "production", THUMBTACK_CLIENT_ID: CLIENT_ID, THUMBTACK_CLIENT_SECRET: SECRET, TOKEN_ENC_KEY: ENV_OK.TOKEN_ENC_KEY } });
+  const s5 = await read(await prodAll.F.handleGetGmThumbtackStatus("c1", get("/x"), prodAll.env));
+  ok(s5.data.available === true, "production: every business is allowed (no list)");
 }
 
 // ── who may use the owner routes

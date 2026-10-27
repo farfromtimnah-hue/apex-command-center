@@ -38097,7 +38097,18 @@ function thumbtackSettings(env) {
         auth_origin: authOrigin
     };
     out.ready = !!(out.client_id && out.client_secret && String(e.TOKEN_ENC_KEY || "").trim());
+    // STAGING is a test site: only the businesses named in THUMBTACK_STAGING_CLIENTS
+    // (comma separated client ids; default is the test client) may use it, so no
+    // real owner is ever sent to Thumbtack's test login. Production has no list.
+    out.staging_clients = String(e.THUMBTACK_STAGING_CLIENTS === undefined || e.THUMBTACK_STAGING_CLIENTS === null ? "test-client-temp-001" : e.THUMBTACK_STAGING_CLIENTS)
+        .split(",").map(function(x) { return x.trim(); }).filter(function(x) { return !!x; });
     return out;
+}
+
+// Whether this business may use the Thumbtack card in the current mode.
+function thumbtackClientAllowed(cfg, clientId) {
+    if (cfg.mode !== "staging") { return true; }
+    return cfg.staging_clients.indexOf(String(clientId)) !== -1;
 }
 
 // False until migrations/thumbtack_connect.sql has run.
@@ -38285,7 +38296,7 @@ async function thumbtackAccessToken(env, cfg, clientId) {
 // What the card shows. Never a token, and never Thumbtack's own error text.
 async function thumbtackStatusPayload(env, clientId) {
     var cfg = thumbtackSettings(env);
-    if (!cfg.ready || !(await thumbtackTablesReady(env))) { return { available: false, connected: false, businesses: [] }; }
+    if (!cfg.ready || !thumbtackClientAllowed(cfg, clientId) || !(await thumbtackTablesReady(env))) { return { available: false, connected: false, businesses: [] }; }
     var conn = await env.DB.prepare("SELECT connected_by, connected_at, needs_reconnect FROM gm_thumbtack_connections WHERE client_id = ?").bind(clientId).first();
     if (!conn) { return { available: true, connected: false, businesses: [] }; }
     var rows = (await env.DB.prepare(
@@ -38412,7 +38423,7 @@ async function handlePostGmThumbtackConnect(id, request, env) {
         var block = thumbtackOwnerGuard(user, id);
         if (block) { return block; }
         var cfg = thumbtackSettings(env);
-        if (!cfg.ready || !(await thumbtackTablesReady(env))) { return thumbtackNotAvailable(); }
+        if (!cfg.ready || !thumbtackClientAllowed(cfg, id) || !(await thumbtackTablesReady(env))) { return thumbtackNotAvailable(); }
         var state = gmEstNewToken();
         await env.DB.prepare(
             "INSERT INTO gm_thumbtack_oauth_states (state, client_id, login_key, actor_name, expires_at) VALUES (?, ?, ?, ?, datetime('now', ?))"
@@ -38445,7 +38456,7 @@ async function handleGetGmThumbtackPhones(id, request, env) {
         var block = thumbtackOwnerGuard(user, id);
         if (block) { return block; }
         var cfg = thumbtackSettings(env);
-        if (!cfg.ready || !(await thumbtackTablesReady(env))) { return thumbtackNotAvailable(); }
+        if (!cfg.ready || !thumbtackClientAllowed(cfg, id) || !(await thumbtackTablesReady(env))) { return thumbtackNotAvailable(); }
         var conn = await env.DB.prepare("SELECT client_id FROM gm_thumbtack_connections WHERE client_id = ?").bind(id).first();
         if (!conn) { return jsonErr2("O Thumbtack não está conectado.", "Thumbtack is not connected.", 409); }
         var token = await thumbtackAccessToken(env, cfg, id);
@@ -38486,7 +38497,7 @@ async function handlePostGmThumbtackPhones(id, request, env) {
         var block = thumbtackOwnerGuard(user, id);
         if (block) { return block; }
         var cfg = thumbtackSettings(env);
-        if (!cfg.ready || !(await thumbtackTablesReady(env))) { return thumbtackNotAvailable(); }
+        if (!cfg.ready || !thumbtackClientAllowed(cfg, id) || !(await thumbtackTablesReady(env))) { return thumbtackNotAvailable(); }
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var e164 = thumbtackE164(body.phone);
@@ -38514,7 +38525,7 @@ async function handlePostGmThumbtackTestLead(id, request, env) {
         var block = thumbtackOwnerGuard(user, id);
         if (block) { return block; }
         var cfg = thumbtackSettings(env);
-        if (!cfg.ready || !(await thumbtackTablesReady(env))) { return thumbtackNotAvailable(); }
+        if (!cfg.ready || !thumbtackClientAllowed(cfg, id) || !(await thumbtackTablesReady(env))) { return thumbtackNotAvailable(); }
         if (cfg.mode !== "staging") { return jsonErr2("O lead de teste s\u00f3 existe no ambiente de testes.", "The test lead only exists in the testing environment.", 403); }
         var biz = await env.DB.prepare(
             "SELECT business_id FROM gm_thumbtack_businesses WHERE client_id = ? AND subscribed = 1 ORDER BY name COLLATE NOCASE LIMIT 1"

@@ -14832,48 +14832,266 @@
             {
               "n": 1,
               "text": {
-                "pt": "O que é. São as faturas que a Apex envia aos seus clientes. Toda fatura começa como rascunho. Nada sai da Apex até você enviar pelo WhatsApp. Abra Financeiro no menu da esquerda e toque no botão Faturas embaixo dos quatro totais. Os valores e os nomes dos clientes estão escondidos nas imagens.",
-                "en": "What it is. These are the invoices that Apex sends to its own clients. Every invoice starts as a draft. Nothing leaves Apex until you send it on WhatsApp yourself. Open Financeiro in the left menu and tap the Faturas button under the four totals. Money amounts and client names are hidden in the pictures."
+                "pt": "São as faturas que a Apex envia aos seus clientes. Toda fatura começa como rascunho. Nada sai da Apex até você enviar pelo WhatsApp. Abra Financeiro (1) no menu da esquerda. Os nomes e valores nas imagens são de teste.",
+                "en": "These are the invoices that Apex sends to its own clients. Every invoice starts as a draft. Nothing leaves Apex until you send it on WhatsApp yourself. Open Financial (1) in the left menu. Names and amounts in the pictures are test values."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s01.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "A tela de Faturas. 1. Faturas é a aba. 2. + Nova fatura cria um novo rascunho. 3. As três abas: Rascunho, Não Pagas (enviadas e ainda não pagas) e Arquivo (pagas ou encerradas). A caixa de cima, Faturas prontas para enviar, lista os rascunhos. 4. Revisar e enviar abre a fatura como o cliente vai ver. 5. Marcar como erro abre uma caixa onde você escolhe por que anula a fatura (erro ou cancelada). Nada muda até você confirmar.",
-                "en": "The Invoices screen. 1. Faturas is the tab. 2. + Nova fatura makes a new draft. 3. The three tabs: Rascunho (drafts), Não Pagas (sent and not paid yet) and Arquivo (paid or closed). The box on top, Faturas prontas para enviar (Invoices ready to send), lists the drafts. 4. Revisar e enviar opens the invoice as the client will see it. 5. Marcar como erro opens a box where you choose why you void the invoice (a mistake or canceled). Nothing changes until you confirm."
+                "pt": "Toque no botão Faturas (1) embaixo dos quatro totais.",
+                "en": "Tap the Invoices button (1) under the four totals."
               },
               "image": {
-                "pt": "help/img/guides/admin-invoices/invoices-02.pt.jpg",
-                "en": "help/img/guides/admin-invoices/invoices-02.en.jpg"
+                "pt": "help/img/guides/admin-invoices/invoices-s02.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Crie um novo rascunho. Toque em + Nova fatura. 1. Cliente: escolha o cliente. 2. Valor (USD): o valor em dólares. 3. Vencimento: a data de vencimento. 4. Descrição do serviço: para que serve a fatura. Se deixar vazio, a Apex usa o nome do pacote do cliente. Detalhes é opcional. 5. Toque em Criar rascunho. A tela avisa que nada sai até você enviar pelo WhatsApp.",
-                "en": "Make a new draft. Tap + Nova fatura. 1. Cliente: choose the client. 2. Valor (USD): the amount in dollars. 3. Vencimento: the due date. 4. Descrição do serviço: what the invoice is for. If you leave it empty, Apex uses the name of the client's package. Detalhes is optional. 5. Tap Criar rascunho. The page says that nothing leaves until you send it on WhatsApp."
+                "pt": "A caixa de cima, Faturas prontas para enviar (1), lista os rascunhos.",
+                "en": "The box on top, Invoices ready to send (1), lists the drafts."
               },
               "image": {
-                "pt": "help/img/guides/admin-invoices/invoices-03.pt.jpg",
-                "en": "help/img/guides/admin-invoices/invoices-03.en.jpg"
+                "pt": "help/img/guides/admin-invoices/invoices-s03.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Revise e envie. No rascunho, toque em Revisar e enviar. A fatura abre numa nova aba em modo de revisão, exatamente como o cliente vai ver. Confira e envie ao cliente pelo WhatsApp a partir dessa página. Marcar enviada é outro botão: use só quando você enviou a fatura de outro jeito, sem o WhatsApp da Apex, e quer apenas marcar a fatura como enviada.",
-                "en": "Review and send. On the draft, tap Revisar e enviar. The invoice opens in a new tab in review mode, exactly as the client will see it. Check it, then send it to the client on WhatsApp from that page. Marcar enviada is a different button: use it only when you sent the invoice some other way, without WhatsApp from Apex, and you just want the invoice marked as sent."
+                "pt": "Toque em + Nova fatura (1) para criar um novo rascunho.",
+                "en": "Tap + New invoice (1) to make a new draft."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s04.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s04.en.jpg"
+              }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Outros botões da fatura. Ver abre a fatura. Copiar link do cliente copia o link que o cliente abre. Editar descrição muda o texto. Mudar vencimento muda a data. Voltar para rascunho devolve a fatura para rascunho. Quando o cliente pagar, use Registrar pagamento: é o guia Registrar um pagamento e enviar o recibo.",
-                "en": "Other buttons on an invoice. Ver opens it. Copiar link do cliente copies the link the client opens. Editar descrição changes the words. Mudar vencimento changes the due date. Voltar para rascunho brings it back to a draft. When the client pays, use Registrar pagamento: that is the guide Registrar um pagamento e enviar o recibo."
+                "pt": "No formulário Nova fatura, escolha o cliente em Cliente (1).",
+                "en": "In the form Nova fatura, choose the client in Cliente (1). The form shows Portuguese words in both languages."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s05.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Digite o valor em dólares em Valor (USD) (1).",
+                "en": "Type the amount in dollars in Valor (USD) (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s06.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Escolha a data de vencimento em Vencimento (1).",
+                "en": "Set the due date in Vencimento (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s07.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Em Descrição do serviço (1) escreva para que serve a fatura. Se deixar vazio, a Apex usa o nome do pacote do cliente.",
+                "en": "In Descrição do serviço (1) write what the invoice is for. If you leave it empty, Apex uses the name of the client's package."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s08.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Detalhes (opcional) (1) é opcional: escreva mais só se precisar.",
+                "en": "Detalhes (opcional) (1) is optional: add more words only if you need them."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s09.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Toque em Criar rascunho (1). A tela avisa que nada sai até você enviar pelo WhatsApp.",
+                "en": "Tap Criar rascunho (1). The page says that nothing leaves until you send it on WhatsApp."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s10.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "As três abas (1) separam a lista: Rascunho, Não Pagas (enviadas e ainda não pagas) e Arquivo (pagas ou encerradas).",
+                "en": "The three tabs (1) split the list: Draft (drafts), Unpaid (sent and not paid yet) and Archive (paid or closed)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s11.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "No rascunho, toque em Revisar e enviar (1). A fatura abre numa nova aba em modo de revisão, exatamente como o cliente vai ver. Confira e envie ao cliente pelo WhatsApp a partir dessa página.",
+                "en": "On the draft, tap Review and send (1). The invoice opens in a new tab in review mode, exactly as the client will see it. Check it, then send it to the client on WhatsApp from that page."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s12.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Editar descrição (1) muda o texto da fatura.",
+                "en": "Edit description (1) changes the words of the invoice."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s13.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Marcar enviada (1) é outro botão. Use só quando você enviou a fatura de outro jeito, sem o WhatsApp da Apex, e quer apenas marcar a fatura como enviada.",
+                "en": "Mark sent (1) is a different button. Use it only when you sent the invoice some other way, without WhatsApp from Apex, and you just want the invoice marked as sent."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s14.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "A Apex pede confirmação. Toque em Sim, marcar como enviada (1) para passar a fatura para Não Pagas, ou em Não marcar (2) para deixar como está.",
+                "en": "Apex asks you to confirm. Tap Yes, mark as sent (1) to move the invoice to Unpaid, or Do not mark (2) to leave it as it is."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s15.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Marcar como erro (1) abre uma caixa onde você escolhe por que anula a fatura. Nada muda até você confirmar.",
+                "en": "Mark as mistake (1) opens a box where you choose why you void the invoice. Nothing changes until you confirm."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s16.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Escolha o motivo: Erro ou duplicada (1) ou Fatura cancelada (2). Você pode escrever uma observação. Anular fatura confirma.",
+                "en": "Choose why: Mistake or duplicate (1) or Canceled invoice (2). You can add a note. Void invoice confirms."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s17.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Toque em Manter fatura (1) para fechar a caixa sem mudar nada.",
+                "en": "Tap Keep invoice (1) to close the box without changing anything."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s18.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "Toque na aba Não Pagas (1) para ver as faturas enviadas e ainda não pagas.",
+                "en": "Tap the Unpaid tab (1) to see the invoices that were sent and are not paid yet."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s19.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s19.en.jpg"
+              }
+            },
+            {
+              "n": 20,
+              "text": {
+                "pt": "Ver (1) abre a fatura.",
+                "en": "View (1) opens the invoice."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s20.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s20.en.jpg"
+              }
+            },
+            {
+              "n": 21,
+              "text": {
+                "pt": "Copiar link do cliente (1) copia o link que o cliente abre.",
+                "en": "Copy client link (1) copies the link the client opens."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s21.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s21.en.jpg"
+              }
+            },
+            {
+              "n": 22,
+              "text": {
+                "pt": "Mudar vencimento (1) muda a data de vencimento.",
+                "en": "Change due date (1) changes the date the invoice is due."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s22.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s22.en.jpg"
+              }
+            },
+            {
+              "n": 23,
+              "text": {
+                "pt": "Voltar para rascunho (1) devolve a fatura para rascunho.",
+                "en": "Back to draft (1) brings the invoice back to a draft."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s23.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s23.en.jpg"
+              }
+            },
+            {
+              "n": 24,
+              "text": {
+                "pt": "Quando o cliente pagar, toque em Registrar pagamento (1). É o guia Registrar um pagamento e enviar o recibo.",
+                "en": "When the client pays, tap Record payment (1). That is the guide Record a payment and send the receipt."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-s24.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-s24.en.jpg"
+              }
             }
           ]
         }
@@ -14889,7 +15107,7 @@
             ]
           },
           "section": "invoices",
-          "step": 3
+          "step": 4
         },
         {
           "labels": {
@@ -14901,7 +15119,7 @@
             ]
           },
           "section": "invoices",
-          "step": 3
+          "step": 10
         },
         {
           "labels": {
@@ -14913,7 +15131,7 @@
             ]
           },
           "section": "invoices",
-          "step": 4
+          "step": 12
         },
         {
           "labels": {
@@ -14925,7 +15143,7 @@
             ]
           },
           "section": "invoices",
-          "step": 4
+          "step": 14
         },
         {
           "labels": {
@@ -14937,7 +15155,7 @@
             ]
           },
           "section": "invoices",
-          "step": 2
+          "step": 16
         },
         {
           "labels": {
@@ -14950,7 +15168,7 @@
             ]
           },
           "section": "invoices",
-          "step": 5
+          "step": 13
         },
         {
           "labels": {
@@ -14962,7 +15180,7 @@
             ]
           },
           "section": "invoices",
-          "step": 5
+          "step": 22
         },
         {
           "labels": {
@@ -14974,7 +15192,7 @@
             ]
           },
           "section": "invoices",
-          "step": 5
+          "step": 21
         },
         {
           "labels": {
@@ -14986,7 +15204,7 @@
             ]
           },
           "section": "invoices",
-          "step": 5
+          "step": 23
         }
       ]
     },

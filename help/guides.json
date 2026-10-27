@@ -27900,6 +27900,163 @@
           "step": 3
         }
       ]
+    },
+    {
+      "id": "admin-prep-cycle-close",
+      "audience": "admin",
+      "title": {
+        "pt": "Preparação da reunião: fechamento do ciclo de 30 dias",
+        "en": "Meeting prep: the 30 day cycle close"
+      },
+      "summary": {
+        "pt": "Percorra a página do fechamento de ciclo: primeiro eles falam, o documento na ordem, antes e depois, o que foi construído, o que ainda está fraco, o acerto financeiro, os próximos 90 dias e o próximo ciclo.",
+        "en": "Walk through the cycle close page: they speak first, the document in order, before and after, what was built, what is still weak, the financial settlement, the next 90 days and the next cycle."
+      },
+      "keywords": {
+        "pt": [
+          "fechamento de ciclo",
+          "30 dias",
+          "antes e depois",
+          "o que foi construído",
+          "o que ainda está fraco",
+          "acerto financeiro",
+          "próximos 90 dias",
+          "próximo ciclo"
+        ],
+        "en": [
+          "cycle close",
+          "30 days",
+          "before and after",
+          "what was built",
+          "still weak",
+          "financial settlement",
+          "next 90 days",
+          "next cycle"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "cc",
+          "title": {
+            "pt": "Preparação: fechamento de ciclo de 30 dias",
+            "en": "Prep: the 30 day cycle close"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Primeiro, eles falam. O cartão do alto diz Fechamento de ciclo, 30 dias. O primeiro bloco (1) dá a frase para abrir: Quero começar ouvindo de vocês como que foi para vocês essa jornada. Um de cada vez, pelo nome. Os nomes de quem participa ficam listados embaixo.",
+                "en": "First, they speak. The top card says Cycle close, 30 days. The first block (1) gives the opening line to say: I want to start by hearing from you how this journey was for you. One at a time, by name. The names of the people attending are listed below it."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-cycle-close/cc-01.pt.jpg",
+                "en": "help/img/guides/admin-prep-cycle-close/cc-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O documento, na ordem. Este cartão (1) lista as nove seções do documento de fechamento. Você lê em voz alta, seção por seção: resumo executivo, indicadores antes e depois, onde a empresa estava quando chegamos, o que foi construído, os resultados comprovados, os ativos que ficam, a rota dos próximos 90 dias, o painel de execução e a palavra final.",
+                "en": "The document, in order. This card (1) lists the nine sections of the closing document. You read it aloud, section by section: executive summary, indicators before and after, where the business was when we arrived, what was built, the proven results, the assets that stay, the next 90 days, the execution dashboard and the closing word."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-cycle-close/cc-02.pt.jpg",
+                "en": "help/img/guides/admin-prep-cycle-close/cc-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Antes e depois. Este cartão (1) compara este mês com o mês anterior: para cada indicador mostra o que foi feito, a meta e o número do mês anterior.",
+                "en": "Before and after. This card (1) compares this month with the month before: for each indicator it shows what was done, the goal and the previous month's number."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-cycle-close/cc-03.pt.jpg",
+                "en": "help/img/guides/admin-prep-cycle-close/cc-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "O que foi construído. Este cartão (1) conta o que a empresa passou a ter e não tinha antes: processos documentados, dias de registro completos, documentos criados e avaliações concluídas, com os nomes dos documentos e das avaliações.",
+                "en": "What was built. This card (1) counts what the business has now that it did not have before: processes documented, complete log days, documents created and assessments completed, with the names of the documents and of the assessments."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-cycle-close/cc-04.pt.jpg",
+                "en": "help/img/guides/admin-prep-cycle-close/cc-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "O que ainda está fraco. Este cartão (1) lista os indicadores que ainda estão abaixo da meta, com quanto falta em vermelho. É o que o próximo ciclo precisa consertar.",
+                "en": "What is still weak. This card (1) lists the indicators that are still short of the goal, with how much is missing in red. It is what the next cycle must fix."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-cycle-close/cc-05.pt.jpg",
+                "en": "help/img/guides/admin-prep-cycle-close/cc-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "O que ficou devendo do nosso lado e o acerto. O cartão O que ficou devendo do nosso lado é para o que a Apex ainda deve. O cartão O acerto financeiro mostra os termos do contrato, ou não registrado quando ninguém anotou. Diga os dois em voz alta antes dos próximos 90 dias.",
+                "en": "Where we fell short and the settlement. The card Where we fell short is for what Apex still owes. The card The financial settlement shows the engagement terms, or not recorded when nobody wrote them down. Say both out loud before the next 90 days."
+              },
+              "image": null
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Os próximos 90 dias. Este cartão (1) mostra três meses no ritmo do mês que fechou. A conta já está feita: cada indicador multiplicado por três.",
+                "en": "The next 90 days. This card (1) shows three months at the pace of the month just closed. The arithmetic is already done: each indicator multiplied by three."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-cycle-close/cc-07.pt.jpg",
+                "en": "help/img/guides/admin-prep-cycle-close/cc-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "O próximo ciclo. O cartão O próximo ciclo (1) tem o botão Definir as metas do próximo mês. Ele abre a ficha do cliente, que é onde grava. As histórias e os pacotes vêm depois, e então a lista Depois da reunião, como nas outras reuniões.",
+                "en": "The next cycle. The card Next cycle (1) has the button Set next month's targets. It opens the client page, which is where it saves. The stories and the packages follow, then the After the meeting list, as in the other meetings."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-cycle-close/cc-08.pt.jpg",
+                "en": "help/img/guides/admin-prep-cycle-close/cc-08.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Definir as metas do próximo mês"
+            ],
+            "en": [
+              "Set next month's targets"
+            ]
+          },
+          "section": "cc",
+          "step": 8
+        },
+        {
+          "labels": {
+            "pt": [
+              "Os próximos 90 dias"
+            ],
+            "en": [
+              "The next 90 days"
+            ]
+          },
+          "section": "cc",
+          "step": 7
+        }
+      ]
     }
   ],
   "pages": {
@@ -28320,7 +28477,8 @@
         "admin-meeting-prep",
         "admin-prep-xray-results",
         "admin-prep-kickoff",
-        "admin-prep-weekly-rde"
+        "admin-prep-weekly-rde",
+        "admin-prep-cycle-close"
       ],
       "overview": {
         "pt": "Aqui o consultor se prepara para a reunião com um cliente.",

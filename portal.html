@@ -8227,6 +8227,10 @@
               throw new Error("redirect");
             }
             previewRealRole = role.role;
+            // Learn (Aprenda): a staff member previewing a client has no apex_role in this tab, so tell the
+            // help widget who is signed in and let it load the staff guides now.
+            window.APEX_HELP_STAFF_ROLE = role.role;
+            try { document.dispatchEvent(new Event("apex:signedin")); } catch (e) { /* the sheet reloads the guides when opened */ }
           } else if (PREVIEW_AS) {
             // a real client with a stray previewAs param — drop it
             window.location.href = "portal.html";

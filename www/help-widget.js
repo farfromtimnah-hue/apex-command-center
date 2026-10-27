@@ -81,6 +81,8 @@
   function isStaff() {
     var role = null;
     try { role = sessionStorage.getItem("apex_role"); } catch (e) { role = null; }
+    // A staff preview of the client portal has no apex_role in its own tab; the portal says who it is.
+    if (!role && typeof window.APEX_HELP_STAFF_ROLE === "string") { role = window.APEX_HELP_STAFF_ROLE; }
     return HC.isStaffRole(role);
   }
   // Nobody signed in: no Ask box. A staff role the app keeps, or a portal token (same two sources as getToken).
@@ -1197,6 +1199,7 @@
     doc.addEventListener("contextmenu", onContextMenu, false);
     doc.addEventListener("keydown", onKeyDown, true);
     doc.addEventListener("apex:langchange", onLangChange);
+    doc.addEventListener("apex:signedin", function () { loadGuides()["catch"](function () { /* the sheet shows the offline state when opened */ }); });
     window.addEventListener("resize", closeMenu);
     // The guide file is needed before a press can be matched to a guide.
     loadGuides()["catch"](function () { /* the sheet shows the offline state when opened */ });

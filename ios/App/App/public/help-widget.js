@@ -83,6 +83,12 @@
     try { role = sessionStorage.getItem("apex_role"); } catch (e) { role = null; }
     return HC.isStaffRole(role);
   }
+  // Nobody signed in: no Ask box. A staff role the app keeps, or a portal token (same two sources as getToken).
+  function signedIn() {
+    var clientToken = null;
+    try { clientToken = sessionStorage.getItem("apex_client_token") || localStorage.getItem("apex_client_token"); } catch (e) { clientToken = null; }
+    return isStaff() || !!clientToken;
+  }
   function defaultSide() { return HC.effectiveAudience(isStaff(), HC.defaultAudienceForPage(pageName())); }
   function sideLabel(a) { return a === "admin" ? t("Lado administrador", "Admin side") : t("Lado cliente", "Client side"); }
 
@@ -576,7 +582,7 @@
         items.forEach(function (g) { bodyEl.appendChild(quietCard(g)); });
       }
     }
-    bodyEl.appendChild(buildSearch());
+    if (signedIn()) { bodyEl.appendChild(buildSearch()); }
     var lib = el("a", "aph-link", t("Abrir a biblioteca completa", "Open the full library"));
     lib.href = libraryLink();
     lib.setAttribute("target", "_blank");

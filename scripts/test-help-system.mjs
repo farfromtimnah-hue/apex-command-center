@@ -1121,7 +1121,7 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
       matchMedia() { return { matches: true }; }
     };
     win.window = win; win.document = doc;
-    const ctx = vm.createContext({ window: win, document: doc, console, setTimeout: win.setTimeout, clearTimeout: win.clearTimeout, fetch: win.fetch, Promise, JSON, Date, Math, Object, Array, String, Number, RegExp, encodeURIComponent, decodeURIComponent, URL, sessionStorage: { getItem(k) { return k === "apex_role" ? (opts.role || null) : null; } } });
+    const ctx = vm.createContext({ window: win, document: doc, console, setTimeout: win.setTimeout, clearTimeout: win.clearTimeout, fetch: win.fetch, Promise, JSON, Date, Math, Object, Array, String, Number, RegExp, encodeURIComponent, decodeURIComponent, URL, sessionStorage: { getItem(k) { if (k === "apex_role") { return opts.role || null; } return (k === "apex_client_token" && !opts.signedOut && ["alice", "rafa", "developer", "seller"].indexOf(opts.role) < 0) ? "tok" : null; } } });
     vm.runInContext(widgetSrc, ctx);
     const tick = async () => { for (let i = 0; i < 8; i++) { await new Promise((r) => setImmediate(r)); } };
     const page = {
@@ -1280,6 +1280,18 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
     ok(/audience=client/.test((function () { p.byText("button", "Voltar")[0].fire("click"); return p.libHref(); })()), "(aud) sheet: a client library link carries audience=client");
     await p.ask("como faco?");
     ok(p.asks[0].audience === "client", "(aud) sheet: a client search sends client");
+  }
+  { // nobody signed in: the library stays, the Ask box is gone (security phase A)
+    const p = await learnPage("pt", { signedOut: true, path: "/dashboard.html" });
+    await p.openSheet();
+    ok(p.all().filter((n) => n.tag === "input").length === 0 && p.all().filter((n) => n.tag === "form").length === 0, "(sec) sheet: signed out, there is no Ask box");
+    ok(p.byText("button", "Receber uma fatura").length === 1, "(sec) sheet: signed out, the guide list is still shown");
+  }
+  { // help.html: the box is shown only for a sign in it can see (portal token, Firebase user, staff role)
+    const h = read("help.html");
+    ok(/function signedIn\(\)[\s\S]{0,400}hasClientToken\(\) \|\| !!authUser \|\| HC\.isStaffRole\(role\)/.test(h), "(sec) help.html: signedIn() reads the portal token, the Firebase user and the staff role");
+    ok(/byId\("searchBox"\)\.hidden = !on/.test(h) && /onAuthStateChanged\(function \(u\) \{ authUser = u; showAskIfSignedIn\(\)/.test(h), "(sec) help.html: the box follows the sign in, including a late Firebase answer and a sign out");
+    ok(!/box\.hidden = false;/.test(h), "(sec) help.html: nothing shows the Ask box unconditionally");
   }
   { // a client whose role is something other than staff, trying a staff-looking value
     const p = await learnPage("pt", { role: "owner", path: "/dashboard.html" });

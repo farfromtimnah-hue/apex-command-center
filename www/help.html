@@ -295,6 +295,20 @@
       // Staff sign in through Firebase; a client carries a portal token instead.
       return HC.isStaffRole(role) || (!!authUser && !hasClientToken());
     }
+    // Nobody signed in: no Ask box (the Worker would answer 401 anyway, and this page is public).
+    // Same three sources as getToken(): a portal token, a Firebase user, or the staff role the app keeps.
+    function signedIn() {
+      var role = null;
+      try { role = sessionStorage.getItem("apex_role"); } catch (e) { role = null; }
+      return hasClientToken() || !!authUser || HC.isStaffRole(role);
+    }
+    function showAskIfSignedIn() {
+      var on = enabled && signedIn();
+      byId("searchBox").hidden = !on;
+      byId("heroSub").textContent = on
+        ? t("Pergunte com as suas palavras, ou escolha um guia abaixo.", "Ask in your own words, or pick a guide below.")
+        : t("Passo a passo com imagens, para fazer cada coisa no Apex.", "Step by step with pictures, to do each thing in Apex.");
+    }
     function sideLabel(a) { return a === "admin" ? t("Lado administrador", "Admin side") : t("Lado cliente", "Client side"); }
     // The starting side: a guide link's own side, then ?audience=, then the page default.
     function chooseSide() {
@@ -374,9 +388,7 @@
         row.appendChild(el("span", "way-what", w[1]));
         ways.appendChild(row);
       });
-      byId("heroSub").textContent = enabled
-        ? t("Pergunte com as suas palavras, ou escolha um guia abaixo.", "Ask in your own words, or pick a guide below.")
-        : t("Passo a passo com imagens, para fazer cada coisa no Apex.", "Step by step with pictures, to do each thing in Apex.");
+      showAskIfSignedIn();
       byId("askIco").innerHTML = ICON_SEARCH;
       byId("askLabel").textContent = t("Busque um guia ou faça uma pergunta", "Search for a guide or ask a question");
       if (!enabled) { byId("banner").hidden = true; }
@@ -851,8 +863,8 @@
     function setupAsk() {
       var box = byId("searchBox");
       if (!enabled) { box.hidden = true; return; }
-      box.hidden = false;
-      try { if (window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches) { byId("askInput").focus({ preventScroll: true }); } } catch (e) { /* focus is a courtesy */ }
+      showAskIfSignedIn();
+      try { if (signedIn() && window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches) { byId("askInput").focus({ preventScroll: true }); } } catch (e) { /* focus is a courtesy */ }
       var form = byId("askForm"), input = byId("askInput"), go = byId("askBtn"), out = byId("answer");
       form.addEventListener("submit", function (e) {
         e.preventDefault();
@@ -1013,7 +1025,7 @@
       if (enabled && window.firebase && !window.firebase.apps.length) {
         try {
           window.firebase.initializeApp(FIREBASE_CONFIG);
-          window.firebase.auth().onAuthStateChanged(function (u) { authUser = u; chooseSide(); renderList(); });
+          window.firebase.auth().onAuthStateChanged(function (u) { authUser = u; showAskIfSignedIn(); chooseSide(); renderList(); });
         } catch (e) { /* the search then says to sign in */ }
       }
       loadGuides();

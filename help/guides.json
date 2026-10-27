@@ -13629,23 +13629,144 @@
             {
               "n": 1,
               "text": {
-                "pt": "Mude o preço do contrato se você renegociou. Abra o contrato enquanto ainda é rascunho (Negócio, depois Contratos, e toque nele). Digite o preço novo em Preço do contrato ($) (1) e toque em Salvar preço (2). O Valor atual (4) passa a mostrar o preço novo. Embaixo do campo, o Apex mostra o preço do orçamento e a diferença, por exemplo ajuste negociado de -$1,300.00. As parcelas seguem este preço. O botão Voltar ao preço do orçamento (3) desfaz a mudança. Depois que os dois lados assinam, o preço não muda mais: faça um aditivo (veja o guia Enviar um aditivo).",
-                "en": "Change the contract price if you renegotiated. Open the contract while it is still a draft (Business, then Contracts, then tap it). Type the new price in Contract price ($) (1) and tap Save price (2). Current amount (4) now shows the new price. Under the box, Apex shows the estimate price and the difference, for example negotiated adjustment -$1,300.00. The payment schedule follows this price. The button Back to the estimate price (3) undoes the change. After both sides sign, the price no longer changes: add a change order (see the guide Send a change order)."
+                "pt": "Abra o contrato enquanto ainda é rascunho: toque em Negócio, depois em Contratos, e toque no contrato (1).",
+                "en": "Open the contract while it is still a draft: tap Business, then Contracts, then tap the contract (1)."
               },
               "image": {
-                "pt": "help/img/guides/contract-price-values-and-clauses/price-01.pt.jpg",
-                "en": "help/img/guides/contract-price-values-and-clauses/price-01.en.jpg"
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-s01.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Responda às perguntas sobre este contrato. Na parte chamada Este contrato, toque em Sim ou Não para a venda ter sido feita durante uma visita à casa do cliente (1). Escolha o Estado onde o serviço será feito (2) e o Tipo do imóvel (3). Marque Obra de piscina (4) se for uma piscina: o contrato leva os dois documentos do Capítulo 515. Aí escolha o Item de segurança da piscina (5). Em Proposta válida até (6), escolha a data. Uma nota dá o prazo de cancelamento: meia-noite do 3º dia útil depois de o cliente assinar. Sábado conta, domingo e feriados federais não.",
-                "en": "Answer the questions about this contract. In the part called This contract, tap Yes or No for whether the sale was made during a visit to the customer's home (1). Choose the State where the work is done (2) and the Property type (3). Tick Pool job (4) if it is a pool: the contract carries the two Chapter 515 documents. Then choose the Pool safety feature (5). Under Offer valid until (6), pick the date. A note gives the cancellation deadline: midnight of the 3rd business day after the customer signs. Saturday counts, Sunday and federal holidays do not."
+                "pt": "Mude o preço do contrato se você renegociou. Digite o preço novo em Preço do contrato ($) (1).",
+                "en": "Change the contract price if you renegotiated. Type the new price in Contract price ($) (1)."
               },
               "image": {
-                "pt": "help/img/guides/contract-price-values-and-clauses/price-02.pt.jpg",
-                "en": "help/img/guides/contract-price-values-and-clauses/price-02.en.jpg"
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-s02.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-s02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Toque em Salvar preço (1). O Apex salva o preço novo.",
+                "en": "Tap Save price (1). Apex saves the new price."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-s03.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "O Valor atual (1) passa a mostrar o preço novo. Embaixo do campo (2), o Apex mostra o preço do orçamento e a diferença, por exemplo ajuste negociado de -$1,300.00. As parcelas seguem este preço.",
+                "en": "Current amount (1) now shows the new price. Under the box (2), Apex shows the estimate price and the difference, for example negotiated adjustment -$1,300.00. The payment schedule follows this price."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-s04.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Para desfazer a mudança, toque em Voltar ao preço do orçamento (1). O preço volta ao preço do orçamento.",
+                "en": "To undo the change, tap Back to the estimate price (1). The price goes back to the estimate price."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-s05.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Depois que os dois lados assinam, o preço não muda mais: faça um aditivo (veja o guia Enviar um aditivo).",
+                "en": "After both sides sign, the price no longer changes. Add a change order instead (see the guide Send a change order)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-s05.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-s05.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Responda às perguntas sobre este contrato. Na parte chamada Este contrato, toque em Sim ou Não para a venda ter sido feita durante uma visita à casa do cliente (1).",
+                "en": "Answer the questions about this contract. In the part called This contract, tap Yes or No for whether the sale was made during a visit to the customer's home (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-s07.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Escolha o Estado onde o serviço será feito (1).",
+                "en": "Choose the State where the work is done (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-s08.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Escolha o Tipo do imóvel (1).",
+                "en": "Choose the Property type (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-s09.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Marque Obra de piscina (1) se for uma piscina: o contrato leva os dois documentos do Capítulo 515.",
+                "en": "Tick Pool job (1) if it is a pool: the contract carries the two Chapter 515 documents."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-s10.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Aí escolha o Item de segurança da piscina (1). Esta escolha aparece em uma obra de piscina na Flórida.",
+                "en": "Then choose the Pool safety feature (1). This choice shows for a Florida pool job."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-s11.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Em Proposta válida até (1), escolha a data.",
+                "en": "Under Offer valid until (1), pick the date."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-s12.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Uma nota (1) dá o prazo de cancelamento: meia-noite do 3º dia útil depois de o cliente assinar. Sábado conta, domingo e feriados federais não.",
+                "en": "A note (1) gives the cancellation deadline: midnight of the 3rd business day after the customer signs. Saturday counts, Sunday and federal holidays do not."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-s13.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-s13.en.jpg"
               }
             }
           ]
@@ -13660,23 +13781,78 @@
             {
               "n": 1,
               "text": {
-                "pt": "Veja de onde veio cada valor. A parte chamada Dados deste contrato (toque para mudar só neste contrato) lista cada valor que entra no contrato. A linha pequena embaixo de cada valor diz de onde ele veio, por exemplo das configurações (1) ou calculado (2), e os códigos depois, como L4 ou C01-A, são as áreas de cláusula que usam o valor. Um valor que você mudou diz neste contrato e que substitui o valor das configurações (3). O número da licença está coberto na imagem.",
-                "en": "See where each value came from. The part called This contract's details (tap to change for this contract only) lists every value that goes into the contract. The small line under each value says where it came from, for example from the settings (1) or calculated (2), and the codes after it, like L4 or C01-A, are the clause areas that use the value. A value you changed says this contract and that it overrides the value from the settings (3). The license number is covered in the picture."
+                "pt": "A parte chamada Dados deste contrato (toque para mudar só neste contrato) (1) lista cada valor que entra no contrato. O número da licença está coberto na imagem.",
+                "en": "The part called This contract's details (tap to change for this contract only) (1) lists every value that goes into the contract. The license number is covered in the picture."
               },
               "image": {
-                "pt": "help/img/guides/contract-price-values-and-clauses/values-01.pt.jpg",
-                "en": "help/img/guides/contract-price-values-and-clauses/values-01.en.jpg"
+                "pt": "help/img/guides/contract-price-values-and-clauses/values-s01.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/values-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Mude um valor só neste contrato. Toque na linha. Abre uma janela com o nome do valor. Digite o valor novo na caixa (1) e toque em Salvar (2). A mudança vale só para este contrato e não mexe nas suas configurações. Deixe a caixa em branco e salve para voltar ao valor original.",
-                "en": "Change a value for this contract only. Tap the row. A window opens with the name of the value. Type the new value in the box (1) and tap Save (2). The change counts only for this contract and does not touch your settings. Leave the box blank and save to go back to the original value."
+                "pt": "A linha pequena embaixo de cada valor diz de onde ele veio, por exemplo das configurações (1) ou calculado (2). Os códigos depois, como L4 ou C01-A, são as áreas de cláusula que usam o valor.",
+                "en": "The small line under each value says where it came from, for example from the settings (1) or calculated (2). The codes after it, like L4 or C01-A, are the clause areas that use the value."
               },
               "image": {
-                "pt": "help/img/guides/contract-price-values-and-clauses/values-02.pt.jpg",
-                "en": "help/img/guides/contract-price-values-and-clauses/values-02.en.jpg"
+                "pt": "help/img/guides/contract-price-values-and-clauses/values-s02.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/values-s02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Para mudar um valor só neste contrato, toque na linha dele (1).",
+                "en": "To change a value for this contract only, tap its row (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/values-s03.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/values-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Abre uma janela com o nome do valor. Digite o valor novo na caixa (1).",
+                "en": "A window opens with the name of the value. Type the new value in the box (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/values-s04.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/values-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Toque em Salvar (1). A mudança vale só para este contrato e não mexe nas suas configurações.",
+                "en": "Tap Save (1). The change counts only for this contract and does not touch your settings."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/values-s05.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/values-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Um valor que você mudou diz neste contrato e que substitui o valor das configurações (1).",
+                "en": "A value you changed says this contract and that it overrides the value from the settings (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/values-s06.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/values-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Para voltar ao valor original, toque na linha, deixe a caixa em branco (1) e toque em Salvar (2).",
+                "en": "To go back to the original value, tap the row, leave the box blank (1) and tap Save (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/values-s07.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/values-s07.en.jpg"
               }
             }
           ]
@@ -13691,56 +13867,221 @@
             {
               "n": 1,
               "text": {
-                "pt": "Escolha uma cláusula para uma área. Na parte chamada Cláusulas, cada área tem um menu (1), por exemplo C03 Preço do contrato. O menu começa com a opção das configurações do contrato (veja o guia Configure o seu contrato uma vez). Escolha outra opção para usá-la só neste contrato. O texto embaixo (2) explica a opção em palavras simples. O botão Escrever cláusula própria nesta área (3) serve para uma cláusula sua.",
-                "en": "Choose a clause for one area. In the part called Clauses, each area has a menu (1), for example C03 Contract price. The menu starts with the option from your contract settings (see the guide Set up your contract once). Pick another option to use it in this contract only. The text under it (2) explains the option in plain words. The button Write a custom clause for this area (3) is for a clause of your own."
+                "pt": "Na parte chamada Cláusulas, cada área tem um menu (1), por exemplo C05 Aditivos. O menu começa com a opção das configurações do contrato (veja o guia Configure o seu contrato uma vez).",
+                "en": "In the part called Clauses, each area has a menu (1), for example C05 Change orders. The menu starts with the option from your contract settings (see the guide Set up your contract once)."
               },
               "image": {
-                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-01.pt.jpg",
-                "en": "help/img/guides/contract-price-values-and-clauses/clauses-01.en.jpg"
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s01.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Escreva a sua própria cláusula. Toque em Escrever cláusula própria nesta área. Um aviso vermelho (1) diz que o contrato vai dizer que a cláusula personalizada não foi revisada por advogado, e que a Apex será avisada. Digite a cláusula em inglês, do jeito que vai no contrato, na caixa (2). Marque Entendi o aviso acima (3) e toque em Salvar cláusula (4). O Apex responde Cláusula salva; a Apex foi avisada. Cancelar volta e não salva nada.",
-                "en": "Write your own clause. Tap Write a custom clause for this area. A red warning (1) says the contract will say the custom clause was not reviewed by an attorney, and that Apex will be notified. Type the clause in English, the way it goes in the contract, in the box (2). Tick I understand the warning above (3) and tap Save clause (4). Apex answers Clause saved; Apex was notified. Cancel goes back and saves nothing."
+                "pt": "Escolha outra opção no menu (1) para usá-la só neste contrato.",
+                "en": "Pick another option in the menu (1) to use it in this contract only."
               },
               "image": {
-                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-02.pt.jpg",
-                "en": "help/img/guides/contract-price-values-and-clauses/clauses-02.en.jpg"
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s02.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Veja a etiqueta do advogado. Depois de salvar, o menu (1) mostra Cláusula personalizada (pendente). Embaixo do texto que você escreveu, uma etiqueta dourada diz aguardando o seu advogado (2). Dois botões ficam embaixo: Baixar PDF para o seu advogado (3) dá uma página com a cláusula para entregar, e Registrar revisão do advogado (4) abre a tela da revisão.",
-                "en": "See the attorney tag. After you save, the menu (1) shows Custom clause (pending). Under the text you wrote, a gold tag says awaiting your attorney (2). Two buttons sit under it: Download PDF for your attorney (3) gives a page with the clause to hand over, and Record attorney review (4) opens the review screen."
+                "pt": "O texto embaixo do menu (1) explica a opção em palavras simples.",
+                "en": "The text under the menu (1) explains the option in plain words."
               },
               "image": {
-                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-03.pt.jpg",
-                "en": "help/img/guides/contract-price-values-and-clauses/clauses-03.en.jpg"
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s03.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Registre a revisão do seu advogado. Escolha a Decisão (1): Aprovada, Aprovada com edições ou Não aprovada. Digite o Nome do advogado (2), o Florida Bar # (3) e a Data da revisão (4). Toque em Salvar revisão (5). O Apex responde Revisão registrada.",
-                "en": "Record your attorney's review. Choose the Decision (1): Approved, Approved with edits or Not approved. Type the Attorney name (2), the Florida Bar # (3) and the Review date (4). Tap Save review (5). Apex answers Review recorded."
+                "pt": "Para usar uma cláusula sua, toque em Escrever cláusula própria nesta área (1).",
+                "en": "To use a clause of your own, tap Write a custom clause for this area (1)."
               },
               "image": {
-                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-04.pt.jpg",
-                "en": "help/img/guides/contract-price-values-and-clauses/clauses-04.en.jpg"
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s04.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Veja o resultado. O menu (1) passa a mostrar Cláusula personalizada (aprovada). Uma linha (2) mostra a etiqueta verde aprovada, o nome do advogado, o número da Bar e a data da revisão. Uma cláusula aprovada fica salva palavra por palavra na sua biblioteca privada. A etiqueta dourada e os dois botões do advogado somem.",
-                "en": "See the result. The menu (1) now shows Custom clause (approved). A line (2) shows the green approved tag, the attorney name, the Bar number and the review date. An approved clause is saved word for word in your private library. The gold tag and the two attorney buttons go away."
+                "pt": "Um aviso vermelho (1) diz que o contrato vai dizer que a cláusula personalizada não foi revisada por advogado, e que a Apex será avisada.",
+                "en": "A red warning (1) says the contract will say the custom clause was not reviewed by an attorney, and that Apex will be notified."
               },
               "image": {
-                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-05.pt.jpg",
-                "en": "help/img/guides/contract-price-values-and-clauses/clauses-05.en.jpg"
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s05.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Digite a cláusula em inglês, do jeito que vai no contrato, na caixa (1).",
+                "en": "Type the clause in English, the way it goes in the contract, in the box (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s06.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Marque Entendi o aviso acima (1).",
+                "en": "Tick I understand the warning above (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s07.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Toque em Salvar cláusula (1). O Apex responde Cláusula salva; a Apex foi avisada. Cancelar volta e não salva nada.",
+                "en": "Tap Save clause (1). Apex answers Clause saved; Apex was notified. Cancel goes back and saves nothing."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s08.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Depois de salvar, o menu (1) mostra Cláusula personalizada (pendente).",
+                "en": "After you save, the menu (1) shows Custom clause (pending)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s09.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Embaixo do texto que você escreveu, uma etiqueta dourada (1) diz aguardando o seu advogado.",
+                "en": "Under the text you wrote, a gold tag (1) says awaiting your attorney."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s10.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Baixar PDF para o seu advogado (1) dá uma página com a cláusula para entregar.",
+                "en": "Download PDF for your attorney (1) gives a page with the clause to hand over."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s11.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Registrar revisão do advogado (1) abre a tela da revisão. Toque nele para registrar a revisão do seu advogado.",
+                "en": "Record attorney review (1) opens the review screen. Tap it to record your attorney's review."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s12.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Escolha a Decisão (1): Aprovada, Aprovada com edições ou Não aprovada.",
+                "en": "Choose the Decision (1): Approved, Approved with edits or Not approved."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s13.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Digite o Nome do advogado (1).",
+                "en": "Type the Attorney name (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s14.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Digite o Florida Bar # (1).",
+                "en": "Type the Florida Bar # (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s15.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Escolha a Data da revisão (1).",
+                "en": "Pick the Review date (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s16.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Toque em Salvar revisão (1). O Apex responde Revisão registrada.",
+                "en": "Tap Save review (1). Apex answers Review recorded."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s17.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "O menu (1) passa a mostrar Cláusula personalizada (aprovada).",
+                "en": "The menu (1) now shows Custom clause (approved)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s18.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "Uma linha (1) mostra a etiqueta verde aprovada, o nome do advogado, o número da Bar e a data da revisão.",
+                "en": "A line (1) shows the green approved tag, the attorney name, the Bar number and the review date."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s19.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s19.en.jpg"
+              }
+            },
+            {
+              "n": 20,
+              "text": {
+                "pt": "Uma cláusula aprovada fica salva palavra por palavra na sua biblioteca privada. A etiqueta dourada e os dois botões do advogado somem.",
+                "en": "An approved clause is saved word for word in your private library. The gold tag and the two attorney buttons go away."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-s19.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-s19.en.jpg"
               }
             }
           ]
@@ -13757,7 +14098,7 @@
             ]
           },
           "section": "price",
-          "step": 1
+          "step": 3
         },
         {
           "labels": {
@@ -13769,7 +14110,7 @@
             ]
           },
           "section": "price",
-          "step": 1
+          "step": 5
         },
         {
           "labels": {
@@ -13781,7 +14122,7 @@
             ]
           },
           "section": "clauses",
-          "step": 1
+          "step": 4
         },
         {
           "labels": {
@@ -13793,7 +14134,7 @@
             ]
           },
           "section": "clauses",
-          "step": 2
+          "step": 8
         },
         {
           "labels": {
@@ -13805,7 +14146,7 @@
             ]
           },
           "section": "clauses",
-          "step": 3
+          "step": 12
         },
         {
           "labels": {
@@ -13817,7 +14158,7 @@
             ]
           },
           "section": "clauses",
-          "step": 3
+          "step": 11
         },
         {
           "labels": {
@@ -13829,7 +14170,7 @@
             ]
           },
           "section": "clauses",
-          "step": 4
+          "step": 17
         }
       ]
     },

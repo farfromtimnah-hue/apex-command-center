@@ -9666,8 +9666,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Ajuda. Toque em Ajuda no alto do portal. Escolha o tipo de problema (1): Algo não está funcionando, para um erro, uma tela em branco ou um botão que não responde, ou Preciso de ajuda com o meu negócio, para uma dúvida de consultoria sobre metas ou estratégia. Descreva o que aconteceu na caixa (2): o que você fazia e o que deu errado. A caixa cinza (3) mostra o que a Apex envia junto com a sua mensagem: o seu negócio, a aba em que você estava, o seu aparelho e a hora. Toque em Enviar pelo WhatsApp (4). O botão só liga depois que você escolhe o tipo e escreve a mensagem. Na figura nada foi enviado.",
-                "en": "Open Help. Tap Help at the top of the portal. Choose the kind of problem (1): Something isn't working, for an error, a blank screen or a button that does nothing, or I need help with my business, for a consulting question about goals or strategy. Describe what happened in the box (2): what you were doing and what went wrong. The grey box (3) shows what Apex sends along with your message: your business, the tab you were on, your device and the time. Tap Send via WhatsApp (4). The button only turns on after you choose a type and write your message. In the picture nothing was sent."
+                "pt": "Toque em Ajuda (1) no alto do portal. Abre uma janela.",
+                "en": "Tap Help (1) at the top of the portal. A window opens."
               },
               "image": {
                 "pt": "help/img/guides/get-help/help-01.pt.jpg",
@@ -9677,12 +9677,56 @@
             {
               "n": 2,
               "text": {
-                "pt": "Aprenda antes de pedir. No computador, clique com o botão direito em qualquer botão (2): um menuzinho (1) diz Aprender sobre este botão. Clique nele para abrir o guia daquele botão. O ponto de interrogação no alto abre o Aprenda com uma caixa de busca. Veja o guia Use o Aprenda e troque o idioma.",
-                "en": "Learn before you ask. On a computer, right click any button (2): a small menu (1) says Learn about this button. Click it to open the guide for that button. The question mark at the top opens Learn with a search box. See the guide Use Learn and switch the language."
+                "pt": "Escolha o tipo de problema (1): Algo não está funcionando, para um erro, uma tela em branco ou um botão que não responde, ou Preciso de ajuda com o meu negócio (2), para uma dúvida de consultoria sobre metas ou estratégia.",
+                "en": "Choose the kind of problem (1): Something isn't working, for an error, a blank screen or a button that does nothing, or I need help with my business (2), for a consulting question about goals or strategy."
               },
               "image": {
                 "pt": "help/img/guides/get-help/help-02.pt.jpg",
                 "en": "help/img/guides/get-help/help-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Descreva o que aconteceu na caixa (1): o que você fazia e o que deu errado.",
+                "en": "Describe what happened in the box (1): what you were doing and what went wrong."
+              },
+              "image": {
+                "pt": "help/img/guides/get-help/help-03.pt.jpg",
+                "en": "help/img/guides/get-help/help-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "A caixa cinza (1) mostra o que a Apex envia junto com a sua mensagem: o seu negócio, a aba em que você estava, o seu aparelho e a hora.",
+                "en": "The grey box (1) shows what Apex sends along with your message: your business, the tab you were on, your device and the time."
+              },
+              "image": {
+                "pt": "help/img/guides/get-help/help-04.pt.jpg",
+                "en": "help/img/guides/get-help/help-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Toque em Enviar pelo WhatsApp (1). O botão só liga depois que você escolhe o tipo e escreve a mensagem. Na figura nada foi enviado.",
+                "en": "Tap Send via WhatsApp (1). The button only turns on after you choose a type and write your message. In the picture nothing was sent."
+              },
+              "image": {
+                "pt": "help/img/guides/get-help/help-05.pt.jpg",
+                "en": "help/img/guides/get-help/help-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Aprenda antes de pedir. No computador, clique com o botão direito em qualquer botão (2): um menuzinho (1) diz Aprender sobre este botão. Clique nele para abrir o guia daquele botão. O ponto de interrogação no alto abre o Aprenda com uma caixa de busca. Veja o guia Use o Aprenda e troque o idioma.",
+                "en": "Learn before you ask. On a computer, right click any button (2): a small menu (1) says Learn about this button. Click it to open the guide for that button. The question mark at the top opens Learn with a search box. See the guide Use Learn and switch the language."
+              },
+              "image": {
+                "pt": "help/img/guides/get-help/help-06.pt.jpg",
+                "en": "help/img/guides/get-help/help-06.en.jpg"
               }
             }
           ]
@@ -9699,11 +9743,9 @@
             ]
           },
           "section": "help",
-          "step": 1
+          "step": 5
         },
         {
-          "section": "help",
-          "step": 1,
           "labels": {
             "pt": [
               "Ajuda"
@@ -9711,7 +9753,9 @@
             "en": [
               "Help"
             ]
-          }
+          },
+          "section": "help",
+          "step": 1
         }
       ]
     },

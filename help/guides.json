@@ -16412,16 +16412,19 @@
             {
               "n": 1,
               "text": {
-                "pt": "O que é. Cada cliente tem um registro com tudo sobre ele. Abra pela página Clientes: toque no nome do cliente na lista. Use este guia para se orientar na tela.",
-                "en": "What it is. Each client has one record with everything about them. Open it from Clients: tap the client name in the list. Use this guide to find your way around."
+                "pt": "Cada cliente tem um registro com tudo sobre ele. Abra Clientes no menu da esquerda e toque no nome do cliente (1) na lista. As abas (2) ficam acima da lista. Os nomes são nomes de teste, e Arquivar não foi tocado.",
+                "en": "Each client has one record with everything about them. Open Clients in the left menu and tap the client name (1) in the list. The tabs (2) sit above the list. The names are test names, and Archive was not tapped."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-client-record/open-01.pt.jpg",
+                "en": "help/img/guides/admin-client-record/open-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "O topo do registro. 1. As setas vão para o cliente anterior ou o próximo, e o nome fica entre elas. 2. As duas etiquetas mostram o pacote (Sprint, por exemplo) e o status. O lápis ao lado de cada uma edita. 3. Preparação da reunião abre a página da próxima reunião com este cliente. 4. As abas: Visão geral, Financeiro, Trabalho Apex, Resultados e Ferramentas do cliente. Cada aba abre um pequeno menu de seções.",
-                "en": "The top of the record. 1. The arrows move to the previous or next client, and the name sits between them. 2. The two pills show the package (Sprint, for example) and the status. The pencil next to each one edits it. 3. Meeting prep opens the page for the next meeting with this client. 4. The tabs: Overview, Money, Apex work, Results and Client tools. Each tab opens a small menu of sections."
+                "pt": "As setas (1) (2) vão para o cliente anterior ou o próximo, e o nome fica entre elas. As duas etiquetas mostram o pacote (3), Sprint por exemplo, e o status (4). O lápis ao lado de cada uma edita. Preparação da reunião (5) abre a página da próxima reunião com este cliente.",
+                "en": "The arrows (1) (2) move to the previous or next client, and the name sits between them. The two pills show the package (3), Sprint for example, and the status (4). The pencil next to each one edits it. Meeting prep (5) opens the page for the next meeting with this client."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record/open-02.pt.jpg",
@@ -16431,12 +16434,56 @@
             {
               "n": 3,
               "text": {
-                "pt": "O cartão Visão geral. 1. Alterar Logo envia o logo do cliente. Os dados da empresa aparecem abaixo. 2. Contatos: toque em + Adicionar para incluir uma pessoa com nome, cargo, WhatsApp e email. 3. Notas: toque em + Adicionar Nota e escreva o que todos precisam lembrar.",
-                "en": "The Overview card. 1. Change Logo uploads the client logo. The business facts are listed below it. 2. Contacts: tap + Add to add a person with name, role, WhatsApp and email. 3. Notes: tap + Add Note and write what you want everyone to remember."
+                "pt": "As abas (1) são Visão geral, Financeiro, Trabalho Apex, Resultados e Ferramentas do cliente. Cada aba abre um pequeno menu de seções.",
+                "en": "The tabs (1) are Overview, Money, Apex work, Results and Client tools. Each tab opens a small menu of sections."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record/open-03.pt.jpg",
                 "en": "help/img/guides/admin-client-record/open-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "O cartão Visão geral lista os dados do negócio (2). Alterar Logo (1) envia o logo do cliente. O logo não foi mudado.",
+                "en": "The Overview card lists the business facts (2). Change Logo (1) uploads the client logo. The logo was not changed."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/open-04.pt.jpg",
+                "en": "help/img/guides/admin-client-record/open-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Embaixo dele, o cartão Contatos tem + Adicionar (1) e o cartão Notas tem + Adicionar Nota (2).",
+                "en": "Below it, the Contacts card has + Add (1) and the Notes card has + Add Note (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/open-05.pt.jpg",
+                "en": "help/img/guides/admin-client-record/open-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Contatos: + Adicionar abre um formulário pequeno para uma pessoa. Preencha o nome (1), que é obrigatório, o cargo (2), o telefone (3), o WhatsApp (4) e o email (5), e toque em Salvar Contato (6). O formulário foi fechado sem salvar.",
+                "en": "Contacts: + Add opens a small form for a person. Fill in the name (1), which is required, the role (2), the phone (3), the WhatsApp (4) and the email (5), then tap Save Contact (6). The form was closed without saving."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/open-06.pt.jpg",
+                "en": "help/img/guides/admin-client-record/open-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Notas: + Adicionar Nota abre uma caixa. Escreva o que você quer que todos lembrem (1) e toque em Salvar (2). A caixa foi fechada sem salvar.",
+                "en": "Notes: + Add Note opens a box. Write what you want everyone to remember (1) and tap Save (2). The box was closed without saving."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/open-07.pt.jpg",
+                "en": "help/img/guides/admin-client-record/open-07.en.jpg"
               }
             }
           ]
@@ -16451,12 +16498,23 @@
             {
               "n": 1,
               "text": {
-                "pt": "Acesso ao portal. O cartão Portal do Cliente mostra o nome de login (escondido aqui), se há senha definida e o último acesso. 1. Ver portal do cliente abre o portal exatamente como o cliente vê. É só para ler: você não consegue mudar nada lá. 2. Redefinir Senha cria uma nova senha temporária. 3. Enviar link do app envia o link para instalar o app. 4. Enviar novo login (link) envia ao cliente um novo link de acesso pelo WhatsApp. Os botões abaixo ligam ou desligam o Registro diário e as Metas deste cliente. Abaixo do cartão, Logins de Vendedor lista os pedidos deste cliente para dar um login do portal a um vendedor.",
-                "en": "Portal access. The Client Portal card shows the login name (hidden here), whether a password is set and the last login. 1. View client portal opens the portal exactly as the client sees it. It is read only: you cannot change anything there. 2. Reset Password makes a new temporary password. 3. Send app link sends the link to install the app. 4. Send new login (link) sends the client a fresh login link on WhatsApp. The switches below turn the Daily log and Goals on or off for this client. Below the card, Salesperson Logins lists the requests from this client to give a salesperson a portal login."
+                "pt": "O cartão Portal do Cliente mostra o nome do login, se há senha definida e o último acesso. Ver portal do cliente (1) abre o portal exatamente como o cliente vê, só para ler. Redefinir Senha (2) cria uma senha temporária nova. Enviar link do app (3) envia o link para instalar o app. Enviar novo login (link) (4) envia ao cliente um link de login novo pelo WhatsApp. Editar Campos (5) fica ao lado. As chaves (6) ligam ou desligam o Registro diário e as Metas para este cliente. Nenhum desses botões foi tocado.",
+                "en": "The Client Portal card shows the login name, whether a password is set and the last login. View client portal (1) opens the portal exactly as the client sees it, read only. Reset Password (2) makes a new temporary password. Send app link (3) sends the link to install the app. Send new login (link) (4) sends the client a fresh login link on WhatsApp. Edit Fields (5) is next to it. The switches (6) turn the Daily log and Goals on or off for this client. None of these buttons was tapped."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record/portal-01.pt.jpg",
                 "en": "help/img/guides/admin-client-record/portal-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Embaixo do cartão, Logins de Vendedor (1) lista os pedidos deste cliente para dar um login do portal a um vendedor, e os logins ativos. Diagnóstico de vendedores (2) abre material de coaching dos vendedores. Os nomes são nomes de teste.",
+                "en": "Below the card, Salesperson Logins (1) lists the requests from this client to give a salesperson a portal login, and the active logins. Seller diagnostics (2) opens coaching material for the salespeople. Names are test names."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/portal-02.pt.jpg",
+                "en": "help/img/guides/admin-client-record/portal-02.en.jpg"
               }
             }
           ]
@@ -16471,8 +16529,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Aba Financeiro. O menu leva a: Contrato APEX (os contratos deste cliente com a Apex, e Montar contrato para criar um novo), Status do contrato, Faturas (Não Pagas e Arquivo), Método de Pagamento com o plano de pagamento (Definir plano) e Fornecedores.",
-                "en": "Money tab. The menu jumps to: APEX contract (the contracts of this client with Apex, and Montar contrato to build a new one), Contract status, Invoices (Unpaid and Archive), Payment Method with the payment plan (Set plan), and Vendors."
+                "pt": "Aba Financeiro (1). O menu (2) pula para: Contrato APEX (os contratos deste cliente com a Apex, e Montar contrato para fazer um novo), Status do contrato, Faturas (Não pagas e Arquivo), Método de Pagamento com o plano de pagamento (Definir) e Fornecedores. Os valores estão cobertos.",
+                "en": "Money tab (1). The menu (2) jumps to: APEX Contract (the contracts of this client with Apex, and Montar contrato to build a new one), Contract status, Invoices (Unpaid and Archive), Payment Method with the payment plan (Set plan), and Vendors. Amounts are covered."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record/tabs-01.pt.jpg",
@@ -16482,8 +16540,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Aba Trabalho Apex. O menu leva a: Sessões, Tarefas do Cliente, Tarefas do Consultor, Avaliações, Recursos e Documentos. Use + Adicionar nos cartões de tarefas para dar uma tarefa ao cliente ou a um consultor.",
-                "en": "Apex work tab. The menu jumps to: Sessions, Client Tasks, Consultant Tasks, Assessments, Resources and Documents. Use + Add on the tasks cards to give a task to the client or to a consultant."
+                "pt": "Aba Trabalho Apex (1). O menu (2) pula para: Sessões, Tarefas do Cliente, Tarefas do Consultor, Avaliações, Recursos e Documentos. Use + Adicionar nos cartões de tarefas para dar uma tarefa ao cliente ou a um consultor.",
+                "en": "Apex work tab (1). The menu (2) jumps to: Sessions, Client Tasks, Consultant Tasks, Assessments, Resources and Documents. Use + Add on the tasks cards to give a task to the client or to a consultant."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record/tabs-02.pt.jpg",
@@ -16493,10 +16551,24 @@
             {
               "n": 3,
               "text": {
-                "pt": "As outras duas abas. Resultados tem Crescimento, a Semana de Registro do registro diário, Presença Digital e Análise do Cliente. Ferramentas do cliente abre as ferramentas do próprio negócio do cliente (Pipeline, Orçamentos, Projetos, Preços e Financeiro) para você ver uma visão geral.",
-                "en": "The other two tabs. Results holds Growth, the Entry Week of the daily log, Digital Presence and Client Analytics. Client tools opens this client's own business tools (Pipeline, Estimates, Projects, Pricing and Finance) so you can see them as an overview."
+                "pt": "Aba Resultados (1). O menu (2) pula para: Crescimento, Semana de Registros do registro diário, Presença Digital e Análise do cliente.",
+                "en": "Results tab (1). The menu (2) jumps to: Growth, Entry Week of the daily log, Digital Presence and Client Analytics."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-client-record/tabs-03.pt.jpg",
+                "en": "help/img/guides/admin-client-record/tabs-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Aba Ferramentas do cliente (1). O menu (2) abre as ferramentas de negócio deste cliente: Pipeline, Estimates, Projetos, Preços e Financeiro, para você ver como visão geral.",
+                "en": "Client tools tab (1). The menu (2) opens this client's own business tools: Pipeline, Estimates, Projects, Pricing and Finance, so you can see them as an overview."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/tabs-04.pt.jpg",
+                "en": "help/img/guides/admin-client-record/tabs-04.en.jpg"
+              }
             }
           ]
         }
@@ -16560,7 +16632,7 @@
             ]
           },
           "section": "open",
-          "step": 3
+          "step": 4
         },
         {
           "labels": {
@@ -16572,7 +16644,7 @@
             ]
           },
           "section": "open",
-          "step": 3
+          "step": 5
         }
       ]
     },

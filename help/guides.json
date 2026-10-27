@@ -15886,16 +15886,19 @@
             {
               "n": 1,
               "text": {
-                "pt": "O que é. O Apex Club é o jantar com um palestrante, mais ou menos uma vez por mês. Esta página mostra um evento de cada vez: a imagem, o nome, a data, o local e a lista de convidados. Os dois cartões do alto contam as pessoas confirmadas e as inscrições. A caixa no canto direito do alto escolhe o mês. As pessoas se inscrevem numa página pública que qualquer um pode repassar, sem precisar de login. Abra Apex Club no menu da esquerda.",
-                "en": "What it is. Apex Club is the dinner with a speaker, about once a month. This page shows one event at a time: the picture, the name, the date, the place and the guest list. The two tiles at the top count the people confirmed and the registrations. The box in the top right chooses the month. People sign up on a public page that anyone can forward, so no login is needed. Open Apex Club in the left menu."
+                "pt": "O Apex Club é o jantar com um palestrante, mais ou menos uma vez por mês. Abra Apex Club no menu da esquerda. Os dois cartões do alto contam as pessoas confirmadas (1) e as inscrições (2). A caixa no canto direito do alto (3) escolhe o mês.",
+                "en": "Apex Club is the dinner with a speaker, about once a month. Open Apex Club in the left menu. The two tiles at the top count the people confirmed (1) and the registrations (2). The box in the top right (3) chooses the month."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-apex-club/club-01.pt.jpg",
+                "en": "help/img/guides/admin-apex-club/club-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Crie um evento. Role até o fim da página e toque em Novo evento. Só o nome e a data são obrigatórios. 1. Nome do evento. 2. Data. 3. Horário. 4. Local. Abaixo, Convidados lista quem palestra. 5. Valor por pessoa: deixe vazio quando a Apex não cobra por este evento. Valor por casal é o preço de um casal, e Aceitar cartão neste evento liga o pagamento por cartão com preços próprios. Tudo o que você preencher aparece na página de inscrição. O local e os convidados estão escondidos nesta imagem. Role para baixo dentro da caixa e salve.",
-                "en": "Create an event. Scroll to the bottom of the page and tap Novo evento. Only the name and the date are required. 1. Nome do evento (Event name). 2. Data (Date). 3. Horário (Start time). 4. Local (Venue). Below it, Convidados (Speakers) lists who speaks. 5. Valor por pessoa (Price per person): leave it empty when Apex does not charge for this event. Valor por casal is the price for a couple, and Aceitar cartão neste evento turns on card payment with its own prices. Everything you fill in shows on the registration page. The place and the speakers are hidden in this picture. Scroll down in the box and save."
+                "pt": "A página mostra um evento de cada vez (1): a imagem, o nome, a data, o local e os convidados. Editar (2) abre o formulário. As imagens estão cobertas e os nomes são valores de teste.",
+                "en": "The page shows one event at a time (1): the picture, the name, the date, the place and the speakers. Editar (Edit) (2) opens the form. The pictures are covered and the names are test values."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-02.pt.jpg",
@@ -15905,18 +15908,112 @@
             {
               "n": 3,
               "text": {
-                "pt": "Mude o evento. No cartão do evento, toque em Editar para abrir o mesmo formulário com os valores salvos.",
-                "en": "Change the event. On the event card, tap Editar to open the same form again with the saved values."
+                "pt": "Embaixo do evento você vê quantas pessoas estão confirmadas e quantas se inscreveram (1), e um link (2) para esconder ou mostrar a lista. Os nomes dos convidados são nomes de teste.",
+                "en": "Under the event you see how many people are confirmed and how many registered (1), and a link (2) to hide or show the list. The guest names are test names."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-apex-club/club-03.pt.jpg",
+                "en": "help/img/guides/admin-apex-club/club-03.en.jpg"
+              }
             },
             {
               "n": 4,
               "text": {
-                "pt": "A lista de convidados. Embaixo do evento você vê quantas pessoas estão confirmadas, quantas se inscreveram e um link para esconder ou mostrar a lista. Cada convidado tem botões. WhatsApp abre o WhatsApp com a mensagem de confirmação daquele convidado, e Editar msg muda o texto dessa mensagem. +1 diz que o convidado traz mais uma pessoa, e isso conta dois lugares. A seta diz que o convidado não vem desta vez, mas vem no próximo. O visto diz que o convidado veio, e o x diz que não veio. Há também um cartão para adicionar um convidado à mão, com o botão Adicionar e uma caixa para o acompanhante.",
-                "en": "The guest list. Under the event you see how many people are confirmed and how many registered, and a link to hide or show the list. Each guest has buttons. WhatsApp opens WhatsApp with the confirmation message for that guest, and Editar msg changes the words of that message. +1 says that the guest brings one more person, which counts two seats. The arrow says that the guest does not come this time but will come to the next one. The check mark says that the guest came, and the cross says that the guest did not show up. There is also a card to add a guest by hand, with its Adicionar button and a box for a plus-one."
+                "pt": "Cada convidado tem botões. WhatsApp (1) abre o WhatsApp com a mensagem de confirmação daquele convidado, e Editar msg (2) muda o texto dessa mensagem. +1 (3) diz que o convidado traz mais uma pessoa, e isso conta dois lugares. A seta (4) diz que o convidado não vem desta vez, mas vem no próximo. O visto (5) diz que o convidado veio, e o x (6) diz que não veio. O WhatsApp não foi tocado.",
+                "en": "Each guest has buttons. WhatsApp (1) opens WhatsApp with the confirmation message for that guest, and Editar msg (2) changes the words of that message. +1 (3) says the guest brings one more person, which counts two seats. The arrow (4) says the guest does not come this time but will come to the next one. The check mark (5) says the guest came, and the cross (6) says the guest did not show up. WhatsApp was not tapped."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-apex-club/club-04.pt.jpg",
+                "en": "help/img/guides/admin-apex-club/club-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Quando um convidado tem +1 (1) mas a segunda pessoa ainda não tem nome, uma etiqueta diz Acompanhante: faltando (2), e o botão Adicionar (3) está ali para preencher.",
+                "en": "When a guest has +1 (1) but the second person has no name yet, a tag says Acompanhante: faltando (plus-one missing) (2), and the button Adicionar (3) is there to fill it in."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-apex-club/club-05.pt.jpg",
+                "en": "help/img/guides/admin-apex-club/club-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "No fim da lista, o link público de inscrição (3) tem Copiar e Compartilhar. As pessoas se inscrevem nessa página pública, que qualquer um pode repassar, sem precisar de login. Acima dele ficam os botões Pessoas (1) e Copiar lista (2).",
+                "en": "At the bottom of the list, the public sign-up link (3) has Copiar (Copy) and Compartilhar (Share). People sign up on that public page, which anyone can forward, so no login is needed. Above it are the buttons Pessoas (1) and Copiar lista (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-apex-club/club-06.pt.jpg",
+                "en": "help/img/guides/admin-apex-club/club-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "O cartão Adicionar pessoa adiciona um convidado à mão: o evento (1), Nome (2), WhatsApp com DDD (3), Empresa (opcional) (4), a caixa Vem com acompanhante (5) e o botão Adicionar (6). Nada foi adicionado nesta figura.",
+                "en": "The card Adicionar pessoa (Add person) adds a guest by hand: the event (1), Nome (2), WhatsApp with area code (3), Empresa (optional) (4), the box Vem com acompanhante (comes with a plus-one) (5) and the button Adicionar (6). Nothing was added for this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-apex-club/club-07.pt.jpg",
+                "en": "help/img/guides/admin-apex-club/club-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Para criar um evento, role até o fim da página e toque em Novo evento (1).",
+                "en": "To create an event, scroll to the bottom of the page and tap Novo evento (New event) (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-apex-club/club-08.pt.jpg",
+                "en": "help/img/guides/admin-apex-club/club-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Só o nome e a data são obrigatórios. Preencha Nome do evento (1), Data (2), Horário (3), Local (4) e Convidados (5), que palestram. Tudo o que você preencher aparece na página de inscrição.",
+                "en": "Only the name and the date are required. Fill in Nome do evento (Event name) (1), Data (Date) (2), Horário (Start time) (3), Local (Venue) (4) and Convidados (Speakers) (5), who speak. Everything you fill in shows on the registration page."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-apex-club/club-09.pt.jpg",
+                "en": "help/img/guides/admin-apex-club/club-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Valor por pessoa (1): deixe vazio quando a Apex não cobra por este evento. Valor por casal (2) é o preço de um casal. Aceitar cartão neste evento (3) liga o pagamento por cartão, com preços próprios (4) (5).",
+                "en": "Valor por pessoa (Price per person) (1): leave it empty when Apex does not charge for this event. Valor por casal (2) is the price for a couple. Aceitar cartão neste evento (3) turns on card payment, with its own prices (4) (5)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-apex-club/club-10.pt.jpg",
+                "en": "help/img/guides/admin-apex-club/club-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Role para baixo dentro da caixa. Observações (1) aparece para quem se inscreve. Ajustar janela de pagamentos (2) define as datas em que os pagamentos são aceitos. Toque em Cancelar (3) para sair, ou em Salvar (4) para guardar o evento. O formulário foi cancelado nesta figura.",
+                "en": "Scroll down in the box. Observações (1) shows to the people who sign up. Ajustar janela de pagamentos (2) sets the dates when payments are accepted. Tap Cancelar (3) to leave, or Salvar (4) to save the event. The form was cancelled for this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-apex-club/club-11.pt.jpg",
+                "en": "help/img/guides/admin-apex-club/club-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Para mudar o evento, toque em Editar no cartão do evento. O mesmo formulário abre de novo com os valores salvos (1) a (5). Nesse formulário também há um botão vermelho Excluir, que não foi tocado. Os valores da figura são valores de teste.",
+                "en": "To change the event, tap Editar on the event card. The same form opens again with the saved values (1) to (5). In this form there is also a red Excluir (Delete) button, which was not tapped. The values in the picture are test values."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-apex-club/club-12.pt.jpg",
+                "en": "help/img/guides/admin-apex-club/club-12.en.jpg"
+              }
             }
           ]
         }
@@ -15932,7 +16029,7 @@
             ]
           },
           "section": "club",
-          "step": 2
+          "step": 7
         },
         {
           "labels": {

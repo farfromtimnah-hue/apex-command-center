@@ -8904,8 +8904,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra a Base de Ouro. Toque em Negócio e depois em Base de Ouro, ao lado de Parceiros. A lista guarda clientes antigos que você quer reconquistar. A linha no alto (1) diz o que acontece quando você reativa um. Cada linha (2) mostra o nome, o telefone, o status e o último contato. Toque em + Novo cliente antigo (3) para adicionar um.",
-                "en": "Open Golden Base. Tap Business, then tap Golden Base (called Base de Ouro in Portuguese) next to Partners. The list holds past customers you want to win back. The line at the top (1) says what happens when you reactivate one. Each row (2) shows the name, the phone, the status and the last contact. Tap + New dormant customer (3) to add one."
+                "pt": "Toque em Negócio (1) no menu de cima. Abre um menu.",
+                "en": "Tap Business (1) in the top menu. A menu opens."
               },
               "image": {
                 "pt": "help/img/guides/win-back-past-customers/winback-01.pt.jpg",
@@ -8915,8 +8915,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Adicione um cliente antigo. Digite o nome (1) e toque em Salvar (2). Só o nome é obrigatório. Você preenche os outros campos depois de salvar.",
-                "en": "Add a past customer. Type the name (1) and tap Save (2). Only the name is required. You fill in the other fields after saving."
+                "pt": "No menu, toque em Pipeline (1).",
+                "en": "In the menu, tap Pipeline (1)."
               },
               "image": {
                 "pt": "help/img/guides/win-back-past-customers/winback-02.pt.jpg",
@@ -8926,8 +8926,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Fale com o cliente e anote. Toque em um cliente para abrir a ficha. No alto, toque em Ligar ou WhatsApp (1). Toque em uma linha para preencher: Telefone, Serviço anterior / ano, Data do contato, Oferta apresentada e Observações. Toque em Status (2) para passar o cliente de Não contatado para Contatado, e assim por diante.",
-                "en": "Reach out and keep notes. Tap a customer to open the sheet. At the top, tap Call or WhatsApp (1). Tap a row to fill it in: Phone, Previous service / year, Contact date, Offer presented and Notes. Tap Status (2) to move the customer from Not contacted to Contacted, and so on."
+                "pt": "Toque em Base de Ouro (1), chamada Golden Base em inglês, ao lado de Parceiros. A lista guarda clientes antigos que você quer reconquistar.",
+                "en": "Tap Golden Base (1), called Base de Ouro in Portuguese, next to Partners. The list holds past customers you want to win back."
               },
               "image": {
                 "pt": "help/img/guides/win-back-past-customers/winback-03.pt.jpg",
@@ -8937,10 +8937,145 @@
             {
               "n": 4,
               "text": {
-                "pt": "Reative quando o cliente voltar. Na ficha, toque em Reativar, criar lead no CRM (3 no passo anterior). O Apex cria um novo lead no seu pipeline com a origem Base de Clientes e marca o cliente como Reativado. Daí em diante você trabalha o lead como sempre: veja o guia Leads e o pipeline.",
-                "en": "Reactivate when the customer comes back. On the sheet, tap Reactivate, create CRM lead (3 in the step before). Apex creates a new lead in your pipeline with the source Base de Clientes and marks the customer as Reactivated. From there you work the lead as usual: see the Leads and the pipeline guide."
+                "pt": "A linha no alto (1) diz o que acontece quando você reativa um cliente.",
+                "en": "The line at the top (1) says what happens when you reactivate a customer."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-04.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Cada linha (2) mostra o nome, o telefone, o status e o último contato. Os nomes e telefones na imagem estão cobertos.",
+                "en": "Each row (2) shows the name, the phone, the status and the last contact. The names and phones in the picture are covered."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-05.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Toque em + Novo cliente antigo (3) para adicionar um.",
+                "en": "Tap + New dormant customer (3) to add one."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-06.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Digite o nome do cliente (1). Só o nome é obrigatório.",
+                "en": "Type the customer's name (1). Only the name is required."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-07.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Toque em Salvar (1). Você preenche os outros campos depois de salvar.",
+                "en": "Tap Save (1). You fill in the other fields after saving."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-08.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "O cliente aparece na lista (1). Toque no cliente para abrir a ficha.",
+                "en": "The customer appears in the list (1). Tap the customer to open the sheet."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-09.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "No alto da ficha, toque em Ligar ou WhatsApp (1) para falar com o cliente.",
+                "en": "At the top of the sheet, tap Call or WhatsApp (1) to reach the customer."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-10.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Toque em uma linha para preencher (1): Telefone, Serviço anterior / ano, Data do contato, Oferta apresentada e Observações.",
+                "en": "Tap a row to fill it in (1): Phone, Previous service / year, Contact date, Offer presented and Notes."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-11.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Por exemplo, toque em Telefone, digite o número (1) e toque em Salvar (2).",
+                "en": "For example, tap Phone, type the number (1) and tap Save (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-12.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Toque em Status, escolha o novo status (1), por exemplo Contatado, e toque em Salvar (2). Use para passar o cliente de Não contatado para Contatado, e assim por diante.",
+                "en": "Tap Status, choose the new status (1), for example Contacted, and tap Save (2). Use it to move the customer from Not contacted to Contacted, and so on."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-13.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Quando o cliente voltar, toque em Reativar, criar lead no CRM (1) na ficha.",
+                "en": "When the customer comes back, tap Reactivate, create CRM lead (1) on the sheet."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-14.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "O Apex pede confirmação. Toque em Sim, criar o lead (1), ou em Não criar.",
+                "en": "Apex asks to confirm. Tap Yes, create the lead (1), or Do not create it."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-15.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "O Apex cria um novo lead no seu pipeline com a origem Base de Clientes e marca o cliente como Reativado (1). Daí em diante você trabalha o lead como sempre: veja o guia Leads e o pipeline.",
+                "en": "Apex creates a new lead in your pipeline with the source Base de Clientes and marks the customer as Reactivated (1). From there you work the lead as usual: see the Leads and the pipeline guide."
+              },
+              "image": {
+                "pt": "help/img/guides/win-back-past-customers/winback-16.pt.jpg",
+                "en": "help/img/guides/win-back-past-customers/winback-16.en.jpg"
+              }
             }
           ]
         }
@@ -8956,7 +9091,7 @@
             ]
           },
           "section": "winback",
-          "step": 1
+          "step": 6
         },
         {
           "labels": {
@@ -8968,7 +9103,7 @@
             ]
           },
           "section": "winback",
-          "step": 4
+          "step": 14
         }
       ]
     },

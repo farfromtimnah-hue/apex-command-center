@@ -178,6 +178,32 @@
       if (DASH_RE.test(v.pt) || DASH_RE.test(v.en)) { errs.push(where + ": no long dash or en dash in visible text"); }
     }
 
+    // groups: name -> list of role tokens (or "*" for everyone, signed out too).
+    // lead is never in a group: a guide shows to a lead only when it names lead.
+    var groupsOk = true;
+    if (!has(data, "groups")) { groupsOk = false; }
+    else if (!isObj(data.groups)) { errs.push("groups must be an object"); groupsOk = false; }
+    else {
+      Object.keys(data.groups).forEach(function (name) {
+        var members = data.groups[name];
+        if (!isId(name) || has(ROLE_SET, name)) { errs.push("group " + name + ": name must be a plain id and not a role token"); }
+        if (!Array.isArray(members) || !members.length) { errs.push("group " + name + ": needs a non-empty list"); return; }
+        members.forEach(function (m) {
+          if (m === "lead") { errs.push("group " + name + ": lead is never inside a group, name it in the guide"); }
+          else if (m !== "*" && !has(ROLE_SET, m)) { errs.push("group " + name + ": unknown role token " + m); }
+        });
+      });
+    }
+    function checkWho(who, groups, where) {
+      if (!Array.isArray(who) || !who.length) { errs.push(where + ": who must be a non-empty list"); return; }
+      who.forEach(function (t) {
+        if (typeof t !== "string" || !t) { errs.push(where + ": who entries must be text"); return; }
+        if (has(ROLE_SET, t)) { return; }
+        if (groupsOk && isObj(groups) && has(groups, t)) { return; }
+        errs.push(where + ": who has unknown group or token " + t);
+      });
+    }
+
     data.guides.forEach(function (g, gi) {
       var w = "guide[" + gi + "]";
       if (!isObj(g)) { errs.push(w + ": not an object"); return; }
@@ -188,6 +214,7 @@
       checkText(g.title, w + " title");
       checkText(g.summary, w + " summary");
       if (has(g, "audience") && g.audience !== "admin" && g.audience !== "client") { errs.push(w + ": audience must be \"admin\" or \"client\" (or left out)"); }
+      if (has(g, "who")) { checkWho(g.who, data.groups, w); }
       if (!isObj(g.keywords) || !Array.isArray(g.keywords.pt) || !Array.isArray(g.keywords.en)) { errs.push(w + ": keywords needs pt and en arrays"); }
       if (g.video !== null && g.video !== undefined) {
         if (!isObj(g.video)) { errs.push(w + ": video must be null or {pt, en}"); }
@@ -244,6 +271,18 @@
     return errs;
   }
 
+  // The strict check for the real guide file (the fixtures stay lenient): groups
+  // must exist, and every client guide must say who may see it.
+  function validateTags(data) {
+    var errs = validateGuides(data).filter(function (e) { return /who|group|token/.test(e); });
+    if (!isObj(data) || !isObj(data.groups)) { errs.push("groups must be an object"); return errs; }
+    (Array.isArray(data.guides) ? data.guides : []).forEach(function (g) {
+      if (isObj(g) && guideAudience(g) === "client" && !has(g, "who")) { errs.push("guide " + g.id + ": a client guide needs a who list"); }
+      if (isObj(g) && guideAudience(g) === null) { errs.push("guide " + g.id + ": bad audience"); }
+    });
+    return errs;
+  }
+
   // ---- the two sides ----------------------------------------------------
   // A guide belongs to the admin side (the staff app) or the client side (the
   // client portal). No field means client. A bad value belongs to neither side,
@@ -273,6 +312,97 @@
   // this only decides whether to SHOW the side button; the server decides who may
   // see the other side.
   function isStaffRole(role) { return typeof role === "string" && STAFF_ROLES.indexOf(role) !== -1; }
+
+  // ---- who may see a guide (the role model) -----------------------------
+  // Viewer role tokens. The Worker computes the token from the verified session,
+  // never from a request field. apex_seller is reserved: no login makes it yet.
+  var ADMIN_TOKENS = ["alice", "rafa", "developer"];
+  var CLIENT_TOKENS = ["owner", "partner", "staff_finance", "staff", "seller", "lead"];
+  var RESERVED_TOKENS = ["apex_seller"];
+  var ROLE_SET = {};
+  ADMIN_TOKENS.concat(CLIENT_TOKENS, RESERVED_TOKENS).forEach(function (t) { ROLE_SET[t] = true; });
+  // A client guide with no who list is open to these (never to a lead).
+  var DEFAULT_WHO = ["owner", "partner", "staff_finance", "staff", "seller"];
+
+  // info: { role, login_role, client_status } exactly as authenticate() and the
+  // clients row give them. Returns one token, or null (signed out, or a login
+  // this code does not know, which then gets only the public guides).
+  function viewerRoleToken(info) {
+    if (!isObj(info)) { return null; }
+    var role = info.role;
+    if (role === "alice" || role === "rafa" || role === "developer") { return role; }
+    if (role !== "client") { return null; }
+    var lr = info.login_role;
+    var tok;
+    if (lr === undefined || lr === null || lr === "" || lr === "client") { tok = "owner"; }
+    else if (lr === "partner" || lr === "staff_finance" || lr === "staff" || lr === "seller") { tok = lr; }
+    else { return null; }
+    // A lead is the most limited view: it wins over every client-tier login.
+    if (info.client_status === "lead") { return "lead"; }
+    return tok;
+  }
+
+  function isAdminToken(t) { return ADMIN_TOKENS.indexOf(t) !== -1; }
+
+  // True when this role may see this guide. role null (or anything that is not
+  // a string) is a signed out visitor. Fails closed: an unknown role token, an
+  // unknown who entry or a bad audience hides the guide.
+  function guideVisibleTo(guide, groups, role) {
+    if (!isObj(guide) || !isId(guide.id)) { return false; }
+    var anon = (role === null || role === undefined || role === "");
+    if (!anon && (typeof role !== "string" || !has(ROLE_SET, role))) { return false; }
+    if (!anon && isAdminToken(role)) { return true; }
+    if (guideAudience(guide) !== "client") { return false; }
+    var who = has(guide, "who") ? guide.who : DEFAULT_WHO;
+    if (!Array.isArray(who) || !who.length) { return false; }
+    var allowed = false;
+    for (var i = 0; i < who.length; i++) {
+      var t = who[i];
+      if (typeof t !== "string") { return false; }
+      if (has(ROLE_SET, t)) { if (!anon && t === role) { allowed = true; } continue; }
+      if (!isObj(groups) || !has(groups, t) || !Array.isArray(groups[t])) { return false; }
+      var m = groups[t];
+      for (var j = 0; j < m.length; j++) {
+        if (m[j] === "*") { allowed = true; }
+        else if (!anon && m[j] === role && m[j] !== "lead") { allowed = true; }
+      }
+    }
+    return allowed;
+  }
+
+  // A copy of the data with only the guides this role may see. The who lists
+  // and the groups never leave: a viewer must not learn how guides are tagged.
+  // audience (admin or client) narrows a staff viewer to one side; a client-tier
+  // viewer is always the client side. pages keeps only screens that still list
+  // a visible guide.
+  function filterGuides(data, role, audience) {
+    var out = { version: data && data.version, guides: [], pages: {} };
+    if (!isObj(data) || !Array.isArray(data.guides)) { return out; }
+    var staff = (typeof role === "string" && isAdminToken(role));
+    var side = staff ? (audience === "client" ? "client" : "admin") : "client";
+    var keep = {};
+    data.guides.forEach(function (g) {
+      if (!guideVisibleTo(g, data.groups, role)) { return; }
+      if (guideAudience(g) !== side) { return; }
+      var copy = {};
+      Object.keys(g).forEach(function (k) { if (k !== "who") { copy[k] = g[k]; } });
+      out.guides.push(copy);
+      keep[g.id] = true;
+    });
+    if (isObj(data.pages)) {
+      Object.keys(data.pages).forEach(function (k) {
+        var p = data.pages[k];
+        if (!isObj(p) || !Array.isArray(p.guides)) { return; }
+        var ids = p.guides.filter(function (id) { return has(keep, id); });
+        if (!ids.length) { return; }
+        var pc = {};
+        Object.keys(p).forEach(function (pk) { pc[pk] = p[pk]; });
+        pc.guides = ids;
+        out.pages[k] = pc;
+      });
+    }
+    return out;
+  }
 
   function effectiveAudience(isStaff, requested) {
     if (!isStaff) { return "client"; }
@@ -568,12 +698,17 @@
     longPressOutcome: longPressOutcome,
     movedTooFar: movedTooFar,
     validateGuides: validateGuides,
+    validateTags: validateTags,
     videoFor: videoFor,
     guideAudience: guideAudience,
     filterByAudience: filterByAudience,
     defaultAudienceForPage: defaultAudienceForPage,
     effectiveAudience: effectiveAudience,
     isStaffRole: isStaffRole,
+    ROLE_TOKENS: ADMIN_TOKENS.concat(CLIENT_TOKENS, RESERVED_TOKENS),
+    viewerRoleToken: viewerRoleToken,
+    guideVisibleTo: guideVisibleTo,
+    filterGuides: filterGuides,
     validateReply: validateReply,
     KINDS: KINDS,
     replyKind: replyKind,

@@ -74,6 +74,38 @@ ok(REAL.version === 1 && REAL.guides.length >= 1, "(f) the shipped file has guid
 { let missing = 0; REAL.guides.forEach((g) => g.sections.forEach((sec) => sec.steps.forEach((st) => { if (st.image) { ["pt", "en"].forEach((l) => { if (!existsSync(new URL(st.image[l], root))) { missing++; } }); } })));
   ok(missing === 0, "(f) every picture named in the shipped guides exists on disk"); }
 ok(!/[\u2013\u2014]/.test(JSON.stringify(REAL)), "(f) the shipped guides contain no long dash or en dash");
+
+// ---------------------------------------------------------------- (tags) who may see a guide
+ok(core.validateTags(REAL).length === 0, "(tags) every client guide in the real file has a valid who list and the groups are valid :: " + core.validateTags(REAL).slice(0, 3).join(" | "));
+{
+  const bad = clone(REAL); bad.guides[0].who = ["nobody-group"];
+  ok(core.validateGuides(bad).some((e) => /unknown group or token/.test(e)), "(tags) an unknown group in who is rejected");
+  const bad2 = clone(REAL); bad2.guides[0].who = ["owner", "ownr"];
+  ok(core.validateGuides(bad2).some((e) => /unknown group or token ownr/.test(e)), "(tags) an unknown role token in who is rejected");
+  const bad3 = clone(REAL); bad3.groups.extra = ["owner", "wizard"];
+  ok(core.validateGuides(bad3).some((e) => /unknown role token wizard/.test(e)), "(tags) an unknown token inside a group is rejected");
+  const bad4 = clone(REAL); bad4.groups.extra = ["lead"];
+  ok(core.validateGuides(bad4).some((e) => /lead is never inside a group/.test(e)), "(tags) lead inside a group is rejected");
+  const bad5 = clone(REAL); delete bad5.guides.find((g) => g.audience === "client").who;
+  ok(core.validateTags(bad5).some((e) => /needs a who list/.test(e)), "(tags) a client guide with no who list fails the strict check");
+  const bad6 = clone(REAL); bad6.guides[0].who = [];
+  ok(core.validateGuides(bad6).some((e) => /non-empty list/.test(e)), "(tags) an empty who list is rejected");
+  const bad7 = clone(REAL); bad7.groups.admin = ["alice"]; bad7.groups.owner = ["owner"];
+  ok(core.validateGuides(bad7).some((e) => /not a role token/.test(e)), "(tags) a group named like a role token is rejected");
+}
+{
+  const ids = REAL.guides.map((g) => g.id);
+  let unknownHidden = true;
+  const odd = clone(REAL); odd.guides[0].who = ["bogus"];
+  ["owner", "partner", "staff_finance", "staff", "seller", "lead", null].forEach((r) => { if (core.guideVisibleTo(odd.guides[0], odd.groups, r)) { unknownHidden = false; } });
+  ok(unknownHidden, "(tags) a guide with an unknown who entry is hidden from every client tier viewer and from signed out");
+  ok(core.viewerRoleToken({ role: "client", login_role: "client" }) === "owner" && core.viewerRoleToken({ role: "client" }) === "owner", "(tags) a client login with no login_role is an owner");
+  ok(core.viewerRoleToken({ role: "client", login_role: "staff", client_status: "lead" }) === "lead", "(tags) a lead client wins over the login kind");
+  ok(core.viewerRoleToken({ role: "client", login_role: "unknown" }) === null && core.viewerRoleToken({ role: "vault-service" }) === null && core.viewerRoleToken(null) === null, "(tags) an unknown login kind has no token");
+  ok(core.viewerRoleToken({ role: "alice" }) === "alice" && core.viewerRoleToken({ role: "developer", login_role: "seller" }) === "developer", "(tags) admins keep their own token");
+  ok(core.guideVisibleTo(REAL.guides[0], REAL.groups, "apex_seller") === false, "(tags) the reserved apex_seller token sees nothing");
+  ok(ids.length === REAL.guides.length, "(tags) guide ids exist");
+}
 const fixErrs = core.validateGuides(FIXTURE);
 ok(fixErrs.length === 0, "(f) the two-guide fixture is valid" + (fixErrs.length ? " :: " + fixErrs.join(" | ") : ""));
 let bad = clone(FIXTURE); delete bad.guides[0].sections[0].steps[0].text.en;

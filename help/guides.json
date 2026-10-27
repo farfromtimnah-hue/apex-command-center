@@ -1,9 +1,39 @@
 {
   "version": 1,
+  "groups": {
+    "all": [
+      "owner",
+      "partner",
+      "staff_finance",
+      "staff",
+      "seller"
+    ],
+    "office": [
+      "owner",
+      "partner",
+      "staff_finance",
+      "staff"
+    ],
+    "money": [
+      "owner",
+      "partner",
+      "staff_finance"
+    ],
+    "setup": [
+      "owner",
+      "partner"
+    ],
+    "public": [
+      "*"
+    ]
+  },
   "guides": [
     {
       "id": "contract",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Enviar um contrato",
         "en": "Send a contract"
@@ -378,6 +408,9 @@
     {
       "id": "change-order",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Enviar um aditivo",
         "en": "Send a change order"
@@ -692,6 +725,10 @@
     {
       "id": "invoice",
       "audience": "client",
+      "who": [
+        "money",
+        "seller"
+      ],
       "title": {
         "pt": "Enviar a fatura",
         "en": "Send an invoice"
@@ -808,6 +845,9 @@
     {
       "id": "estimate",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Criar e enviar um orçamento",
         "en": "Create and send an estimate"
@@ -1260,6 +1300,9 @@
     {
       "id": "send-by-email",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Enviar um documento por email",
         "en": "Send a document by email"
@@ -1534,6 +1577,10 @@
     {
       "id": "receipt",
       "audience": "client",
+      "who": [
+        "money",
+        "seller"
+      ],
       "title": {
         "pt": "Enviar um recibo",
         "en": "Send a receipt"
@@ -2061,6 +2108,9 @@
     {
       "id": "card-payments-setup",
       "audience": "client",
+      "who": [
+        "setup"
+      ],
       "title": {
         "pt": "Configurar pagamentos por cartão (primeira vez)",
         "en": "Set up card payments (first time)"
@@ -2561,6 +2611,9 @@
     {
       "id": "card-payments-existing-account",
       "audience": "client",
+      "who": [
+        "setup"
+      ],
       "title": {
         "pt": "Conectar a conta Stripe que você já tem",
         "en": "Connect the Stripe account you already have"
@@ -2841,6 +2894,9 @@
     {
       "id": "business-setup",
       "audience": "client",
+      "who": [
+        "setup"
+      ],
       "title": {
         "pt": "Configurar logo, cores e dados da empresa",
         "en": "Set up your logo, colors and business details"
@@ -2986,6 +3042,9 @@
     {
       "id": "payments-and-terms",
       "audience": "client",
+      "who": [
+        "setup"
+      ],
       "title": {
         "pt": "Formas de pagamento, prazos e atraso",
         "en": "Payment methods, terms and late payment"
@@ -3127,6 +3186,9 @@
     {
       "id": "pricing-setup",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "Configurar os seus preços",
         "en": "Set up your pricing"
@@ -3244,6 +3306,9 @@
     {
       "id": "working-days-and-blocked-periods",
       "audience": "client",
+      "who": [
+        "setup"
+      ],
       "title": {
         "pt": "Dias de trabalho e períodos bloqueados",
         "en": "Working days and blocked periods"
@@ -3347,6 +3412,9 @@
     {
       "id": "people-and-access",
       "audience": "client",
+      "who": [
+        "setup"
+      ],
       "title": {
         "pt": "Adicionar pessoas e escolher o acesso",
         "en": "Add people and choose their access"
@@ -3640,6 +3708,9 @@
     {
       "id": "online-booking-page",
       "audience": "client",
+      "who": [
+        "setup"
+      ],
       "title": {
         "pt": "Agendamento online: seu link de agendamento",
         "en": "Online booking: your booking link"
@@ -3935,6 +4006,9 @@
     {
       "id": "pipeline",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Leads e pipeline",
         "en": "Leads and the pipeline"
@@ -4228,6 +4302,9 @@
     {
       "id": "calendar",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Agenda e eventos",
         "en": "Calendar and events"
@@ -4509,6 +4586,9 @@
     {
       "id": "projects",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Projetos",
         "en": "Projects"
@@ -4809,6 +4889,9 @@
     {
       "id": "finances",
       "audience": "client",
+      "who": [
+        "money"
+      ],
       "title": {
         "pt": "Financeiro: lançamentos e relatório",
         "en": "Finances: entries and reports"
@@ -4957,6 +5040,9 @@
     {
       "id": "analytics",
       "audience": "client",
+      "who": [
+        "money"
+      ],
       "title": {
         "pt": "Analytics: como você está indo",
         "en": "Analytics: how you are doing"
@@ -5134,6 +5220,9 @@
     {
       "id": "monthly-goals",
       "audience": "client",
+      "who": [
+        "money"
+      ],
       "title": {
         "pt": "Ritmo: as metas do seu mês",
         "en": "Pace: your goals for the month"
@@ -5330,6 +5419,10 @@
     {
       "id": "documents",
       "audience": "client",
+      "who": [
+        "all",
+        "lead"
+      ],
       "title": {
         "pt": "Documentos: seus arquivos e relatórios",
         "en": "Documents: your files and reports"
@@ -5421,6 +5514,9 @@
     {
       "id": "home-alerts",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "Início: avisos para você",
         "en": "Home: what needs your attention"
@@ -5530,6 +5626,9 @@
     {
       "id": "contact-a-lead",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Fale com um lead e registre o resultado",
         "en": "Contact a lead and record what happened"
@@ -5708,6 +5807,10 @@
     {
       "id": "invoices-and-payments",
       "audience": "client",
+      "who": [
+        "money",
+        "seller"
+      ],
       "title": {
         "pt": "Faturas e pagamentos: crie e registre",
         "en": "Invoices and payments: create and record"
@@ -5901,6 +6004,9 @@
     {
       "id": "edit-send-messages",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Edite a mensagem que você envia ao cliente",
         "en": "Edit the message you send to customers"
@@ -5986,6 +6092,9 @@
     {
       "id": "revise-or-void-estimate",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Revise ou anule um orçamento",
         "en": "Revise or void an estimate"
@@ -6096,6 +6205,9 @@
     {
       "id": "daily-log",
       "audience": "client",
+      "who": [
+        "money"
+      ],
       "title": {
         "pt": "Registro diário: preencha o seu dia",
         "en": "Daily log: fill in your day"
@@ -6383,6 +6495,9 @@
     {
       "id": "contracts-tab",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Seus contratos: ache, revise ou anule",
         "en": "Your contracts: find, revise or void"
@@ -6483,6 +6598,9 @@
     {
       "id": "lead-notes-files-history",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Notas, arquivos e histórico do lead",
         "en": "Notes, files and history of a lead"
@@ -6595,6 +6713,9 @@
     {
       "id": "invoice-late-fee-credit-void",
       "audience": "client",
+      "who": [
+        "money"
+      ],
       "title": {
         "pt": "Fatura: juros de atraso, crédito, reembolso e anular",
         "en": "Invoice: late fee, credit, refund and void"
@@ -6749,6 +6870,9 @@
     {
       "id": "referral-partners",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "Parceiros de indicação: link e QR code",
         "en": "Referral partners: link and QR code"
@@ -6915,6 +7039,9 @@
     {
       "id": "referral-page-settings",
       "audience": "client",
+      "who": [
+        "setup"
+      ],
       "title": {
         "pt": "Sua página de indicação: idioma e cores",
         "en": "Your referral page: language and colors"
@@ -7004,6 +7131,9 @@
     {
       "id": "salespeople-and-lists",
       "audience": "client",
+      "who": [
+        "setup"
+      ],
       "title": {
         "pt": "Vendedores e listas do seu negócio",
         "en": "Salespeople and your business lists"
@@ -7117,6 +7247,9 @@
     {
       "id": "win-back-past-customers",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "Base de Ouro: reconquiste clientes antigos",
         "en": "Golden Base: win back past customers"
@@ -7240,6 +7373,9 @@
     {
       "id": "ask-for-google-review",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Peça uma avaliação no Google",
         "en": "Ask a customer for a Google review"
@@ -7337,6 +7473,9 @@
     {
       "id": "contact-card",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Envie o seu cartão de contato ao cliente",
         "en": "Send your contact card to the customer"
@@ -7427,6 +7566,9 @@
     {
       "id": "link-in-bio-page",
       "audience": "client",
+      "who": [
+        "setup"
+      ],
       "title": {
         "pt": "Sua página para a bio do Instagram",
         "en": "Your link in bio page"
@@ -7511,6 +7653,9 @@
     {
       "id": "get-help",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "Peça ajuda dentro da Apex",
         "en": "Ask for help inside Apex"
@@ -7601,6 +7746,10 @@
     {
       "id": "my-devices",
       "audience": "client",
+      "who": [
+        "all",
+        "lead"
+      ],
       "title": {
         "pt": "Seus aparelhos e o login com passkey",
         "en": "Your devices and passkey sign in"
@@ -7696,6 +7845,9 @@
     {
       "id": "execution-and-tasks",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "Execução do plano e tarefas",
         "en": "Plan execution and tasks"
@@ -7807,6 +7959,9 @@
     {
       "id": "project-from-scratch",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "Crie um projeto sem lead",
         "en": "Create a project without a lead"
@@ -7898,6 +8053,9 @@
     {
       "id": "subcontractors",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "Subempreiteiros no projeto",
         "en": "Subcontractors on a project"
@@ -8009,6 +8167,9 @@
     {
       "id": "contract-settings",
       "audience": "client",
+      "who": [
+        "setup"
+      ],
       "title": {
         "pt": "Configure o seu contrato uma vez",
         "en": "Set up your contract once"
@@ -8141,6 +8302,9 @@
     {
       "id": "punch-list-and-completion",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Fotos de antes, pendências e aceite de conclusão",
         "en": "Before photos, punch list and completion sign-off"
@@ -8319,6 +8483,9 @@
     {
       "id": "liens-and-final-affidavit",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "Notice to Owner, liberações e declaração final",
         "en": "Notice to Owner, releases and final affidavit"
@@ -8448,6 +8615,10 @@
     {
       "id": "use-learn-and-language",
       "audience": "client",
+      "who": [
+        "all",
+        "lead"
+      ],
       "title": {
         "pt": "Use o Aprenda e troque o idioma",
         "en": "Use Learn and switch the language"
@@ -8597,6 +8768,9 @@
     {
       "id": "job-notes",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "Notas do projeto",
         "en": "Project notes"
@@ -8664,6 +8838,9 @@
     {
       "id": "lead-salesperson-and-filter",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "Vendedor do lead, divisão de comissão e filtro",
         "en": "Lead salesperson, commission split and filter"
@@ -8770,6 +8947,9 @@
     {
       "id": "ask-another-signer",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Pedir a assinatura de outra pessoa",
         "en": "Ask another person to sign for the company"
@@ -8850,6 +9030,9 @@
     {
       "id": "what-a-referred-person-sees",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "O que a pessoa indicada vê e o que chega ao seu Pipeline",
         "en": "What a referred person sees and what reaches your Pipeline"
@@ -8976,6 +9159,9 @@
     {
       "id": "cover-image",
       "audience": "client",
+      "who": [
+        "setup"
+      ],
       "title": {
         "pt": "Escolher a imagem de capa dos seus documentos",
         "en": "Choose the cover image of your documents"
@@ -10915,6 +11101,10 @@
     {
       "id": "reported-payments",
       "audience": "client",
+      "who": [
+        "money",
+        "seller"
+      ],
       "title": {
         "pt": "Pagamento informado por um vendedor: verificar ou rejeitar",
         "en": "A salesperson reports a payment: verify or reject"
@@ -11096,6 +11286,9 @@
     {
       "id": "turn-customer-link-off",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "Desativar ou ativar o link do cliente",
         "en": "Turn a customer link off or on"
@@ -11242,6 +11435,10 @@
     {
       "id": "assigned-tools",
       "audience": "client",
+      "who": [
+        "office",
+        "lead"
+      ],
       "title": {
         "pt": "Suas ferramentas: os diagnósticos que a Apex liberou",
         "en": "Your tools: the assessments Apex gave you"
@@ -11334,6 +11531,10 @@
     {
       "id": "business-xray",
       "audience": "client",
+      "who": [
+        "office",
+        "lead"
+      ],
       "title": {
         "pt": "Raio X Empresarial: leia o seu relatório",
         "en": "Business X-Ray: read your report"
@@ -11411,6 +11612,10 @@
     {
       "id": "other-assessments",
       "audience": "client",
+      "who": [
+        "office",
+        "lead"
+      ],
       "title": {
         "pt": "Responda o Feedback 360º",
         "en": "Answer the 360º Feedback"
@@ -11589,6 +11794,9 @@
     {
       "id": "sign-in-screens",
       "audience": "client",
+      "who": [
+        "public"
+      ],
       "title": {
         "pt": "Entre na Apex: passkey, senha ou Google",
         "en": "Sign in to Apex: passkey, password or Google"
@@ -11717,6 +11925,9 @@
     {
       "id": "invited-person-sign-in",
       "audience": "client",
+      "who": [
+        "public"
+      ],
       "title": {
         "pt": "Você recebeu um link de convite",
         "en": "You got an invite link"
@@ -11785,6 +11996,10 @@
     {
       "id": "delete-my-account",
       "audience": "client",
+      "who": [
+        "all",
+        "lead"
+      ],
       "title": {
         "pt": "Peça para excluir a sua conta",
         "en": "Ask to delete your account"
@@ -11877,6 +12092,9 @@
     {
       "id": "estimate-line-details",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Linhas do orçamento, adicionais, margem e notas",
         "en": "Estimate lines, add-ons, margin and notes"
@@ -12072,6 +12290,9 @@
     {
       "id": "estimate-three-options",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Orçamento com três opções: Best, Better, Good",
         "en": "Estimate with three options: Best, Better, Good"
@@ -12205,6 +12426,9 @@
     {
       "id": "customer-answers-to-estimates",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Depois de enviar um orçamento: cores, lembretes e respostas",
         "en": "After you send an estimate: colors, reminders and answers"
@@ -12388,6 +12612,9 @@
     {
       "id": "pricing-item-and-import",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "Tabela de preços: adicione um item e importe uma planilha",
         "en": "Price list: add an item and import a spreadsheet"
@@ -12584,6 +12811,9 @@
     {
       "id": "contracts-that-need-you",
       "audience": "client",
+      "who": [
+        "office"
+      ],
       "title": {
         "pt": "Contratos que precisam de você: o aviso e os cartões do Início",
         "en": "Contracts that need you: the warning and the Home cards"
@@ -12676,6 +12906,9 @@
     {
       "id": "contract-price-values-and-clauses",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Contrato: preço, perguntas, valores e cláusulas",
         "en": "Contract: price, questions, values and clauses"
@@ -12929,6 +13162,9 @@
     {
       "id": "contract-other-states",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Contrato fora da Flórida: a lista Antes de enviar e as perguntas do estado",
         "en": "Contract outside Florida: the Before you send list and state questions"
@@ -13082,6 +13318,9 @@
     {
       "id": "own-contract-upload",
       "audience": "client",
+      "who": [
+        "setup"
+      ],
       "title": {
         "pt": "Use o seu próprio contrato",
         "en": "Use your own contract"
@@ -13216,6 +13455,9 @@
     {
       "id": "cleaning-agreement",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Contrato de serviço de limpeza",
         "en": "Cleaning service agreement"
@@ -13340,6 +13582,9 @@
     {
       "id": "services-list",
       "audience": "client",
+      "who": [
+        "setup"
+      ],
       "title": {
         "pt": "Sua lista de serviços",
         "en": "Your list of services"
@@ -13434,6 +13679,9 @@
     {
       "id": "lead-fields",
       "audience": "client",
+      "who": [
+        "all"
+      ],
       "title": {
         "pt": "Os campos de um lead",
         "en": "The fields of a lead"

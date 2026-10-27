@@ -12961,15 +12961,15 @@
         {
           "id": "state",
           "title": {
-            "pt": "Contrato para um serviço fora da Flórida",
+            "pt": "Contrato fora da Flórida",
             "en": "A contract for a job outside Florida"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "pt": "Escolha o estado do serviço. Em um rascunho de contrato, em Este contrato (1), escolha Estado onde o serviço será feito. O Apex sugere o estado pelo endereço da obra ou pelo estado da sua empresa. Até você escolher na lista, um aviso diz Confira o estado. Quando o estado não é a Flórida, o contrato muda: as perguntas são as que aquele estado pede (a imagem mostra o Texas), e a parte chamada Avisos inseridos por regra lista cada aviso com entra ou não entra e o motivo. Você não pode editar esses avisos. Eles entram ou não por regra.",
-                "en": "Choose the state of the job. In a contract draft, under This contract (1), choose State where the work is done. Apex suggests the state from the job address or from your company's state. Until you pick it from the list, a warning says Check the state. When the state is not Florida, the contract changes: the questions are the ones that state needs (the picture shows Texas), and the part called Notices inserted by rule lists each notice with in or out and the reason. You cannot edit those notices. They are in or out by rule."
+                "pt": "Escolha o estado do serviço. Em um rascunho de contrato, na parte Este contrato, escolha o Estado onde o serviço será feito (4). O Apex sugere o estado pelo endereço da obra ou pelo estado da sua empresa. Quando o estado não é a Flórida, o contrato muda: as perguntas são as que esse estado precisa (a imagem mostra o Texas) e a nota do prazo de cancelamento (3) cita o estado. Cada pergunta tem os botões Sim, Não e Não sei, por exemplo se o imóvel é o homestead do cliente (1) e se subempreiteiros ou fornecedores vão participar do serviço (2). Toque no botão da resposta. O Apex salva na hora.",
+                "en": "Choose the state of the job. In a contract draft, in the part This contract, choose the State where the work is done (4). Apex suggests the state from the job address or from your company's state. When the state is not Florida, the contract changes: the questions are the ones that state needs (the picture shows Texas) and the cancellation deadline note (3) names the state. Each question has the buttons Yes, No and Not sure, for example whether this is the customer's homestead (1) and whether subcontractors or suppliers will work on the job (2). Tap the button for the answer. Apex saves it right away."
               },
               "image": {
                 "pt": "help/img/guides/contract-other-states/state-01.pt.jpg",
@@ -12979,8 +12979,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Use a lista Antes de enviar. Para um serviço fora da Flórida, uma parte chamada Antes de enviar (1) aparece, por exemplo Antes de enviar: Texas (3 de 11 feitos). Cada linha é algo a fazer ou conferir, com uma caixa e a lei de onde vem, em azul (3). Toque no texto azul para abrir a explicação completa e o link Abrir o texto oficial. Quando você fez a coisa, marque a caixa (2). O Apex guarda quem marcou e quando. Uma linha com Feito pelo sistema marca sozinha, e você não pode marcar nem desmarcar. As palavras ao lado do título dizem que nada aqui impede o envio: a lista é um registro para o seu negócio, e nunca bloqueia o contrato. No fim, Mais sobre o estado é uma linha fechada com o resto do que a pesquisa achou. Os dados legais vêm de uma pesquisa e nenhum advogado revisou. O nome de quem marcou está coberto na imagem.",
-                "en": "Use the Before you send list. For a job outside Florida, a part called Before you send (1) shows, for example Before you send: Texas (3 of 11 done). Each line is something to do or to check, with a box and the law it comes from in blue (3). Tap the blue text to open the full explanation, and the link Open the official source. When you did the thing, tick the box (2). Apex saves who ticked it and when. A line marked Done by the system ticks itself, and you cannot tick or untick it. The words next to the title say nothing here stops you from sending: the list is a record for your business, and it never blocks the contract. At the end, More about the state is a closed line with the rest of what the research found. The legal facts come from research on file, and no lawyer has reviewed them. The name of the person who ticked is covered in the picture."
+                "pt": "Leia os avisos inseridos por regra. Embaixo, a parte Avisos inseridos por regra: Texas (1) lista cada aviso e diz se ele entra ou não entra no contrato, com o motivo. Por exemplo, o aviso de gravame da Flórida não entra (2) porque a obra fica no Texas, e a frase sobre defeitos de construção entra (3). Você não pode editar esses avisos: eles entram ou saem por regra.",
+                "en": "Read the notices inserted by rule. Further down, the part Notices inserted by rule: Texas (1) lists each notice and says if it is in or out of the contract, with the reason. For example, the Florida construction lien notice is out (2) because the job is in Texas, and the construction defect sentence is in (3). You cannot edit these notices: they are in or out by rule."
               },
               "image": {
                 "pt": "help/img/guides/contract-other-states/state-02.pt.jpg",
@@ -12990,15 +12990,87 @@
             {
               "n": 3,
               "text": {
-                "pt": "Responda às perguntas do estado. Algumas linhas da lista dependem de um fato. O Apex pergunta em Este contrato, com três botões: Sim, Não ou Não sei. Um fato que o seu projeto já registra mostra a resposta e as palavras O projeto já registra isto, e não é perguntado. Alguns formulários de estado também pedem um valor que o Apex não guarda, por exemplo um nome ou um número. O Apex pergunta uma vez, em uma caixa, e depois preenche o espaço sozinho. Uma linha sem resposta diz Sem resposta. As perguntas Sim, Não e Não sei estão na imagem do primeiro passo. As caixas de valores do formulário do estado vêm do código do aplicativo: o nosso contrato de teste não mostrou nenhuma.",
-                "en": "Answer the state questions. Some lines of the list depend on a fact. Apex asks it in This contract with three buttons: Yes, No or Not sure. A fact your project already records shows its answer and the words The project already records this, and is not asked. A few state forms also need a value that Apex does not keep, for example a name or a number. Apex asks for it once, in a box, and then fills the blank by itself. A line without an answer says Not answered. The Yes, No and Not sure questions are in the picture of the first step. The boxes for state form values come from the app's code: our test contract did not show one."
+                "pt": "Use a lista Antes de enviar. Para uma obra fora da Flórida, a parte Antes de enviar (1) mostra, por exemplo, Antes de enviar: Texas (3 de 12 feitos). Cada linha é algo a fazer ou a conferir, com uma caixa e a lei de onde vem, em azul (3). Quando você fez aquilo, marque a caixa (2). O Apex guarda o nome de quem marcou e quando. Uma linha com Feito pelo sistema (4) marca sozinha: você não marca nem desmarca. O texto ao lado do título diz que nada aqui impede o envio: a lista é um registro para o seu negócio e nunca trava o contrato. O nome de quem marcou está coberto na imagem.",
+                "en": "Use the Before you send list. For a job outside Florida, the part Before you send (1) shows, for example, Before you send: Texas (3 of 12 done). Each line is something to do or to check, with a box and the law it comes from, in blue (3). When you did the thing, tick the box (2). Apex saves who ticked it and when. A line marked Done by the system (4) ticks itself: you cannot tick or untick it. The words next to the title say nothing here stops you from sending: the list is a record for your business and never blocks the contract. The name of the person who ticked is covered in the picture."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/contract-other-states/state-03.pt.jpg",
+                "en": "help/img/guides/contract-other-states/state-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Abra a explicação de uma linha. Toque no texto azul da lei (1). Embaixo da linha abre uma explicação curta (2), por exemplo Avise o cliente também em voz alta sobre o direito de cancelar (aviso oral). Linhas com (detalhes) ou (boa prática) em azul abrem a explicação do mesmo jeito. Linhas que o sistema faz também trazem o link Abrir o texto oficial.",
+                "en": "Open the explanation of a line. Tap the blue text of the law (1). A short explanation opens under the line (2), for example Also tell the customer about the right to cancel out loud (oral notice). Lines with (details) or (good practice) in blue open the explanation the same way. Lines the system does itself also carry the link Open the official text."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-other-states/state-04.pt.jpg",
+                "en": "help/img/guides/contract-other-states/state-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Leia Mais sobre o estado. No fim da lista, uma linha fechada, Mais sobre Texas (1), abre o resto do que a pesquisa achou: licença do estado, regra de cancelamento, avisos que entram no contrato e o prazo que o Apex calcula. Um texto em vermelho (2) diz quando o Texas exige um aviso cujo texto exato ainda não foi carregado: pegue com a fonte oficial ou com o seu advogado e anexe antes de o cliente assinar. Os fatos legais vêm de pesquisa guardada e nenhum advogado revisou. O número da licença está coberto na imagem.",
+                "en": "Read More about the state. At the end of the list, a closed line, More about Texas (1), opens the rest of what the research found: state license, cancellation rule, notices that go in the contract and the deadline Apex calculates. A red text (2) says when Texas requires a notice whose exact wording is not loaded yet: get it from the official source or your attorney and attach it before the customer signs. The legal facts come from research on file and no lawyer has reviewed them. The license number is covered in the picture."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-other-states/state-05.pt.jpg",
+                "en": "help/img/guides/contract-other-states/state-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Preencha os dados que faltam. A parte Faltam estes dados (1) lista só o que não veio do lead, do orçamento nem das configurações. Cada caixa mostra o código das áreas de cláusula que usam o dado. Por exemplo, digite o Endereço de correspondência do cliente (2), o Endereço do imóvel (3) e o Condado do imóvel (4). Nesta imagem os endereços são de teste. Toque em Salvar dados, no fim da parte.",
+                "en": "Fill in the missing details. The part Missing information (1) lists only what did not come from the lead, the estimate or the settings. Each box shows the code of the clause areas that use it. For example, type the Owner mailing address (2), the Property address (3) and the Property county (4). In this picture the addresses are test ones. Tap Save details at the end of the part."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-other-states/state-06.pt.jpg",
+                "en": "help/img/guides/contract-other-states/state-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Veja o resultado. Os dados salvos saem de Faltam estes dados e passam para a parte Dados deste contrato, com a origem deste contrato (substitui o valor do lead). Aqui estão o Endereço do imóvel (1) e o Condado do imóvel (2). Uma linha com Toque para preencher continua vazia, e o contrato pede esse dado. Toque em uma linha para mudar o valor só neste contrato.",
+                "en": "See the result. The saved details leave Missing information and move to the part This contract's details, with the source this contract (overrides the value from the lead). Here are the Property address (1) and the Property county (2). A row that says Tap to fill in is still empty, and the contract asks for it. Tap a row to change the value for this contract only."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-other-states/state-07.pt.jpg",
+                "en": "help/img/guides/contract-other-states/state-07.en.jpg"
+              }
             }
           ]
         }
       ],
-      "buttons": []
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Estado onde o serviço será feito"
+            ],
+            "en": [
+              "State where the work is done"
+            ]
+          },
+          "section": "state",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Mais sobre Texas"
+            ],
+            "en": [
+              "More about Texas"
+            ]
+          },
+          "section": "state",
+          "step": 5
+        }
+      ]
     },
     {
       "id": "own-contract-upload",

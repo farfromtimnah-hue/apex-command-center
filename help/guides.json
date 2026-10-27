@@ -3659,8 +3659,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Ajustes. Toque em Ajustes (1) no alto do portal, ao lado de Ajuda (2). Ajustes é uma página longa. Role até o cartão Pessoas e acessos.",
-                "en": "Open Settings. Tap Settings (1) at the top of the portal, next to Help (2). Settings is one long page. Scroll down to the card People and access."
+                "pt": "Toque em Ajustes (1) no alto do portal, ao lado de Ajuda (2). Ajustes é uma página longa.",
+                "en": "Tap Settings (1) at the top of the portal, next to Help (2). Settings is one long page."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-01.pt.jpg",
@@ -3670,8 +3670,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Adicione uma pessoa. Em Adicionar pessoa, digite o Nome (1). Escolha o Acesso (2): Sócio(a) ou assistente executivo(a) (pode tudo o que o dono pode, exceto excluir a empresa; só o dono adiciona), Equipe com acesso ao financeiro (vê tudo, exceto ajustes e pessoas), Equipe sem acesso ao financeiro (não vê Financeiro nem Faturas) ou Vendedor(a) (visão mínima: só os próprios leads e projetos). Escolha o país e digite o Celular (3). Depois toque em Criar link de convite (4). A figura mostra uma pessoa de teste com um número inventado.",
-                "en": "Add a person. Under Add a person, type the Name (1). Choose the Access (2): Partner or executive assistant (can do everything the owner can, except delete the business; only the owner can add one), Staff with finance access (sees everything except settings and people), Staff without finance access (cannot see Finance or Invoices) or Salesperson (minimal view: only their own leads and projects). Pick the country and type the Mobile number (3). Then tap Create invite link (4). The picture shows a test person with a made-up number."
+                "pt": "Role até o cartão Pessoas e acessos (1).",
+                "en": "Scroll down to the card People and access (1)."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-02.pt.jpg",
@@ -3681,8 +3681,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Compartilhe o link de convite. Um cartão mostra o link da pessoa (1). Ele vale por 72 horas (4). Toque em Copiar link (2): o botão muda para Copiado e você cola o link onde quiser. Enviar pelo WhatsApp (3) é a outra forma de compartilhar. Quando você cria o link, a Apex não manda nada para a pessoa. Depois a pessoa abre o link e cria uma passkey. Passkey é uma forma de entrar com rosto, digital ou a senha do aparelho, sem senha para lembrar. Veja o guia Você recebeu um link de convite. Na figura, o link está coberto de cinza.",
-                "en": "Share the invite link. A card shows the link for the person (1). It is valid for 72 hours (4). Tap Copy link (2): the button changes to Copied and you paste the link where you like. Send on WhatsApp (3) is the other way to share it. When you create the link, Apex does not send anything to the person. The person then opens the link and creates a passkey. A passkey is a way to sign in with face, fingerprint or the device passcode, with no password to remember. See the guide You got an invite link. In the picture the link is covered with grey."
+                "pt": "Em Adicionar pessoa, digite o Nome (1).",
+                "en": "Under Add a person, type the Name (1)."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-03.pt.jpg",
@@ -3692,8 +3692,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Leia a lista. Cada pessoa tem uma etiqueta ao lado do nome: Ativo (1), Desativado (2) ou Convidado (3). Convidado quer dizer que o link foi criado e a pessoa ainda não usou. Embaixo do nome (4) você vê o tipo de acesso, o celular com o meio escondido, a data até quando o link vale (ou o último acesso, ou Nunca entrou) e o número de aparelhos. A sua linha, como dono, não tem botões.",
-                "en": "Read the list. Each person has a tag by the name: Active (1), Disabled (2) or Invited (3). Invited means the link was made and the person has not used it yet. Under the name (4) you see the type of access, the mobile number with the middle hidden, the date the link is valid until (or the last sign in, or Never signed in) and the number of devices. Your own row, as the owner, has no buttons."
+                "pt": "Veja as opções de Acesso (1): Sócio(a) ou assistente executivo(a) (pode tudo o que o dono pode, exceto excluir a empresa; só o dono adiciona), Equipe com acesso ao financeiro (vê tudo, exceto ajustes e pessoas), Equipe sem acesso ao financeiro (não vê Financeiro nem Faturas) e Vendedor(a) (visão mínima: só os próprios leads e projetos).",
+                "en": "Look at the Access choices (1): Partner or executive assistant (can do everything the owner can, except delete the business; only the owner can add one), Staff with finance access (sees everything except settings and people), Staff without finance access (cannot see Finance or Invoices) and Salesperson (minimal view: only their own leads and projects)."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-04.pt.jpg",
@@ -3703,8 +3703,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Dê ou mude o acesso ao financeiro. Para uma pessoa com acesso de Equipe, a caixa Acesso ao financeiro (1) fica embaixo do nome, com a nota: por exemplo, o cônjuge que cuida da contabilidade. Marque a caixa. A Apex pede que você confirme e diz que a pessoa passará a ver o Financeiro e as Faturas. Toque em Confirmar (2), ou em Cancelar (3) para não mudar nada.",
-                "en": "Give or change finance access. For a person with Staff access, the box Finance access (1) sits under the name, with the note: for example, a spouse who does the books. Tick the box. Apex asks you to confirm and says the person will now see Finance and Invoices. Tap Confirm (2), or Cancel (3) to change nothing."
+                "pt": "Toque no Acesso que você quer (1). O que você escolher fica dourado. Aqui a escolha é Equipe sem acesso ao financeiro.",
+                "en": "Tap the Access you want (1). The one you pick turns gold. Here the choice is Staff without finance access."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-05.pt.jpg",
@@ -3714,8 +3714,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Veja o acesso novo. Depois de confirmar, a linha de acesso (1) muda de Equipe sem acesso ao financeiro para Equipe com acesso ao financeiro, e a caixa (2) fica marcada.",
-                "en": "See the new access. After you confirm, the access line (1) changes from Staff without finance access to Staff with finance access, and the box (2) stays ticked."
+                "pt": "Escolha o país (1) do número do celular. A imagem mostra uma pessoa de teste com um número inventado.",
+                "en": "Pick the country (1) of the mobile number. The picture shows a test person with a made-up number."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-06.pt.jpg",
@@ -3725,8 +3725,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Adicione um aparelho para a mesma pessoa. Toque em Novo aparelho (manter os atuais) (1) na linha da pessoa. A Apex cria um novo link na hora (2), sem fazer pergunta. Toque em Copiar link (3) e envie. A pessoa abre o link no telefone ou computador novo e cria uma passkey lá.",
-                "en": "Add a device for the same person. Tap Add a device (keep current ones) (1) on the person's row. Apex makes a new link at once (2), with no question. Tap Copy link (3) and send it. The person opens the link on the new phone or computer and creates a passkey there."
+                "pt": "Digite o número do Celular (1).",
+                "en": "Type the Mobile number (1)."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-07.pt.jpg",
@@ -3736,8 +3736,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Avise de um aparelho ou de uma pessoa que saiu. Toque em Aparelho perdido, trocado ou saída na linha da pessoa. A Apex mostra três opções: Saiu da empresa (1), Comprei um celular novo (2) e Perdido ou roubado (3). Cancelar (4) fecha as opções.",
-                "en": "Report a device, or a person who left. Tap Lost, replaced or leaving on the person's row. Apex shows three choices: Left the company (1), Got a new phone (2) and Lost or stolen (3). Cancel (4) closes the choices."
+                "pt": "Toque em Criar link de convite (1).",
+                "en": "Tap Create invite link (1)."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-08.pt.jpg",
@@ -3747,8 +3747,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Se a pessoa saiu da empresa. Toque em Saiu da empresa. A Apex diz: O acesso desta pessoa será desligado agora. Toque em Confirmar (1), ou em Cancelar (2). Depois de confirmar, a Apex mostra um aviso curto e a etiqueta da pessoa vira Desativado.",
-                "en": "If the person left the company. Tap Left the company. Apex says: This person's access will be turned off now. Tap Confirm (1), or Cancel (2). After you confirm, Apex shows a short message and the person's tag becomes Disabled."
+                "pt": "Um cartão mostra o link da pessoa (1). Ele vale por 72 horas (2). Quando você cria o link, a Apex não manda nada para a pessoa. Na imagem o link está coberto de cinza.",
+                "en": "A card shows the link for the person (1). It is valid for 72 hours (2). When you create the link, Apex does not send anything to the person. In the picture the link is covered with grey."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-09.pt.jpg",
@@ -3758,8 +3758,8 @@
             {
               "n": 10,
               "text": {
-                "pt": "Se a pessoa comprou um celular novo. Toque em Comprei um celular novo. A Apex diz: As sessões atuais são encerradas agora; um novo link de aparelho será criado. Toque em Confirmar (1), ou em Cancelar (2). Depois de confirmar, a Apex mostra um novo link de convite. Envie o link para a pessoa, que cria uma passkey no celular novo.",
-                "en": "If the person got a new phone. Tap Got a new phone. Apex says: Current sessions end now; a new device link will be created. Tap Confirm (1), or Cancel (2). After you confirm, Apex shows a new invite link. Send it to the person, who creates a passkey on the new phone."
+                "pt": "Toque em Copiar link (1). O botão muda para Copiado, e você cola o link onde quiser.",
+                "en": "Tap Copy link (1). The button changes to Copied, and you paste the link where you like."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-10.pt.jpg",
@@ -3769,8 +3769,8 @@
             {
               "n": 11,
               "text": {
-                "pt": "Se o aparelho foi perdido ou roubado. Toque em Perdido ou roubado. A Apex pergunta: Quando foi? Escolha Agora (1), Hoje (2), Neste fim de semana (a partir de sexta-feira) (3) ou Em uma data específica (4). Cancelar (5) volta atrás. Use esta opção só quando o aparelho foi mesmo perdido ou roubado.",
-                "en": "If the device was lost or stolen. Tap Lost or stolen. Apex asks: When was it? Choose Now (1), Today (2), This weekend (from Friday) (3) or On a specific date (4). Cancel (5) goes back. Use this only when the device was really lost or stolen."
+                "pt": "Enviar pelo WhatsApp (1) é a outra forma de compartilhar o link. A pessoa então abre o link e cria uma passkey. Passkey é uma forma de entrar com rosto, digital ou a senha do aparelho, sem senha para lembrar. Veja o guia Você recebeu um link de convite.",
+                "en": "Send on WhatsApp (1) is the other way to share the link. The person then opens the link and creates a passkey. A passkey is a way to sign in with face, fingerprint or the device passcode, with no password to remember. See the guide You got an invite link."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-11.pt.jpg",
@@ -3780,8 +3780,8 @@
             {
               "n": 12,
               "text": {
-                "pt": "Desative uma pessoa. Toque em Desativar (1) na linha da pessoa. A Apex pergunta: Desativar esta pessoa? A pessoa sai de todos os aparelhos na hora e não consegue entrar até ser ativada de novo. Toque em Desativar (2) para confirmar, ou em Manter acesso (3) para parar.",
-                "en": "Disable a person. Tap Disable (1) on the person's row. Apex asks: Disable this person? They are signed out everywhere right away and cannot sign in until enabled again. Tap Disable (2) to confirm, or Keep access (3) to stop."
+                "pt": "Leia a lista. Cada pessoa tem uma etiqueta ao lado do nome: Ativo (1), Desativado (2) ou Convidado (3). Convidado quer dizer que o link foi criado e a pessoa ainda não usou. A sua linha, como dono, não tem botões.",
+                "en": "Read the list. Each person has a tag by the name: Active (1), Disabled (2) or Invited (3). Invited means the link was made and the person has not used it yet. Your own row, as the owner, has no buttons."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-12.pt.jpg",
@@ -3791,8 +3791,8 @@
             {
               "n": 13,
               "text": {
-                "pt": "A pessoa desativada. Uma pessoa desativada tem a etiqueta Desativado e um só botão, Ativar (1). Se a pessoa nunca aceitou o convite, a Apex responde com um aviso (2): Esta pessoa ainda não aceitou o convite. Envie um novo link.",
-                "en": "A disabled person. A disabled person has the tag Disabled and one button, Enable (1). If the person never accepted the invite, Apex answers with a message (2): This person has not accepted the invite yet. Send a new link."
+                "pt": "Embaixo do nome (1) você vê o tipo de acesso, o número do celular com o meio escondido, a data até quando o link vale (ou o último acesso, ou Nunca entrou) e o número de aparelhos.",
+                "en": "Under the name (1) you see the type of access, the mobile number with the middle hidden, the date the link is valid until (or the last sign in, or Never signed in) and the number of devices."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-13.pt.jpg",
@@ -3801,6 +3801,116 @@
             },
             {
               "n": 14,
+              "text": {
+                "pt": "Para uma pessoa da Equipe, a caixa Acesso ao financeiro (1) fica embaixo do nome, com a nota: por exemplo, o cônjuge que cuida da contabilidade. Toque na caixa para marcar.",
+                "en": "For a person with Staff access, the box Finance access (1) sits under the name, with the note: for example, a spouse who does the books. Tap the box to tick it."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-14.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "A Apex pede para você confirmar e diz que a pessoa passará a ver o Financeiro e as Faturas. Toque em Confirmar (1), ou em Cancelar (2) para não mudar nada.",
+                "en": "Apex asks you to confirm and says the person will now see Finance and Invoices. Tap Confirm (1), or Cancel (2) to change nothing."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-15.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Depois de confirmar, a linha de acesso (1) muda de Equipe sem acesso ao financeiro para Equipe com acesso ao financeiro, e a caixa (2) fica marcada.",
+                "en": "After you confirm, the access line (1) changes from Staff without finance access to Staff with finance access, and the box (2) stays ticked."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-16.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Adicione um aparelho para a mesma pessoa. Toque em Novo aparelho (manter os atuais) (1) na linha da pessoa. A Apex cria um novo link na hora (2), sem fazer pergunta. Toque em Copiar link (3) e envie. A pessoa abre o link no telefone ou computador novo e cria uma passkey lá.",
+                "en": "Add a device for the same person. Tap Add a device (keep current ones) (1) on the person's row. Apex makes a new link at once (2), with no question. Tap Copy link (3) and send it. The person opens the link on the new phone or computer and creates a passkey there."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-17.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Avise de um aparelho ou de uma pessoa que saiu. Toque em Aparelho perdido, trocado ou saída na linha da pessoa. A Apex mostra três opções: Saiu da empresa (1), Comprei um celular novo (2) e Perdido ou roubado (3). Cancelar (4) fecha as opções.",
+                "en": "Report a device, or a person who left. Tap Lost, replaced or leaving on the person's row. Apex shows three choices: Left the company (1), Got a new phone (2) and Lost or stolen (3). Cancel (4) closes the choices."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-18.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "Se a pessoa saiu da empresa. Toque em Saiu da empresa. A Apex diz: O acesso desta pessoa será desligado agora. Toque em Confirmar (1), ou em Cancelar (2). Depois de confirmar, a Apex mostra um aviso curto e a etiqueta da pessoa vira Desativado.",
+                "en": "If the person left the company. Tap Left the company. Apex says: This person's access will be turned off now. Tap Confirm (1), or Cancel (2). After you confirm, Apex shows a short message and the person's tag becomes Disabled."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-19.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-19.en.jpg"
+              }
+            },
+            {
+              "n": 20,
+              "text": {
+                "pt": "Se a pessoa comprou um celular novo. Toque em Comprei um celular novo. A Apex diz: As sessões atuais são encerradas agora; um novo link de aparelho será criado. Toque em Confirmar (1), ou em Cancelar (2). Depois de confirmar, a Apex mostra um novo link de convite. Envie o link para a pessoa, que cria uma passkey no celular novo.",
+                "en": "If the person got a new phone. Tap Got a new phone. Apex says: Current sessions end now; a new device link will be created. Tap Confirm (1), or Cancel (2). After you confirm, Apex shows a new invite link. Send it to the person, who creates a passkey on the new phone."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-20.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-20.en.jpg"
+              }
+            },
+            {
+              "n": 21,
+              "text": {
+                "pt": "Se o aparelho foi perdido ou roubado. Toque em Perdido ou roubado. A Apex pergunta: Quando foi? Escolha Agora (1), Hoje (2), Neste fim de semana (a partir de sexta-feira) (3) ou Em uma data específica (4). Cancelar (5) volta atrás. Use esta opção só quando o aparelho foi mesmo perdido ou roubado.",
+                "en": "If the device was lost or stolen. Tap Lost or stolen. Apex asks: When was it? Choose Now (1), Today (2), This weekend (from Friday) (3) or On a specific date (4). Cancel (5) goes back. Use this only when the device was really lost or stolen."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-21.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-21.en.jpg"
+              }
+            },
+            {
+              "n": 22,
+              "text": {
+                "pt": "Desative uma pessoa. Toque em Desativar (1) na linha da pessoa. A Apex pergunta: Desativar esta pessoa? A pessoa sai de todos os aparelhos na hora e não consegue entrar até ser ativada de novo. Toque em Desativar (2) para confirmar, ou em Manter acesso (3) para parar.",
+                "en": "Disable a person. Tap Disable (1) on the person's row. Apex asks: Disable this person? They are signed out everywhere right away and cannot sign in until enabled again. Tap Disable (2) to confirm, or Keep access (3) to stop."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-22.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-22.en.jpg"
+              }
+            },
+            {
+              "n": 23,
+              "text": {
+                "pt": "A pessoa desativada. Uma pessoa desativada tem a etiqueta Desativado e um só botão, Ativar (1). Se a pessoa nunca aceitou o convite, a Apex responde com um aviso (2): Esta pessoa ainda não aceitou o convite. Envie um novo link.",
+                "en": "A disabled person. A disabled person has the tag Disabled and one button, Enable (1). If the person never accepted the invite, Apex answers with a message (2): This person has not accepted the invite yet. Send a new link."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-23.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-23.en.jpg"
+              }
+            },
+            {
+              "n": 24,
               "text": {
                 "pt": "Escolha o jeito certo para um vendedor. Aqui você dá um login a um vendedor assim: em Adicionar pessoa, escolha o acesso Vendedor(a) e envie o link de convite. O guia Vendedores e as listas do seu negócio descreve o outro jeito, Solicitar login, em que você pede à Apex para criar o login. Veja esse guia para escolher.",
                 "en": "Choose the right way for a salesperson. Here you give a salesperson a login like this: under Add a person, choose the access Salesperson and send the invite link. The guide Salespeople and your business lists describes the other way, Request Login, where you ask Apex to create the login. See that guide to choose."
@@ -3821,7 +3931,7 @@
             ]
           },
           "section": "people",
-          "step": 2
+          "step": 8
         },
         {
           "labels": {
@@ -3833,7 +3943,7 @@
             ]
           },
           "section": "people",
-          "step": 3
+          "step": 10
         },
         {
           "labels": {
@@ -3845,7 +3955,7 @@
             ]
           },
           "section": "people",
-          "step": 5
+          "step": 14
         },
         {
           "labels": {
@@ -3857,7 +3967,7 @@
             ]
           },
           "section": "people",
-          "step": 7
+          "step": 17
         },
         {
           "labels": {
@@ -3869,7 +3979,7 @@
             ]
           },
           "section": "people",
-          "step": 8
+          "step": 18
         },
         {
           "labels": {
@@ -3881,7 +3991,7 @@
             ]
           },
           "section": "people",
-          "step": 12
+          "step": 22
         }
       ]
     },
@@ -10625,29 +10735,101 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Meus aparelhos. Toque em Ajustes e role até Meus aparelhos, logo depois de Pessoas e acessos. A nota (1) explica: no iPhone, iPad e Mac a passkey sincroniza sozinha pelo iCloud. Em um computador Windows, adicione uma passkey para entrar com um toque. Cada aparelho que você usa aparece na lista (2) com o nome e a data em que foi adicionado, e tem o botão Remover (3). No fim está Adicionar este aparelho (4). Passkey é uma forma de entrar com rosto, digital ou a senha do aparelho, sem senha para lembrar.",
-                "en": "Open My devices. Tap Settings and scroll to My devices, just after People and access. The note (1) explains: on iPhone, iPad and Mac the passkey syncs by itself through iCloud. On a Windows computer, add a passkey to sign in with one tap. Each device you use is listed (2) with its name and the date it was added, and has a Remove button (3). At the end is Add this device (4). A passkey is a way to sign in with face, fingerprint or the device passcode, with no password to remember."
+                "pt": "Abra os Ajustes: toque em Ajustes (1) no alto do portal.",
+                "en": "Open Settings: tap Settings (1) at the top of the portal."
               },
               "image": {
-                "pt": "help/img/guides/my-devices/devices-01.pt.jpg",
-                "en": "help/img/guides/my-devices/devices-01.en.jpg"
+                "pt": "help/img/guides/my-devices/devices-s01.pt.jpg",
+                "en": "help/img/guides/my-devices/devices-s01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Convide outra pessoa. Um novo membro da equipe recebe o próprio link e cria uma passkey no próprio celular ou computador, então não há senha para compartilhar. Veja o guia Adicionar pessoas e escolher o acesso.",
-                "en": "Invite another person. A new team member gets their own link and creates a passkey on their own phone or computer, so there is no password to share. See the guide Add people and choose their access."
+                "pt": "Role até Meus aparelhos (1). Fica logo depois de Pessoas e acessos.",
+                "en": "Scroll down to My devices (1). It comes just after People and access."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/my-devices/devices-s02.pt.jpg",
+                "en": "help/img/guides/my-devices/devices-s02.en.jpg"
+              }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Celular novo ou aparelho perdido de alguém da equipe. Isso você resolve em Pessoas e acessos: Novo aparelho (manter os atuais) cria um novo link, e Aparelho perdido, trocado ou saída desliga o acesso ou cria um novo link. Veja o guia Adicionar pessoas e escolher o acesso, passos 7 a 11.",
-                "en": "New phone or lost device for a team member. You handle it in People and access: Add a device (keep current ones) makes a new link, and Lost, replaced or leaving turns the access off or makes a new link. See the guide Add people and choose their access, steps 7 to 11."
+                "pt": "Leia a nota (1): no iPhone, iPad e Mac a passkey sincroniza sozinha pelo iCloud. Em um computador Windows, adicione uma passkey para entrar com um toque.",
+                "en": "Read the note (1): on iPhone, iPad and Mac the passkey syncs by itself through iCloud. On a Windows computer, add a passkey to sign in with one tap."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/my-devices/devices-s03.pt.jpg",
+                "en": "help/img/guides/my-devices/devices-s03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Cada aparelho que você usa aparece na lista (1) com o nome e a data em que foi adicionado. Passkey é uma forma de entrar com rosto, digital ou a senha do aparelho, sem senha para lembrar.",
+                "en": "Each device you use is listed (1) with its name and the date it was added. A passkey is a way to sign in with face, fingerprint or the device passcode, with no password to remember."
+              },
+              "image": {
+                "pt": "help/img/guides/my-devices/devices-s04.pt.jpg",
+                "en": "help/img/guides/my-devices/devices-s04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Cada aparelho tem o botão Remover (1).",
+                "en": "Each device has a Remove button (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/my-devices/devices-s05.pt.jpg",
+                "en": "help/img/guides/my-devices/devices-s05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "No fim está Adicionar este aparelho (1).",
+                "en": "At the end is Add this device (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/my-devices/devices-s06.pt.jpg",
+                "en": "help/img/guides/my-devices/devices-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Convide outra pessoa. Um novo membro da equipe recebe o próprio link e cria uma passkey no próprio celular ou computador, então não há senha para compartilhar. Use Adicionar pessoa (1) em Pessoas e acessos. Veja o guia Adicionar pessoas e escolher o acesso.",
+                "en": "Invite another person. A new team member gets their own link and creates a passkey on their own phone or computer, so there is no password to share. Use Add a person (1) in People and access. See the guide Add people and choose their access."
+              },
+              "image": {
+                "pt": "help/img/guides/my-devices/devices-s07.pt.jpg",
+                "en": "help/img/guides/my-devices/devices-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Celular novo de alguém da equipe. Em Pessoas e acessos, Novo aparelho (manter os atuais) (1) cria um novo link. Veja o guia Adicionar pessoas e escolher o acesso, passos 7 a 11.",
+                "en": "New phone for a team member. In People and access, Add a device (keep current ones) (1) makes a new link. See the guide Add people and choose their access, steps 7 to 11."
+              },
+              "image": {
+                "pt": "help/img/guides/my-devices/devices-s08.pt.jpg",
+                "en": "help/img/guides/my-devices/devices-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Aparelho perdido, trocado ou saída de alguém da equipe. Em Pessoas e acessos, Aparelho perdido, trocado ou saída (1) desliga o acesso ou cria um novo link. Veja o mesmo guia, passos 7 a 11.",
+                "en": "Lost device, replaced device or someone leaving. In People and access, Lost, replaced or leaving (1) turns the access off or makes a new link. See the same guide, steps 7 to 11."
+              },
+              "image": {
+                "pt": "help/img/guides/my-devices/devices-s09.pt.jpg",
+                "en": "help/img/guides/my-devices/devices-s09.en.jpg"
+              }
             }
           ]
         }
@@ -10663,11 +10845,9 @@
             ]
           },
           "section": "devices",
-          "step": 1
+          "step": 6
         },
         {
-          "section": "devices",
-          "step": 1,
           "labels": {
             "pt": [
               "Meus aparelhos"
@@ -10675,7 +10855,9 @@
             "en": [
               "My devices"
             ]
-          }
+          },
+          "section": "devices",
+          "step": 2
         }
       ]
     },
@@ -15485,50 +15667,127 @@
                 "pt": "Saiba quando usar. Use quando você mandou um documento para a pessoa errada, ou com um valor errado, e não quer que o cliente o abra. Funciona para quatro documentos: um orçamento, uma fatura, um contrato e um aditivo.",
                 "en": "Know when to use it. Use it when you sent a document to the wrong person, or with a wrong amount, and you do not want the customer to open it. It works for four documents: an estimate, an invoice, a contract and a change order."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/turn-customer-link-off/link-s02.pt.jpg",
+                "en": "help/img/guides/turn-customer-link-off/link-s02.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Ache o botão. Abra o documento, por exemplo uma fatura (Negócio, depois Faturas, e toque na fatura). Toque em Desativar link (2) na lista de botões. O botão não aparece em um rascunho nem em um documento anulado, porque um rascunho nunca foi enviado. O dono vê o botão. O vendedor não. Em uma fatura, a etiqueta vermelha no alto (1) é outra coisa: quer dizer que a fatura precisa ser enviada de novo, veja o guia de faturas e pagamentos.",
-                "en": "Find the button. Open the document, for example an invoice (Business, then Invoices, then tap the invoice). Tap Disable link (2) in the list of buttons. The button is not there for a draft or a void document, because a draft was never sent. The owner sees it. A salesperson does not. For an invoice, the red tag at the top (1) is a different thing: it means the invoice must be sent again, see the guide on invoices and payments."
+                "pt": "Abra um documento enviado, por exemplo uma fatura: toque em Negócio, depois em Faturas, e toque na fatura (1). Aqui é a INV-0018, que foi enviada e está em aberto.",
+                "en": "Open a sent document, for example an invoice: tap Business, then Invoices, then tap the invoice (1). Here it is INV-0018, which was sent and is unpaid."
               },
               "image": {
-                "en": "help/img/guides/turn-customer-link-off/link-02.en.jpg",
-                "pt": "help/img/guides/turn-customer-link-off/link-02.pt.jpg"
+                "pt": "help/img/guides/turn-customer-link-off/link-s02.pt.jpg",
+                "en": "help/img/guides/turn-customer-link-off/link-s02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Confirme. O Apex pergunta Desativar o link deste documento? Ele explica que, enquanto o link estiver desativado, quem o abrir vê que não é válido e não consegue ver, assinar nem pagar. Também diz que o endereço antigo do documento deixa de funcionar para sempre. Toque em Sim, desativar o link (1) para desligar, ou em Manter ativo (2) para deixar como está. Uma mensagem diz Link desativado.",
-                "en": "Confirm. Apex asks Disable this document's link? It explains that while the link is off, anyone who opens it sees that it is not valid, and cannot view, sign or pay. It also says the old address of the document stops working for good. Tap Yes, disable the link (1) to turn it off, or Keep it enabled (2) to stay as it is. A message says Link disabled."
+                "pt": "Ache o botão. Toque em Desativar link (1) na lista de botões, embaixo de Baixar PDF.",
+                "en": "Find the button. Tap Disable link (1) in the list of buttons, under Download PDF."
               },
               "image": {
-                "en": "help/img/guides/turn-customer-link-off/link-03.en.jpg",
-                "pt": "help/img/guides/turn-customer-link-off/link-03.pt.jpg"
+                "pt": "help/img/guides/turn-customer-link-off/link-s03.pt.jpg",
+                "en": "help/img/guides/turn-customer-link-off/link-s03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Ligue de novo. Em um documento cujo link está desligado, o mesmo botão diz Ativar link (1). Toque nele.",
-                "en": "Turn it on again. On a document whose link is off, the same button reads Enable link (1). Tap it."
+                "pt": "O botão não aparece em um rascunho nem em um documento anulado, porque um rascunho nunca foi enviado. Na fatura rascunho INV-0025 não há Desativar link entre Baixar PDF (1) e Crédito (2).",
+                "en": "The button is not there for a draft or a void document, because a draft was never sent. On the draft invoice INV-0025 there is no Disable link between Download PDF (1) and Credit (2)."
               },
               "image": {
-                "pt": "help/img/guides/turn-customer-link-off/link-04.pt.jpg",
-                "en": "help/img/guides/turn-customer-link-off/link-04.en.jpg"
+                "pt": "help/img/guides/turn-customer-link-off/link-s04.pt.jpg",
+                "en": "help/img/guides/turn-customer-link-off/link-s04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Confirme. O Apex pergunta Ativar o link deste documento? Ele diz que o documento volta a abrir, em um endereço novo, e que você deve enviar o link outra vez ao cliente. Toque em Sim, ativar o link (1), ou em Manter desativado (2). Depois de confirmar, o botão volta a dizer Desativar link.",
-                "en": "Confirm. Apex asks Enable this document's link? It says the document opens again, at a new address, and you must send the link to the customer again. Tap Yes, enable the link (1), or Keep it disabled (2). After you confirm, the button goes back to Disable link."
+                "pt": "O dono vê o botão Desativar link. O vendedor não. Em uma fatura, a etiqueta vermelha no alto é outra coisa: quer dizer que a fatura precisa ser enviada de novo, veja o guia de faturas e pagamentos.",
+                "en": "The owner sees the Disable link button. A salesperson does not. For an invoice, the red tag at the top is a different thing: it means the invoice must be sent again, see the guide on invoices and payments."
+              },
+              "image": null
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Confirme. O Apex pergunta Desativar o link deste documento? (1) Ele explica que, enquanto o link estiver desativado, quem o abrir vê que não é válido e não consegue ver, assinar nem pagar. Também diz que o endereço antigo do documento deixa de funcionar para sempre.",
+                "en": "Confirm. Apex asks Disable this document's link? (1) It explains that while the link is off, anyone who opens it sees that it is not valid, and cannot view, sign or pay. It also says the old address of the document stops working for good."
               },
               "image": {
-                "pt": "help/img/guides/turn-customer-link-off/link-05.pt.jpg",
-                "en": "help/img/guides/turn-customer-link-off/link-05.en.jpg"
+                "pt": "help/img/guides/turn-customer-link-off/link-s06.pt.jpg",
+                "en": "help/img/guides/turn-customer-link-off/link-s06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Toque em Sim, desativar o link (1) para desligar, ou em Manter ativo (2) para deixar como está.",
+                "en": "Tap Yes, disable the link (1) to turn it off, or Keep it enabled (2) to stay as it is."
+              },
+              "image": {
+                "pt": "help/img/guides/turn-customer-link-off/link-s07.pt.jpg",
+                "en": "help/img/guides/turn-customer-link-off/link-s07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Uma mensagem diz Link desativado (1). O link do cliente agora está desligado.",
+                "en": "A message says Link disabled (1). The customer's link is now off."
+              },
+              "image": {
+                "pt": "help/img/guides/turn-customer-link-off/link-s08.pt.jpg",
+                "en": "help/img/guides/turn-customer-link-off/link-s08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Ligue de novo. Em um documento cujo link está desligado, o mesmo botão diz Ativar link (1). Toque nele.",
+                "en": "Turn it on again. On a document whose link is off, the same button reads Enable link (1). Tap it."
+              },
+              "image": {
+                "pt": "help/img/guides/turn-customer-link-off/link-s09.pt.jpg",
+                "en": "help/img/guides/turn-customer-link-off/link-s09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Confirme. O Apex pergunta Ativar o link deste documento? (1) Ele diz que o documento volta a abrir, em um endereço novo, e que você deve enviar o link outra vez ao cliente.",
+                "en": "Confirm. Apex asks Enable this document's link? (1) It says the document opens again, at a new address, and you must send the link to the customer again."
+              },
+              "image": {
+                "pt": "help/img/guides/turn-customer-link-off/link-s10.pt.jpg",
+                "en": "help/img/guides/turn-customer-link-off/link-s10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Toque em Sim, ativar o link (1), ou em Manter desativado (2).",
+                "en": "Tap Yes, enable the link (1), or Keep it disabled (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/turn-customer-link-off/link-s11.pt.jpg",
+                "en": "help/img/guides/turn-customer-link-off/link-s11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Depois de confirmar, uma mensagem diz Link ativado e o botão volta a dizer Desativar link (1).",
+                "en": "After you confirm, a message says Link enabled and the button goes back to Disable link (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/turn-customer-link-off/link-s12.pt.jpg",
+                "en": "help/img/guides/turn-customer-link-off/link-s12.en.jpg"
               }
             }
           ]
@@ -15545,7 +15804,7 @@
             ]
           },
           "section": "link",
-          "step": 2
+          "step": 3
         },
         {
           "labels": {
@@ -15557,7 +15816,7 @@
             ]
           },
           "section": "link",
-          "step": 4
+          "step": 9
         },
         {
           "labels": {
@@ -15569,7 +15828,7 @@
             ]
           },
           "section": "link",
-          "step": 3
+          "step": 7
         },
         {
           "labels": {
@@ -15581,7 +15840,7 @@
             ]
           },
           "section": "link",
-          "step": 3
+          "step": 7
         }
       ]
     },

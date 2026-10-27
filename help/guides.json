@@ -14860,8 +14860,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Veja o relatório. O relatório abre na própria página. No alto estão Voltar (1), PT / EN (2), que troca o idioma do relatório, e Exportar PDF (3). Embaixo estão a nota (4), a avaliação, quantos Sim e Não você deu e a lista das 7 perguntas com as suas respostas. Voltar (1) leva você de volta ao portal.",
-                "en": "See the report. The report opens on its own page. At the top are Back (1), PT / EN (2), which changes the language of the report, and Export PDF (3). Below are the score (4), the assessment, how many Yes and No answers you gave and the list of the 7 questions with your answers. Back (1) takes you to the portal."
+                "pt": "O relatório abre na própria página. No alto estão Voltar (1), PT / EN (2), que troca o idioma do relatório, e Exportar PDF (3). Voltar (1) leva você de volta ao portal.",
+                "en": "The report opens on its own page. At the top are Back (1), PT / EN (2), which changes the language of the report, and Export PDF (3). Back (1) takes you to the portal."
               },
               "image": {
                 "pt": "help/img/guides/other-assessments/others-08.pt.jpg",
@@ -14871,12 +14871,67 @@
             {
               "n": 9,
               "text": {
-                "pt": "Ache de novo mais tarde. Os diagnósticos terminados ficam em Apex, Documentos, Diagnósticos e relatórios concluídos (1). A sua linha do Feedback 360º é a (3). Cada linha tem um botão Ver relatório, como o (2). A mesma lista mostra os outros diagnósticos quando estão concluídos: Raio X Empresarial, Raio X de Gestão, Raio X Nível de Liderança, Raio X de Permissividade, Raio X Falhas e Pilares de Crescimento.",
-                "en": "Find it again later. Finished assessments are kept in Apex, Documents, Completed assessments & reports (1). Your 360º Feedback row is (3). Each row has a View report button, like (2). The same list shows the other assessments once they are done: Business X-Ray, Management X-Ray, Leadership Level X-Ray, Permissiveness X-Ray, Failures X-Ray and Growth Pillars."
+                "pt": "Embaixo está a nota (1): a porcentagem de respostas Sim e quantos Sim de 7, por exemplo 57% e 4/7. Uma etiqueta dá o veredito, por exemplo Percepção Moderada.",
+                "en": "Below is the score (1): the percent of Yes answers and how many Yes out of 7, for example 57% and 4/7. A tag gives the verdict, for example Moderate Perception."
               },
               "image": {
                 "pt": "help/img/guides/other-assessments/others-09.pt.jpg",
                 "en": "help/img/guides/other-assessments/others-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Embaixo da nota, a avaliação (1) diz em palavras o que a nota significa e a ação imediata a tomar.",
+                "en": "Under the score, the assessment (1) says in words what the score means and the immediate action to take."
+              },
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-10.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Distribuição do Resultado (1) mostra quantos Sim e Não você deu, e quantos ficaram sem resposta.",
+                "en": "Result Distribution (1) shows how many Yes and No answers you gave, and how many were left unanswered."
+              },
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-11.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "No fim, uma lista das 7 perguntas (1) mostra cada pergunta com a sua resposta, Sim ou Não.",
+                "en": "At the end, a list of the 7 questions (1) shows each question with your answer, Yes or No."
+              },
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-12.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Ache de novo mais tarde. Os diagnósticos terminados ficam em Apex, Documentos, Diagnósticos e relatórios concluídos (1).",
+                "en": "Find it again later. Finished assessments are kept in Apex, Documents, Completed assessments & reports (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-13.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "A sua linha do Feedback 360º é a (2). Cada linha tem um botão Ver relatório, como o (1). A mesma lista mostra os outros diagnósticos quando estão concluídos: Raio X Empresarial, Raio X de Gestão, Raio X Nível de Liderança, Raio X de Permissividade, Raio X Falhas e Pilares de Crescimento.",
+                "en": "Your 360º Feedback row is (2). Each row has a View report button, like (1). The same list shows the other assessments once they are done: Business X-Ray, Management X-Ray, Leadership Level X-Ray, Permissiveness X-Ray, Failures X-Ray and Growth Pillars."
+              },
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-14.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-14.en.jpg"
               }
             }
           ]

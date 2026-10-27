@@ -7699,8 +7699,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Abra Faturas. Toque em Negócio e depois em Faturas. Os quatro quadros no alto (1) mostram o total Faturado, o que você Recebeu, o saldo Em aberto e o valor Vencido, que fica vermelho quando é maior que zero. Os botões (2) filtram a lista: Todas, Em aberto, Vencida, Paga, Rascunho e Anuladas. Toque em uma fatura (3) para abrir.",
-                "en": "Open Invoices. Tap Business, then Invoices. The four boxes at the top (1) show the total Invoiced, what you were Paid, the Balance still unpaid, and the Overdue amount, which turns red when it is above zero. The chips (2) filter the list: All, Unpaid, Overdue, Paid, Draft and Void. Tap an invoice (3) to open it."
+                "pt": "Toque em Negócio (1) na fileira de abas no alto. Um menu abre. Toque em Faturas (2).",
+                "en": "Tap Business (1) in the row of tabs at the top. A menu opens. Tap Invoices (2)."
               },
               "image": {
                 "pt": "help/img/guides/invoices-and-payments/invoices-02.pt.jpg",
@@ -7710,8 +7710,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Veja o que você pode fazer com a fatura. A ficha mostra o status e o saldo. Abaixo de Enviar fatura você pode tocar em Registrar pagamento (1), Ver como o cliente (2) para ver o que o cliente vê, Baixar PDF (3), Crédito (4) para diminuir o que é devido, ou Anular fatura (5) para cancelar. Para enviar a fatura, veja o guia Enviar a fatura.",
-                "en": "Look at what you can do with the invoice. The sheet shows the status and the balance. Below Send invoice you can tap Record payment (1), Preview as customer (2) to see what the customer sees, Download PDF (3), Credit (4) to lower what is owed, or Void invoice (5) to cancel it. To send the invoice, see the Send an invoice guide."
+                "pt": "Os quatro quadros no alto (1) mostram o total Faturado, o que você Recebeu, o saldo Em aberto e o valor Vencido, que fica vermelho quando é maior que zero.",
+                "en": "The four boxes at the top (1) show the total Invoiced, what you were Paid, the Balance still unpaid, and the Overdue amount, which turns red when it is above zero."
               },
               "image": {
                 "pt": "help/img/guides/invoices-and-payments/invoices-03.pt.jpg",
@@ -7721,8 +7721,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Registre um pagamento. Digite o Valor (1), ou toque no botão Valor total (2) para preencher o que é devido. Confira a Data. Escolha a Forma de pagamento (3): a lista mostra só as formas que você disse que aceita, por exemplo Zelle, Cheque, Transferência / ACH ou Cartão. Se quiser, preencha a Referência, como o número do cheque, e uma Observação. Toque em Salvar pagamento (4).",
-                "en": "Record a payment. Type the Amount (1), or tap the Full amount button (2) to fill in what is owed. Check the Date. Choose the Method (3): the list shows only the ways you said you accept, for example Zelle, Check, Bank transfer / ACH or Card. Add a Reference, such as the check number, and a Note if you want. Tap Save payment (4)."
+                "pt": "Os botões (1) filtram a lista: Todas, Em aberto, Vencida, Paga, Rascunho e Anuladas.",
+                "en": "The chips (1) filter the list: All, Unpaid, Overdue, Paid, Draft and Void."
               },
               "image": {
                 "pt": "help/img/guides/invoices-and-payments/invoices-04.pt.jpg",
@@ -7731,6 +7731,138 @@
             },
             {
               "n": 5,
+              "text": {
+                "pt": "Toque em uma fatura (1) para abrir.",
+                "en": "Tap an invoice (1) to open it."
+              },
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/invoices-05.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/invoices-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "A ficha mostra o status e o saldo (1).",
+                "en": "The sheet shows the status and the balance (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/invoices-06.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/invoices-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Para enviar a fatura, toque em Enviar fatura (1). O guia Enviar a fatura mostra os passos.",
+                "en": "To send the invoice, tap Send invoice (1). The Send an invoice guide shows the steps."
+              },
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/invoices-07.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/invoices-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Abaixo de Enviar fatura você pode tocar em Registrar pagamento (1), Ver como o cliente (2) para ver o que o cliente vê, ou Baixar PDF (3).",
+                "en": "Below Send invoice you can tap Record payment (1), Preview as customer (2) to see what the customer sees, or Download PDF (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/invoices-08.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/invoices-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Desativar link (1) desliga o link do cliente para esta fatura. Veja o guia Desativar ou ativar o link do cliente.",
+                "en": "Disable link (1) turns off the customer's link to this invoice. See the guide Turn a customer link off or on."
+              },
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/invoices-09.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/invoices-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Crédito (1) diminui o que é devido. Anular fatura (2) cancela a fatura.",
+                "en": "Credit (1) lowers what is owed. Void invoice (2) cancels the invoice."
+              },
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/invoices-10.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/invoices-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Para registrar um pagamento, toque em Registrar pagamento e digite o Valor (1).",
+                "en": "To record a payment, tap Record payment, then type the Amount (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/invoices-11.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/invoices-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Ou toque no botão Valor total (1) para preencher o que é devido.",
+                "en": "Or tap the Full amount button (1) to fill in what is owed."
+              },
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/invoices-12.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/invoices-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Confira a Data (1). Ela começa como hoje. Mude se o dinheiro chegou em outro dia.",
+                "en": "Check the Date (1). It starts as today. Change it if the money came on another day."
+              },
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/invoices-13.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/invoices-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Escolha a Forma de pagamento (1). A lista mostra só as formas que você disse que aceita, por exemplo Zelle, Cheque, Transferência / ACH ou Cartão.",
+                "en": "Choose the Method (1). The list shows only the ways you said you accept, for example Zelle, Check, Bank transfer / ACH or Card."
+              },
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/invoices-14.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/invoices-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Se quiser, preencha a Referência (1), como o número do cheque, e uma Observação.",
+                "en": "If you want, add a Reference (1), such as the check number, and a Note."
+              },
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/invoices-15.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/invoices-15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Toque em Salvar pagamento (1). Neste guia o pagamento não foi salvo, porque ele registra dinheiro de verdade.",
+                "en": "Tap Save payment (1). In this guide the payment was not saved, because it records real money."
+              },
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/invoices-16.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/invoices-16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
               "text": {
                 "pt": "Depois de salvar. O pagamento é somado à fatura, o saldo diminui e um número de recibo é criado. Um pagamento parcial deixa a fatura aberta para o restante. Quando o saldo chega a zero, a fatura passa a Paga. Para enviar o recibo ao seu cliente, veja o guia Enviar um recibo.",
                 "en": "After you save. The payment is added to the invoice, the balance goes down, and a receipt number is created. A part payment leaves the invoice open for the rest. When the balance reaches zero the invoice becomes Paid. To send the receipt to your customer, see the Send a receipt guide."
@@ -7761,31 +7893,42 @@
               "n": 2,
               "text": {
                 "pt": "Veja quando foi enviada e aberta. Role até a seção Dados. Enviada (1) é o dia e a hora em que você enviou a fatura. Aberta pelo cliente (2) é a primeira vez que o cliente abriu o link. Se você não vê Aberta pelo cliente, o cliente ainda não abriu.",
-                "en": "See when it was sent and opened. Scroll to the section Details. Sent (1) is the day and time you sent the invoice. Opened by customer (2) is the first time the customer opened the link. If you do not see Opened by customer, the customer has not opened it yet."
+                "en": "Scroll to the section Details. Sent (1) is the day and time you sent the invoice. Opened by customer (2) is the first time the customer opened the link. If you do not see Opened by customer, the customer has not opened it yet."
               },
               "image": {
-                "en": "help/img/guides/invoices-and-payments/read-02.en.jpg",
-                "pt": "help/img/guides/invoices-and-payments/read-02.pt.jpg"
+                "pt": "help/img/guides/invoices-and-payments/read-02.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/read-02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Leia os Valores. A seção Valores (1) é calculada pelo Apex. Total do contrato é o trabalho todo. Recebido até agora (verificado) é o dinheiro que você recebeu e conferiu. Esta fatura é a parte do contrato que esta fatura cobra, com a etapa e o percentual, por exemplo Conclusão 50%. Saldo desta fatura é só o que falta desta fatura. Saldo restante do contrato é o que falta do contrato inteiro. Assim um trabalho grande não parece vencido quando só uma etapa está. Juros por atraso e Créditos e reembolsos também ganham uma linha aqui quando você tem.",
-                "en": "Read the Amounts. The section Amounts (1) is worked out by Apex. Contract total is the whole job. Paid to date (verified) is the money you received and checked. This invoice is the part of the contract this invoice asks for, with its step and percent, for example Completion 50%. Balance due now for this invoice is only what is left of this one. Remaining contract balance is what is left of the whole contract. So a big job does not look overdue when only one step is. Late fees and Credits and refunds also get a line here when you have them."
+                "pt": "Leia os Valores. A seção Valores (1) é calculada pelo Apex. Total do contrato é o trabalho todo. Recebido até agora (verificado) é o dinheiro que você recebeu e conferiu. Esta fatura é a parte do contrato que esta fatura cobra, com a etapa e o percentual, por exemplo Conclusão 50%. Saldo desta fatura é só o que falta desta fatura. Saldo restante do contrato é o que falta do contrato inteiro.",
+                "en": "Read the Amounts. The section Amounts (1) is worked out by Apex. Contract total is the whole job. Paid to date (verified) is the money you received and checked. This invoice is the part of the contract this invoice asks for, with its step and percent, for example Completion 50%. Balance due now for this invoice is only what is left of this one. Remaining contract balance is what is left of the whole contract."
               },
               "image": {
-                "en": "help/img/guides/invoices-and-payments/read-03.en.jpg",
-                "pt": "help/img/guides/invoices-and-payments/read-03.pt.jpg"
+                "pt": "help/img/guides/invoices-and-payments/read-03.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/read-03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
+                "en": "So a big job does not look overdue when only one step is. Late fees and Credits and refunds also get a line here when you have them.",
+                "pt": "Assim um trabalho grande não parece vencido quando só uma etapa está. Juros por atraso e Créditos e reembolsos também ganham uma linha aqui quando você tem."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
                 "pt": "Desative o link do cliente. Para impedir que o cliente abra esta fatura, use Desativar link. Veja o guia Desativar ou ativar o link do cliente.",
                 "en": "Turn the customer link off. To stop the customer opening this invoice, use Disable link. See the guide Turn a customer link off or on."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/invoices-and-payments/read-04.pt.jpg",
+                "en": "help/img/guides/invoices-and-payments/read-04.en.jpg"
+              }
             }
           ]
         }
@@ -7801,11 +7944,11 @@
             ]
           },
           "section": "invoices",
-          "step": 4
+          "step": 16
         },
         {
           "section": "invoices",
-          "step": 1,
+          "step": 2,
           "labels": {
             "pt": [
               "Faturas"

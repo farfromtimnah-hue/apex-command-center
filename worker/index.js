@@ -64790,18 +64790,60 @@ function helpClampResult(result, role, audience) {
 
 // guide id owning a private file path, or null. Pictures live under
 // help/img/guides/<guide-id>/<file>; posters and videos are help/video/<guide-id>-pt.mp4 (or .jpg).
-var HELP_GUIDE_BY_ID = (function() {
+function helpGuideMap(data) {
     var m = Object.create(null);
-    ((HELP_GUIDES_V1 && HELP_GUIDES_V1.guides) || []).forEach(function(g) { if (g && typeof g.id === "string") { m[g.id] = true; } });
+    ((data && data.guides) || []).forEach(function(g) { if (g && typeof g.id === "string") { m[g.id] = g; } });
     return m;
-})();
+}
+var HELP_GUIDE_BY_ID = helpGuideMap(HELP_GUIDES_V1);
+
+// path -> ids of every guide that names the file (pictures, videos, posters). Some
+// guides reuse another guide's pictures, so a file can belong to more than one.
+function helpFileGuideMap(data) {
+    var m = Object.create(null);
+    function add(p, id) {
+        if (typeof p !== "string" || !p) { return; }
+        if (!m[p]) { m[p] = []; }
+        if (m[p].indexOf(id) === -1) { m[p].push(id); }
+    }
+    ((data && data.guides) || []).forEach(function(g) {
+        if (!g || typeof g.id !== "string") { return; }
+        (Array.isArray(g.sections) ? g.sections : []).forEach(function(sec) {
+            (Array.isArray(sec.steps) ? sec.steps : []).forEach(function(st) {
+                if (st && st.image && typeof st.image === "object") { add(st.image.pt, g.id); add(st.image.en, g.id); }
+            });
+        });
+        if (g.video && typeof g.video === "object") {
+            ["pt", "en"].forEach(function(l) {
+                var v = g.video[l];
+                if (!v) { return; }
+                add(helpUrlPath(typeof v === "string" ? v : v.src), g.id);
+                if (typeof v === "object" && v.poster) { add(helpUrlPath(v.poster), g.id); }
+            });
+        }
+    });
+    return m;
+}
+var HELP_FILE_GUIDES = helpFileGuideMap(HELP_GUIDES_V1);
 
 function helpFileOwner(rel) {
     if (typeof rel !== "string" || rel.length > 300 || rel.indexOf("..") !== -1) { return null; }
     var m = /^help\/img\/guides\/([A-Za-z0-9_-]{1,60})\/([A-Za-z0-9._-]{1,120}\.(?:jpg|jpeg|png|webp))$/i.exec(rel);
     if (!m) { m = /^help\/video\/([A-Za-z0-9_-]{1,60})-(?:pt|en)\.(?:mp4|jpg)$/.exec(rel); }
-    if (!m || HELP_GUIDE_BY_ID[m[1]] !== true) { return null; }
+    if (!m || !HELP_GUIDE_BY_ID[m[1]]) { return null; }
     return m[1];
+}
+
+// Every guide a file belongs to: the guide whose folder it sits in, plus any guide
+// that names it. The file may be opened by a role that can see ANY of them.
+// Null when the path is not a private media path at all.
+function helpFileOwners(rel) {
+    var first = helpFileOwner(rel);
+    if (!first) { return null; }
+    var out = [first];
+    var refs = HELP_FILE_GUIDES[rel] || [];
+    refs.forEach(function(id) { if (out.indexOf(id) === -1) { out.push(id); } });
+    return out;
 }
 
 function helpB64hex(bytes) {
@@ -64989,9 +65031,11 @@ async function handleGetHelpFile(request, env, path) {
         }
         var want = await helpLinkSig(env, rel, exp, g);
         if (!want || !helpSameText(want, s)) { return helpNotFound(); }
-        var guide = null;
-        for (var i = 0; i < HELP_GUIDES_V1.guides.length; i++) { if (HELP_GUIDES_V1.guides[i].id === owner) { guide = HELP_GUIDES_V1.guides[i]; break; } }
-        if (!guide || !helpGuideVisibleTo(guide, HELP_GUIDES_V1.groups, role)) { return helpNotFound(); }
+        var mayOpen = false;
+        helpFileOwners(rel).forEach(function(id) {
+            if (HELP_GUIDE_BY_ID[id] && helpGuideVisibleTo(HELP_GUIDE_BY_ID[id], HELP_GUIDES_V1.groups, role)) { mayOpen = true; }
+        });
+        if (!mayOpen) { return helpNotFound(); }
 
         var ext = rel.slice(rel.lastIndexOf(".") + 1).toLowerCase();
         var headers = Object.assign({}, CORS_HEADERS, {

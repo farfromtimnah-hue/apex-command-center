@@ -26047,6 +26047,111 @@
           "step": 3
         }
       ]
+    },
+    {
+      "id": "admin-assessment-reports",
+      "audience": "admin",
+      "title": {
+        "pt": "Avaliações do cliente: ver relatórios e ligar ou desligar",
+        "en": "Client assessments: read reports and turn them on or off"
+      },
+      "summary": {
+        "pt": "O cartão Avaliações da ficha do cliente e a página do relatório.",
+        "en": "The Assessments card on the client record and the report page."
+      },
+      "keywords": {
+        "pt": [
+          "avaliações",
+          "relatório",
+          "raio x",
+          "ativar",
+          "desativar",
+          "exportar pdf",
+          "feedback 360",
+          "pilares de crescimento"
+        ],
+        "en": [
+          "assessments",
+          "report",
+          "x-ray",
+          "activate",
+          "deactivate",
+          "export pdf",
+          "360 feedback",
+          "growth pillars"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "reports",
+          "title": {
+            "pt": "Avaliações e relatórios",
+            "en": "Assessments and reports"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Na ficha do cliente, abra a aba Trabalho Apex e ache o cartão Avaliações. Ele lista os sete questionários: Raio X Empresarial, Raio X de Gestão, Raio X Nível de Liderança, Raio X de Permissividade, Raio X Falhas, Feedback 360 e Pilares de Crescimento. Cada um mostra o status (1), quando terminou e a faixa do resultado. Toque em Ver Relatório (2) para ler o relatório. Toque em Desativar (3) para tirar o questionário do cliente. Um questionário desligado mostra Ativar no lugar.",
+                "en": "On a client record, open the tab Apex work and find the card Assessments. It lists the seven questionnaires: Business X-Ray, Management X-Ray, Leadership Level X-Ray, Permissiveness X-Ray, Failures X-Ray, 360 Feedback and Growth Pillars. Each one shows its status (1), when it was finished and the result band. Tap View Report (2) to read the report. Tap Deactivate (3) to take the questionnaire away from the client. A questionnaire that is off shows Activate instead."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-assessment-reports/reports-01.pt.jpg",
+                "en": "help/img/guides/admin-assessment-reports/reports-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O relatório abre em uma página própria. No alto à direita há três botões. Voltar (1) volta para o cliente. PT / EN (2) muda o idioma do relatório. Exportar PDF (3) abre a janela de impressão, onde você imprime o relatório ou salva em PDF.",
+                "en": "The report opens in a page of its own. At the top right are three buttons. Back (1) returns to the client. PT / EN (2) changes the language of the report. Export PDF (3) opens the print window, where you can print the report or save it as a PDF."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-assessment-reports/reports-02.pt.jpg",
+                "en": "help/img/guides/admin-assessment-reports/reports-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Leia o relatório de cima para baixo. O cartão da nota (4) mostra o total, a porcentagem e a faixa em palavras, por exemplo Maturidade Alta. Resultado por Área (5) mostra cada área com a nota e uma etiqueta como Bom. Cada questionário tem suas faixas e palavras, mas a página funciona do mesmo jeito.",
+                "en": "Read the report from the top. The score card (4) shows the total, the percent and the band wording, for example High Maturity. Results by Area (5) shows each area with its own score and a tag such as Good. Every questionnaire has its own bands and wording, but the page works the same way."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-assessment-reports/reports-03.pt.jpg",
+                "en": "help/img/guides/admin-assessment-reports/reports-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Desativar"
+            ],
+            "en": [
+              "Deactivate"
+            ]
+          },
+          "section": "reports",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Exportar PDF"
+            ],
+            "en": [
+              "Export PDF"
+            ]
+          },
+          "section": "reports",
+          "step": 2
+        }
+      ]
     }
   ],
   "pages": {

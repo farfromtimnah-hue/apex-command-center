@@ -1070,6 +1070,12 @@ function gmThumbtackCardHtml() {
       ? gmT("Último lead: ", "Last lead: ") + formatDateTimeUTC(st.last_lead_at)
       : gmT("Nenhum lead recebido ainda", "No leads received yet")) + '</p>';
   h += gmTtPhonesHtml(st);
+  if (st.mode === "staging" && !st.needs_reconnect && st.subscribed_count) {
+    h += '<div style="margin:0 0 14px;"><p class="muted" style="margin:0 0 8px;">' + escHtml(gmT(
+      "Somente no ambiente de testes: pede ao Thumbtack um lead de exemplo.",
+      "Testing environment only: asks Thumbtack for a sample lead.")) + '</p>' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmTtTestLead(this)">' + escHtml(gmT("Enviar lead de teste", "Send a test lead")) + '</button></div>';
+  }
   h += '<button type="button" class="gm-btn-secondary" onclick="gmTtDisconnect()">' + escHtml(gmT("Desconectar", "Disconnect")) + '</button>';
   return h + '</div>';
 }
@@ -1142,6 +1148,18 @@ function gmTtConnect(btn) {
     }
     window.location.href = d.url;
   }).catch(function(e) { gmTtBusy = false; if (btn) { btn.disabled = false; } gmToast(e.message); console.error("thumbtack connect: " + e.message); });
+}
+// Staging only: Thumbtack sends its sample lead to the connected business.
+function gmTtTestLead(btn) {
+  if (gmTtBusy) { return; }
+  gmTtBusy = true;
+  if (btn) { btn.disabled = true; }
+  gmApi("thumbtack/test-lead", { method: "POST", body: {} }).then(function() {
+    gmTtBusy = false;
+    if (btn) { btn.disabled = false; }
+    gmToast(gmT("Lead de teste enviado. Ele aparece no funil em alguns segundos.", "Test lead sent. It appears in your pipeline in a few seconds."));
+    setTimeout(function() { gmTtLoad(true); }, 4000);
+  }).catch(function(e) { gmTtBusy = false; if (btn) { btn.disabled = false; } gmToast(e.message); console.error("thumbtack test lead: " + e.message); });
 }
 function gmTtDisconnect() {
   gmAsk({

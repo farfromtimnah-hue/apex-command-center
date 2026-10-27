@@ -20,7 +20,7 @@ const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientA
   "thumbtackWebhookUrl", "thumbtackHeaderValue", "thumbtackFetch", "thumbtackApi", "thumbtackErrTransient", "thumbtackTokenCall",
   "thumbtackAuthorizeUrl", "thumbtackBack", "thumbtackStateUse", "thumbtackFlagReconnect", "thumbtackAccessToken",
   "thumbtackStatusPayload", "thumbtackSubscribe", "thumbtackRemoveConnection", "thumbtackGrantedBusinesses", "thumbtackAfter",
-  "handleGetGmThumbtackStatus", "handlePostGmThumbtackConnect", "handlePostGmThumbtackDisconnect", "handleGetGmThumbtackPhones",
+  "handleGetGmThumbtackStatus", "handlePostGmThumbtackConnect", "handlePostGmThumbtackDisconnect", "handleGetGmThumbtackPhones", "handlePostGmThumbtackTestLead",
   "thumbtackE164", "handlePostGmThumbtackPhones", "handleGetThumbtackCallback", "thumbtackFmtPhone", "thumbtackLeadFields",
   "thumbtackStoreEvent", "thumbtackProcessEvent", "handlePostThumbtackWebhook", "thumbtackCron"];
 const VARS = ["DEFAULT_ORIGIN", "CORS_HEADERS", "GM_ACTOR_KEY_RE", "GM_HIDDEN_ACTORS", "TOKEN_SEAL_PREFIX", "APEX_TIMEZONE",
@@ -107,6 +107,7 @@ function world(opts) {
       if (m && method === "DELETE") { delete tt.webhooks[m[1]]; return new Response(null, { status: 204 }); }
       m = /^\/v4\/businesses\/(\d+)\/associate-phone-numbers$/.exec(p);
       if (m && method === "GET") { return J(tt.phones[m[1]] || []); }
+      if (/^\/v4\/businesses\/\d+\/webhooks\/test-negotiation$/.test(p) && method === "POST") { tt.testCalls = (tt.testCalls || 0) + 1; return new Response(null, { status: 204 }); }
       if (m && method === "POST") { (tt.phones[m[1]] = tt.phones[m[1]] || []).push({ phoneNumberID: "p" + (tt.phones[m[1]] || []).length, phoneNumber: json.phoneNumber, name: json.name }); return J({ phoneNumberID: "p1", phoneNumber: json.phoneNumber, name: json.name }); }
     }
     return J({ title: "unknown path in the fake", status: 500, detail: url }, 500);
@@ -411,6 +412,29 @@ let W = null;
   user = OWNER;
 }
 
+// ── the staging test lead
+{
+  const w = world();
+  user = OWNER;
+  const none = await read(await w.F.handlePostGmThumbtackTestLead("c1", post("/x"), w.env));
+  ok(none.status === 409, "test lead: not connected is 409");
+  await connect(w);
+  const sent = await read(await w.F.handlePostGmThumbtackTestLead("c1", post("/x"), w.env));
+  ok(sent.status === 200 && sent.data.sent === true && w.tt.testCalls === 1, "test lead: Thumbtack is asked for its sample lead, once");
+  const call = w.tt.calls.filter((x) => /test-negotiation$/.test(x.path))[0];
+  ok(call.path === "/api/v4/businesses/5001/webhooks/test-negotiation" && call.headers.Authorization === "Bearer " + ACCESS, "test lead: it uses the Pro's own token on the connected business");
+  user = SELLER;
+  const s2 = await read(await w.F.handlePostGmThumbtackTestLead("c1", post("/x"), w.env));
+  ok(s2.status === 403 && w.tt.testCalls === 1, "test lead: a salesperson is refused (403) and nothing is sent");
+  user = RIVAL;
+  const s3 = await read(await w.F.handlePostGmThumbtackTestLead("c1", post("/x"), w.env));
+  ok(s3.status === 403 && w.tt.testCalls === 1, "test lead: another business's owner is refused (403)");
+  user = OWNER;
+  const wp = world({ env: { THUMBTACK_ENV: "production", THUMBTACK_CLIENT_ID: CLIENT_ID, THUMBTACK_CLIENT_SECRET: SECRET, TOKEN_ENC_KEY: ENV_OK.TOKEN_ENC_KEY } });
+  const prod = await read(await wp.F.handlePostGmThumbtackTestLead("c1", post("/x"), wp.env));
+  ok(prod.status === 403, "test lead: in production mode it is refused (403)");
+}
+
 // ── disconnect
 {
   const w = world();
@@ -468,6 +492,10 @@ let W = null;
   U.set("status", { available: true, connected: true, needs_reconnect: true, connected_at: "2026-10-27 18:00:00", businesses: [{ business_id: "5001", name: "Zeta Pools LLC", subscribed: false, problem: true }], last_lead_at: "2026-10-28 09:00:00" });
   const c2 = U.card();
   ok(c2.indexOf("Thumbtack needs to be reconnected") !== -1 && c2.indexOf("Reconnect") !== -1 && c2.indexOf("did not let the leads of this business connect") !== -1 && c2.indexOf("Last lead: 2026-10-28") !== -1, "card: a refused token or webhook shows Reconnect, the reason and the last lead date");
+  U.set("status", { available: true, connected: true, needs_reconnect: false, mode: "staging", connected_at: "2026-10-27 18:00:00", businesses: [{ business_id: "5001", name: "Zeta Pools LLC", subscribed: true, problem: false }], subscribed_count: 1, last_lead_at: null });
+  ok(U.card().indexOf("Send a test lead") !== -1 && U.card().indexOf("gmTtTestLead") !== -1, "card: in staging the Send a test lead button shows");
+  U.set("status", { available: true, connected: true, needs_reconnect: false, mode: "production", connected_at: "2026-10-27 18:00:00", businesses: [{ business_id: "5001", name: "Zeta Pools LLC", subscribed: true, problem: false }], subscribed_count: 1, last_lead_at: null });
+  ok(U.card().indexOf("Send a test lead") === -1, "card: in production there is no test lead button");
   U.set("phones", { businesses: [{ business_id: "5001", name: "Zeta Pools LLC", numbers: [{ name: "Front desk", phone: "+14075550100" }] }] });
   const c3 = U.card();
   ok(c3.indexOf("Front desk") !== -1 && c3.indexOf("+14075550100") !== -1 && c3.indexOf('id="gmTtPhoneNum"') !== -1 && c3.indexOf('type="tel"') !== -1 && c3.indexOf('for="gmTtPhoneNum"') !== -1, "card: phone numbers are listed, and the add form has labelled name and tel inputs");

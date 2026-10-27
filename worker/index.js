@@ -16040,7 +16040,7 @@ function clientRequestAllowed(path, method, clientId) {
                 // Job 38: connect, choose Pages, disconnect Facebook (owner only).
                 if (gmRest === "meta/connect" || gmRest === "meta/pages" || gmRest === "meta/disconnect") { return true; }
                 // Thumbtack leads (2026-10-27): connect, disconnect, add a phone number (owner only).
-                if (gmRest === "thumbtack/connect" || gmRest === "thumbtack/disconnect" || gmRest === "thumbtack/phones") { return true; }
+                if (gmRest === "thumbtack/connect" || gmRest === "thumbtack/disconnect" || gmRest === "thumbtack/phones" || gmRest === "thumbtack/test-lead") { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 // G5e: a hand-made project becomes a lead (owner only; never
                 // on the seller list, the handler refuses sellers too).
@@ -38504,6 +38504,30 @@ async function handlePostGmThumbtackPhones(id, request, env) {
     }
 }
 
+// POST /api/clients/:id/gm/thumbtack/test-lead   (owner only, STAGING ONLY)
+// Asks Thumbtack to send its built-in sample lead (a synthetic negotiation, no
+// real lead is made at Thumbtack) to the business's webhook, so a connection
+// can be proven without a customer filling in a request. Refused in production.
+async function handlePostGmThumbtackTestLead(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = thumbtackOwnerGuard(user, id);
+        if (block) { return block; }
+        var cfg = thumbtackSettings(env);
+        if (!cfg.ready || !(await thumbtackTablesReady(env))) { return thumbtackNotAvailable(); }
+        if (cfg.mode !== "staging") { return jsonErr2("O lead de teste s\u00f3 existe no ambiente de testes.", "The test lead only exists in the testing environment.", 403); }
+        var biz = await env.DB.prepare(
+            "SELECT business_id FROM gm_thumbtack_businesses WHERE client_id = ? AND subscribed = 1 ORDER BY name COLLATE NOCASE LIMIT 1"
+        ).bind(id).first();
+        if (!biz) { return jsonErr2("O Thumbtack n\u00e3o est\u00e1 conectado.", "Thumbtack is not connected.", 409); }
+        var token = await thumbtackAccessToken(env, cfg, id);
+        await thumbtackApi(cfg, token, "POST", "/v4/businesses/" + encodeURIComponent(String(biz.business_id)) + "/webhooks/test-negotiation", null, [token, cfg.client_secret]);
+        return jsonOk({ sent: true });
+    } catch (e) {
+        return jsonErr("Error sending the Thumbtack test lead: " + metaScrub(e && e.message), 500);
+    }
+}
+
 // GET /api/thumbtack/callback?code=...&state=...   (public: the state is the lock)
 // Thumbtack sends the browser here after the sign-in. Everything is read from
 // Thumbtack BEFORE anything is written, so a failure leaves the business as it
@@ -55867,6 +55891,7 @@ async function handleFetch(request, env, ctx) {
                     if (segs[5] === "disconnect" && method === "POST") { return handlePostGmThumbtackDisconnect(cid, request, env); }
                     if (segs[5] === "phones" && method === "GET") { return handleGetGmThumbtackPhones(cid, request, env); }
                     if (segs[5] === "phones" && method === "POST") { return handlePostGmThumbtackPhones(cid, request, env); }
+                    if (segs[5] === "test-lead" && method === "POST") { return handlePostGmThumbtackTestLead(cid, request, env); }
                 }
                 // Estimates & invoices build: the business's document settings.
                 if (segs.length === 5 && gmCol === "doc-settings") {

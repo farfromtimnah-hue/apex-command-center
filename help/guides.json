@@ -28057,6 +28057,115 @@
           "step": 7
         }
       ]
+    },
+    {
+      "id": "admin-packages-screen",
+      "audience": "admin",
+      "title": {
+        "pt": "A tela de pacotes: mostrar e riscar um pacote na frente do cliente",
+        "en": "The packages screen: show and strike a package in front of the client"
+      },
+      "summary": {
+        "pt": "Aprenda a usar a tela de pacotes na reunião: abrir, revelar um cartão por vez, voltar e riscar um pacote com as teclas 1, 2 e 3.",
+        "en": "Learn to use the packages screen in the meeting: open it, reveal one card at a time, go back and strike a package with the keys 1, 2 and 3."
+      },
+      "keywords": {
+        "pt": [
+          "tela de pacotes",
+          "pacotes",
+          "advanced",
+          "growth",
+          "start",
+          "riscar pacote",
+          "revelar",
+          "preços"
+        ],
+        "en": [
+          "packages screen",
+          "packages",
+          "advanced",
+          "growth",
+          "start",
+          "strike a package",
+          "reveal",
+          "prices"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "pk",
+          "title": {
+            "pt": "A tela de pacotes que o cliente vê",
+            "en": "The packages screen the client sees"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra a tela. Na preparação da reunião, toque em Abrir a tela de pacotes. Ela abre em outra aba, para mostrar ao cliente. A tela é em português de propósito, porque o cliente lê. Ela começa escura com três cartões (1): ADVANCED, GROWTH e START, cada um com o nome e a duração.",
+                "en": "Open the screen. In the meeting prep, tap Open the packages screen. It opens in a new tab, to show the client. The screen is in Portuguese on purpose, because the client reads it. It starts dark with three cards (1): ADVANCED, GROWTH and START, each with its name and its length."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-packages-screen/pk-01.pt.jpg",
+                "en": "help/img/guides/admin-packages-screen/pk-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Revele um cartão por vez. Clique em qualquer lugar, ou aperte a barra de espaço, Enter ou a seta para a direita. O primeiro cartão (1) mostra a lista do que está incluído. Cada toque avança: primeiro as listas, um cartão por vez, depois os preços, um cartão por vez.",
+                "en": "Reveal one card at a time. Click anywhere, or press the space bar, Enter or the right arrow. The first card (1) shows its list of what is included. Each press goes on: first the lists, one card at a time, then the prices, one card at a time."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-packages-screen/pk-02.pt.jpg",
+                "en": "help/img/guides/admin-packages-screen/pk-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Volte. Aperte a seta para a esquerda, a seta para cima, Backspace ou Page Up. A tela volta um passo, caso o cliente peça para ver algo de novo.",
+                "en": "Go back. Press the left arrow, the up arrow, Backspace or Page Up. The screen goes back one step, in case the client asks to see something again."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Risque um pacote. Aperte 1, 2 ou 3 no teclado para riscar o primeiro, o segundo ou o terceiro cartão. É silencioso, então dá para fazer no meio de uma frase. O cartão fica apagado, com um traço no nome. Você também pode clicar no pequeno controle de riscar (1) no canto de cima do cartão. Aperte o mesmo número de novo para trazer o cartão de volta.",
+                "en": "Strike a package. Press 1, 2 or 3 on the keyboard to strike the first, second or third card. It is silent, so you can do it in the middle of a sentence. The card goes dim with a line through its name. You can also click the small strike control (1) at the top right of the card. Press the same number again to bring the card back."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-packages-screen/pk-04.pt.jpg",
+                "en": "help/img/guides/admin-packages-screen/pk-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Um cartão riscado é pulado. Quando você avança, as listas e os preços pulam o cartão riscado, então o preço dele nunca aparece. Se você trouxer o cartão de volta depois que os preços já apareceram, ele simplesmente passa a poder ser revelado.",
+                "en": "A struck card is skipped. When you go on, the lists and the prices skip a struck card, so its price never shows. If you bring the card back after the prices are up, it simply becomes available to reveal."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Riscar um pacote"
+            ],
+            "en": [
+              "Strike a package"
+            ]
+          },
+          "section": "pk",
+          "step": 4
+        }
+      ]
     }
   ],
   "pages": {
@@ -28478,7 +28587,8 @@
         "admin-prep-xray-results",
         "admin-prep-kickoff",
         "admin-prep-weekly-rde",
-        "admin-prep-cycle-close"
+        "admin-prep-cycle-close",
+        "admin-packages-screen"
       ],
       "overview": {
         "pt": "Aqui o consultor se prepara para a reunião com um cliente.",

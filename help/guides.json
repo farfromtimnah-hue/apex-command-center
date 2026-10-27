@@ -15736,8 +15736,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Escolha três opções. Na etapa 2 de 8, toque em Em opções: Best / Better / Good (1) em vez de Único. O seu cliente vai ver três preços para o mesmo trabalho. As três sempre aparecem nesta ordem: Best (o preço mais alto), Better e Good.",
-                "en": "Choose three options. In step 2 of 8, tap Tiered: Best / Better / Good (1) instead of Single. Your customer will see three prices for the same job. The three always show in this order: Best (the highest price), Better, then Good."
+                "pt": "Comece um orçamento novo a partir de um lead. Na etapa 2 de 8, toque em Em opções: Best / Better / Good (1) em vez de Único.",
+                "en": "Start a new estimate from a lead. In step 2 of 8, tap Tiered: Best / Better / Good (1) instead of Single."
               },
               "image": {
                 "pt": "help/img/guides/estimate-three-options/options-01.pt.jpg",
@@ -15747,8 +15747,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Monte a primeira opção e copie. Nas etapas de produtos e adicionais, as três abas (1) são Best, Better e Good. O número em cada aba é quantas linhas ela tem. Monte a opção que está aberta. Depois toque em Duplicar esta opção nas outras (2). O Apex copia todas as linhas dessa opção, produtos e adicionais, para as outras duas e avisa Copiado para as outras opções. Isso substitui o que as outras duas tinham.",
-                "en": "Build the first option, then copy it. In the products and add-ons steps, the three tabs (1) are Best, Better and Good. The number on each tab is how many lines it has. Fill in the option you are looking at. Then tap Duplicate this option into the others (2). Apex copies every line of this option, products and add-ons, into the other two and says Copied into the other options. It replaces what the other two options had."
+                "pt": "Em opções agora está marcado (1). O seu cliente vai ver três preços para o mesmo trabalho. As três sempre aparecem nesta ordem: Best (o preço mais alto), Better e Good.",
+                "en": "Tiered is now selected (1). Your customer will see three prices for the same job. The three always show in this order: Best (the highest price), Better, then Good."
               },
               "image": {
                 "pt": "help/img/guides/estimate-three-options/options-02.pt.jpg",
@@ -15758,8 +15758,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Mude as outras duas opções. Toque na aba Better, depois na aba Good, e mude as quantidades, tire linhas ou some linhas. Cada opção guarda as suas próprias linhas. Para tirar uma linha, deixe a quantidade vazia ou digite 0.",
-                "en": "Change the other two options. Tap the Better tab, then the Good tab, and change the quantities, take lines out or add lines. Each option keeps its own lines. To take a line out, leave the quantity empty or type 0."
+                "pt": "Na etapa 3 de 8, Produtos, monte a opção que está aberta: digite a quantidade (1) de cada produto que você quer.",
+                "en": "In step 3 of 8, Products, fill in the option you are looking at: type the quantity (1) of each product you want."
               },
               "image": {
                 "pt": "help/img/guides/estimate-three-options/options-03.pt.jpg",
@@ -15769,8 +15769,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Dê um desconto para cada opção. Na etapa 5 de 8, o título Desconto mostra a opção que está aberta, por exemplo Desconto · Better. Escolha Sem desconto, $ ou % e digite o valor. O desconto é da opção inteira, nunca de uma linha. A Margem e o Total também são da opção que está aberta, então toque em cada aba para conferir as três. No exemplo, 5% de $79,950.00 dá um desconto de $3,997.50 e um total de $75,952.50.",
-                "en": "Give each option its own discount. In step 5 of 8, the Discount title shows the option you are looking at, for example Discount · Better. Choose No discount, $ or %, and type the value. A discount is for that whole option, never for one line. The Margin and the Total also belong to the option you are looking at, so tap each tab to check all three. In the example, 5% of $79,950.00 gives a discount of $3,997.50 and a total of $75,952.50."
+                "pt": "As três abas (1) são Best, Better e Good. O número em cada aba é quantas linhas ela tem.",
+                "en": "The three tabs (1) are Best, Better and Good. The number on each tab is how many lines it has."
               },
               "image": {
                 "pt": "help/img/guides/estimate-three-options/options-04.pt.jpg",
@@ -15780,8 +15780,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Confira a tabela de pagamento. As etapas de pagamento são uma lista só para o orçamento inteiro. No orçamento que o cliente abre, os valores em dólar das parcelas são calculados sobre a opção Better, e a página diz Valores mostrados para a opção Better (1). Na etapa 6 do assistente, os valores mostrados podem seguir a aba que está aberta: confira na prévia da etapa 8.",
-                "en": "Check the payment schedule. The payment steps are one list for the whole estimate. On the estimate your customer opens, the dollar amounts of the payment schedule are calculated on the Better option, and the page says Amounts shown for the Better option (1). In step 6 of the wizard, the amounts shown may follow the tab that is open: check them in the preview of step 8."
+                "pt": "Depois toque em Duplicar esta opção nas outras (1).",
+                "en": "Then tap Duplicate this option into the others (1)."
               },
               "image": {
                 "pt": "help/img/guides/estimate-three-options/options-05.pt.jpg",
@@ -15791,8 +15791,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "O que o seu cliente faz. O cliente abre o link e vê as três opções. Embaixo da opção que ele quer, toca em Select. O botão passa a dizer Selected (1), e a opção ganha uma borda. A tela do cliente é em inglês.",
-                "en": "What your customer does. The customer opens the link and sees the three options. Under the option they want, they tap Select. The button then reads Selected (1), and the option gets a border. The customer's screen is in English."
+                "pt": "O Apex copia todas as linhas dessa opção, produtos e adicionais, para as outras duas e avisa Copiado para as outras opções. Isso substitui o que as outras duas tinham.",
+                "en": "Apex copies every line of this option, products and add-ons, into the other two and says Copied into the other options. It replaces what the other two options had."
               },
               "image": {
                 "pt": "help/img/guides/estimate-three-options/options-06.pt.jpg",
@@ -15802,12 +15802,243 @@
             {
               "n": 7,
               "text": {
-                "pt": "Assinar. Quando o cliente escolhe, a página rola até Accept this estimate e mostra Option selected: Better (1). O cliente confere o nome, escolhe digitar ou desenhar a assinatura, marca a caixa de consentimento e toca em Accept and sign. Antes de escolher uma opção, essa parte diz Select an option above first. Depois de assinar, o orçamento fica Aceito e mostra o total da opção aceita.",
-                "en": "Sign. When the customer picks, the page scrolls to Accept this estimate and shows Option selected: Better (1). The customer checks the name, chooses to type or draw the signature, ticks the consent box and taps Accept and sign. Before an option is picked, this part says Select an option above first. After signing, the estimate shows Accepted and the total of the accepted option."
+                "pt": "Para mudar as outras opções, toque na aba Better (1).",
+                "en": "To change the other options, tap the Better tab (1)."
               },
               "image": {
                 "pt": "help/img/guides/estimate-three-options/options-07.pt.jpg",
                 "en": "help/img/guides/estimate-three-options/options-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Mude as quantidades (1), tire linhas ou some linhas. Cada opção guarda as suas próprias linhas.",
+                "en": "Change the quantities (1), take lines out or add lines. Each option keeps its own lines."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-08.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Depois toque na aba Good (1).",
+                "en": "Then tap the Good tab (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-09.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Para tirar uma linha, deixe a quantidade vazia ou digite 0 (1).",
+                "en": "To take a line out, leave the quantity empty or type 0 (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-10.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "A etapa 4 de 8, Adicionais, tem as mesmas três abas (1) e o mesmo botão de duplicar. Adicional é um extra que o cliente pode somar. Ele copia e muda do mesmo jeito que os produtos.",
+                "en": "Step 4 of 8, Add-ons, has the same three tabs (1) and the same Duplicate button. An Add-on is an extra your customer can add. It copies and changes the same way as the products."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-11.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Na etapa 5 de 8, Números, o título Desconto (1) mostra a opção que está aberta, por exemplo Desconto · Good.",
+                "en": "In step 5 of 8, Numbers, the Discount title (1) shows the option you are looking at, for example Discount · Good."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-12.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Escolha Sem desconto, $ ou % (1).",
+                "en": "Choose No discount, $ or % (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-13.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Digite o valor (1). O desconto é da opção inteira, nunca de uma linha. No exemplo, 5% de $2,450.00 dá um desconto de $122.50 e um total de $2,327.50.",
+                "en": "Type the value (1). A discount is for that whole option, never for one line. In the example, 5% of $2,450.00 gives a discount of $122.50 and a total of $2,327.50."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-14.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "O Total (1) e a Margem (2) também são da opção que está aberta.",
+                "en": "The Total (1) and the Margin (2) also belong to the option you are looking at."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-15.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Toque em cada aba (1) para conferir as três.",
+                "en": "Tap each tab (1) to check all three."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-16.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "As etapas de pagamento são uma lista só para o orçamento inteiro. Na etapa 6 de 8, os valores mostrados (1) podem seguir a aba que está aberta: confira na prévia da etapa 8.",
+                "en": "The payment steps are one list for the whole estimate. In step 6 of 8, the amounts shown (1) may follow the tab that is open: check them in the preview of step 8."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-17.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Na prévia da etapa 8, as três opções aparecem na ordem: Best (1), Better (2) e Good (3).",
+                "en": "In the preview of step 8, the three options show in order: Best (1), Better (2) and Good (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-18.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "O que o seu cliente faz. O cliente abre o link e vê as três opções (1). A tela do cliente é em inglês.",
+                "en": "What your customer does. The customer opens the link and sees the three options (1). The customer's screen is in English."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-19.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-19.en.jpg"
+              }
+            },
+            {
+              "n": 20,
+              "text": {
+                "pt": "No orçamento que o cliente abre, os valores em dólar das parcelas são calculados sobre a opção Better, e a página diz Valores mostrados para a opção Better (1).",
+                "en": "On the estimate your customer opens, the dollar amounts of the payment schedule are calculated on the Better option, and the page says Amounts shown for the Better option (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-20.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-20.en.jpg"
+              }
+            },
+            {
+              "n": 21,
+              "text": {
+                "pt": "Antes de escolher uma opção, a parte Accept this estimate diz Select an option above first (1).",
+                "en": "Before an option is picked, the part Accept this estimate says Select an option above first (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-21.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-21.en.jpg"
+              }
+            },
+            {
+              "n": 22,
+              "text": {
+                "pt": "Embaixo da opção que ele quer, o cliente toca em Select (1).",
+                "en": "Under the option they want, the customer taps Select (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-22.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-22.en.jpg"
+              }
+            },
+            {
+              "n": 23,
+              "text": {
+                "pt": "O botão passa a dizer Selected (1), e a opção ganha uma borda.",
+                "en": "The button then reads Selected (1), and the option gets a border."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-23.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-23.en.jpg"
+              }
+            },
+            {
+              "n": 24,
+              "text": {
+                "pt": "Assinar. Quando o cliente escolhe, a página rola até Accept this estimate e mostra Option selected: Better (1).",
+                "en": "Sign. When the customer picks, the page scrolls to Accept this estimate and shows Option selected: Better (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-24.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-24.en.jpg"
+              }
+            },
+            {
+              "n": 25,
+              "text": {
+                "pt": "O cliente confere o nome (1) e escolhe digitar ou desenhar a assinatura (2).",
+                "en": "The customer checks the name (1) and chooses to type or draw the signature (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-25.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-25.en.jpg"
+              }
+            },
+            {
+              "n": 26,
+              "text": {
+                "pt": "O cliente marca a caixa de consentimento (1).",
+                "en": "The customer ticks the consent box (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-26.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-26.en.jpg"
+              }
+            },
+            {
+              "n": 27,
+              "text": {
+                "pt": "O cliente toca em Accept and sign (1).",
+                "en": "The customer taps Accept and sign (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-27.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-27.en.jpg"
+              }
+            },
+            {
+              "n": 28,
+              "text": {
+                "pt": "Depois de assinar, o orçamento fica Aceito e mostra o total da opção aceita (1).",
+                "en": "After signing, the estimate shows Accepted and the total of the accepted option (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-28.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-28.en.jpg"
               }
             }
           ]
@@ -15824,7 +16055,7 @@
             ]
           },
           "section": "options",
-          "step": 2
+          "step": 5
         }
       ]
     },

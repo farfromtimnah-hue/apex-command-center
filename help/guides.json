@@ -23791,6 +23791,143 @@
           "step": 2
         }
       ]
+    },
+    {
+      "id": "growth-pillars",
+      "audience": "client",
+      "who": [
+        "office",
+        "lead"
+      ],
+      "title": {
+        "pt": "Pilares de Crescimento: responda e veja o resultado",
+        "en": "Growth Pillars: answer it and read the result"
+      },
+      "summary": {
+        "pt": "Responda 7 perguntas de Sim ou Não sobre visão de futuro e escalabilidade, envie e leia o resultado.",
+        "en": "Answer 7 Yes or No questions about vision and scalability, submit and read the result."
+      },
+      "keywords": {
+        "pt": [
+          "pilares de crescimento",
+          "visão de futuro",
+          "escalabilidade",
+          "perguntas sim ou não",
+          "concluir"
+        ],
+        "en": [
+          "growth pillars",
+          "vision",
+          "scalability",
+          "yes no questions",
+          "finish"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "answer",
+          "title": {
+            "pt": "Responder o diagnóstico",
+            "en": "Answer the assessment"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o Pilares de Crescimento. Toque em Apex, depois em Atribuídos e em Abrir em Pilares de Crescimento. Veja o guia Suas ferramentas: os diagnósticos que a Apex liberou.",
+                "en": "Open the Growth Pillars. Tap Apex, then Assigned, then Open on Growth Pillars. See the guide Your tools: the assessments Apex gave you."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Comece. A primeira página diz: São 7 perguntas de Sim ou Não. Responda com base na sua percepção de hoje. Suas respostas são salvas automaticamente, você pode parar e continuar depois. A linha 0 de 7 respostas preenchidas conta as suas respostas. Toque em Começar (1).",
+                "en": "Start. The first page says: There are 7 Yes/No questions. Answer based on how you see things today. Your answers are saved automatically, you can stop and pick up later. The line 0 of 7 answers filled in counts your answers. Tap Start (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/growth-pillars/answer-02.pt.jpg",
+                "en": "help/img/guides/growth-pillars/answer-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Responda uma pergunta. Cada pergunta tem duas respostas, Não (ponto vermelho) e Sim (ponto verde). Toque em uma, por exemplo Sim (1). Ela fica colorida e o número no alto sobe.",
+                "en": "Answer a question. Each question has two answers, No (red dot) and Yes (green dot). Tap one, for example Yes (1). It turns colored and the count at the top goes up."
+              },
+              "image": {
+                "pt": "help/img/guides/growth-pillars/answer-03.pt.jpg",
+                "en": "help/img/guides/growth-pillars/answer-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Responda as outras 6 perguntas. Role para baixo e toque em Não ou Sim em cada uma, do mesmo jeito. Cada toque é salvo sozinho, então você pode parar a qualquer hora e continuar depois.",
+                "en": "Answer the other 6 questions. Scroll down and tap No or Yes for each, the same way. Every tap is saved by itself, so you can stop at any time and pick up later."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Termine. No fim da página, toque em Concluir (1). Embaixo dele, Salvar e continuar depois sai da página e guarda as suas respostas.",
+                "en": "Finish. At the bottom of the page tap Finish (1). Under it, Save and continue later leaves the page and keeps your answers."
+              },
+              "image": {
+                "pt": "help/img/guides/growth-pillars/answer-05.pt.jpg",
+                "en": "help/img/guides/growth-pillars/answer-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Confirme o envio. A Apex pergunta: Enviar suas respostas? Depois de concluir, não será possível alterá-las. Toque em Sim, enviar minhas respostas (1). Toque em Continuar editando para voltar.",
+                "en": "Confirm the submit. Apex asks: Submit your answers? They cannot be changed after finishing. Tap Yes, submit my answers (1). Tap Keep editing to go back."
+              },
+              "image": {
+                "pt": "help/img/guides/growth-pillars/answer-06.pt.jpg",
+                "en": "help/img/guides/growth-pillars/answer-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Leia o resultado. A página diz Pilares de Crescimento concluído: Obrigado! Seu diagnóstico foi enviado. A nota (1) mostra a porcentagem de respostas Sim e quantas de 7, por exemplo 100% e 7/7, com uma etiqueta, por exemplo Percepção Forte. Embaixo, cada pergunta tem uma linha com Sim ou Não.",
+                "en": "Read your result. The page says Growth Pillars completed: Thank you! Your diagnostic has been submitted. The score (1) shows the percent of Yes answers and how many out of 7, for example 100% and 7/7, with a tag, for example Strong Perception. Below it, each question has a row with Yes or No."
+              },
+              "image": {
+                "pt": "help/img/guides/growth-pillars/answer-07.pt.jpg",
+                "en": "help/img/guides/growth-pillars/answer-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Abra o relatório completo. Embaixo da lista, toque em Ver relatório completo. Embaixo do botão a página diz: Seu consultor vai apresentar o relatório completo com o plano de ação prioritário. Você acha o relatório de novo em Documentos, em Diagnósticos e relatórios concluídos.",
+                "en": "Open the full report. Under the list, tap View full report. Under the button the page says: Your consultant will walk you through the full report and the priority action plan. You can find the report again in Documents, under Completed assessments & reports."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Pilares"
+            ],
+            "en": [
+              "Growth Pillars"
+            ]
+          },
+          "section": "answer",
+          "step": 2
+        }
+      ]
     }
   ],
   "pages": {
@@ -24049,7 +24186,8 @@
         "management-xray",
         "leadership-xray",
         "permissiveness-xray",
-        "failures-xray"
+        "failures-xray",
+        "growth-pillars"
       ],
       "overview": {
         "pt": "Aqui ficam os documentos, os arquivos e os relatórios.",
@@ -24224,7 +24362,8 @@
         "management-xray",
         "leadership-xray",
         "permissiveness-xray",
-        "failures-xray"
+        "failures-xray",
+        "growth-pillars"
       ],
       "overview": {
         "pt": "Aqui ficam os diagnósticos que a Apex liberou para você. Toque em Abrir para responder um.",
@@ -24307,6 +24446,19 @@
       "overview": {
         "pt": "Aqui você responde o Raio X Falhas e vê o resultado.",
         "en": "Here you answer the Failures X-Ray and see the result."
+      }
+    },
+    "pilares": {
+      "title": {
+        "pt": "Pilares",
+        "en": "Growth Pillars"
+      },
+      "guides": [
+        "growth-pillars"
+      ],
+      "overview": {
+        "pt": "Aqui você responde os Pilares de Crescimento e vê o resultado.",
+        "en": "Here you answer the Growth Pillars and see the result."
       }
     }
   }

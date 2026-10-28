@@ -28800,8 +28800,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Repita uma reunião. Marque Repetir. Escolha a Frequência (1): Semanal, A cada 2 semanas ou Mensal. Depois escolha por quanto tempo repete (2): 30d, 90d, 180d ou Personalizado. O formulário lista as reuniões que vai criar. Tocar em Agendar depois põe todas essas reuniões na agenda. Este guia para antes desse toque.",
-                "en": "Repeat a meeting. Tick Repeat. Pick the Frequency (1): Weekly, Every 2 weeks or Monthly. Then pick how long it repeats (2): 30d, 90d, 180d or Custom. The form lists the meetings it will make. Tapping Schedule afterwards puts all of those meetings on the calendar. This guide stops before that tap."
+                "pt": "Repita uma reunião. Marque Repetir. Escolha a Frequência (1): Semanal, A cada 2 semanas ou Mensal. Depois escolha por quanto tempo repete (2): 30d, 90d, 180d ou Personalizado. O formulário lista as reuniões que vai criar. Tocar em Agendar depois põe todas essas reuniões na agenda.",
+                "en": "Repeat a meeting. Tick Repeat. Pick the Frequency (1): Weekly, Every 2 weeks or Monthly. Then pick how long it repeats (2): 30d, 90d, 180d or Custom. The form lists the meetings it will make. Tapping Schedule afterwards puts all of those meetings on the calendar."
               },
               "image": {
                 "pt": "help/img/guides/admin-new-session-details/newsession-05.pt.jpg",
@@ -28833,8 +28833,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Salve. No fim do formulário toque em Agendar para marcar a sessão, ou em Cancelar para fechar o formulário sem salvar. Com Repetir marcado, Agendar põe todas as reuniões da série na agenda, então confira a lista antes. Não tocamos em Agendar no nosso teste.",
-                "en": "Save it. At the bottom of the form tap Schedule to book the session, or Cancel to close the form without saving. With Repeat ticked, Schedule puts every meeting of the series on the calendar, so check the list first. We did not tap Schedule in our test."
+                "pt": "Salve. No fim do formulário toque em Agendar para marcar a sessão, ou em Cancelar para fechar o formulário sem salvar. Com Repetir marcado, Agendar põe todas as reuniões da série na agenda, então confira a lista antes.",
+                "en": "Save it. At the bottom of the form tap Schedule to book the session, or Cancel to close the form without saving. With Repeat ticked, Schedule puts every meeting of the series on the calendar, so check the list first."
               },
               "image": null
             },
@@ -29514,8 +29514,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Crie uma seção nova. Toque em + Nova Seção (2). Um formulário abre com Título PT e Título EN (1), uma caixa para o que a IA deve escrever (2), Salvar Seção (3) e Cancelar (4). Salvar Seção põe a seção nova na lista para os próximos relatórios. Cancelar fecha o formulário sem salvar, como fizemos no nosso teste.",
-                "en": "Make a new section. Tap + New Section (2). A form opens with Title PT and Title EN (1), a box for what the AI should write (2), Save Section (3) and Cancel (4). Save Section adds the new section to the list for later reports. Cancel closes the form without saving, as we did in our test."
+                "pt": "Crie uma seção nova. Toque em + Nova Seção (2). Um formulário abre com Título PT e Título EN (1), uma caixa para o que a IA deve escrever (2), Salvar Seção (3) e Cancelar (4). Salvar Seção põe a seção nova na lista para os próximos relatórios. Cancelar fecha o formulário sem salvar.",
+                "en": "Make a new section. Tap + New Section (2). A form opens with Title PT and Title EN (1), a box for what the AI should write (2), Save Section (3) and Cancel (4). Save Section adds the new section to the list for later reports. Cancel closes the form without saving."
               },
               "image": {
                 "en": "help/img/guides/admin-sessions-transcripts/tr-05.en.jpg",

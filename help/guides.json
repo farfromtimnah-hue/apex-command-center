@@ -843,7 +843,7 @@
               },
               "image": {
                 "pt": "help/img/guides/invoice/send-invoice-03.jpg",
-                "en": "help/img/guides/invoice/send-invoice-03.jpg"
+                "en": "help/img/guides/invoice/send-invoice-03.en.jpg"
               }
             },
             {
@@ -865,7 +865,7 @@
               },
               "image": {
                 "pt": "help/img/guides/invoice/send-invoice-05.jpg",
-                "en": "help/img/guides/invoice/send-invoice-05.jpg"
+                "en": "help/img/guides/invoice/send-invoice-05.en.jpg"
               }
             }
           ]
@@ -952,7 +952,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-02.jpg",
-                "en": "help/img/guides/estimate/create-send-02.jpg"
+                "en": "help/img/guides/estimate/create-send-02.en.jpg"
               }
             },
             {
@@ -963,7 +963,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-03.jpg",
-                "en": "help/img/guides/estimate/create-send-03.jpg"
+                "en": "help/img/guides/estimate/create-send-03.en.jpg"
               }
             },
             {
@@ -974,7 +974,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-04.jpg",
-                "en": "help/img/guides/estimate/create-send-04.jpg"
+                "en": "help/img/guides/estimate/create-send-04.en.jpg"
               }
             },
             {
@@ -985,7 +985,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-05.jpg",
-                "en": "help/img/guides/estimate/create-send-05.jpg"
+                "en": "help/img/guides/estimate/create-send-05.en.jpg"
               }
             },
             {
@@ -996,7 +996,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-06.jpg",
-                "en": "help/img/guides/estimate/create-send-06.jpg"
+                "en": "help/img/guides/estimate/create-send-06.en.jpg"
               }
             },
             {
@@ -1007,7 +1007,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-07.jpg",
-                "en": "help/img/guides/estimate/create-send-07.jpg"
+                "en": "help/img/guides/estimate/create-send-07.en.jpg"
               }
             },
             {
@@ -1018,7 +1018,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-08.jpg",
-                "en": "help/img/guides/estimate/create-send-08.jpg"
+                "en": "help/img/guides/estimate/create-send-08.en.jpg"
               }
             },
             {
@@ -1029,7 +1029,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-09.jpg",
-                "en": "help/img/guides/estimate/create-send-09.jpg"
+                "en": "help/img/guides/estimate/create-send-09.en.jpg"
               }
             },
             {
@@ -1040,7 +1040,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-10.jpg",
-                "en": "help/img/guides/estimate/create-send-10.jpg"
+                "en": "help/img/guides/estimate/create-send-10.en.jpg"
               }
             },
             {
@@ -1051,7 +1051,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-11.jpg",
-                "en": "help/img/guides/estimate/create-send-11.jpg"
+                "en": "help/img/guides/estimate/create-send-11.en.jpg"
               }
             },
             {
@@ -1062,7 +1062,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-12.jpg",
-                "en": "help/img/guides/estimate/create-send-12.jpg"
+                "en": "help/img/guides/estimate/create-send-12.en.jpg"
               }
             },
             {
@@ -1073,7 +1073,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-13.jpg",
-                "en": "help/img/guides/estimate/create-send-13.jpg"
+                "en": "help/img/guides/estimate/create-send-13.en.jpg"
               }
             },
             {
@@ -1084,7 +1084,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-14.jpg",
-                "en": "help/img/guides/estimate/create-send-14.jpg"
+                "en": "help/img/guides/estimate/create-send-14.en.jpg"
               }
             }
           ]
@@ -1159,7 +1159,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/customer-signs-06.jpg",
-                "en": "help/img/guides/estimate/customer-signs-06.jpg"
+                "en": "help/img/guides/estimate/customer-signs-06.en.jpg"
               }
             },
             {
@@ -1170,7 +1170,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/customer-signs-07.jpg",
-                "en": "help/img/guides/estimate/customer-signs-07.jpg"
+                "en": "help/img/guides/estimate/customer-signs-07.en.jpg"
               }
             },
             {
@@ -1181,7 +1181,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/customer-signs-08.jpg",
-                "en": "help/img/guides/estimate/customer-signs-08.jpg"
+                "en": "help/img/guides/estimate/customer-signs-08.en.jpg"
               }
             },
             {
@@ -1192,7 +1192,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/customer-signs-09.jpg",
-                "en": "help/img/guides/estimate/customer-signs-09.jpg"
+                "en": "help/img/guides/estimate/customer-signs-09.en.jpg"
               }
             }
           ]
@@ -1212,7 +1212,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/mark-accepted-01.jpg",
-                "en": "help/img/guides/estimate/mark-accepted-01.jpg"
+                "en": "help/img/guides/estimate/mark-accepted-01.en.jpg"
               }
             },
             {
@@ -1223,7 +1223,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/mark-accepted-02.jpg",
-                "en": "help/img/guides/estimate/mark-accepted-02.jpg"
+                "en": "help/img/guides/estimate/mark-accepted-02.en.jpg"
               }
             },
             {
@@ -1234,7 +1234,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/mark-accepted-03.jpg",
-                "en": "help/img/guides/estimate/mark-accepted-03.jpg"
+                "en": "help/img/guides/estimate/mark-accepted-03.en.jpg"
               }
             },
             {
@@ -1245,7 +1245,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/mark-accepted-04.jpg",
-                "en": "help/img/guides/estimate/mark-accepted-04.jpg"
+                "en": "help/img/guides/estimate/mark-accepted-04.en.jpg"
               }
             }
           ]
@@ -1443,7 +1443,7 @@
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s1-04.jpg",
-                "en": "help/img/guides/send-by-email/section-s1-04.jpg"
+                "en": "help/img/guides/send-by-email/section-s1-04.en.jpg"
               }
             },
             {
@@ -1454,7 +1454,7 @@
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s1-05.jpg",
-                "en": "help/img/guides/send-by-email/section-s1-05.jpg"
+                "en": "help/img/guides/send-by-email/section-s1-05.en.jpg"
               }
             }
           ]
@@ -1485,7 +1485,7 @@
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s2-02.jpg",
-                "en": "help/img/guides/send-by-email/section-s2-02.jpg"
+                "en": "help/img/guides/send-by-email/section-s2-02.en.jpg"
               }
             },
             {
@@ -1560,7 +1560,7 @@
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s3-01.jpg",
-                "en": "help/img/guides/send-by-email/section-s3-01.jpg"
+                "en": "help/img/guides/send-by-email/section-s3-01.en.jpg"
               }
             },
             {
@@ -1571,7 +1571,7 @@
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s3-02.jpg",
-                "en": "help/img/guides/send-by-email/section-s3-02.jpg"
+                "en": "help/img/guides/send-by-email/section-s3-02.en.jpg"
               }
             },
             {
@@ -1582,7 +1582,7 @@
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s3-03.jpg",
-                "en": "help/img/guides/send-by-email/section-s3-03.jpg"
+                "en": "help/img/guides/send-by-email/section-s3-03.en.jpg"
               }
             },
             {
@@ -1593,7 +1593,7 @@
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s3-04.jpg",
-                "en": "help/img/guides/send-by-email/section-s3-04.jpg"
+                "en": "help/img/guides/send-by-email/section-s3-04.en.jpg"
               }
             },
             {
@@ -1604,7 +1604,7 @@
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s3-05.jpg",
-                "en": "help/img/guides/send-by-email/section-s3-05.jpg"
+                "en": "help/img/guides/send-by-email/section-s3-05.en.jpg"
               }
             }
           ]
@@ -1724,7 +1724,7 @@
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-04.jpg",
-                "en": "help/img/guides/receipt/send-receipt-04.jpg"
+                "en": "help/img/guides/receipt/send-receipt-04.en.jpg"
               }
             },
             {
@@ -1757,7 +1757,7 @@
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-07.jpg",
-                "en": "help/img/guides/receipt/send-receipt-07.jpg"
+                "en": "help/img/guides/receipt/send-receipt-07.en.jpg"
               }
             }
           ]

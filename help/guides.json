@@ -1975,6 +1975,18 @@
           },
           "section": "record",
           "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ver recibo"
+            ],
+            "en": [
+              "View receipt"
+            ]
+          },
+          "section": "record",
+          "step": 12
         }
       ]
     },
@@ -4196,6 +4208,54 @@
           },
           "section": "people",
           "step": 22
+        },
+        {
+          "labels": {
+            "pt": [
+              "Saiu da empresa"
+            ],
+            "en": [
+              "Left the company"
+            ]
+          },
+          "section": "people",
+          "step": 18
+        },
+        {
+          "labels": {
+            "pt": [
+              "Comprei um celular novo"
+            ],
+            "en": [
+              "Got a new phone"
+            ]
+          },
+          "section": "people",
+          "step": 18
+        },
+        {
+          "labels": {
+            "pt": [
+              "Perdido ou roubado"
+            ],
+            "en": [
+              "Lost or stolen"
+            ]
+          },
+          "section": "people",
+          "step": 18
+        },
+        {
+          "labels": {
+            "pt": [
+              "Em uma data específica"
+            ],
+            "en": [
+              "On a specific date"
+            ]
+          },
+          "section": "people",
+          "step": 21
         }
       ]
     },
@@ -9532,6 +9592,18 @@
           },
           "section": "partners",
           "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Configurar agora"
+            ],
+            "en": [
+              "Set up now"
+            ]
+          },
+          "section": "partners",
+          "step": 5
         }
       ]
     },
@@ -14710,6 +14782,18 @@
           },
           "section": "client",
           "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Central de Recursos"
+            ],
+            "en": [
+              "Resource Hub"
+            ]
+          },
+          "section": "hub",
+          "step": 2
         }
       ]
     },
@@ -15156,6 +15240,42 @@
           },
           "section": "invoices",
           "step": 23
+        },
+        {
+          "labels": {
+            "pt": [
+              "Manter fatura"
+            ],
+            "en": [
+              "Keep invoice"
+            ]
+          },
+          "section": "invoices",
+          "step": 18
+        },
+        {
+          "labels": {
+            "pt": [
+              "Colocar etiqueta"
+            ],
+            "en": [
+              "Add tag"
+            ]
+          },
+          "section": "invoices",
+          "step": 25
+        },
+        {
+          "labels": {
+            "pt": [
+              "Remover etiqueta"
+            ],
+            "en": [
+              "Remove tag"
+            ]
+          },
+          "section": "invoices",
+          "step": 25
         }
       ]
     },
@@ -16345,7 +16465,20 @@
           ]
         }
       ],
-      "buttons": []
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Connect Google Drive"
+            ],
+            "en": [
+              "Connect Google Drive"
+            ]
+          },
+          "section": "users",
+          "step": 4
+        }
+      ]
     },
     {
       "id": "admin-client-analytics",
@@ -16460,7 +16593,20 @@
           ]
         }
       ],
-      "buttons": []
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Média dos clientes"
+            ],
+            "en": [
+              "Client average"
+            ]
+          },
+          "section": "analytics",
+          "step": 1
+        }
+      ]
     },
     {
       "id": "admin-client-record",
@@ -24823,6 +24969,30 @@
           },
           "section": "vendors",
           "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Não é de fornecedor"
+            ],
+            "en": [
+              "Not a vendor payment"
+            ]
+          },
+          "section": "vendors",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviei o pagamento"
+            ],
+            "en": [
+              "I sent the payment"
+            ]
+          },
+          "section": "vendors",
+          "step": 10
         }
       ]
     },
@@ -25248,6 +25418,18 @@
           },
           "section": "access",
           "step": 6
+        },
+        {
+          "labels": {
+            "pt": [
+              "Desativar login antigo deste negócio"
+            ],
+            "en": [
+              "Turn off the old login for this business"
+            ]
+          },
+          "section": "access",
+          "step": 5
         }
       ]
     },
@@ -26168,6 +26350,42 @@
           },
           "section": "money",
           "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Pré-visualizar"
+            ],
+            "en": [
+              "Pré-visualizar"
+            ]
+          },
+          "section": "money",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Assinar pela Apex"
+            ],
+            "en": [
+              "Assinar pela Apex"
+            ]
+          },
+          "section": "money",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Pedir assinatura ao Pr. Rafael"
+            ],
+            "en": [
+              "Pedir assinatura ao Pr. Rafael"
+            ]
+          },
+          "section": "money",
+          "step": 3
         }
       ]
     },
@@ -26320,6 +26538,30 @@
           },
           "section": "tabs",
           "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Por Data"
+            ],
+            "en": [
+              "By Date"
+            ]
+          },
+          "section": "tabs",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Por Tipo"
+            ],
+            "en": [
+              "By Type"
+            ]
+          },
+          "section": "tabs",
+          "step": 2
         }
       ]
     },
@@ -27407,6 +27649,18 @@
           },
           "section": "am",
           "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Usar nesta reunião"
+            ],
+            "en": [
+              "Use in this meeting"
+            ]
+          },
+          "section": "am",
+          "step": 4
         }
       ]
     },
@@ -28290,7 +28544,20 @@
           ]
         }
       ],
-      "buttons": []
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Adicionar orçamento"
+            ],
+            "en": [
+              "Add budget"
+            ]
+          },
+          "section": "ov",
+          "step": 4
+        }
+      ]
     },
     {
       "id": "admin-finance-extras",
@@ -28383,7 +28650,32 @@
           ]
         }
       ],
-      "buttons": []
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Gerar a agendada agora"
+            ],
+            "en": [
+              "Generate the scheduled one now"
+            ]
+          },
+          "section": "extra",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Continuar manualmente"
+            ],
+            "en": [
+              "Continue manually"
+            ]
+          },
+          "section": "extra",
+          "step": 4
+        }
+      ]
     },
     {
       "id": "admin-vendors-extras",
@@ -28454,7 +28746,44 @@
           ]
         }
       ],
-      "buttons": []
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Editar fornecedor"
+            ],
+            "en": [
+              "Edit vendor"
+            ]
+          },
+          "section": "vx",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Pular este mês"
+            ],
+            "en": [
+              "Skip this month"
+            ]
+          },
+          "section": "vx",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Adiar início"
+            ],
+            "en": [
+              "Delay start"
+            ]
+          },
+          "section": "vx",
+          "step": 3
+        }
+      ]
     },
     {
       "id": "admin-rafa-dashboard",
@@ -29083,6 +29412,18 @@
           },
           "section": "forms",
           "step": 9
+        },
+        {
+          "labels": {
+            "pt": [
+              "Divisão Igual"
+            ],
+            "en": [
+              "Even Split"
+            ]
+          },
+          "section": "forms",
+          "step": 5
         }
       ]
     },
@@ -29537,6 +29878,18 @@
           },
           "section": "tr",
           "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Salvar Seção"
+            ],
+            "en": [
+              "Save Section"
+            ]
+          },
+          "section": "tr",
+          "step": 5
         }
       ]
     },
@@ -29710,6 +30063,18 @@
           },
           "section": "xr",
           "step": 6
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ainda não, retomar depois"
+            ],
+            "en": [
+              "Not yet, come back to them"
+            ]
+          },
+          "section": "xr",
+          "step": 9
         }
       ]
     }

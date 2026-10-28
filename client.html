@@ -3991,6 +3991,10 @@
       return getToken().then(function(token) {
         var method  = (opts && opts.method) || "GET";
         var headers = { "Authorization": "Bearer " + token };
+        // The viewer's own device zone: the Worker places "today" in it.
+        var tzName = "";
+        try { tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (tzErr) { tzName = ""; }
+        if (tzName) { headers["X-Client-Tz"] = tzName; }
         var fetchOpts = { method: method, headers: headers };
         if (opts && opts.body) {
           headers["Content-Type"] = "application/json";

@@ -18,7 +18,7 @@ const migration = readFileSync(new URL("migrations/meta_lead_ads.sql", root), "u
 
 const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientAccess", "sessionSellerName", "actorName",
   "tokenEncKey", "tokenIsSealed", "tokenSeal", "tokenOpen", "bytesToB64", "b64ToBytes", "gmStr", "gmEstNewToken",
-  "gmLogLeadEvents", "gmInsertLead", "gmClientPushTargets", "clientRequestAllowed", "sellerRequestAllowed",
+  "gmLogLeadEvents", "gmInsertLead", "tzIsValid", "tzParts", "tzPad2", "tzLocalNowStamp", "tzZoneForState", "resolveRequestZone", "gmClientPushTargets", "clientRequestAllowed", "sellerRequestAllowed",
   "metaSettings", "metaTablesReady", "metaNotAvailable", "metaPlain", "metaOwnerGuard", "metaHex", "metaHmac", "metaSafeEqual",
   "metaB64urlToBytes", "metaScrub", "metaFetch", "metaGraph", "metaErrTransient", "metaRedirectUri", "metaDialogUrl", "metaBack",
   "metaStateUse", "metaStatusPayload", "metaSubscribePage", "metaRemoveConnection", "metaGrantedPages",
@@ -26,7 +26,7 @@ const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientA
   "handleGetMetaCallback", "handleGetMetaWebhook", "metaLeadgenChanges", "metaStoreEvents", "handlePostMetaWebhook",
   "metaProcessMany", "metaRetryStored", "metaFmtPhone", "metaNyStamp", "metaLeadFields", "metaFlagReconnect", "metaProcessEvent",
   "metaCron", "metaParseSignedRequest", "handlePostMetaDataDeletion", "metaFmtDateEastern", "handleGetMetaDeletionStatus"];
-const VARS = ["DEFAULT_ORIGIN", "CORS_HEADERS", "GM_ACTOR_KEY_RE", "GM_HIDDEN_ACTORS", "TOKEN_SEAL_PREFIX", "APEX_TIMEZONE",
+const VARS = ["TZ_STATE_ZONES", "TZ_STATE_NAMES", "DEFAULT_ORIGIN", "CORS_HEADERS", "GM_ACTOR_KEY_RE", "GM_HIDDEN_ACTORS", "TOKEN_SEAL_PREFIX", "APEX_TIMEZONE",
   "GM_MONTH_NAMES_PT", "GM_LEAD_COST_FIELDS", "GM_ORIGENS", "META", "META_LEAD_ORIGEM", "META_ACTOR", "META_NA_PT", "META_NA_EN", "META_TRANSIENT_CODES"];
 
 const SECRET = "app-secret-5f1c9e7a";

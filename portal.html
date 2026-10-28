@@ -392,6 +392,12 @@
       color: var(--muted); opacity: 0.75;
     }
 
+    /* Names of the leads the pipeline counted for the day, under the leads tile. */
+    .field-tile .tile-leadnames {
+      display: block; width: 100%; margin-top: 6px; padding: 0 8px;
+      font-size: 11px; line-height: 1.3; text-align: left; color: var(--muted);
+    }
+
     /* toggle */
     .toggle-row { display: flex; align-items: center; gap: 12px; }
     .toggle-switch {
@@ -2150,6 +2156,8 @@
     // data, clients do not enter leads on the day they arrive, so the pipeline
     // undercounts and a locked value would replace a true number with a low one.
     var entrySuggestions = {};    // from /entry-suggestions
+    var entryLeadNames = [];      // leads the pipeline counted for the day: [{id, cliente}]
+    var entryLeadNamesMore = 0;   // how many more were left out of that list
     var currentEntryDate = null;
     var currentSectionIdx = 0;
     var formSections = [];        // applicable sections for this client
@@ -2357,6 +2365,10 @@
       return getToken().then(function(token) {
         var method  = (opts && opts.method) || "GET";
         var headers = { "Authorization": "Bearer " + token };
+        // The viewer's own device zone: the Worker places "today" in it.
+        var tzName = "";
+        try { tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (tzErr) { tzName = ""; }
+        if (tzName) { headers["X-Client-Tz"] = tzName; }
         var fetchOpts = { method: method, headers: headers };
         if (opts && opts.body) {
           headers["Content-Type"] = "application/json";
@@ -2551,6 +2563,8 @@
       }
       if (currentSectionIdx >= formSections.length) { currentSectionIdx = formSections.length - 1; }
       entrySuggestions = {};
+      entryLeadNames = [];
+      entryLeadNamesMore = 0;
       renderFormSection();
       showView("viewEntryForm");
       loadEntrySuggestions(p.date);
@@ -2579,8 +2593,11 @@
       currentSectionIdx = 0;
       entryEditValuesAtOpen = JSON.stringify(formSections.map(function(s) { return sectionValues(s); }));
       entrySuggestions = {};
+      entryLeadNames = [];
+      entryLeadNamesMore = 0;
       renderFormSection();
       showView("viewEntryForm");
+      loadEntrySuggestions(e.date);
     }
 
     // True if any field on the section currently on screen was typed over
@@ -2649,15 +2666,65 @@
           if (!d || !d.suggestions) { return; }
           if (dateStr !== currentEntryDate) { return; }   // moved to another day
           entrySuggestions = d.suggestions;
-          // Re-render ONLY while nothing is being typed. renderFormSection()
-          // rebuilds the inputs from savedSections, so re-rendering over a
-          // half-typed field would wipe it before the debounced save runs.
-          var active = document.activeElement;
-          if (active && active.id && active.id.indexOf("field_") === 0) { return; }
-          if (autosaveTimer) { return; }   // an unsaved edit is in flight
-          renderFormSection();
+          entryLeadNames = Array.isArray(d.lead_names) ? d.lead_names : [];
+          entryLeadNamesMore = Number(d.lead_names_more) || 0;
+          // Never re-render here: renderFormSection() rebuilds the inputs from
+          // savedSections, which would wipe a half-typed field before the
+          // debounced save runs. The chips and names go into the tiles that
+          // are already on screen, whatever has focus.
+          injectSuggestionChips();
+          injectLeadNames();
         })
         .catch(function() { /* a convenience, never a blocker */ });
+    }
+
+    // The two pieces of tile markup a suggestion produces. renderFormSection
+    // and injectSuggestionChips both use them, so a chip looks the same
+    // whichever path drew it.
+    function suggestChipHtml(key, sec, sug) {
+      return '<button type="button" class="tile-suggest" onclick="useSuggestion(\'' + key + '\',\'' + sec + '\')">' +
+        escHtml(isEn() ? "Pipeline says " + sug + " - use it" : "O pipeline indica " + sug + " - usar") +
+        '</button>';
+    }
+    function noSuggestHtml() {
+      return '<div class="tile-nosug">' + escHtml(isEn() ? "Nothing in the system" : "Nada no sistema") + '</div>';
+    }
+
+    // Puts the suggestion chip (or the "Nothing in the system" note) into the
+    // tiles already on screen, only where the input is empty and no chip or
+    // note is there yet. Safe while a field has focus: it adds a sibling and
+    // never touches the input, so typed text is never lost.
+    function injectSuggestionChips() {
+      var sec = formSections[currentSectionIdx];
+      if (!sec) { return; }
+      indicatorsForSection(sec).forEach(function(ind) {
+        if (ind.type === "toggle") { return; }
+        var el = document.getElementById("field_" + ind.key);
+        if (!el || el.value !== "") { return; }
+        var tile = el.parentNode;
+        if (!tile || tile.querySelector(".tile-suggest") || tile.querySelector(".tile-nosug")) { return; }
+        var sug = entrySuggestions[ind.key];
+        var html = "";
+        if (sug !== undefined && sug !== null) { html = suggestChipHtml(ind.key, sec, sug); }
+        else if (sug === null) { html = noSuggestHtml(); }
+        if (html) { tile.insertAdjacentHTML("beforeend", html); }
+      });
+    }
+
+    // "Today's leads in the pipeline: ..." under the leads_gerados tile, so
+    // staff can see the pipeline is in the log. Plain text, every name escaped.
+    function injectLeadNames() {
+      var el = document.getElementById("field_leads_gerados");
+      if (!el || !el.parentNode) { return; }
+      var old = el.parentNode.querySelector(".tile-leadnames");
+      if (old) { old.remove(); }
+      if (!entryLeadNames.length) { return; }
+      var names = entryLeadNames.map(function(n) { return escHtml(String(n.cliente || "")); }).join(", ");
+      var more = entryLeadNamesMore > 0
+        ? (isEn() ? " and " + entryLeadNamesMore + " more" : " e mais " + entryLeadNamesMore)
+        : "";
+      var label = isEn() ? "Today's leads in the pipeline: " : "Leads de hoje no pipeline: ";
+      el.parentNode.insertAdjacentHTML("beforeend", '<div class="tile-leadnames">' + escHtml(label) + names + escHtml(more) + '</div>');
     }
 
     // Accept a pipeline suggestion into the field. Goes through the normal
@@ -2776,17 +2843,11 @@
             '<input type="number" inputmode="decimal" step="any" min="0" id="field_' + ind.key + '" value="' + escHtml(String(v)) + '" oninput="onFieldInput(\'' + sec + '\')">' +
             (unit ? '<div class="tile-unit">' + unit + '</div>' : "") +
             (hasSug
-              ? '<button type="button" class="tile-suggest" onclick="useSuggestion(\'' + ind.key + '\',\'' + sec + '\')">' +
-                escHtml(isEn() ? "Pipeline says " + sug + " — use it" : "O pipeline indica " + sug + " — usar") +
-                '</button>'
+              ? suggestChipHtml(ind.key, sec, sug)
               // A null suggestion is the system saying it holds nothing for this
               // field -- said out loud, because an absent chip is indistinguishable
               // from a field that was never wired to the pipeline at all.
-              : (v === "" && sug === null
-                  ? '<div class="tile-nosug">' +
-                    escHtml(isEn() ? "Nothing in the system" : "Nada no sistema") +
-                    '</div>'
-                  : "")) +
+              : (v === "" && sug === null ? noSuggestHtml() : "")) +
             '</div>';
         }
       });
@@ -2798,6 +2859,7 @@
           '</div>';
       });
       document.getElementById("formTiles").innerHTML = html;
+      injectLeadNames();
       updateComputedTiles();
 
       document.getElementById("btnPrevSection").style.visibility = currentSectionIdx === 0 ? "hidden" : "visible";

@@ -248,7 +248,7 @@ function corsOriginFor(request) {
 var CORS_HEADERS = {
     "Access-Control-Allow-Origin":  DEFAULT_ORIGIN,
     "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Tz",
     "Vary":                         "Origin"
 };
 
@@ -19999,10 +19999,15 @@ async function handleGetPipelineGap(request, env) {
             "GROUP BY client_id"
         ).bind(since, today).all();
 
+        // data_lead is the entering device's wall clock, so its first 10
+        // characters are the lead's day. Only an undated lead falls back to
+        // created_at (UTC); a per-client zone would be needed to place those.
+        var GAP_LEAD_DAY = "(CASE WHEN data_lead IS NOT NULL AND trim(data_lead) <> '' " +
+            "THEN substr(trim(data_lead),1,10) ELSE date(created_at) END)";
         var entered = await env.DB.prepare(
-            "SELECT client_id, COUNT(*) AS n, MAX(date(COALESCE(data_lead, created_at))) AS last_day " +
-            "FROM gm_leads WHERE date(COALESCE(data_lead, created_at)) >= ? " +
-            "AND date(COALESCE(data_lead, created_at)) <= ? GROUP BY client_id"
+            "SELECT client_id, COUNT(*) AS n, MAX(" + GAP_LEAD_DAY + ") AS last_day " +
+            "FROM gm_leads WHERE " + GAP_LEAD_DAY + " >= ? " +
+            "AND " + GAP_LEAD_DAY + " <= ? GROUP BY client_id"
         ).bind(since, today).all();
 
         var names = await env.DB.prepare(
@@ -20080,6 +20085,137 @@ function num0(v) { return (v === null || v === undefined) ? 0 : Number(v); }
 // suggested figure is read by the client as-is.
 function cents(v) { return Math.round((Number(v) || 0) * 100) / 100; }
 
+// ---------------------------------------------------------------------------
+// Time zones. Times are stored in UTC. Whoever is looking sees THEIR OWN device
+// zone, and a "day" is the day on the device filling the log -- never a fixed
+// zone. The portal sends its zone in X-Client-Tz; Eastern is only the last
+// fallback. gm_leads.data_lead / data_contato / data_estimate are NOT UTC: they
+// are the entering device's wall clock ("2026-10-27T20:35") and are read as-is.
+// Only true UTC columns (created_at, logged_at) need a zone window.
+// ---------------------------------------------------------------------------
+
+// US state -> usual IANA zone (the zone covering most of the state's people).
+// Plain object so other countries can be added later.
+var TZ_STATE_ZONES = {
+    AL: "America/Chicago", AK: "America/Anchorage", AZ: "America/Phoenix", AR: "America/Chicago",
+    CA: "America/Los_Angeles", CO: "America/Denver", CT: "America/New_York", DE: "America/New_York",
+    DC: "America/New_York", FL: "America/New_York", GA: "America/New_York", HI: "Pacific/Honolulu",
+    ID: "America/Denver", IL: "America/Chicago", IN: "America/New_York", IA: "America/Chicago",
+    KS: "America/Chicago", KY: "America/New_York", LA: "America/Chicago", ME: "America/New_York",
+    MD: "America/New_York", MA: "America/New_York", MI: "America/New_York", MN: "America/Chicago",
+    MS: "America/Chicago", MO: "America/Chicago", MT: "America/Denver", NE: "America/Chicago",
+    NV: "America/Los_Angeles", NH: "America/New_York", NJ: "America/New_York", NM: "America/Denver",
+    NY: "America/New_York", NC: "America/New_York", ND: "America/Chicago", OH: "America/New_York",
+    OK: "America/Chicago", OR: "America/Los_Angeles", PA: "America/New_York", RI: "America/New_York",
+    SC: "America/New_York", SD: "America/Chicago", TN: "America/Chicago", TX: "America/Chicago",
+    UT: "America/Denver", VT: "America/New_York", VA: "America/New_York", WA: "America/Los_Angeles",
+    WV: "America/New_York", WI: "America/Chicago", WY: "America/Denver"
+};
+
+// Full state name (lower case) -> code.
+var TZ_STATE_NAMES = {
+    "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA",
+    "colorado": "CO", "connecticut": "CT", "delaware": "DE", "district of columbia": "DC",
+    "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID", "illinois": "IL",
+    "indiana": "IN", "iowa": "IA", "kansas": "KS", "kentucky": "KY", "louisiana": "LA",
+    "maine": "ME", "maryland": "MD", "massachusetts": "MA", "michigan": "MI", "minnesota": "MN",
+    "mississippi": "MS", "missouri": "MO", "montana": "MT", "nebraska": "NE", "nevada": "NV",
+    "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY",
+    "north carolina": "NC", "north dakota": "ND", "ohio": "OH", "oklahoma": "OK", "oregon": "OR",
+    "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC", "south dakota": "SD",
+    "tennessee": "TN", "texas": "TX", "utah": "UT", "vermont": "VT", "virginia": "VA",
+    "washington": "WA", "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY"
+};
+
+// True only for a real IANA zone name.
+function tzIsValid(tz) {
+    if (typeof tz !== "string" || !tz || tz.length > 64) { return false; }
+    try {
+        new Intl.DateTimeFormat("en-US", { timeZone: tz });
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// Zone for a state code or full name, or null when unknown.
+function tzZoneForState(value) {
+    if (typeof value !== "string") { return null; }
+    var key = value.trim();
+    if (!key) { return null; }
+    var code = TZ_STATE_ZONES[key.toUpperCase()] ? key.toUpperCase() : TZ_STATE_NAMES[key.toLowerCase()];
+    return (code && TZ_STATE_ZONES[code]) || null;
+}
+
+// Wall clock parts of an instant in a zone.
+function tzParts(tz, utcMs) {
+    var fmt = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit"
+    });
+    var out = {};
+    fmt.formatToParts(new Date(utcMs)).forEach(function(p) { if (p.type !== "literal") { out[p.type] = Number(p.value); } });
+    if (out.hour === 24) { out.hour = 0; }
+    return out;
+}
+
+// The zone's offset from UTC, in minutes, at that instant (east is positive).
+function tzOffsetMinutes(tz, utcMs) {
+    var p = tzParts(tz, utcMs);
+    var asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+    return Math.round((asUtc - Math.floor(utcMs / 1000) * 1000) / 60000);
+}
+
+function tzPad2(n) { return (n < 10 ? "0" : "") + n; }
+
+// "YYYY-MM-DD HH:MM:SS", the shape SQLite stores in created_at.
+function tzSqlUtc(ms) {
+    var d = new Date(ms);
+    return d.getUTCFullYear() + "-" + tzPad2(d.getUTCMonth() + 1) + "-" + tzPad2(d.getUTCDate()) + " " +
+        tzPad2(d.getUTCHours()) + ":" + tzPad2(d.getUTCMinutes()) + ":" + tzPad2(d.getUTCSeconds());
+}
+
+// UTC instant of local midnight at the start of calendar day y-m-d in tz. The
+// offset is read at the guessed instant and corrected once, so a 23 or 25 hour
+// day (daylight saving) still lands on the real midnight.
+function tzMidnightUtcMs(y, m, d, tz) {
+    var guess = Date.UTC(y, m - 1, d, 0, 0, 0);
+    var off = tzOffsetMinutes(tz, guess);
+    var t = guess - off * 60000;
+    var off2 = tzOffsetMinutes(tz, t);
+    if (off2 !== off) { t = guess - off2 * 60000; }
+    return t;
+}
+
+// For calendar day "YYYY-MM-DD" in zone tz: {start, end} as UTC strings, start
+// is that zone's local midnight and end is the next local midnight.
+function tzDayWindowUtc(dateStr, tz) {
+    var y = Number(dateStr.slice(0, 4)), m = Number(dateStr.slice(5, 7)), d = Number(dateStr.slice(8, 10));
+    var next = new Date(Date.UTC(y, m - 1, d + 1));
+    return {
+        start: tzSqlUtc(tzMidnightUtcMs(y, m, d, tz)),
+        end:   tzSqlUtc(tzMidnightUtcMs(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate(), tz))
+    };
+}
+
+// Now in zone tz as "YYYY-MM-DDTHH:MM" -- the same plain wall clock text the
+// portal writes into data_lead. nowMs is only for tests.
+function tzLocalNowStamp(tz, nowMs) {
+    var p = tzParts(tz, nowMs === undefined ? Date.now() : nowMs);
+    return p.year + "-" + tzPad2(p.month) + "-" + tzPad2(p.day) + "T" + tzPad2(p.hour) + ":" + tzPad2(p.minute);
+}
+
+// The zone of whoever is making this request: the X-Client-Tz header when it
+// is a real zone, else the client's state, else Eastern. A bad header is
+// ignored, never repaired or echoed. The database is read only when the header
+// is missing or unusable.
+async function resolveRequestZone(request, env, clientId) {
+    var header = request && request.headers ? request.headers.get("X-Client-Tz") : null;
+    if (tzIsValid(header)) { return header; }
+    var row = await env.DB.prepare("SELECT location_state FROM clients WHERE id = ?").bind(clientId).first();
+    return tzZoneForState(row && row.location_state) || "America/New_York";
+}
+
 async function handleGetEntrySuggestions(id, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -20090,18 +20226,43 @@ async function handleGetEntrySuggestions(id, request, env) {
         var date = url.searchParams.get("date");
         if (!isValidDateStr(date)) { return jsonErr("A valid date is required", 400); }
 
-        // date(...) normalizes both stored shapes: "2026-09-14T10:35" and
-        // "2026-09-14". Rows with a NULL date simply do not match, which is the
-        // correct behaviour -- an undated lead belongs to no particular day.
+        // The day is the day on the DEVICE filling the log. data_lead is that
+        // device's wall clock text ("2026-10-27T20:35"), so its first 10
+        // characters ARE the lead's day. A lead with no data_lead falls back to
+        // created_at, which is UTC, so it is matched against the viewer's zone
+        // window instead. All values are bound; no zone text reaches the SQL.
+        var zone = await resolveRequestZone(request, env, id);
+        var win = tzDayWindowUtc(date, zone);
+        var onDay =
+            "((data_lead IS NOT NULL AND trim(data_lead) <> '' AND substr(trim(data_lead),1,10) = ?) " +
+            "OR ((data_lead IS NULL OR trim(data_lead) = '') AND created_at >= ? AND created_at < ?))";
         var leads = await env.DB.prepare(
             "SELECT " +
             "COUNT(*) AS row_count, " +
-            "SUM(CASE WHEN date(COALESCE(data_lead, created_at)) = ? THEN 1 ELSE 0 END) AS leads_gerados, " +
+            "SUM(CASE WHEN " + onDay + " THEN 1 ELSE 0 END) AS leads_gerados, " +
             "SUM(CASE WHEN date(data_estimate) = ? THEN 1 ELSE 0 END) AS envio_propostas, " +
             "SUM(CASE WHEN estagio IN ('estimate_enviado','follow_up','negociacao') " +
-            "         THEN COALESCE(valor,0) ELSE 0 END) AS pipeline_ativo " +
+            "         THEN COALESCE(valor,0) ELSE 0 END) AS pipeline_ativo, " +
+            "AVG(CASE WHEN " + onDay + " AND data_lead IS NOT NULL AND trim(data_lead) <> '' " +
+            "         AND data_contato IS NOT NULL AND trim(data_contato) <> '' " +
+            "         THEN (julianday(data_contato) - julianday(data_lead)) * 24 END) AS velocidade_resposta " +
             "FROM gm_leads WHERE client_id = ?"
-        ).bind(date, date, id).first();
+        ).bind(date, win.start, win.end, date, date, win.start, win.end, id).first();
+
+        // The leads counted above, by name, so staff can see the pipeline is in
+        // the log. Capped; the rest is reported as a number.
+        var nameRows = await env.DB.prepare(
+            "SELECT id, cliente FROM gm_leads WHERE client_id = ? AND " + onDay + " " +
+            "ORDER BY COALESCE(NULLIF(trim(data_lead), ''), created_at), created_at LIMIT 20"
+        ).bind(id, date, win.start, win.end).all();
+        var leadNames = (nameRows.results || []).map(function(r) { return { id: r.id, cliente: r.cliente }; });
+
+        // Deliveries finished that day (entrega_real is an ISO date).
+        var jobs = await env.DB.prepare(
+            "SELECT COUNT(*) AS row_count, " +
+            "SUM(CASE WHEN substr(trim(entrega_real),1,10) = ? THEN 1 ELSE 0 END) AS entregues " +
+            "FROM gm_jobs WHERE client_id = ?"
+        ).bind(date, id).first();
 
         // Money entered on the Financeiro page for this day. receita/saida were
         // deliberately left out when suggestions were first built: gm_finance
@@ -20123,8 +20284,8 @@ async function handleGetEntrySuggestions(id, request, env) {
         var closed = await env.DB.prepare(
             "SELECT COUNT(*) AS n FROM gm_lead_events " +
             "WHERE client_id = ? AND action = 'stage_changed' " +
-            "AND new_value = 'fechado' AND date(created_at) = ?"
-        ).bind(id, date).first();
+            "AND new_value = 'fechado' AND created_at >= ? AND created_at < ?"
+        ).bind(id, win.start, win.end).first();
 
         // NULL means "the system has nothing to say about this field", which is
         // NOT the same claim as zero. `|| 0` collapsed the two: a client with no
@@ -20148,11 +20309,20 @@ async function handleGetEntrySuggestions(id, request, env) {
                 // (497.33000000000004 in live data), and a suggestion is shown
                 // to the client verbatim before they accept it.
                 receita:         (money && money.row_count > 0) ? cents(money.receita) : null,
-                saida:           (money && money.row_count > 0) ? cents(money.saida)   : null
-            }
+                saida:           (money && money.row_count > 0) ? cents(money.saida)   : null,
+                // Null when the client has no projects at all; 0 once they do
+                // and none were delivered that day.
+                entregas_realizadas: (jobs && jobs.row_count > 0) ? num0(jobs.entregues) : null,
+                // Average hours from lead to first contact over the day's leads
+                // that have both times; null when there are none to average.
+                velocidade_resposta: (leads && leads.velocidade_resposta !== null && leads.velocidade_resposta !== undefined)
+                    ? Math.round(Number(leads.velocidade_resposta) * 100) / 100 : null
+            },
+            lead_names: leadNames,
+            lead_names_more: hasLeadRows ? Math.max(0, num0(leads.leads_gerados) - leadNames.length) : 0
         });
     } catch (e) {
-        return jsonErr("Error fetching suggestions: " + e.message, 500);
+        return jsonErr("Error fetching suggestions", 500);
     }
 }
 
@@ -23614,8 +23784,13 @@ async function gmLogLeadEvents(env, clientId, leadId, actor, events) {
 // referral form, which has no authenticated user — a referral genuinely has no
 // human author on our side, and NULL says that honestly rather than inventing
 // one.
-async function gmInsertLead(env, clientId, f, actor) {
+async function gmInsertLead(env, clientId, f, actor, zone) {
     var leadId = crypto.randomUUID();
+    // A lead saved with no date is a lead that came in today, on the clock of
+    // whoever is saving it. Callers that already built their own stamp keep it.
+    if (f.data_lead === undefined || f.data_lead === null || String(f.data_lead).trim() === "") {
+        f.data_lead = tzLocalNowStamp(tzIsValid(zone) ? zone : "America/New_York");
+    }
     await gmLeadGeocodeIfNeeded(f, null);
     // The cost columns are appended from GM_LEAD_COST_FIELDS rather than
     // spelled out, so the column list and the bind list below are generated
@@ -23685,7 +23860,7 @@ async function handlePostGmLead(id, request, env) {
         // including by hand-crafting the JSON.
         var postSeller = sessionSellerName(user);
         if (postSeller) { parsed.fields.vendedor = postSeller; }
-        var leadId = await gmInsertLead(env, id, parsed.fields, actorName(user));
+        var leadId = await gmInsertLead(env, id, parsed.fields, actorName(user), await resolveRequestZone(request, env, id));
         var row = await gmOwnedRow(env, "gm_leads", leadId, id);
         return jsonOk({ created: true, lead: row });
     } catch (e) {
@@ -24248,6 +24423,7 @@ async function handlePostGmBaseOuroReactivate(id, rowId, request, env) {
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var dataLead = gmStr(body.data_lead, 40);   // device-local datetime from the portal
+        if (!dataLead || !String(dataLead).trim()) { dataLead = tzLocalNowStamp(await resolveRequestZone(request, env, id)); }
         var mesLead = gmStr(body.mes_lead, 40);
         var leadId = crypto.randomUUID();
         await env.DB.prepare(
@@ -28335,10 +28511,12 @@ async function handlePostGmJobMakeLead(id, jobId, request, env) {
         var leadId = crypto.randomUUID();
         var actor = actorName(user);
         var costCols = GM_LEAD_COST_FIELDS.join(", ");
+        // No date on the project's lead means today, on the saving device's clock.
+        var leadStamp = tzLocalNowStamp(await resolveRequestZone(request, env, id));
         await env.DB.batch([
-            env.DB.prepare("INSERT INTO gm_leads (id, client_id, cliente, vendedor, valor, estagio, stage_changed_at, created_by, updated_by, " + costCols + ") " +
-                "SELECT ?, client_id, obra, vendedor, valor, 'fechado', datetime('now'), ?, ?, " + GM_LEAD_COST_FIELDS.join(", ") + " FROM gm_jobs WHERE id = ? AND client_id = ? AND lead_id IS NULL")
-                .bind(leadId, actor, actor, jobId, id),
+            env.DB.prepare("INSERT INTO gm_leads (id, client_id, data_lead, cliente, vendedor, valor, estagio, stage_changed_at, created_by, updated_by, " + costCols + ") " +
+                "SELECT ?, client_id, ?, obra, vendedor, valor, 'fechado', datetime('now'), ?, ?, " + GM_LEAD_COST_FIELDS.join(", ") + " FROM gm_jobs WHERE id = ? AND client_id = ? AND lead_id IS NULL")
+                .bind(leadId, leadStamp, actor, actor, jobId, id),
             env.DB.prepare("UPDATE gm_jobs SET lead_id = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND lead_id IS NULL AND EXISTS (SELECT 1 FROM gm_leads WHERE id = ? AND client_id = ?)")
                 .bind(leadId, jobId, id, leadId, id)
         ]);

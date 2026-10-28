@@ -12,12 +12,14 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass
 const FNS = [
   "geocodeOneLine", "geocodeAddress", "gmLeadAddressChanged", "gmLeadGeocodeIfNeeded",
   "gmLeadFields", "gmInsertLead", "gmLogLeadEvents",
+  "tzIsValid", "tzParts", "tzPad2", "tzLocalNowStamp", "tzZoneForState", "resolveRequestZone",
   "handlePostGmLead", "handlePutGmLead",
   "gmStr", "gmNum", "gmStageKey"
 ];
-const VARS = ["GM_STAGE_DEFS", "GM_STAGES", "GM_ORIGENS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS"];
+const VARS = ["TZ_STATE_ZONES", "TZ_STATE_NAMES", "GM_STAGE_DEFS", "GM_STAGES", "GM_ORIGENS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS"];
 
 const LEAD_MIGRATIONS = [
+  "migrations/2026-10-14_client_owners_state_city.sql",   // clients.location_state, read for the viewer zone
   "migrations/gm_growth_management.sql",
   "migrations/gm_lead_events.sql",
   "migrations/gm_leads_address.sql",

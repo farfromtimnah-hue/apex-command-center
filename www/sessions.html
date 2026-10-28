@@ -2396,6 +2396,7 @@
         toggleBtn.innerHTML = '<span class="show-pt">&#9660; Ocultar transcript</span><span class="show-en">&#9660; Hide transcript</span>';
         var previewShown = false;
         toggleBtn.innerHTML = '<span class="show-pt">&#9654; Ver transcript</span><span class="show-en">&#9654; Preview transcript</span>';
+      toggleBtn.setAttribute("data-help", "admin-sessions-summary#sessions#5");
 
         var previewWrap = document.createElement("div");
         previewWrap.style.display = "none";
@@ -2436,6 +2437,7 @@
             toggleBtn.innerHTML = '<span class="show-pt">&#9660; Ocultar transcript</span><span class="show-en">&#9660; Hide transcript</span>';
           } else {
             toggleBtn.innerHTML = '<span class="show-pt">&#9654; Ver transcript</span><span class="show-en">&#9654; Preview transcript</span>';
+      toggleBtn.setAttribute("data-help", "admin-sessions-summary#sessions#5");
           }
         };
 
@@ -2474,6 +2476,7 @@
       summarizeBtn.className = "btn-summarize";
       summarizeBtn.disabled = true;
       summarizeBtn.innerHTML = '<span class="show-pt">Resumir</span><span class="show-en">Summarize</span>';
+      summarizeBtn.setAttribute("data-help", "admin-sessions-summary#sessions#6");
       summarizeBtn.id = "inbox-summarize-" + session.id;
 
       clientSel.onchange = function() {
@@ -2490,6 +2493,7 @@
       discardBtn.className = "btn-discard";
       discardBtn.id = "inbox-discard-" + session.id;
       discardBtn.innerHTML = '<span class="show-pt">Excluir</span><span class="show-en">Delete</span>';
+      discardBtn.setAttribute("data-help", "admin-sessions-summary#sessions#5");
       (function(sess, btn) {
         btn.onclick = function() { handleInboxDiscard(sess, btn); };
       })(session, discardBtn);
@@ -2552,6 +2556,7 @@
         .catch(function(e) {
           btn.disabled = false;
           btn.innerHTML = '<span class="show-pt">Resumir</span><span class="show-en">Summarize</span>';
+          btn.setAttribute("data-help", "admin-sessions-summary#sessions#6");
           if (statusEl) {
             statusEl.textContent = (isEn ? "Error: " : "Erro: ") + e.message + " / " + (isEn ? "Please try again." : "Tente novamente.");
             statusEl.className = "inbox-card-status is-error";

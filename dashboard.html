@@ -90,7 +90,7 @@
   <script src="task-sheet.js?v=1792440996"></script>
   <script src="scheduling-queue.js?v=1793153885"></script>
   <link rel="stylesheet" href="template-edit.css?v=1793026396">
-  <script src="template-edit.js?v=1793026396"></script>
+  <script src="template-edit.js?v=1793154053"></script>
   <title>Apex Command Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1393,7 +1393,7 @@
         </div>
         <div style="padding:0 16px 8px;">
           <div class="tab-row" style="display:flex;gap:8px;margin-bottom:10px;">
-            <button class="btn-secondary btn-sm" id="supportTabOpen" onclick="loadSupportTickets('open')">
+            <button data-help="admin-activity-support-preview#tools#4" class="btn-secondary btn-sm" id="supportTabOpen" onclick="loadSupportTickets('open')">
               <span class="show-pt">Abertos</span><span class="show-en">Open</span>
             </button>
             <button data-help="admin-activity-support-preview#tools#4" class="btn-secondary btn-sm" id="supportTabResolved" onclick="loadSupportTickets('resolved')">
@@ -4076,6 +4076,7 @@
         var check = document.createElement("button");
         check.className = "task-check" + (isDone ? " checked" : "");
         check.setAttribute("aria-label", "Toggle complete");
+        check.setAttribute("data-help", "admin-tasks#tasks#13");
         if (!isDone) {
           (function(taskId) {
             check.onclick = function() { markRafaTaskDone(taskId); };
@@ -4548,6 +4549,7 @@
         var check = document.createElement("button");
         check.className = "task-check";
         check.setAttribute("aria-label", "Toggle complete");
+        check.setAttribute("data-help", "admin-tasks#tasks#13");
         (function(taskId) {
           check.onclick = function() { (opt.onCheck || markMyTaskDone)(taskId); };
         })(t.id);
@@ -5511,6 +5513,7 @@
           if (status === "open") {
             var resolveBtn = document.createElement("button");
             resolveBtn.className = "btn-secondary btn-sm";
+            resolveBtn.setAttribute("data-help", "admin-activity-support-preview#tools#4");
             resolveBtn.textContent = tellUsT("Marcar resolvido", "Mark resolved");
             resolveBtn.onclick = function() { supportResolveTicket(tk.id); };
             actions.appendChild(resolveBtn);

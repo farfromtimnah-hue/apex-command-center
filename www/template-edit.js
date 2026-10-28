@@ -331,6 +331,7 @@
     pencil.type = "button";
     pencil.className = "tpl-pencil";
     pencil.setAttribute("data-tpl-pencil", key);
+    pencil.setAttribute("data-help", "admin-message-templates#templates#4");
     pencil.setAttribute("aria-label", en ? "Edit this message" : "Editar esta mensagem");
     pencil.setAttribute("title", en ? "Edit this message" : "Editar esta mensagem");
     pencil.innerHTML = "&#9998;";   // pencil glyph, no icon font needed

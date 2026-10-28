@@ -91,7 +91,7 @@
   <script src="datetime.js"></script>
   <script src="scheduling-queue.js?v=1793153885"></script>
   <link rel="stylesheet" href="template-edit.css?v=1793026396">
-  <script src="template-edit.js?v=1793026396"></script>
+  <script src="template-edit.js?v=1793154053"></script>
   <script src="data/us-br-states.js?v=1791950001"></script>
   <script src="client-places.js?v=1791950001"></script>
   <title data-title-pt="Apex — Calendário" data-title-en="Apex — Calendar">Apex — Calendário</title>
@@ -1579,7 +1579,7 @@
                  keeps the WhatsApp templates on Settings.
                  Deep-links to the section anchor, so it lands ON Availability
                  rather than at the top of a long page. -->
-            <a class="cal-settings-link" href="settings.html#availabilitySection">
+            <a class="cal-settings-link" data-help="admin-new-session-details#newsession#9" href="settings.html#availabilitySection">
               <span class="show-pt">Disponibilidade</span>
               <span class="show-en">Availability</span>
             </a>
@@ -1589,7 +1589,7 @@
                  stacking duplicate windows -- it refocuses the one already
                  open. Falls back to a normal navigation if a popup blocker
                  refuses, which is why it stays a real href. -->
-            <a class="cal-settings-link" href="help/agendamento.html"
+            <a class="cal-settings-link" data-help="admin-calendar-sessions#calendar#1" href="help/agendamento.html"
                onclick="var w=window.open(this.href,'apexHelpAgendamento','width=560,height=900,left=0,top=0'); if(w){w.focus();return false;} return true;">
               <span class="show-pt">Como usar</span>
               <span class="show-en">How to use</span>
@@ -1617,9 +1617,9 @@
 
           <!-- Month/week/day navigation -->
           <div class="month-nav">
-            <button class="month-nav-btn" onclick="navPrev()">&#8249;</button>
+            <button class="month-nav-btn" data-help="admin-calendar-sessions#calendar#4" onclick="navPrev()">&#8249;</button>
             <div class="month-nav-label" id="navLabel"></div>
-            <button class="month-nav-btn" onclick="navNext()">&#8250;</button>
+            <button class="month-nav-btn" data-help="admin-calendar-sessions#calendar#4" onclick="navNext()">&#8250;</button>
           </div>
         </div>
 

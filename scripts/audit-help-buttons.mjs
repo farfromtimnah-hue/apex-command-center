@@ -78,7 +78,7 @@ function extract(text, file) {
     const aria = (/aria-label\s*=\s*["']([^"']*)["']/.exec(attrs) || [])[1] || "";
     let label = readLabel(inner);
     let ariaLabel = aria ? readLabel(aria) : null;
-    found.push({ file, line: lineOf(text, m.index), label, ariaLabel, dataHelp, noHelp, tag });
+    found.push({ file, idx: m.index, line: lineOf(text, m.index), label, ariaLabel, dataHelp, noHelp, tag });
   }
   return found;
 }
@@ -107,7 +107,7 @@ function check(item, aud) {
   }
   const label = (item.label && (item.label.en || item.label.pt)) || (item.ariaLabel && (item.ariaLabel.en || item.ariaLabel.pt)) || "";
   if (res.pt === "empty" && res.en === "empty") return { status: "empty" };
-  if (!/[A-Za-zÀ-ÿ]/.test(((item.label && (item.label.en + item.label.pt)) || "")) && !item.ariaLabel) return { status: "intentional", why: "icon only button (arrow, close, toggle)" };
+  if (!/[A-Za-zÀ-ÿ]/.test((((item.label && (item.label.en + item.label.pt)) || "")).replace(/&[a-z]+;/g, "")) && !item.ariaLabel) return { status: "intentional", why: "icon only button (arrow, close, toggle)" };
   const key = HC.normalize((item.label && item.label.en) || label);
   const keyPt = HC.normalize((item.label && item.label.pt) || label);
   if (res.pt === "miss" || res.en === "miss") {
@@ -117,6 +117,22 @@ function check(item, aud) {
   return { status: "linked", via: "label" };
 }
 
+// Screens that carry a default guide (data-help-default set by the script at the end of portal.html).
+function screenDefaults(src) {
+  const blk = /HELP_BY_TAB = \{([\s\S]*?)\};/.exec(src), blv = /HELP_BY_VIEW = \{([\s\S]*?)\};/.exec(src);
+  const map = {};
+  if (blk) for (const m of blk[1].matchAll(/(\w+):\s*"([^"]+)"/g)) map["tab" + m[1].charAt(0).toUpperCase() + m[1].slice(1)] = m[2];
+  if (blv) for (const m of blv[1].matchAll(/(\w+):\s*"([^"]+)"/g)) map[m[1]] = m[2];
+  return map;
+}
+function screenOf(src, idx, map) {
+  let best = null, bestPos = -1;
+  for (const m of src.matchAll(/id="([A-Za-z0-9_]+)"/g)) {
+    if (m.index > idx) break;
+    if (map[m[1]]) { best = m[1]; bestPos = m.index; }
+  }
+  return best;
+}
 const report = {};
 let totals = { found: 0, linked: 0, intentional: 0, unlinked: 0, dynamic: 0, empty: 0, noHelp: 0, badDataHelp: 0 };
 for (const page of pages) {
@@ -131,10 +147,15 @@ for (const page of pages) {
     if (fs.existsSync(p)) files.push([f, fs.readFileSync(p, "utf8")]);
   }
   const seen = new Map();
+  const SCREENS = page === "portal.html" ? screenDefaults(src) : null;
   for (const [file, text] of files) {
     for (const it of extract(text, file)) {
       totals.found++;
-      const r = check(it, aud);
+      let r = check(it, aud);
+      if (r.status === "unlinked" && file === "portal.html" && SCREENS) {
+        const sc = screenOf(text, it.idx, SCREENS);
+        if (sc) r = { status: "linked", via: "screen default " + sc };
+      }
       const label = it.label ? (it.label.en || it.label.pt) : it.ariaLabel ? (it.ariaLabel.en || it.ariaLabel.pt) : "";
       if (r.status === "linked") totals.linked++;
       else if (r.status === "intentional") totals.intentional++;

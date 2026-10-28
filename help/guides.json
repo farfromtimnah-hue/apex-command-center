@@ -24776,6 +24776,28 @@
                 "pt": "help/img/guides/admin-vendors/vendors-08.pt.jpg",
                 "en": "help/img/guides/admin-vendors/vendors-08.en.jpg"
               }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Registrar pagamento abre um formulário. Em Transação do Remitly (1) escolha um pagamento do Remitly sem fornecedor, e o valor e a data se preenchem. Ou deixe Nenhuma e escreva o Valor real em dólar (2) e a Data do pagamento (3). A Nota (4) é opcional. Salvar (5) registra. O formulário foi fechado sem salvar.",
+                "en": "Record payment opens a form. In Remitly transaction (1) pick a Remitly payment with no vendor, and the amount and date fill in. Or leave None and write the Real amount in USD (2) and Paid on (3). The Note (4) is optional. Save (5) records it. The form was closed without saving."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-vendors/vendors-09.pt.jpg",
+                "en": "help/img/guides/admin-vendors/vendors-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Enviei o pagamento aparece quando o fornecedor tem algo a pagar agora. Escreva o Valor em dólar (1) e a Data do envio (2). Ver itens (3) mostra o que o pagamento cobre. Enviar (4) registra. Nada estava a pagar nesta imagem, e nada foi enviado.",
+                "en": "I sent the payment shows when the vendor has something due now. Write the Amount in USD (1) and the Date sent (2). See items (3) shows what the payment covers. Send (4) records it. Nothing was due in this picture, and nothing was sent."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-vendors/vendors-10.pt.jpg",
+                "en": "help/img/guides/admin-vendors/vendors-10.en.jpg"
+              }
             }
           ]
         }

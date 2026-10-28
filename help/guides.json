@@ -3473,7 +3473,7 @@
             {
               "n": 15,
               "text": {
-                "pt": "Uma folha chamada Histórico de alterações abre. Ela lista cada mudança nessas configurações (1): o nome da configuração, o valor antigo, uma seta, o valor novo, quem mudou e quando. Quando nada foi mudado ainda, ela diz Nenhuma alteração ainda.",
+                "pt": "Uma janela chamada Histórico de alterações abre. Ela lista cada mudança nessas configurações (1): o nome da configuração, o valor antigo, uma seta, o valor novo, quem mudou e quando. Quando nada foi mudado ainda, ela diz Nenhuma alteração ainda.",
                 "en": "A sheet called Change history opens. It lists each change to these settings (1): the name of the setting, the old value, an arrow, the new value, who changed it and when. When nothing was changed yet, it says No changes yet."
               },
               "image": {
@@ -8632,7 +8632,7 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra o lead: toque nele (1) na lista do Pipeline. A folha do lead abre.",
+                "pt": "Abra o lead: toque nele (1) na lista do Pipeline. A ficha do lead abre.",
                 "en": "Open the lead: tap it (1) in the Pipeline list. The lead sheet opens."
               },
               "image": {
@@ -8643,7 +8643,7 @@
             {
               "n": 2,
               "text": {
-                "pt": "Role a folha do lead para baixo até a parte chamada Arquivos (1).",
+                "pt": "Role a ficha do lead para baixo até a parte chamada Arquivos (1).",
                 "en": "Scroll down the lead sheet to the part called Files (1)."
               },
               "image": {
@@ -8764,7 +8764,7 @@
             {
               "n": 13,
               "text": {
-                "pt": "Para excluir um lead, role até o fim da folha do lead e toque em Excluir lead (1).",
+                "pt": "Para excluir um lead, role até o fim da ficha do lead e toque em Excluir lead (1).",
                 "en": "To delete a lead, scroll to the very bottom of the lead sheet and tap Delete lead (1)."
               },
               "image": {
@@ -9341,7 +9341,7 @@
             {
               "n": 11,
               "text": {
-                "pt": "Toque no parceiro para abrir a folha dele.",
+                "pt": "Toque no parceiro para abrir a ficha dele.",
                 "en": "Tap the partner to open its sheet."
               },
               "image": {
@@ -9352,7 +9352,7 @@
             {
               "n": 12,
               "text": {
-                "pt": "Toque na linha Contato (1) e digite o telefone de contato. Toque em Salvar: a folha mostra o número.",
+                "pt": "Toque na linha Contato (1) e digite o telefone de contato. Toque em Salvar: a ficha mostra o número.",
                 "en": "Tap the Contact row (1) and type the contact phone. Tap Save: the sheet shows the number."
               },
               "image": {
@@ -9407,7 +9407,7 @@
             {
               "n": 17,
               "text": {
-                "pt": "No fim da folha, o Link de indicação (1) é o link próprio do parceiro. Quem preencher o formulário nesse link vira um lead no seu pipeline, já ligado a este parceiro, sem juntar na mão.",
+                "pt": "No fim da ficha, o Link de indicação (1) é o link próprio do parceiro. Quem preencher o formulário nesse link vira um lead no seu pipeline, já ligado a este parceiro, sem juntar na mão.",
                 "en": "At the bottom of the sheet, the Referral link (1) is the partner's own link. Anyone who fills in the form on this link becomes a lead in your pipeline, already tied to this partner, with no matching by hand."
               },
               "image": {
@@ -9844,7 +9844,7 @@
             {
               "n": 9,
               "text": {
-                "pt": "Na folha do cartão, toque em Trocar foto (1) para colocar uma foto da pessoa.",
+                "pt": "Na ficha do cartão, toque em Trocar foto (1) para colocar uma foto da pessoa.",
                 "en": "In the Card sheet, tap Change photo (1) to add a photo of the person."
               },
               "image": {

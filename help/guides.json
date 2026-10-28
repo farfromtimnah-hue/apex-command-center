@@ -334,8 +334,7 @@
               "Criar contrato a partir do orçamento aceito"
             ],
             "en": [
-              "Create contract from the accepted estimate",
-              "Criar contrato a partir do orçamento aceito"
+              "Create contract from the accepted estimate"
             ]
           },
           "section": "send-contract",
@@ -347,8 +346,7 @@
               "Preencher agora"
             ],
             "en": [
-              "Fill in now",
-              "Preencher agora"
+              "Fill in now"
             ]
           },
           "section": "send-contract",
@@ -360,8 +358,7 @@
               "Salvar dados"
             ],
             "en": [
-              "Save",
-              "Salvar dados"
+              "Save"
             ]
           },
           "section": "send-contract",
@@ -762,7 +759,7 @@
               "Marcar como enviado sem abrir mensagem"
             ],
             "en": [
-              "Marcar como enviado sem abrir mensagem"
+              "Mark as sent without opening a message"
             ]
           },
           "section": "send-change-order",
@@ -881,8 +878,7 @@
               "Enviar fatura"
             ],
             "en": [
-              "Send invoice",
-              "Enviar fatura"
+              "Send invoice"
             ]
           },
           "section": "send-invoice",
@@ -941,7 +937,7 @@
               "n": 1,
               "text": {
                 "pt": "Abra Negócio e toque em Pipeline. Pipeline mostra todos os seus leads.",
-                "en": "Open Negócio and tap Pipeline. Pipeline lists all your leads."
+                "en": "Open Business and tap Pipeline. Pipeline lists all your leads."
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-01.jpg",
@@ -1262,8 +1258,7 @@
               "+ Criar orçamento"
             ],
             "en": [
-              "+ Create estimate",
-              "+ Criar orçamento"
+              "+ Create estimate"
             ]
           },
           "section": "create-send",
@@ -1275,8 +1270,7 @@
               "Salvar e enviar"
             ],
             "en": [
-              "Save and send",
-              "Salvar e enviar"
+              "Save and send"
             ]
           },
           "section": "create-send",
@@ -1288,8 +1282,7 @@
               "Marcar como aceito"
             ],
             "en": [
-              "Mark accepted",
-              "Marcar como aceito"
+              "Mark accepted"
             ]
           },
           "section": "mark-accepted",
@@ -1413,7 +1406,7 @@
               "n": 1,
               "text": {
                 "pt": "Abra o orçamento. Em Negócio, toque em Orçamentos. Toque no orçamento que quer enviar.",
-                "en": "Open the estimate. Under Negócio, tap Orçamentos. Tap the estimate you want to send."
+                "en": "Open the estimate. Under Business, tap Estimates. Tap the estimate you want to send."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s1-01.jpg",
@@ -1424,7 +1417,7 @@
               "n": 2,
               "text": {
                 "pt": "Toque em Enviar. O botão azul escuro, perto do topo, abre a tela de envio.",
-                "en": "Tap Enviar. The dark blue button near the top opens the send screen."
+                "en": "Tap Send. The dark blue button near the top opens the send screen."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s1-02.jpg",
@@ -1435,7 +1428,7 @@
               "n": 3,
               "text": {
                 "pt": "Toque em Abrir meu email. Fica na segunda linha de botões, à esquerda. Se o botão estiver cinza, veja a seção 3.",
-                "en": "Tap Abrir meu email. It is on the second row of buttons, on the left. If the button is grey, see section 3."
+                "en": "Tap Open my email app. It is on the second row of buttons, on the left. If the button is grey, see section 3."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s1-03.jpg",
@@ -1477,7 +1470,7 @@
               "n": 1,
               "text": {
                 "pt": "Toque em Copiar para enviar pelo navegador. Fica na segunda linha de botões, à direita. O texto pronto é copiado.",
-                "en": "Tap Copiar para enviar pelo navegador. It is on the second row of buttons, on the right. The ready text is copied."
+                "en": "Tap Copy to send from a web email. It is on the second row of buttons, on the right. The ready text is copied."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s2-01.jpg",
@@ -1510,7 +1503,7 @@
               "n": 4,
               "text": {
                 "pt": "Copie o endereço e o assunto para as caixas. Copie o endereço da linha To e cole na caixa Para. Copie o assunto da linha Subject e cole na caixa Assunto.",
-                "en": "Copy the address and the subject into the boxes. Copy the address from the To line and paste it into the Para (To) box. Copy the subject from the Subject line and paste it into the Assunto (Subject) box."
+                "en": "Copy the address and the subject into the boxes. Copy the address from the To line and paste it into the To box of your email. Copy the subject from the Subject line and paste it into the Subject box of your email."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s2-04.jpg",
@@ -1521,7 +1514,7 @@
               "n": 5,
               "text": {
                 "pt": "Selecione o texto do topo até a linha de iguais. Comece no começo do corpo do email e vá até o fim da linha que diz APAGUE TUDO ACIMA DESTA LINHA, inclusive ela.",
-                "en": "Select the text from the top down to the line of equals signs. Start at the beginning of the email body and go to the end of the line that says APAGUE TUDO ACIMA DESTA LINHA, including that line."
+                "en": "Select the text from the top down to the line of equals signs. Start at the beginning of the email body and go to the end of the line that says DELETE EVERYTHING ABOVE THIS LINE, including that line."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s2-05.jpg",
@@ -1563,7 +1556,7 @@
               "n": 1,
               "text": {
                 "pt": "Os botões de email ficam cinza. Abaixo deles aparece: Sem email cadastrado. Toque para adicionar. Mensagem de texto e WhatsApp continuam funcionando.",
-                "en": "The email buttons are grey. Below them it says: Sem email cadastrado. Toque para adicionar (No email on file. Tap to add). Text message and WhatsApp still work."
+                "en": "The email buttons are grey. Below them it says: No email on file. Tap to add. Text message and WhatsApp still work."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s3-01.jpg",
@@ -1585,7 +1578,7 @@
               "n": 3,
               "text": {
                 "pt": "Digite o email e toque em Salvar. Se o formato estiver errado, aparece um aviso em vermelho: Email inválido. Use o formato nome@exemplo.com.",
-                "en": "Type the email and tap Salvar. If the format is wrong, a red warning shows: Email inválido. Use o formato nome@exemplo.com (Invalid email)."
+                "en": "Type the email and tap Save. If the format is wrong, a red warning shows: Invalid email. Use the form name@example.com."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s3-03.jpg",
@@ -1596,7 +1589,7 @@
               "n": 4,
               "text": {
                 "pt": "Corrija o email e toque em Salvar. Use o formato nome@exemplo.com.",
-                "en": "Fix the email and tap Salvar. Use the format name@example.com."
+                "en": "Fix the email and tap Save. Use the format name@example.com."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s3-04.jpg",
@@ -1624,8 +1617,7 @@
               "Abrir meu email"
             ],
             "en": [
-              "Open my email app",
-              "Abrir meu email"
+              "Open my email app"
             ]
           },
           "section": "section-s1",
@@ -1637,8 +1629,7 @@
               "Copiar para enviar pelo navegador"
             ],
             "en": [
-              "Copy to send from a web email",
-              "Copiar para enviar pelo navegador"
+              "Copy to send from a web email"
             ]
           },
           "section": "section-s2",
@@ -1696,7 +1687,7 @@
               "n": 1,
               "text": {
                 "pt": "Abra Faturas e toque em Paga. Em Negócio, toque em Faturas. Toque no filtro Paga para ver só as faturas pagas.",
-                "en": "Open Faturas and tap Paga. Under Negócio, tap Faturas. Tap the Paga filter to see only paid invoices."
+                "en": "Open Invoices and tap Paid. Under Business, tap Invoices. Tap the Paid filter to see only paid invoices."
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-01.jpg",
@@ -1707,7 +1698,7 @@
               "n": 2,
               "text": {
                 "pt": "Toque na fatura paga. A fatura abre. Role a tela para baixo até a seção Pagamentos.",
-                "en": "Tap the paid invoice. The invoice opens. Scroll down to the Pagamentos section."
+                "en": "Tap the paid invoice. The invoice opens. Scroll down to the Payments section."
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-02.jpg",
@@ -1718,7 +1709,7 @@
               "n": 3,
               "text": {
                 "pt": "Em Pagamentos, toque em Enviar recibo. Ver recibo mostra o recibo para você. Enviar recibo abre a tela de envio.",
-                "en": "Under Pagamentos, tap Enviar recibo. Ver recibo shows you the receipt. Enviar recibo opens the send screen."
+                "en": "Under Payments, tap Send receipt. View receipt shows you the receipt. Send receipt opens the send screen."
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-03.jpg",
@@ -1779,8 +1770,7 @@
               "Enviar recibo"
             ],
             "en": [
-              "Send receipt",
-              "Enviar recibo"
+              "Send receipt"
             ]
           },
           "section": "send-receipt",
@@ -1959,7 +1949,7 @@
               "n": 12,
               "text": {
                 "pt": "Embaixo da fatura, em Pagamentos, toque em Ver recibo (1) para ver o recibo.",
-                "en": "Under the invoice, in Pagamentos, tap View receipt (1) to see the receipt."
+                "en": "Under the invoice, in Payments, tap View receipt (1) to see the receipt."
               },
               "image": {
                 "pt": "help/img/guides/admin-record-payment/record-s12.pt.jpg",
@@ -16756,7 +16746,7 @@
               "n": 2,
               "text": {
                 "pt": "Média geral (composto) (1) é o percentual geral. A linha pequena (2) diz quantos clientes lançaram números e quantos não registraram nada. Embaixo, cada área (3), por exemplo Financeiro, Clientes & Mercado, Processos e Crescimento, tem o seu percentual e o número de clientes que acompanham essa área.",
-                "en": "Média geral (composto) (Overall average, composite) (1) is the overall percentage. The small line (2) says how many clients entered numbers and how many logged nothing. Under it, each area (3), for example Financial, Clients & Market, Processes and Growth, has its own percentage and the number of clients that track that area."
+                "en": "Overall average (composite) (1) is the overall percentage. The small line (2) says how many clients entered numbers and how many logged nothing. Under it, each area (3), for example Financial, Clients & Market, Processes and Growth, has its own percentage and the number of clients that track that area."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-analytics/analytics-02.pt.jpg",
@@ -24169,7 +24159,7 @@
               "n": 8,
               "text": {
                 "pt": "Voltar aos dias (5) leva você de volta à lista de dias.",
-                "en": "Voltar aos dias (Back to the days) (5) takes you back to the list of days."
+                "en": "Back to the days (5) takes you back to the list of days."
               },
               "image": {
                 "pt": "help/img/guides/meetings-and-booking/meeting-s08.pt.jpg",
@@ -26415,7 +26405,7 @@
               "Enviar revisão"
             ],
             "en": [
-              "Enviar revisão"
+              "Send review"
             ]
           },
           "section": "review",
@@ -26578,7 +26568,7 @@
               "n": 1,
               "text": {
                 "pt": "Na ficha do cliente, abra a aba Financeiro. O cartão Contrato APEX (1) lista os contratos que a Apex fez para este cliente, cada um com número, pacote, total e status, por exemplo Assinado por todos ou Cancelado. Toque em uma linha para abrir. Toque em Montar contrato (2) para fazer um novo. O cartão Método de Pagamento tem o plano de pagamento: toque em Definir (3) para escrever como o cliente paga.",
-                "en": "On a client record, open the tab Money (Financeiro). The card APEX Contract (1) lists the contracts Apex made for this client, each with its number, package, total and status, for example Assinado por todos or Cancelado. Tap a row to open it. Tap Montar contrato (2) to build a new one. The card Payment Method has a payment plan: tap Set plan (3) to write how the client pays."
+                "en": "On a client record, open the tab Money. The card APEX Contract (1) lists the contracts Apex made for this client, each with its number, package, total and status, for example Assinado por todos or Cancelado. Tap a row to open it. Tap Montar contrato (Build contract) (2) to build a new one. The contract list and the contract buttons are in Portuguese only, in both languages. The card Payment Method has a payment plan: tap Set plan (3) to write how the client pays."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-money/money-01.pt.jpg",
@@ -26600,7 +26590,7 @@
               "n": 3,
               "text": {
                 "pt": "Os botões da folha dependem do status. Um rascunho mostra Editar, Pré-visualizar e, para o Pr. Rafael, Assinar pela Apex. Os outros veem Pedir assinatura ao Pr. Rafael. Um contrato pronto ou enviado mostra Enviar ao cliente (ou Enviar de novo), Ver contrato e Baixar PDF. Cancelar contrato aparece até o contrato ser assinado. Você precisa escrever um motivo.",
-                "en": "The buttons on the sheet depend on the status. A draft shows Editar, Pré-visualizar and, for Pr. Rafael, Assinar pela Apex. Everyone else sees Pedir assinatura ao Pr. Rafael. A contract that is ready or sent shows Enviar ao cliente (or Enviar de novo), Ver contrato and Baixar PDF. Cancelar contrato appears until the contract is signed. You must write a reason."
+                "en": "The buttons on the sheet depend on the status. They are in Portuguese only, in both languages. A draft shows Editar (Edit), Pré-visualizar (Preview) and, for Pr. Rafael, Assinar pela Apex (Sign for Apex). Everyone else sees Pedir assinatura ao Pr. Rafael (Ask Pr. Rafael to sign). A contract that is ready or sent shows Enviar ao cliente (Send to the client, or Enviar de novo, Send again), Ver contrato (View contract) and Baixar PDF (Download PDF). Cancelar contrato (Cancel contract) appears until the contract is signed. You must write a reason."
               },
               "image": null
             }

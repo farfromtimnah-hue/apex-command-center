@@ -814,7 +814,7 @@
         <span id="headerEmail"></span>
         <span class="role-badge" id="headerRole"></span>
       </div>
-      <button class="lang-btn" onclick="apexNavToggleLang()">
+      <button class="lang-btn" data-help="admin-menu-language-learn#menu#2" onclick="apexNavToggleLang()">
         <span class="show-pt">EN</span>
         <span class="show-en">PT</span>
       </button>
@@ -905,7 +905,7 @@
              until placeSpeakTasks() sees a staff role (rafa, alice, developer). -->
         <div class="mt-speak-block" id="mtSpeakBlock" hidden>
           <div class="mt-speak">
-            <button class="btn-voice-mic" id="mtSpeakBtn" onclick="toggleMyTasksRecording()">
+            <button data-help="admin-tasks#tasks#2" class="btn-voice-mic" id="mtSpeakBtn" onclick="toggleMyTasksRecording()">
               <span aria-hidden="true">&#127908;</span>
               <span id="mtSpeakLabel">
                 <span class="show-pt">Falar minhas tarefas</span>
@@ -937,24 +937,24 @@
 
         <!-- Role tabs -->
         <div class="role-tabs">
-          <button class="role-tab-btn active" id="tabBtnMine" onclick="setTabRole('mine')">
+          <button data-help="admin-tasks-tabs-details#tabs#1" class="role-tab-btn active" id="tabBtnMine" onclick="setTabRole('mine')">
             <span class="show-pt">Minhas tarefas</span>
             <span class="show-en">My tasks</span>
             <span class="role-tab-count" id="tabCountMine">0</span>
           </button>
-          <button class="role-tab-btn" id="tabBtnClient" onclick="setTabRole('client')">
+          <button data-help="admin-tasks-tabs-details#tabs#1" class="role-tab-btn" id="tabBtnClient" onclick="setTabRole('client')">
             <span class="show-pt">Cliente</span>
             <span class="show-en">Client</span>
             <span class="role-tab-count" id="tabCountClient">0</span>
           </button>
           <!-- The consultant's list, for the office (alice, developer) only:
                placeTabs() shows it. For the consultant his list is "My tasks". -->
-          <button class="role-tab-btn" id="tabBtnConsultant" hidden onclick="setTabRole('consultant')">
+          <button data-help="admin-tasks-tabs-details#tabs#1" class="role-tab-btn" id="tabBtnConsultant" hidden onclick="setTabRole('consultant')">
             <span class="show-pt">Consultor</span>
             <span class="show-en">Consultant</span>
             <span class="role-tab-count" id="tabCountConsultant">0</span>
           </button>
-          <button class="role-tab-btn" id="tabBtnDone" onclick="setTabRole('done')">
+          <button data-help="admin-tasks-tabs-details#tabs#1" class="role-tab-btn" id="tabBtnDone" onclick="setTabRole('done')">
             <span class="show-pt">Concluidas</span>
             <span class="show-en">Done</span>
             <span class="role-tab-count" id="tabCountDone">0</span>

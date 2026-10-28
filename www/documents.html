@@ -578,7 +578,7 @@
         <span id="headerEmail"></span>
         <span class="role-badge" id="headerRole"></span>
       </div>
-      <button class="lang-btn" onclick="apexNavToggleLang()">
+      <button class="lang-btn" data-help="admin-menu-language-learn#menu#2" onclick="apexNavToggleLang()">
         <span class="show-pt">EN</span>
         <span class="show-en">PT</span>
       </button>
@@ -647,7 +647,7 @@
                 <span class="show-pt">Central de Recursos</span>
                 <span class="show-en">Resource Hub</span>
               </button>
-              <button class="tab-pill" id="tabBtnPdf" onclick="switchTab('pdf')">
+              <button data-help="admin-pdf-archive#pdf#1" class="tab-pill" id="tabBtnPdf" onclick="switchTab('pdf')">
                 <span class="show-pt">Arquivo de PDFs</span>
                 <span class="show-en">PDF Archive</span>
               </button>
@@ -1071,11 +1071,11 @@ function escHtml(str) {
           // material. Only offered for staged files, so nothing else grows a
           // button that would take APEX's own library out of the hub.
           (isStagedDeliverable(r)
-            ? '<button class="btn-row-action" onclick="openAttachToClient(\'' + escHtml(r.id) + '\')">' +
+            ? '<button data-help="admin-resources-documents#hub#10" class="btn-row-action" onclick="openAttachToClient(\'' + escHtml(r.id) + '\')">' +
               '<span class="show-pt">Anexar a cliente</span><span class="show-en">Attach to client</span>' +
               '</button> '
             : '') +
-          '<button class="btn-row-action" onclick="openResourceModal(\'' + escHtml(r.id) + '\')">' +
+          '<button data-help="admin-resources-documents#hub#9" class="btn-row-action" onclick="openResourceModal(\'' + escHtml(r.id) + '\')">' +
           '<span class="show-pt">Editar</span><span class="show-en">Edit</span>' +
           (window.apexMcIcon ? window.apexMcIcon("edit") : "") + '</button></td>' +
           '</tr>';
@@ -1360,7 +1360,7 @@ function escHtml(str) {
           '<td class="mc-head"><div class="resource-title">' + escHtml(s.client_name || "--") + '</div></td>' +
           '<td class="mc-field detail-text" data-label-pt="Data da Sessão" data-label-en="Session Date">' + escHtml(formatDate(s.date)) + '</td>' +
           '<td class="mc-action" style="text-align:right;">' +
-          '<button class="btn-row-action" onclick="openSessionPdf(' + i + ')">' +
+          '<button data-help="admin-pdf-archive#pdf#1" class="btn-row-action" onclick="openSessionPdf(' + i + ')">' +
           '<span class="show-pt">Abrir PDF</span><span class="show-en">Open PDF</span>' +
           (window.apexMcIcon ? window.apexMcIcon("view") : "") + '</button></td>' +
           '</tr>';

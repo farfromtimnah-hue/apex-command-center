@@ -943,7 +943,7 @@
         <span id="headerEmail"></span>
         <span class="role-badge" id="headerRole"></span>
       </div>
-      <button class="lang-btn" onclick="apexNavToggleLang()">
+      <button class="lang-btn" data-help="admin-menu-language-learn#menu#2" onclick="apexNavToggleLang()">
         <span class="show-pt">EN</span>
         <span class="show-en">PT</span>
       </button>
@@ -1160,7 +1160,7 @@
             </div>
             <div style="display:flex;align-items:center;gap:8px;" id="bizQrUploadRow">
               <input type="file" id="bizQrFileInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="handleBizQrFileSelected(this)">
-              <button onclick="document.getElementById('bizQrFileInput').click()" style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;">
+              <button data-help="admin-settings-packages-payment#pkg#3" onclick="document.getElementById('bizQrFileInput').click()" style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;">
                 <span class="show-pt" id="bizQrBtnLabelPt">Carregar QR Code</span>
                 <span class="show-en" id="bizQrBtnLabelEn">Upload QR Code</span>
               </button>

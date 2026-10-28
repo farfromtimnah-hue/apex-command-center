@@ -213,9 +213,9 @@
         : "") +
       '<div class="content-card">' +
       '<div class="month-nav">' +
-      '<button type="button" id="' + id("prevMonth") + '">&lsaquo;</button>' +
+      '<button data-help="analytics#analytics#14" type="button" id="' + id("prevMonth") + '">&lsaquo;</button>' +
       '<div class="month-label" id="' + id("monthLabel") + '"></div>' +
-      '<button type="button" id="' + id("nextMonth") + '">&rsaquo;</button>' +
+      '<button data-help="analytics#analytics#14" type="button" id="' + id("nextMonth") + '">&rsaquo;</button>' +
       '</div>' +
       '<div class="muted" id="' + id("analyticsMeta") + '"></div>' +
       '<div id="' + id("chartABody") + '"></div>' +
@@ -367,7 +367,7 @@
         shown.forEach(function (ind) { html += kpiCardHtml(ind); });
         html += '</div>';
         if (list.length > 8) {
-          html += '<button type="button" class="btn-expand" style="margin-top:8px;" ' +
+          html += '<button data-help="analytics#analytics#19" type="button" class="btn-expand" style="margin-top:8px;" ' +
             'data-av-action="toggleShowAll" data-av-value="' + sec + '">' +
             (sectionShowAll[sec]
               ? (isEn() ? "Show less" : "Mostrar menos")
@@ -663,7 +663,7 @@
       // Client-only CTA. The admin view passes no helpRequest option, so
       // Rafa never sees a "ask for help" button on his own screen.
       if (helpRequest) {
-        html += '<button type="button" class="btn-gold" style="width:100%;margin-top:10px;min-height:48px;" ' +
+        html += '<button data-help="analytics#analytics#10" type="button" class="btn-gold" style="width:100%;margin-top:10px;min-height:48px;" ' +
           'data-av-action="askHelp">' +
           '<span class="show-pt">Pedir ajuda com esta área</span>' +
           '<span class="show-en">Ask for help with this area</span></button>';

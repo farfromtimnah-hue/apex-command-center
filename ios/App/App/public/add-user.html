@@ -268,7 +268,7 @@
         <span id="headerEmail"></span>
         <span class="role-badge" id="headerRole"></span>
       </div>
-      <button class="lang-btn" onclick="apexNavToggleLang()">
+      <button class="lang-btn" data-help="admin-menu-language-learn#menu#2" onclick="apexNavToggleLang()">
         <span class="show-pt">EN</span>
         <span class="show-en">PT</span>
       </button>
@@ -384,7 +384,7 @@
               <span style="font-size:13px;color:var(--muted);">Status:</span>
               <span id="zohoStatus" style="font-size:13px;font-weight:600;margin-left:6px;color:var(--muted);">Checking...</span>
             </div>
-            <button class="btn-submit" id="btnConnectZoho" onclick="handleConnectZoho()" style="flex-shrink:0;">
+            <button data-help="admin-connections#connect#1" class="btn-submit" id="btnConnectZoho" onclick="handleConnectZoho()" style="flex-shrink:0;">
               Connect Zoho Books
             </button>
             <button class="btn-submit" id="btnCheckZohoStatus" onclick="checkZohoStatus()"

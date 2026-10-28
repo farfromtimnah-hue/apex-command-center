@@ -993,22 +993,22 @@
           </div>
           <div class="content-card">
             <div class="inv-subtab-bar m-scroll-tabs">
-              <button class="inv-subtab" id="subtabClientsLeads" onclick="switchClientsTab('leads')">
+              <button data-help="admin-clients-roster#roster#9" class="inv-subtab" id="subtabClientsLeads" onclick="switchClientsTab('leads')">
                 <span class="show-pt">Leads</span>
                 <span class="show-en">Leads</span>
               </button>
-              <button class="inv-subtab active" id="subtabClientsActive" onclick="switchClientsTab('active')">
+              <button data-help="admin-clients-roster#roster#9" class="inv-subtab active" id="subtabClientsActive" onclick="switchClientsTab('active')">
                 <span class="show-pt">Ativos</span>
                 <span class="show-en">Active</span>
               </button>
-              <button class="inv-subtab" id="subtabClientsConsolidados" onclick="switchClientsTab('consolidados')">
+              <button data-help="admin-clients-roster#roster#9" class="inv-subtab" id="subtabClientsConsolidados" onclick="switchClientsTab('consolidados')">
                 <span class="show-pt">Consolidados</span>
                 <span class="show-en">Consolidated</span>
               </button>
               <!-- APEX's OWN referral partners — who sends coaching clients TO
                    Apex. Not a client's gm_partners (that lives in the portal,
                    one tier below). Admin-only data; the routes enforce it. -->
-              <button class="inv-subtab" id="subtabClientsParceiros" onclick="switchClientsTab('parceiros')">
+              <button data-help="admin-clients-roster#roster#9" class="inv-subtab" id="subtabClientsParceiros" onclick="switchClientsTab('parceiros')">
                 <span class="show-pt">Parceiros</span>
                 <span class="show-en">Partners</span>
               </button>
@@ -1194,7 +1194,7 @@
         <button type="button" id="btnAddSecondContact" onclick="toggleSecondContact()" style="background:none;border:none;color:var(--gold);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0;text-align:left;">
           + <span class="show-pt">Adicionar segundo contato</span><span class="show-en">Add second contact</span>
         </button>
-        <button class="btn-primary" id="btnSaveNewClient" onclick="handleSaveNewClient()">
+        <button data-help="admin-clients-roster#roster#7" class="btn-primary" id="btnSaveNewClient" onclick="handleSaveNewClient()">
           <span class="show-pt">Salvar Cliente</span>
           <span class="show-en">Save Client</span>
         </button>

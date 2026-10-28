@@ -243,6 +243,12 @@ var gmSheetOnUserClose = null;
 
 // Which guide explains each window. Learn opens it for any button in the window that has no guide of its own (data-help-default).
 var GM_SHEET_HELP = [
+  ["Novo evento", "New event", "calendar#new-event#1"],
+  ["Editar evento", "Edit event", "calendar#new-event#18"],
+  ["Registrar pagamento", "Record payment", "invoices-and-payments#invoices#11"],
+  ["Informar pagamento", "Report payment", "invoices-and-payments#invoices#11"],
+  ["Reembolso", "Refund", "invoice-late-fee-credit-void#adjust#13"],
+  ["Crédito", "Credit", "invoice-late-fee-credit-void#adjust#9"],
   ["Declaração de pagamento final", "Final payment affidavit", "liens-and-final-affidavit"],
   ["Importar tabela de preços", "Import pricing table", "pricing-item-and-import#import#1"],
   ["Encaminhar para assinatura", "Route for signature", "ask-another-signer#route#2"],
@@ -274,6 +280,17 @@ var GM_SHEET_HELP = [
   ["Fatura", "Invoice", "invoices-and-payments#invoices#6"],
   ["Relatório", "Report", "finances#finances#17"]
 ];
+var GM_TOUR_HELP = {
+  "crm-lead-detail": "pipeline#lead-sheet",
+  "crm-stage-picker": "pipeline#lead-sheet",
+  "gm-field-editor": "lead-fields#fields",
+  "gm-contract-detail": "contracts-tab#contracts#5",
+  "gm-estimate-detail": "revise-or-void-estimate",
+  "gm-estimate-wizard": "estimate#create-send#5",
+  "gm-invoice-detail": "invoices-and-payments#invoices#6",
+  "job-detail": "projects#project",
+  "finance-detail": "finances"
+};
 function gmSheetHelpFor(titleHtml) {
   var t = String(titleHtml || "").replace(/<[^>]*>/g, "").replace(/&[a-z]+;/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
   for (var i = 0; i < GM_SHEET_HELP.length; i++) {
@@ -282,7 +299,7 @@ function gmSheetHelpFor(titleHtml) {
   return "";
 }
 
-function gmSheetOpen(titleHtml, bodyHtml, tourKey) {
+function gmSheetOpen(titleHtml, bodyHtml, tourKey, helpDefault) {
   gmSheetOnUserClose = null;
   gmSheetCloseNow();
   var overlay = document.createElement("div");
@@ -299,7 +316,7 @@ function gmSheetOpen(titleHtml, bodyHtml, tourKey) {
   overlay.addEventListener("click", function(ev) {
     if (ev.target === overlay) { gmSheetClose(); }
   });
-  var sheetHelp = gmSheetHelpFor(titleHtml);
+  var sheetHelp = helpDefault || (tourKey && GM_TOUR_HELP[tourKey]) || gmSheetHelpFor(titleHtml);
   if (sheetHelp) { overlay.querySelector(".gm-sheet").setAttribute("data-help-default", sheetHelp); }
   document.body.appendChild(overlay);
   gmSheetEl = overlay;
@@ -5338,7 +5355,7 @@ function gmRenderPricingReadOnlySheet(it) {
     '<div class="gm-sheet-row" style="cursor:default;"><span class="gm-sheet-row-body"><span class="gm-sheet-row-value' +
     (it.description ? "" : " gm-empty") + '" style="white-space:pre-wrap;">' +
     (it.description ? escHtml(it.description) : "—") + '</span></span></div>');
-  gmSheetOpen(escHtml(it.item || gmT("Item", "Item")), body);
+  gmSheetOpen(escHtml(it.item || gmT("Item", "Item")), body, null, "pricing-item-and-import#item");
 }
 
 // ── The item sheet ───────────────────────────────────────────────────────
@@ -5429,7 +5446,7 @@ function gmRenderPricingSheet() {
       gmT("Excluir item", "Delete item") + '</button>';
   }
 
-  gmSheetOpen(title, body);
+  gmSheetOpen(title, body, null, "pricing-item-and-import#item");
 }
 
 function gmPricingLinesHtml() {
@@ -7525,7 +7542,7 @@ function gmDSendAck(jobId, kind) {
     .then(function(d) {
       gmDLoadJobTools(jobId);
       var title = kind === "completion" ? gmT("Enviar aceite de conclusão", "Send completion sign-off") : gmT("Enviar fotos para reconhecimento", "Send photos for acknowledgment");
-      gmSheetOpen(title, "");
+      gmSheetOpen(title, "", null, "punch-list-and-completion#ack");
       gmDocSendSheetRender(title, d.phone || "", d.message, null, function() { gmToast(gmT("Enviado", "Sent")); }, function() { gmSheetClose(); }, function() {}, d.email || "", d.business_name || "", kind === "completion" ? "ack_completion" : "ack_photos", "", gmEmailLeadId({ job_id: jobId }));
     })
     .catch(function(e) { gmToast(e.message); console.error(e); });
@@ -7771,7 +7788,7 @@ function gmDSupplierOpen(jobId, sid) {
   function row(field, value) { return gmSheetRowHtml("edit", gmT(GM_DSUPPLIER_FIELD_LABELS[field][0], GM_DSUPPLIER_FIELD_LABELS[field][1]), value ? escHtml(value) : '<span class="muted">' + gmT("\u2014 toque para preencher", "\u2014 tap to fill") + '</span>', "gmDSupplierEdit(" + jid + "," + q + ",'" + field + "')"); }
   var body = gmSheetSection(gmT("Dados", "Details"), row("name", s.name) + row("supplies", s.supplies) + row("address", s.address) + row("phone", s.phone ? gmFmtPhone(s.phone) : "")) +
     '<div class="gm-est-actions"><button data-help="subcontractors#subs#3" type="button" class="gm-btn-secondary" onclick="gmDSupplierRemove(' + jid + ',' + q + ')">' + gmT("Tirar deste projeto", "Remove from this project") + '</button></div>';
-  gmSheetOpen(escHtml(s.name), body);
+  gmSheetOpen(escHtml(s.name), body, null, "subcontractors");
 }
 function gmDSupplierEdit(jobId, sid, field) {
   var d = gmDTools[jobId] && gmDTools[jobId].suppliers;
@@ -7836,7 +7853,7 @@ function gmDSubOpen(sid) {
     (s.coi_url ? '<button data-help="subcontractors#subs#8" type="button" class="gm-btn-secondary" onclick="gmDOpenPunchPhoto(' + JSON.stringify(s.coi_url).replace(/"/g, "&quot;") + ')">' + gmT("Ver COI", "View COI") + '</button>' : "") +
     (s.wc_url ? '<button data-help="subcontractors#subs#8" type="button" class="gm-btn-secondary" onclick="gmDOpenPunchPhoto(' + JSON.stringify(s.wc_url).replace(/"/g, "&quot;") + ')">' + gmT("Ver workers' comp", "View workers' comp") + '</button>' : "") +
     '</div>';
-  gmSheetOpen(escHtml(s.name), body);
+  gmSheetOpen(escHtml(s.name), body, null, "subcontractors");
 }
 // F34: the editor is titled with the same label as the list, never the column name.
 var GM_DSUB_FIELD_LABELS = { name: ["Nome", "Name"], trade: ["Ofício", "Trade"], license_number: ["Número da licença", "License number"], coi_expires: ["Seguro (COI) vence em", "Insurance certificate (COI) expires"],
@@ -8115,7 +8132,7 @@ function gmRenderChangeOrderSheet() {
   if (co.content_hash) { sig += gmSheetRowHtml("tag", "SHA-256", '<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;overflow-wrap:anywhere;">' + escHtml(co.content_hash) + '</span>'); }
   if (sig) { body += gmSheetSection(gmT("Assinaturas", "Signatures"), sig); }
   body += '<p class="gm-derived-note">' + escHtml((window.GmLabels && GmLabels.contractDisclaimer) ? GmLabels.contractDisclaimer(co.disclaimer_line, isEn()) : (co.disclaimer_line || "")) + '</p>';
-  gmSheetOpen(escHtml(co.number) + " · " + escHtml(co.job_name || ""), body);
+  gmSheetOpen(escHtml(co.number) + " · " + escHtml(co.job_name || ""), body, null, "change-order#read#1");
 }
 function DEFAULT_ORIGIN_PORTAL() { return window.location.origin; }
 function gmCOSignOpen() {

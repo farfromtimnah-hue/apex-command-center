@@ -7969,7 +7969,20 @@
           ]
         }
       ],
-      "buttons": []
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Editar esta mensagem"
+            ],
+            "en": [
+              "Edit this message"
+            ]
+          },
+          "section": "messages",
+          "step": 4
+        }
+      ]
     },
     {
       "id": "revise-or-void-estimate",

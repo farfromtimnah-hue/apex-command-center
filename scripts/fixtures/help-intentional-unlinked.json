@@ -320,6 +320,22 @@
   {
    "label": "Connect Zoho Books",
    "reason": "obsolete: Zoho Books is no longer used"
+  },
+  {
+   "label": "Política de Privacidade",
+   "reason": "Legal page link in the footer"
+  },
+  {
+   "label": "Termos de Uso",
+   "reason": "Legal page link in the footer"
+  },
+  {
+   "label": "Privacy Policy",
+   "reason": "Legal page link in the footer"
+  },
+  {
+   "label": "Terms of Use",
+   "reason": "Legal page link in the footer"
   }
  ]
 }

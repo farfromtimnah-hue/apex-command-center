@@ -243,6 +243,12 @@ var gmSheetOnUserClose = null;
 
 // Which guide explains each window. Learn opens it for any button in the window that has no guide of its own (data-help-default).
 var GM_SHEET_HELP = [
+  ["Novo evento", "New event", "calendar#new-event#1"],
+  ["Editar evento", "Edit event", "calendar#new-event#18"],
+  ["Registrar pagamento", "Record payment", "invoices-and-payments#invoices#11"],
+  ["Informar pagamento", "Report payment", "invoices-and-payments#invoices#11"],
+  ["Reembolso", "Refund", "invoice-late-fee-credit-void#adjust#13"],
+  ["Crédito", "Credit", "invoice-late-fee-credit-void#adjust#9"],
   ["Declaração de pagamento final", "Final payment affidavit", "liens-and-final-affidavit"],
   ["Importar tabela de preços", "Import pricing table", "pricing-item-and-import#import#1"],
   ["Encaminhar para assinatura", "Route for signature", "ask-another-signer#route#2"],

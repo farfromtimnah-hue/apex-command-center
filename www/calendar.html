@@ -89,7 +89,7 @@
   <link rel="stylesheet" href="scheduling-queue.css?v=1793026395">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <script src="scheduling-queue.js?v=1793026395"></script>
+  <script src="scheduling-queue.js?v=1793153885"></script>
   <link rel="stylesheet" href="template-edit.css?v=1793026396">
   <script src="template-edit.js?v=1793026396"></script>
   <script src="data/us-br-states.js?v=1791950001"></script>
@@ -1477,7 +1477,7 @@
         <span id="headerEmail"></span>
         <span class="role-badge" id="headerRole"></span>
       </div>
-      <button class="lang-btn" onclick="apexNavToggleLang()">
+      <button class="lang-btn" data-help="admin-menu-language-learn#menu#2" onclick="apexNavToggleLang()">
         <span class="show-pt">EN</span>
         <span class="show-en">PT</span>
       </button>
@@ -1550,7 +1550,7 @@
         <!-- Page heading -->
         <div class="page-header-row">
           <h1 class="page-heading-hero">
-            <span class="show-pt">Calendario</span>
+            <span class="show-pt">Calendário</span>
             <span class="show-en">Calendar</span>
           </h1>
           <div class="header-actions">
@@ -1559,13 +1559,13 @@
               <span class="show-en">Sync Now</span>
             </button>
             <button class="btn-new-session" onclick="openNewSessionModal()" data-help="admin-new-session-details#newsession#1">
-              + <span class="show-pt">Nova Sessao</span>
+              + <span class="show-pt">Nova Sessão</span>
               <span class="show-en">New Session</span>
             </button>
             <!-- The whole point of the feature: instead of negotiating times
                  one client at a time over WhatsApp, she sends a link. -->
             <button class="btn-new-session" onclick="openSchedRequestModal()">
-              <span class="show-pt">Enviar horarios</span>
+              <span class="show-pt">Enviar horários</span>
               <span class="show-en">Send times</span>
             </button>
             <!-- Shortcut to the rules the link above runs on, because THIS is
@@ -1601,15 +1601,15 @@
         <div class="cal-toolbar">
           <!-- View toggle -->
           <div class="view-toggle">
-            <button class="view-toggle-btn active" id="viewBtnMonth" onclick="setCalView('month')">
-              <span class="show-pt">Mes</span>
+            <button class="view-toggle-btn active" id="viewBtnMonth" data-help="admin-calendar-sessions#calendar#4" onclick="setCalView('month')">
+              <span class="show-pt">Mês</span>
               <span class="show-en">Month</span>
             </button>
-            <button class="view-toggle-btn" id="viewBtnWeek" onclick="setCalView('week')">
+            <button class="view-toggle-btn" id="viewBtnWeek" data-help="admin-calendar-sessions#calendar#4" onclick="setCalView('week')">
               <span class="show-pt">Semana</span>
               <span class="show-en">Week</span>
             </button>
-            <button class="view-toggle-btn" id="viewBtnDay" onclick="setCalView('day')">
+            <button class="view-toggle-btn" id="viewBtnDay" data-help="admin-calendar-sessions#calendar#4" onclick="setCalView('day')">
               <span class="show-pt">Dia</span>
               <span class="show-en">Day</span>
             </button>
@@ -1636,7 +1636,7 @@
            pending -- a banner that is always there stops being read. -->
       <div id="voiceFlagBanner" class="sync-conflict-notice" hidden>
         <div class="sync-conflict-head">
-          <span class="show-pt">Reunioes ditadas que precisam ser completadas</span>
+          <span class="show-pt">Reuniões ditadas que precisam ser completadas</span>
           <span class="show-en">Spoken meetings that need completing</span>
         </div>
         <div id="voiceFlagList"></div>
@@ -1648,7 +1648,7 @@
            blocks. -->
       <div id="syncConflictNotice" class="sync-conflict-notice" hidden>
         <div id="syncConflictBody"></div>
-        <button class="btn-cancel-link" onclick="dismissSyncConflicts()">
+        <button class="btn-cancel-link" data-help="admin-calendar-sessions#calendar#5" onclick="dismissSyncConflicts()">
           <span class="show-pt">Entendi, dispensar</span>
           <span class="show-en">Got it, dismiss</span>
         </button>
@@ -1687,7 +1687,7 @@
            blank space reads as something failing to load. -->
       <div class="sched-queue-block" id="schedQueueBlock" hidden>
         <h2 class="sched-queue-title">
-          <span class="show-pt">Aguardando horario</span>
+          <span class="show-pt">Aguardando horário</span>
           <span class="show-en">Waiting on a time</span>
         </h2>
         <div id="schedQueue"></div>
@@ -1736,9 +1736,9 @@
             <span class="show-en">Meeting type</span>
           </div>
           <div class="type-toggle">
-            <button type="button" class="type-toggle-btn active" id="srTypeMeet"
+            <button type="button" class="type-toggle-btn active" id="srTypeMeet" data-help="admin-send-times#send#3"
                     onclick="setSrType('online_meet')">Google Meet</button>
-            <button type="button" class="type-toggle-btn" id="srTypeInPerson"
+            <button type="button" class="type-toggle-btn" id="srTypeInPerson" data-help="admin-send-times#send#3"
                     onclick="setSrType('in_person')">
               <span class="show-pt">Presencial</span>
               <span class="show-en">In person</span>
@@ -1780,7 +1780,7 @@
         <!-- Duration sits behind a deliberate click so it cannot be changed by
              accident. One hour is right almost every time. -->
         <div class="field-group">
-          <button type="button" class="btn-cancel-link" id="srCustomizeBtn"
+          <button type="button" class="btn-cancel-link" id="srCustomizeBtn" data-help="admin-send-times#send#5"
                   onclick="toggleSrCustomize()" style="padding:0;">
             <span class="show-pt">Personalizar duração (1 hora)</span>
             <span class="show-en">Customize duration (1 hour)</span>
@@ -1997,11 +1997,11 @@
             <span class="show-en">Category</span>
           </div>
           <div class="type-toggle">
-            <button class="type-toggle-btn active" id="nsCategoryClient" onclick="setNewSessionCategory('client')">
+            <button class="type-toggle-btn active" id="nsCategoryClient" data-help="admin-new-session-details#newsession#2" onclick="setNewSessionCategory('client')">
               <span class="show-pt">Cliente</span>
               <span class="show-en">Client</span>
             </button>
-            <button class="type-toggle-btn" id="nsCategoryProspective" onclick="setNewSessionCategory('prospective')">
+            <button class="type-toggle-btn" id="nsCategoryProspective" data-help="admin-new-session-details#newsession#2" onclick="setNewSessionCategory('prospective')">
               <span class="show-pt">Cliente Potencial</span>
               <span class="show-en">Prospective</span>
             </button>
@@ -2072,8 +2072,8 @@
             <span class="show-en">Type</span>
           </div>
           <div class="type-toggle">
-            <button class="type-toggle-btn active" id="nsTypeMeet" onclick="setNewSessionType('online_meet')">Google Meet</button>
-            <button class="type-toggle-btn" id="nsTypeInPerson" onclick="setNewSessionType('in_person')">
+            <button class="type-toggle-btn active" id="nsTypeMeet" data-help="admin-new-session-details#newsession#4" onclick="setNewSessionType('online_meet')">Google Meet</button>
+            <button class="type-toggle-btn" id="nsTypeInPerson" data-help="admin-new-session-details#newsession#4" onclick="setNewSessionType('in_person')">
               <span class="show-pt">Presencial</span>
               <span class="show-en">In-Person</span>
             </button>
@@ -2093,7 +2093,7 @@
              to look like a form. -->
         <div id="nsChurchGroup" hidden>
           <div class="field-group">
-            <button type="button" id="nsChurchLinkToggle" class="btn-cancel-link" onclick="toggleNsChurchLink()">
+            <button type="button" id="nsChurchLinkToggle" data-help="admin-new-session-details#newsession#2" class="btn-cancel-link" onclick="toggleNsChurchLink()">
               <span class="show-pt">adicionar link</span>
               <span class="show-en">add link</span>
             </button>
@@ -2169,10 +2169,10 @@
               <span class="show-en">Duration</span>
             </div>
             <div class="type-toggle recur-duration-toggle">
-              <button type="button" class="type-toggle-btn" id="nsDur30"  onclick="setNsDuration(30)">30d</button>
-              <button type="button" class="type-toggle-btn" id="nsDur90"  onclick="setNsDuration(90)">90d</button>
-              <button type="button" class="type-toggle-btn" id="nsDur180" onclick="setNsDuration(180)">180d</button>
-              <button type="button" class="type-toggle-btn" id="nsDurCustom" onclick="setNsDuration('custom')">
+              <button type="button" class="type-toggle-btn" id="nsDur30" data-help="admin-new-session-details#newsession#5"  onclick="setNsDuration(30)">30d</button>
+              <button type="button" class="type-toggle-btn" id="nsDur90" data-help="admin-new-session-details#newsession#5"  onclick="setNsDuration(90)">90d</button>
+              <button type="button" class="type-toggle-btn" id="nsDur180" data-help="admin-new-session-details#newsession#5" onclick="setNsDuration(180)">180d</button>
+              <button type="button" class="type-toggle-btn" id="nsDurCustom" data-help="admin-new-session-details#newsession#5" onclick="setNsDuration('custom')">
                 <span class="show-pt">Personalizado</span>
                 <span class="show-en">Custom</span>
               </button>
@@ -2210,7 +2210,7 @@
           <textarea id="nsNotes" placeholder="..."></textarea>
         </div>
         <!-- Submit -->
-        <button class="btn-submit" id="btnNsSubmit" onclick="handleNewSession()">
+        <button class="btn-submit" id="btnNsSubmit" data-help="admin-new-session-details#newsession#8" onclick="handleNewSession()">
           <span class="show-pt">Agendar</span>
           <span class="show-en">Schedule</span>
         </button>
@@ -2231,7 +2231,7 @@
     <div class="modal-box" onclick="event.stopPropagation()">
       <div class="modal-header">
         <h3>
-          <span class="show-pt">Completar reuniao</span>
+          <span class="show-pt">Completar reunião</span>
           <span class="show-en">Complete meeting</span>
         </h3>
         <button class="modal-close" onclick="closeModal('modalVoiceFix')">&times;</button>
@@ -2396,10 +2396,10 @@
       </div>
       <div class="modal-body">
         <p style="margin:0 0 16px;font-size:14px;color:var(--muted);">
-          <span class="show-pt">A conexao com o Google Calendar caiu, entao nao foi possivel criar o link do Meet. Conecte novamente para continuar.</span>
+          <span class="show-pt">A conexão com o Google Calendar caiu, entao não foi possivel criar o link do Meet. Conecte novamente para continuar.</span>
           <span class="show-en">The Google Calendar connection has dropped, so a Meet link could not be created. Reconnect to continue.</span>
         </p>
-        <button class="btn-submit" id="btnConnectGcalPrompt" onclick="handleConnectGcalPrompt()" style="width:100%;">
+        <button class="btn-submit" id="btnConnectGcalPrompt" data-help="admin-connections#connect#2" onclick="handleConnectGcalPrompt()" style="width:100%;">
           <span class="show-pt">Conectar Google Calendar</span>
           <span class="show-en">Connect Google Calendar</span>
         </button>
@@ -2443,7 +2443,7 @@
 
         <div class="detail-row" id="detailCategoryRow">
           <span class="detail-row-label">
-            <span class="show-pt">Reuniao</span>
+            <span class="show-pt">Reunião</span>
             <span class="show-en">Meeting</span>
           </span>
           <span id="detailCategoryPill"></span>
@@ -2460,7 +2460,7 @@
             <span class="show-en">Source</span>
           </span>
           <span class="detail-row-val">
-            <span class="show-pt">Evento externo do Google Calendar (nao rastreado pelo Apex)</span>
+            <span class="show-pt">Evento externo do Google Calendar (não rastreado pelo Apex)</span>
             <span class="show-en">External Google Calendar event (not tracked by Apex)</span>
           </span>
         </div>
@@ -2475,7 +2475,7 @@
              repair the session from here (see handleFixMeetLink). -->
         <div id="detailMeetFixRow" class="detail-row" hidden>
           <span class="detail-row-label">Meet</span>
-          <button class="btn-fix-meet" id="btnFixMeet" onclick="handleFixMeetLink()">
+          <button class="btn-fix-meet" id="btnFixMeet" data-help="admin-session-sheet#sheet#11" onclick="handleFixMeetLink()">
             <span class="show-pt">Gerar link do Meet</span>
             <span class="show-en">Generate Meet link</span>
           </button>
@@ -2487,7 +2487,7 @@
              See handleAddToGoogle(). -->
         <div id="detailGcalFixRow" class="detail-row" hidden>
           <span class="detail-row-label">Google</span>
-          <button class="btn-fix-meet" id="btnAddToGcal" onclick="handleAddToGoogle()">
+          <button class="btn-fix-meet" id="btnAddToGcal" data-help="admin-session-sheet#sheet#12" onclick="handleAddToGoogle()">
             <span class="show-pt">Adicionar ao Google Calendar</span>
             <span class="show-en">Add to Google Calendar</span>
           </button>
@@ -2500,7 +2500,7 @@
           </span>
           <span class="detail-row-val" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span id="detailLocation"></span>
-            <button class="btn-directions" id="btnDirections" onclick="openDirections()">
+            <button class="btn-directions" id="btnDirections" data-help="admin-session-sheet#sheet#13" onclick="openDirections()">
               <span class="show-pt">Rotas</span>
               <span class="show-en">Directions</span>
             </button>
@@ -2520,16 +2520,16 @@
           </span>
           <div id="detailClientsList" style="margin:6px 0 8px;"></div>
           <a class="detail-meet-link" id="detailPrepLink" href="#" style="display:inline-block;margin-bottom:8px;">
-            <span class="show-pt">Preparacao da reuniao</span>
+            <span class="show-pt">Preparação da reunião</span>
             <span class="show-en">Meeting prep</span>
           </a><br>
-          <button class="btn-cancel-link" id="btnAddSessionClient" onclick="toggleAddSessionClient()">
+          <button class="btn-cancel-link" id="btnAddSessionClient" data-help="admin-session-sheet#sheet#3" onclick="toggleAddSessionClient()">
             <span class="show-pt">+ vincular outra empresa</span>
             <span class="show-en">+ link another company</span>
           </button>
           <div id="addSessionClientWrap" hidden style="margin-top:8px;">
             <select id="addSessionClientSel"></select>
-            <button class="btn-directions" style="margin-top:8px;" onclick="handleAddSessionClient()">
+            <button class="btn-directions" style="margin-top:8px;" data-help="admin-session-sheet#sheet#3" onclick="handleAddSessionClient()">
               <span class="show-pt">Vincular</span>
               <span class="show-en">Link</span>
             </button>
@@ -2558,7 +2558,7 @@
 
         <div id="detailRecordSection" hidden>
           <div class="field-label" style="margin-bottom:6px;">
-            <span class="show-pt">Registro da Reuniao</span>
+            <span class="show-pt">Registro da Reunião</span>
             <span class="show-en">Meeting Record</span>
           </div>
           <div id="detailRecordLoading" class="pull-status">
@@ -2567,7 +2567,7 @@
           </div>
           <div id="detailRecordContent" hidden style="display:flex;gap:10px;flex-wrap:wrap;">
             <a class="detail-meet-link" id="detailTranscriptLink" href="sessions.html" hidden>
-              <span class="show-pt">Ver Transcricao</span>
+              <span class="show-pt">Ver Transcrição</span>
               <span class="show-en">View Transcript</span>
             </a>
             <a class="detail-meet-link" id="detailPdfLink" href="#" hidden>
@@ -2575,7 +2575,7 @@
               <span class="show-en">View PDF Report</span>
             </a>
             <span id="detailRecordEmpty" class="detail-row-val" hidden>
-              <span class="show-pt">Nada capturado para esta reuniao ainda.</span>
+              <span class="show-pt">Nada capturado para esta reunião ainda.</span>
               <span class="show-en">Nothing captured for this meeting yet.</span>
             </span>
           </div>
@@ -2611,7 +2611,7 @@
         </div>
 
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
-          <button class="btn-whatsapp" id="btnWhatsApp" onclick="handleWhatsApp()">
+          <button class="btn-whatsapp" id="btnWhatsApp" data-help="admin-session-sheet#sheet#5" onclick="handleWhatsApp()">
             <span class="show-pt">Enviar WhatsApp</span>
             <span class="show-en">Send WhatsApp</span>
           </button>
@@ -2639,7 +2639,7 @@
                removes a mirror whose Google event no longer exists. The
                worker asks Google first and refuses if the event is still
                there, so this can never hide a live meeting. -->
-          <button class="btn-danger-outline" id="btnDetailRemoveStale" onclick="handleRemoveStaleExternal()" hidden>
+          <button class="btn-danger-outline" id="btnDetailRemoveStale" data-help="admin-session-sheet#sheet#14" onclick="handleRemoveStaleExternal()" hidden>
             <span class="show-pt">Remover cópia obsoleta</span>
             <span class="show-en">Remove stale copy</span>
           </button>
@@ -2764,15 +2764,15 @@
           <span class="show-pt">Esta reunião faz parte de uma série. Quais reuniões deseja alterar?</span>
           <span class="show-en">This meeting is part of a series. Which meetings do you want to change?</span>
         </p>
-        <button class="btn-submit" onclick="chooseSeriesScope('single')">
+        <button class="btn-submit" data-help="admin-session-sheet#sheet#15" onclick="chooseSeriesScope('single')">
           <span class="show-pt">Esta reunião</span>
           <span class="show-en">This meeting</span>
         </button>
-        <button class="btn-submit" onclick="chooseSeriesScope('following')">
+        <button class="btn-submit" data-help="admin-session-sheet#sheet#15" onclick="chooseSeriesScope('following')">
           <span class="show-pt">Esta e todas as seguintes</span>
           <span class="show-en">This and all following</span>
         </button>
-        <button class="btn-submit" onclick="chooseSeriesScope('all')">
+        <button class="btn-submit" data-help="admin-session-sheet#sheet#15" onclick="chooseSeriesScope('all')">
           <span class="show-pt">Todas as reuniões</span>
           <span class="show-en">All meetings</span>
         </button>
@@ -2800,11 +2800,11 @@
       </div>
       <div class="modal-body">
         <div id="warningBody" class="warning-body"></div>
-        <button class="btn-submit" onclick="acceptWarningDialog()">
+        <button class="btn-submit" data-help="admin-new-session-details#newsession#10" onclick="acceptWarningDialog()">
           <span class="show-pt">Agendar mesmo assim</span>
           <span class="show-en">Book anyway</span>
         </button>
-        <button class="btn-cancel-link" onclick="cancelWarningDialog()">
+        <button class="btn-cancel-link" data-help="admin-new-session-details#newsession#10" onclick="cancelWarningDialog()">
           <span class="show-pt">Escolher outro horário</span>
           <span class="show-en">Choose a different time</span>
         </button>
@@ -2853,11 +2853,11 @@
             <span class="show-en">Category</span>
           </div>
           <div class="type-toggle">
-            <button class="type-toggle-btn active" id="edCategoryClient" onclick="setEditCategory('client')">
+            <button class="type-toggle-btn active" id="edCategoryClient" data-help="admin-session-sheet#sheet#6" onclick="setEditCategory('client')">
               <span class="show-pt">Cliente</span>
               <span class="show-en">Client</span>
             </button>
-            <button class="type-toggle-btn" id="edCategoryProspective" onclick="setEditCategory('prospective')">
+            <button class="type-toggle-btn" id="edCategoryProspective" data-help="admin-session-sheet#sheet#6" onclick="setEditCategory('prospective')">
               <span class="show-pt">Prospectivo</span>
               <span class="show-en">Prospective</span>
             </button>
@@ -2913,8 +2913,8 @@
             <span class="show-en">Type</span>
           </div>
           <div class="type-toggle">
-            <button class="type-toggle-btn active" id="edTypeMeet" onclick="setEditType('online_meet')">Google Meet</button>
-            <button class="type-toggle-btn" id="edTypeInPerson" onclick="setEditType('in_person')">
+            <button class="type-toggle-btn active" id="edTypeMeet" data-help="admin-session-sheet#sheet#6" onclick="setEditType('online_meet')">Google Meet</button>
+            <button class="type-toggle-btn" id="edTypeInPerson" data-help="admin-session-sheet#sheet#6" onclick="setEditType('in_person')">
               <span class="show-pt">Presencial</span>
               <span class="show-en">In-Person</span>
             </button>
@@ -7036,8 +7036,8 @@
       document.getElementById("clubPanelLink").innerHTML =
         '<code style="flex:1 1 180px;min-width:0;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
           escHtml(url) + "</code>" +
-        '<button class="btn-fix-meet" onclick="copyClubPanelLink()">' + (en ? "Copy" : "Copiar") + "</button>" +
-        '<button class="btn-whatsapp" onclick="shareClubPanelLink()">' + (en ? "Share" : "Compartilhar") + "</button>";
+        '<button class="btn-fix-meet" data-help="admin-apex-club#club#6" onclick="copyClubPanelLink()">' + (en ? "Copy" : "Copiar") + "</button>" +
+        '<button class="btn-whatsapp" data-help="admin-apex-club#club#6" onclick="shareClubPanelLink()">' + (en ? "Share" : "Compartilhar") + "</button>";
     }
 
     function clubPublicBase() {

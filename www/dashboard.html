@@ -88,7 +88,7 @@
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
   <script src="task-sheet.js?v=1792440996"></script>
-  <script src="scheduling-queue.js?v=1793026395"></script>
+  <script src="scheduling-queue.js?v=1793153885"></script>
   <link rel="stylesheet" href="template-edit.css?v=1793026396">
   <script src="template-edit.js?v=1793026396"></script>
   <title>Apex Command Center</title>
@@ -892,7 +892,7 @@
         <span id="headerEmail"></span>
         <span class="role-badge" id="headerRole"></span>
       </div>
-      <button class="lang-btn" onclick="apexNavToggleLang()">
+      <button class="lang-btn" data-help="admin-menu-language-learn#menu#2" onclick="apexNavToggleLang()">
         <span class="show-pt">EN</span>
         <span class="show-en">PT</span>
       </button>
@@ -931,12 +931,12 @@
               <span class="show-en">Overview</span>
             </h1>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <button class="btn-voice-mic" onclick="openVoiceModal()">
+              <button data-help="admin-rafa-dashboard#rd#1" class="btn-voice-mic" onclick="openVoiceModal()">
                 <span aria-hidden="true">&#127908;</span>
                 <span class="show-pt">Falar reuniao</span>
                 <span class="show-en">Speak a meeting</span>
               </button>
-              <a href="sessions.html" class="btn-cta-link" data-help="admin-sessions-summary#sessions#8">
+              <a href="sessions.html" class="btn-cta-link">
                 <span class="show-pt">+ Nova Sessao</span>
                 <span class="show-en">+ New Session</span>
               </a>
@@ -1105,17 +1105,17 @@
               <!-- Voice booking was built for Rafa and shipped onto Alice's and
                    the dev dashboard only, so the one person it exists for could
                    not reach it. -->
-              <button class="btn-voice-mic" onclick="openVoiceModal()">
+              <button data-help="admin-rafa-dashboard#rd#1" class="btn-voice-mic" onclick="openVoiceModal()">
                 <span aria-hidden="true">&#127908;</span>
                 <span class="show-pt">Falar reuniao</span>
                 <span class="show-en">Speak a meeting</span>
               </button>
               <div class="view-toggle">
-                <button class="view-toggle-btn active" id="rafaBtnDaily" onclick="setRafaScope('daily')">
+                <button data-help="admin-rafa-dashboard#rd#1" class="view-toggle-btn active" id="rafaBtnDaily" onclick="setRafaScope('daily')">
                   <span class="show-pt">Diario</span>
                   <span class="show-en">Daily</span>
                 </button>
-                <button class="view-toggle-btn" id="rafaBtnWeekly" onclick="setRafaScope('weekly')">
+                <button data-help="admin-rafa-dashboard#rd#1" class="view-toggle-btn" id="rafaBtnWeekly" onclick="setRafaScope('weekly')">
                   <span class="show-pt">Semanal</span>
                   <span class="show-en">Weekly</span>
                 </button>
@@ -1187,7 +1187,7 @@
           </div>
           <div id="mtVoiceBlock">
           <div class="mt-speak">
-            <button class="btn-voice-mic" id="mtSpeakBtn" onclick="toggleMyTasksRecording()">
+            <button data-help="admin-tasks#tasks#2" class="btn-voice-mic" id="mtSpeakBtn" onclick="toggleMyTasksRecording()">
               <span aria-hidden="true">&#127908;</span>
               <span id="mtSpeakLabel">
                 <span class="show-pt">Falar minhas tarefas</span>
@@ -1270,12 +1270,12 @@
               <span class="show-en">Overview</span>
             </h1>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <button class="btn-voice-mic" onclick="openVoiceModal()">
+              <button data-help="admin-rafa-dashboard#rd#1" class="btn-voice-mic" onclick="openVoiceModal()">
                 <span aria-hidden="true">&#127908;</span>
                 <span class="show-pt">Falar reuniao</span>
                 <span class="show-en">Speak a meeting</span>
               </button>
-              <a href="sessions.html" class="btn-cta-link" data-help="admin-sessions-summary#sessions#8">
+              <a href="sessions.html" class="btn-cta-link">
                 <span class="show-pt">+ Nova Sessao</span>
                 <span class="show-en">+ New Session</span>
               </a>
@@ -1351,7 +1351,7 @@
           <div id="tellUsMessages" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
           <textarea id="tellUsInput" class="field-input" rows="3" style="width:100%;resize:vertical;"></textarea>
           <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
-            <button class="btn-secondary btn-sm" id="tellUsMicBtn" onclick="toggleTellUsMic()">
+            <button data-help="admin-tell-us-goal-approvals#dash#2" class="btn-secondary btn-sm" id="tellUsMicBtn" onclick="toggleTellUsMic()">
               &#127908; <span class="show-pt">Ditar</span><span class="show-en">Dictate</span>
             </button>
             <span id="tellUsMicStatus" style="font-size:12px;color:var(--muted);"></span>
@@ -1396,7 +1396,7 @@
             <button class="btn-secondary btn-sm" id="supportTabOpen" onclick="loadSupportTickets('open')">
               <span class="show-pt">Abertos</span><span class="show-en">Open</span>
             </button>
-            <button class="btn-secondary btn-sm" id="supportTabResolved" onclick="loadSupportTickets('resolved')">
+            <button data-help="admin-activity-support-preview#tools#4" class="btn-secondary btn-sm" id="supportTabResolved" onclick="loadSupportTickets('resolved')">
               <span class="show-pt">Resolvidos</span><span class="show-en">Resolved</span>
             </button>
           </div>
@@ -1619,7 +1619,7 @@
       </p>
 
       <div style="margin:18px 0;">
-        <button class="btn-voice-mic" id="voiceRecBtn" onclick="toggleVoiceRecording()">
+        <button data-help="admin-rafa-dashboard#rd#1" class="btn-voice-mic" id="voiceRecBtn" onclick="toggleVoiceRecording()">
           <span aria-hidden="true">&#127908;</span>
           <span id="voiceRecLabel">
             <span class="show-pt">Gravar</span>
@@ -2507,9 +2507,9 @@
               (p.proposed_by ? ' · ' + escHtml(p.proposed_by) : '') +
               '</div></div>' +
               '<div style="display:flex;gap:8px;">' +
-              '<button style="background:transparent;border:1px solid #3f7d4e;color:#3f7d4e;border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="decideGoalApproval(' + keyArgs + ',\'approve\',this)">' +
+              '<button data-help="admin-tell-us-goal-approvals#dash#3" style="background:transparent;border:1px solid #3f7d4e;color:#3f7d4e;border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="decideGoalApproval(' + keyArgs + ',\'approve\',this)">' +
               (isEnLang ? 'Approve' : 'Aprovar') + '</button>' +
-              '<button style="background:transparent;border:1px solid #b44040;color:#b44040;border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="decideGoalApproval(' + keyArgs + ',\'reject\',this)">' +
+              '<button data-help="admin-tell-us-goal-approvals#dash#3" style="background:transparent;border:1px solid #b44040;color:#b44040;border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="decideGoalApproval(' + keyArgs + ',\'reject\',this)">' +
               (isEnLang ? 'Reject' : 'Rejeitar') + '</button>' +
               '</div></div>';
           });
@@ -2833,7 +2833,7 @@
             });
 
             html += '</div>';
-            html += '<button type="button" class="btn-join-wa" onclick="prepBlockBuilt(\'' +
+            html += '<button data-help="admin-prep-another-meeting#am#4" type="button" class="btn-join-wa" onclick="prepBlockBuilt(\'' +
                     esc(b.id) + '\');">' +
                     '<span class="show-pt">Constru&iacute;do</span>' +
                     '<span class="show-en">Built</span></button>';
@@ -2871,7 +2871,7 @@
                   (isEnLang ? 'Contract template review' : 'Revisão do contrato modelo') + '</h2></div>' +
                   '<div style="padding:4px 4px 12px;font-size:14px;">' +
                   (isEnLang ? 'The clause library is ready for your review, item by item, with a Portuguese summary beside each one.' : 'A biblioteca de cláusulas está pronta para a sua revisão, item por item, com o resumo em português ao lado de cada um.') +
-                  ' <a href="contract-review.html" class="btn-cta-link" style="margin-left:8px;">' + (isEnLang ? 'Open review' : 'Abrir revisão') + '</a></div></div>';
+                  ' <a data-help="admin-contract-review#review#1" href="contract-review.html" class="btn-cta-link" style="margin-left:8px;">' + (isEnLang ? 'Open review' : 'Abrir revisão') + '</a></div></div>';
               }
             }
             if (window.initNav) { window.initNav(); }
@@ -2889,8 +2889,8 @@
             html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 4px;border-bottom:1px solid var(--border);">' +
               '<div style="flex:1;min-width:220px;"><div style="font-size:14px;font-weight:600;">' + escHtml(s.reviewer_name || s.reviewer_email || "") + ' &middot; v' + s.version + '</div>' +
               '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + s.ok_count + ' OK &middot; ' + s.changes_count + (isEnLang ? ' with changes' : ' com mudanças') + ' &middot; ' + escHtml(String(s.submitted_at || "").slice(0, 16)) + ' UTC</div></div>' +
-              '<div style="display:flex;gap:8px;"><a href="contract-review.html?version=' + s.version + '" class="btn-cta-link">' + (isEnLang ? 'Open review' : 'Abrir revisão') + '</a>' +
-              '<button style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="markContractReviewSeen(\'' + s.id + '\',this)">' + (isEnLang ? 'Seen' : 'Visto') + '</button></div></div>';
+              '<div style="display:flex;gap:8px;"><a data-help='admin-contract-review#review#1' href="contract-review.html?version=' + s.version + '" class="btn-cta-link">' + (isEnLang ? 'Open review' : 'Abrir revisão') + '</a>' +
+              '<button data-help="admin-contract-review#review#1" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="markContractReviewSeen(\'' + s.id + '\',this)">' + (isEnLang ? 'Seen' : 'Visto') + '</button></div></div>';
           });
           listEl.innerHTML = html;
           section.hidden = false;
@@ -2977,8 +2977,8 @@
             return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 4px;border-bottom:1px solid var(--border);">' +
               '<div style="flex:1;min-width:220px;"><div style="font-size:14px;font-weight:600;">' + escHtml(n.client_name || "") + ' &middot; ' + escHtml(n.job_name || "") + ' &middot; $' + val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + '</div>' +
               '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + (isEnLang ? 'Open for ' + days + ' days' : 'Aberto h\u00e1 ' + days + ' dias') + (n.opened_by ? ' &middot; ' + escHtml(n.opened_by) + ' (' + escHtml(n.opened_role || "") + ')' : '') + '</div></div>' +
-              '<div style="display:flex;gap:8px;flex-wrap:wrap;"><a href="meeting-prep.html?client=' + encodeURIComponent(n.client_id) + '" class="btn-cta-link">' + (isEnLang ? 'Meeting prep' : 'Prepara\u00e7\u00e3o') + '</a>' +
-              '<button style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="openNoticeResolve(\'' + escHtml(n.id) + '\')">' + (isEnLang ? 'Resolved in the meeting' : 'Resolvido na reuni\u00e3o') + '</button></div></div>';
+              '<div style="display:flex;gap:8px;flex-wrap:wrap;"><a data-help='admin-meeting-prep#prep#1' href="meeting-prep.html?client=' + encodeURIComponent(n.client_id) + '" class="btn-cta-link">' + (isEnLang ? 'Meeting prep' : 'Prepara\u00e7\u00e3o') + '</a>' +
+              '<button data-help="liens-and-final-affidavit#liens#8" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="openNoticeResolve(\'' + escHtml(n.id) + '\')">' + (isEnLang ? 'Resolved in the meeting' : 'Resolvido na reuni\u00e3o') + '</button></div></div>';
           }).join("");
           staleNoticeRows = rows;
           section.hidden = false;
@@ -3009,8 +3009,8 @@
               '<div style="flex:1;min-width:220px;"><div style="font-size:14px;font-weight:600;">' + escHtml(p.client_name || "") + ' &middot; ' + escHtml(p.display_name || "") + '</div>' +
               '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + (isEnLang ? 'Created ' + days + ' days ago, never signed in' : 'Criado há ' + days + ' dias, nunca acessou') + '</div></div>' +
               '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-              '<a href="client.html?id=' + encodeURIComponent(p.client_id) + '" class="btn-cta-link">' + (isEnLang ? 'Open client' : 'Abrir cliente') + '</a>' +
-              '<button class="btn-add" onclick="resendDormantLogin(\'' + escHtml(p.client_id) + '\', this)">' + (isEnLang ? 'Resend' : 'Reenviar') + '</button>' +
+              '<a data-help="admin-activity-support-preview#tools#3" href="client.html?id=' + encodeURIComponent(p.client_id) + '" class="btn-cta-link">' + (isEnLang ? 'Open client' : 'Abrir cliente') + '</a>' +
+              '<button data-help="admin-activity-support-preview#tools#3" class="btn-add" onclick="resendDormantLogin(\'' + escHtml(p.client_id) + '\', this)">' + (isEnLang ? 'Resend' : 'Reenviar') + '</button>' +
               '</div></div>';
           }).join("");
           section.hidden = false;
@@ -3055,9 +3055,9 @@
               (p.requested_by ? ' &middot; ' + escHtml(p.requested_by) : '') +
               '</div></div>' +
               '<div style="display:flex;gap:8px;">' +
-              '<button style="background:transparent;border:1px solid #3f7d4e;color:#3f7d4e;border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="decideSellerLoginRequest(\'' + p.id + '\',\'approve\',this)">' +
+              '<button data-help="admin-tell-us-goal-approvals#dash#3" style="background:transparent;border:1px solid #3f7d4e;color:#3f7d4e;border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="decideSellerLoginRequest(\'' + p.id + '\',\'approve\',this)">' +
               (isEnLang ? 'Approve' : 'Aprovar') + '</button>' +
-              '<button style="background:transparent;border:1px solid #b44040;color:#b44040;border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="decideSellerLoginRequest(\'' + p.id + '\',\'reject\',this)">' +
+              '<button data-help="admin-tell-us-goal-approvals#dash#3" style="background:transparent;border:1px solid #b44040;color:#b44040;border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="decideSellerLoginRequest(\'' + p.id + '\',\'reject\',this)">' +
               (isEnLang ? 'Reject' : 'Rejeitar') + '</button>' +
               '</div></div>';
           });

@@ -187,7 +187,7 @@
       // chase, this does the chasing — same link, different (softer) message.
       bits.push('<button type="button" class="sq-btn" data-act="followup">' + (isEn ? "Follow up" : "Cobrar") + "</button>");
       bits.push('<button type="button" class="sq-btn" data-act="manual">' + (isEn ? "Add time manually" : "Adicionar horário") + "</button>");
-      bits.push('<button type="button" class="sq-btn" data-act="reschedule">' + (isEn ? "New link" : "Reagendar") + "</button>");
+      bits.push('<button data-help="admin-send-times#send#12" type="button" class="sq-btn" data-act="reschedule">' + (isEn ? "New link" : "Reagendar") + "</button>");
       bits.push('<button type="button" class="sq-btn" data-act="skip">' + (isEn ? "Skip this week" : "Pular esta semana") + "</button>");
     }
     bits.push("</div>");
@@ -254,7 +254,7 @@
     html.push('<p class="sq-modal-sub">' +
       (isEn ? "WhatsApp opens so you can pick the contact or group."
             : "O WhatsApp abre para você escolher o contato ou grupo.") + "</p>");
-    html.push('<button type="button" class="sq-btn sq-btn-gold" data-send="1">' +
+    html.push('<button data-help="admin-send-times#send#9" type="button" class="sq-btn sq-btn-gold" data-send="1">' +
       (isEn ? "Open WhatsApp" : "Abrir o WhatsApp") + "</button>");
     html.push('<button type="button" class="sq-btn" data-close="1">' + (isEn ? "Cancel" : "Cancelar") + "</button>");
     html.push("</div>");
@@ -375,7 +375,7 @@
     html.push('<input type="time" class="sq-input" id="sqManualTime" value="14:00" step="900">');
     html.push('<p class="sq-modal-sub" id="sqManualEcho"></p>');
     html.push('<p class="sq-modal-sub sq-error" id="sqManualErr" hidden></p>');
-    html.push('<button type="button" class="sq-btn sq-btn-gold" data-save="1">' +
+    html.push('<button data-help="admin-send-times#send#11" type="button" class="sq-btn sq-btn-gold" data-save="1">' +
       (isEn ? "Save time" : "Salvar horário") + "</button>");
     html.push('<button type="button" class="sq-btn" data-close="1">' + (isEn ? "Cancel" : "Cancelar") + "</button>");
     html.push("</div>");

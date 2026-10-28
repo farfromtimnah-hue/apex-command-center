@@ -1187,7 +1187,7 @@
         <span id="headerEmail"></span>
         <span class="role-badge" id="headerRole"></span>
       </div>
-      <button class="lang-btn" onclick="apexNavToggleLang()">
+      <button class="lang-btn" data-help="admin-menu-language-learn#menu#2" onclick="apexNavToggleLang()">
         <span class="show-pt">EN</span>
         <span class="show-en">PT</span>
       </button>
@@ -1254,16 +1254,16 @@
       </div>
       <!-- Tab bar (relocated here from inside #aliceView) -->
       <div class="tab-bar m-scroll-tabs" id="aliceTabBar">
-        <button class="tab-pill active" id="tabBtnInbox" onclick="switchTab('inbox')">
+        <button data-help="admin-sessions-summary#sessions#2" class="tab-pill active" id="tabBtnInbox" onclick="switchTab('inbox')">
           <span class="show-pt">Caixa de Entrada</span>
           <span class="show-en">Inbox</span>
           <span class="tab-badge" id="inboxBadge" hidden>0</span>
         </button>
-        <button class="tab-pill" id="tabBtnNewSession" onclick="switchTab('newSession')">
+        <button data-help="admin-sessions-summary#sessions#2" class="tab-pill" id="tabBtnNewSession" onclick="switchTab('newSession')">
           <span class="show-pt">Nova Sessão</span>
           <span class="show-en">New Session</span>
         </button>
-        <button class="tab-pill" id="tabBtnTranscripts" onclick="switchTab('transcripts')">
+        <button data-help="admin-sessions-summary#sessions#2" class="tab-pill" id="tabBtnTranscripts" onclick="switchTab('transcripts')">
           <span class="show-pt">Transcrições</span>
           <span class="show-en">Transcripts</span>
         </button>
@@ -1282,26 +1282,26 @@
 
         <!-- Inbox sub-tabs: New Meeting / Processing / Summarized / Archive / Upcoming -->
         <div class="inv-subtab-bar m-scroll-tabs" id="inboxSubtabBar">
-          <button class="inv-subtab active" id="inboxSubtabNewMeeting" onclick="switchInboxSubtab('newMeeting')">
+          <button data-help="admin-sessions-summary#sessions#3" class="inv-subtab active" id="inboxSubtabNewMeeting" onclick="switchInboxSubtab('newMeeting')">
             <span class="show-pt">Nova Reuni&atilde;o</span>
             <span class="show-en">New Meeting</span>
             <span class="inv-subtab-badge" id="inboxSubtabBadgeNewMeeting" hidden>0</span>
           </button>
-          <button class="inv-subtab" id="inboxSubtabProcessing" onclick="switchInboxSubtab('processing')">
+          <button data-help="admin-sessions-summary#sessions#3" class="inv-subtab" id="inboxSubtabProcessing" onclick="switchInboxSubtab('processing')">
             <span class="show-pt">Processando</span>
             <span class="show-en">Processing</span>
             <span class="inv-subtab-badge" id="inboxSubtabBadgeProcessing" hidden>0</span>
           </button>
-          <button class="inv-subtab" id="inboxSubtabSummarized" onclick="switchInboxSubtab('summarized')">
+          <button data-help="admin-sessions-summary#sessions#3" class="inv-subtab" id="inboxSubtabSummarized" onclick="switchInboxSubtab('summarized')">
             <span class="show-pt">Resumido</span>
             <span class="show-en">Summarized</span>
             <span class="inv-subtab-badge" id="inboxSubtabBadgeSummarized" hidden>0</span>
           </button>
-          <button class="inv-subtab" id="inboxSubtabArchive" onclick="switchInboxSubtab('archive')">
+          <button data-help="admin-sessions-summary#sessions#3" class="inv-subtab" id="inboxSubtabArchive" onclick="switchInboxSubtab('archive')">
             <span class="show-pt">Arquivo</span>
             <span class="show-en">Archive</span>
           </button>
-          <button class="inv-subtab" id="inboxSubtabUpcoming" onclick="switchInboxSubtab('upcoming')">
+          <button data-help="admin-sessions-summary#sessions#3" class="inv-subtab" id="inboxSubtabUpcoming" onclick="switchInboxSubtab('upcoming')">
             <span class="show-pt">Pr&oacute;ximas</span>
             <span class="show-en">Upcoming</span>
           </button>
@@ -1380,7 +1380,7 @@
                   <span class="show-en">Cover and Executive Summary are always included. Uncheck a section to exclude it from this session's report.</span>
                 </p>
                 <div id="sectionConfigList"><!-- checkboxes rendered by JS --></div>
-                <button type="button" class="btn-action" id="btnGenerateSummary" style="margin-top:12px; display:none;">
+                <button data-help="admin-sessions-transcripts#tr#4" type="button" class="btn-action" id="btnGenerateSummary" style="margin-top:12px; display:none;">
                   <span class="show-pt">Gerar Resumo</span>
                   <span class="show-en">Generate Summary</span>
                 </button>
@@ -1464,7 +1464,7 @@
             </select>
           </div>
           <div style="display:flex;gap:8px;margin-top:4px;">
-            <button class="btn-primary" style="flex:1;font-size:12px;padding:8px 0;" onclick="handleCreateClient()">
+            <button data-help="admin-sessions-transcripts#tr#3" class="btn-primary" style="flex:1;font-size:12px;padding:8px 0;" onclick="handleCreateClient()">
               <span class="show-pt">Salvar Cliente</span>
               <span class="show-en">Save Client</span>
             </button>
@@ -1551,7 +1551,7 @@
                   <span class="status-badge" data-status="approved"></span>
                 </div>
               </div>
-              <button class="btn-secondary" onclick="window.print()">
+              <button data-help="admin-sessions-summary#sessions#7" class="btn-secondary" onclick="window.print()">
                 <span class="show-pt">Imprimir</span>
                 <span class="show-en">Print</span>
               </button>

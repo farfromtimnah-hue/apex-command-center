@@ -2030,9 +2030,9 @@
           </div>
           <div class="profile-header-meta">
             <div class="client-nav-row">
-              <button class="btn-client-nav" id="btnPrevClient" hidden onclick="navNeighborClient(-1)" data-title-attr-pt="Cliente anterior" data-title-attr-en="Previous client" title="Cliente anterior">&#8249;</button>
+              <button data-help="admin-client-record#open#2" class="btn-client-nav" id="btnPrevClient" hidden onclick="navNeighborClient(-1)" data-title-attr-pt="Cliente anterior" data-title-attr-en="Previous client" title="Cliente anterior">&#8249;</button>
               <h1 class="client-name" id="clientName">&#8212;</h1>
-              <button class="btn-client-nav" id="btnNextClient" hidden onclick="navNeighborClient(1)" data-title-attr-pt="Pr&oacute;ximo cliente" data-title-attr-en="Next client" title="Pr&oacute;ximo cliente">&#8250;</button>
+              <button data-help="admin-client-record#open#2" class="btn-client-nav" id="btnNextClient" hidden onclick="navNeighborClient(1)" data-title-attr-pt="Pr&oacute;ximo cliente" data-title-attr-en="Next client" title="Pr&oacute;ximo cliente">&#8250;</button>
             </div>
             <div class="client-badges" id="clientBadges">
               <!-- package + status lozenges rendered by JS -->
@@ -2094,7 +2094,7 @@
                   <span class="show-en">Add Logo</span>
                 </span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('overview')" id="collapseOverview" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('overview')" id="collapseOverview" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="overviewBody">
@@ -2124,7 +2124,7 @@
                 <span class="show-pt">Gerar PDF</span>
                 <span class="show-en">Generate PDF</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('sessions')" id="collapseSessions" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('sessions')" id="collapseSessions" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="sessionsBody">
@@ -2145,7 +2145,7 @@
               <button class="btn-add" id="btnDpEdit" onclick="openDigitalPresenceModal()">
                 <span class="show-pt">Editar</span><span class="show-en">Edit</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('dp')" id="collapseDp" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('dp')" id="collapseDp" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="dpBody">
@@ -2166,7 +2166,7 @@
               <button class="btn-add" id="btnAddClientTask" onclick="openAddTaskForm('client')">
                 + <span class="show-pt">Adicionar</span><span class="show-en">Add</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('clientTasks')" id="collapseClientTasks" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('clientTasks')" id="collapseClientTasks" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="clientTasksBody">
@@ -2196,7 +2196,7 @@
               <button class="btn-add" id="btnAddConsultantTask" onclick="openAddTaskForm('consultant')">
                 + <span class="show-pt">Adicionar</span><span class="show-en">Add</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('consultantTasks')" id="collapseConsultantTasks" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('consultantTasks')" id="collapseConsultantTasks" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="consultantTasksBody">
@@ -2223,10 +2223,10 @@
               <span class="show-en">Contacts</span>
             </h2>
             <div style="display:flex;gap:8px;align-items:center;">
-              <button class="btn-add" onclick="openContactModal()">
+              <button data-help="admin-client-record#open#6" class="btn-add" onclick="openContactModal()">
                 + <span class="show-pt">Adicionar</span><span class="show-en">Add</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('contacts')" id="collapseContacts" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('contacts')" id="collapseContacts" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="contactsBody">
@@ -2387,7 +2387,7 @@
               <button class="btn-add" onclick="openNoteModal()">
                 + <span class="show-pt">Adicionar Nota</span><span class="show-en">Add Note</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('notes')" id="collapseNotes" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('notes')" id="collapseNotes" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="notesBody">
@@ -2408,7 +2408,7 @@
               <button class="btn-add" id="btnAttachResource" onclick="openAttachResourceModal()">
                 + <span class="show-pt">Anexar Recurso</span><span class="show-en">Attach Resource</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('resources')" id="collapseResources" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('resources')" id="collapseResources" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="resourcesBody">
@@ -2429,7 +2429,7 @@
               <button class="btn-add" onclick="openGrowthModal()">
                 + <span class="show-pt">Registrar</span><span class="show-en">Log Entry</span>
               </button>
-              <button class="collapse-btn" onclick="toggleSection('growth')" id="collapseGrowth" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('growth')" id="collapseGrowth" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="growthBody">
@@ -2449,7 +2449,7 @@
               <span class="show-en">Pipeline</span>
             </h2>
             <div style="display:flex;gap:8px;align-items:center;">
-              <button class="collapse-btn" onclick="toggleSection('gmcrm')" id="collapseGmcrm" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('gmcrm')" id="collapseGmcrm" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="gmcrmSecBody">
@@ -2466,7 +2466,7 @@
               <span class="show-en">Projects</span>
             </h2>
             <div style="display:flex;gap:8px;align-items:center;">
-              <button class="collapse-btn" onclick="toggleSection('gmjobs')" id="collapseGmjobs" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('gmjobs')" id="collapseGmjobs" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="gmjobsSecBody">
@@ -2483,7 +2483,7 @@
               <span class="show-en">Finance</span>
             </h2>
             <div style="display:flex;gap:8px;align-items:center;">
-              <button class="collapse-btn" onclick="toggleSection('gmfinance')" id="collapseGmfinance" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('gmfinance')" id="collapseGmfinance" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="gmfinanceSecBody">
@@ -2500,7 +2500,7 @@
               <span class="show-en">Pricing</span>
             </h2>
             <div style="display:flex;gap:8px;align-items:center;">
-              <button class="collapse-btn" onclick="toggleSection('gmpricing')" id="collapseGmpricing" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('gmpricing')" id="collapseGmpricing" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="gmpricingSecBody">
@@ -2521,7 +2521,7 @@
               <span class="show-en">Estimates</span>
             </h2>
             <div style="display:flex;gap:8px;align-items:center;">
-              <button class="collapse-btn" onclick="toggleSection('gmestimates')" id="collapseGmestimates" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('gmestimates')" id="collapseGmestimates" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="gmestimatesSecBody">
@@ -2540,7 +2540,7 @@
               <span class="show-pt">Contrato APEX</span>
               <span class="show-en">APEX Contract</span>
             </h2>
-            <button class="collapse-btn" onclick="toggleSection('apexContract')" id="collapseApexContract" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('apexContract')" id="collapseApexContract" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
           </div>
           <div class="card-body-collapsible" id="apexContractBody">
             <div id="apexContractMount" style="padding:14px 20px;"></div>
@@ -2553,7 +2553,7 @@
               <span class="show-pt">Método de Pagamento</span>
               <span class="show-en">Payment Method</span>
             </h2>
-            <button class="collapse-btn" onclick="toggleSection('payment')" id="collapsePayment" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('payment')" id="collapsePayment" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
           </div>
           <div class="card-body-collapsible" id="paymentBody">
             <div style="padding:14px 20px;">
@@ -2614,7 +2614,7 @@
               <span class="show-en">Vendors</span>
             </h2>
             <div style="display:flex;gap:8px;align-items:center;">
-              <button class="collapse-btn" onclick="toggleSection('vendors')" id="collapseVendors" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+              <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('vendors')" id="collapseVendors" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
             </div>
           </div>
           <div class="card-body-collapsible" id="vendorsBody">
@@ -2650,7 +2650,7 @@
               <span class="show-pt">Enviar Arquivo</span>
               <span class="show-en">Upload File</span>
             </button>
-            <button class="collapse-btn" onclick="toggleSection('docs')" id="collapseDocs" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('docs')" id="collapseDocs" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
           </div>
           <div class="card-body-collapsible" id="docsBody">
             <div class="pull-status" id="docUploadStatus" style="padding:0 20px;"></div>
@@ -2825,7 +2825,7 @@
               <span class="show-pt">Atividade Recente</span>
               <span class="show-en">Recent Activity</span>
             </div>
-            <button class="collapse-btn" onclick="toggleSection('activity')" id="collapseActivity" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('activity')" id="collapseActivity" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
           </div>
           <div class="card-body-collapsible" id="activityBody">
             <div class="coming-soon">
@@ -5054,7 +5054,7 @@
         var by = clientData ? clientData[sw.key + "_set_by"] : null;
         var at = clientData ? clientData[sw.key + "_set_at"] : null;
         html += '<div class="toggle-row" style="margin-bottom:10px;">' +
-          '<button type="button" class="toggle-switch' + (on ? " on" : "") + '" role="switch" aria-checked="' + (on ? "true" : "false") + '"' +
+          '<button data-help="admin-client-record-forms#forms#2" type="button" class="toggle-switch' + (on ? " on" : "") + '" role="switch" aria-checked="' + (on ? "true" : "false") + '"' +
             (clientSwitchBusy ? " disabled" : "") + ' onclick="toggleClientSwitch(\'' + sw.key + '\')"' +
             ' aria-label="' + sw.en + '"></button>' +
           '<div><div class="toggle-state"><span class="show-pt">' + sw.pt + '</span><span class="show-en">' + sw.en + '</span> &middot; ' +
@@ -7413,6 +7413,7 @@
         if (canEdit) {
           var editBtn = document.createElement("button");
           editBtn.className = "pkg-edit-btn";
+          editBtn.setAttribute("data-help", "admin-client-record#open#4");
           editBtn.setAttribute("data-title-attr-pt", hasPkg ? "Editar pacote" : "Definir pacote");
           editBtn.setAttribute("data-title-attr-en", hasPkg ? "Edit package" : "Set package");
           editBtn.title = hasPkg ? t("Editar pacote", "Edit package") : t("Definir pacote", "Set package");
@@ -7439,6 +7440,7 @@
       if (canEdit) {
         var statusEditBtn = document.createElement("button");
         statusEditBtn.className = "status-edit-btn";
+        statusEditBtn.setAttribute("data-help", "admin-client-record#open#4");
         statusEditBtn.setAttribute("data-title-attr-pt", "Editar status");
         statusEditBtn.setAttribute("data-title-attr-en", "Edit status");
         statusEditBtn.title = t("Editar status", "Edit status");
@@ -7554,6 +7556,7 @@
         loz.textContent = (clientData && clientData.package) ? clientData.package : "—";
         var editBtn = document.createElement("button");
         editBtn.className = "pkg-edit-btn";
+          editBtn.setAttribute("data-help", "admin-client-record#open#4");
         editBtn.setAttribute("data-title-attr-pt", "Editar pacote");
         editBtn.setAttribute("data-title-attr-en", "Edit package");
         editBtn.title = t("Editar pacote", "Edit package");
@@ -7587,6 +7590,7 @@
             loz.textContent = (clientData && clientData.package) ? clientData.package : "—";
             var editBtn = document.createElement("button");
             editBtn.className = "pkg-edit-btn";
+          editBtn.setAttribute("data-help", "admin-client-record#open#4");
             editBtn.setAttribute("data-title-attr-pt", "Editar pacote");
         editBtn.setAttribute("data-title-attr-en", "Edit package");
         editBtn.title = t("Editar pacote", "Edit package");
@@ -8306,6 +8310,7 @@
       loz.setAttribute("data-status", statusValue);
       var btn = document.createElement("button");
       btn.className = "status-edit-btn";
+      btn.setAttribute("data-help", "admin-client-record#open#4");
       btn.setAttribute("data-title-attr-pt", "Editar status");
       btn.setAttribute("data-title-attr-en", "Edit status");
       btn.title = t("Editar status", "Edit status");
@@ -8564,6 +8569,7 @@
             loz.setAttribute("data-status", curStatus);
             var btn = document.createElement("button");
             btn.className = "status-edit-btn";
+      btn.setAttribute("data-help", "admin-client-record#open#4");
             btn.setAttribute("data-title-attr-pt", "Editar status");
             btn.setAttribute("data-title-attr-en", "Edit status");
             btn.title = t("Editar status", "Edit status");
@@ -11076,7 +11082,7 @@
         var g = cgGroupByKey(order[i]);
         if (!g) { continue; }
         if (!cgGroupSections(g).length && !g.analyticsLink) { continue; }
-        html += '<button type="button" class="cg-tab' + (g.key === cgGroup ? " active" : "") +
+        html += '<button data-help="admin-client-record#open#3" type="button" class="cg-tab' + (g.key === cgGroup ? " active" : "") +
           '" onclick="cgGroupTap(\'' + g.key + '\', this)" data-cg-key="' + g.key + '">' +
           (window.apexNavSvg ? window.apexNavSvg(g.icon) : "") +
           '<span class="cg-tab-long">' + cgLabelHtml(g.pt, g.en) + '</span>' +

@@ -282,13 +282,13 @@
           if (g.plus_one) {
             plusOneLine = g.plus_one_name && g.plus_one_phone
               ? '<div class="guest-plusone">' + t("Acompanhante: ", "Plus one: ") + esc(g.plus_one_name) + " · " + esc(g.plus_one_phone) +
-                ' <a class="gbtn wa" href="https://wa.me/' + esc(g.plus_one_phone) + "?text=" +
+                ' <a data-help="admin-apex-club#club#5" class="gbtn wa" href="https://wa.me/' + esc(g.plus_one_phone) + "?text=" +
                 encodeURIComponent(buildClubWhatsAppText(ev, Object.assign({}, g, { name: g.plus_one_name }))) +
                 '" target="_blank" rel="noopener">WhatsApp</a> ' +
                 clubMsgEditBtn(g.id, "plus") +
-                ' <button class="gbtn" onclick="openPlusOneSheet(\'' + g.id + '\')">' + t("Editar", "Edit") + "</button></div>"
+                ' <button data-help="admin-apex-club#club#5" class="gbtn" onclick="openPlusOneSheet(\'' + g.id + '\')">' + t("Editar", "Edit") + "</button></div>"
               : '<div class="guest-plusone"><span class="chip-missing">' + t("Acompanhante: faltando", "Plus one: missing") + '</span>' +
-                ' <button class="gbtn" onclick="openPlusOneSheet(\'' + g.id + '\')">' + t("Adicionar", "Add") + "</button></div>";
+                ' <button data-help="admin-apex-club#club#5" class="gbtn" onclick="openPlusOneSheet(\'' + g.id + '\')">' + t("Adicionar", "Add") + "</button></div>";
           }
           return '<div class="guest-row' + (isNext ? " is-next" : "") + '">' +
             '<span class="guest-name">' + esc(g.name) +
@@ -299,17 +299,17 @@
               plusOneLine +
             "</span>" +
             '<span class="guest-tools">' +
-              '<a class="gbtn wa" href="https://wa.me/' + esc(g.phone) + "?text=" +
+              '<a data-help="admin-apex-club#club#4" class="gbtn wa" href="https://wa.me/' + esc(g.phone) + "?text=" +
                 encodeURIComponent(waText) + '" target="_blank" rel="noopener" ' +
                 'onclick="markClubConfirmed(\'' + g.id + '\')" ' + clubTip("Abrir o WhatsApp com a mensagem de confirma&ccedil;&atilde;o deste convidado", "Open WhatsApp with this guest&#39;s confirmation message") + '>WhatsApp</a>' +
               clubMsgEditBtn(g.id, "guest") +
               (clubIsMoneyRole()
-                ? '<button class="gbtn' + (g.plus_one ? " on" : "") + '" onclick="toggleClubPlusOne(\'' + g.id + '\',' + (g.plus_one ? "true" : "false") + ')" ' + clubTip("Traz mais uma pessoa (conta dois lugares)", "Bringing one more person (counts as two seats)") + '>+1</button>' +
-                  '<button class="gbtn' + (isNext ? " on" : "") + '" onclick="toggleClubNextTime(\'' + g.id + '\',' + (isNext ? "true" : "false") + ')" ' +
+                ? '<button data-help="admin-apex-club#club#5" class="gbtn' + (g.plus_one ? " on" : "") + '" onclick="toggleClubPlusOne(\'' + g.id + '\',' + (g.plus_one ? "true" : "false") + ')" ' + clubTip("Traz mais uma pessoa (conta dois lugares)", "Bringing one more person (counts as two seats)") + '>+1</button>' +
+                  '<button data-help="admin-apex-club#club#4" class="gbtn' + (isNext ? " on" : "") + '" onclick="toggleClubNextTime(\'' + g.id + '\',' + (isNext ? "true" : "false") + ')" ' +
                     clubTip("N&atilde;o vem desta vez; vem na pr&oacute;xima", "Not coming this time; coming to the next one") + '>&rarr;</button>' +
-                  '<button class="gbtn' + (g.attended === 1 ? " on" : "") + '" onclick="setClubAttended(\'' + g.id + '\',' + (g.attended === 1 ? "null" : "1") + ')" ' +
+                  '<button data-help="admin-apex-club#club#4" class="gbtn' + (g.attended === 1 ? " on" : "") + '" onclick="setClubAttended(\'' + g.id + '\',' + (g.attended === 1 ? "null" : "1") + ')" ' +
                     clubTip("Veio ao evento", "Came to the event") + '>&check;</button>' +
-                  '<button class="gbtn' + (g.attended === 0 ? " on" : "") + '" onclick="setClubAttended(\'' + g.id + '\',' + (g.attended === 0 ? "null" : "0") + ')" ' +
+                  '<button data-help="admin-apex-club#club#4" class="gbtn' + (g.attended === 0 ? " on" : "") + '" onclick="setClubAttended(\'' + g.id + '\',' + (g.attended === 0 ? "null" : "0") + ')" ' +
                     clubTip("N&atilde;o veio", "Did not show up") + '>&times;</button>' +
                   (evPaid ? clubPayTools(g) : "")
                 : "") +
@@ -397,7 +397,7 @@
             return '<div class="guest-row">' +
                 '<span class="guest-name">' + label + "</span>" +
                 '<span class="guest-tools">' +
-                  '<a class="gbtn wa" href="https://wa.me/' + esc(p.phone) + "?text=" + encodeURIComponent(waText) + '" target="_blank" rel="noopener"' +
+                  '<a data-help="admin-apex-club#club#4" class="gbtn wa" href="https://wa.me/' + esc(p.phone) + "?text=" + encodeURIComponent(waText) + '" target="_blank" rel="noopener"' +
                     (p.isPlusOne ? "" : ' onclick="markClubConfirmed(\'' + p.regId + '\')"') + ">WhatsApp</a>" +
                   clubMsgEditBtn(p.regId, p.isPlusOne ? "plus" : "guest") +
                 "</span></div>";
@@ -445,7 +445,7 @@
     // plain button does; a plus-one's marks nothing, same as today.
     var CLUB_MSG = null;
     function clubMsgEditBtn(regId, kind) {
-      return ' <button class="gbtn" onclick="openClubMsgEdit(\'' + regId + '\',\'' + kind + '\')" ' +
+      return ' <button data-help="admin-settings-pictures-message#pics#3" class="gbtn" onclick="openClubMsgEdit(\'' + regId + '\',\'' + kind + '\')" ' +
         clubTip("Editar a mensagem antes de abrir o WhatsApp", "Edit the message before opening WhatsApp") + ">" +
         t("Editar msg", "Edit msg") + "</button>";
     }
@@ -1121,7 +1121,7 @@
           (g.zelle_state === "mismatch" ? " (" + t("esperado", "expected") + " " + fmtCents(c.expected_cents) + ")" : "")
         : "Conf# " + esc(g.zelle_conf || "");
       return '<span class="zelle-review">' + info + " " +
-        '<button class="gbtn" onclick="clubZelleDecide(\'' + g.id + '\', \'confirm-zelle\')">' + t("Confirmar", "Confirm") + "</button>" +
+        '<button data-help="admin-apex-club#club#4" class="gbtn" onclick="clubZelleDecide(\'' + g.id + '\', \'confirm-zelle\')">' + t("Confirmar", "Confirm") + "</button>" +
         '<button data-help="admin-apex-club#club#4" class="gbtn" onclick="clubZelleDecide(\'' + g.id + '\', \'reject-zelle\')">' + t("Não é este", "Not this one") + "</button>" +
         "</span>";
     }

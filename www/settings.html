@@ -1070,7 +1070,7 @@
       </div>
 
       <!-- WhatsApp Message Templates section -->
-      <div id="templatesSection">
+      <div id="templatesSection" data-help-default="admin-message-templates#templates#3">
         <div class="section-heading">
           <span class="show-pt">Modelos de Mensagem WhatsApp</span>
           <span class="show-en">WhatsApp Message Templates</span>
@@ -1106,7 +1106,7 @@
             <span class="show-en"><b>Ask them to confirm</b> — never offer a direct decline option. Anyone who cannot come is marked “next time” on the guest list instead.</span>
           </div>
           <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
-            <button onclick="handleSaveBizClubTemplate()" style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap;">
+            <button data-help="admin-settings-pictures-message#pics#3" onclick="handleSaveBizClubTemplate()" style="padding:7px 16px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap;">
               <span class="show-pt">Salvar</span>
               <span class="show-en">Save</span>
             </button>
@@ -1116,7 +1116,7 @@
       </div>
 
       <!-- Packages section -->
-      <div id="packagesSection">
+      <div id="packagesSection" data-help-default="admin-settings-packages-payment#pkg#2">
         <div class="section-heading">
           <span class="show-pt">Gerenciar Pacotes</span>
           <span class="show-en">Manage Packages</span>
@@ -1137,7 +1137,7 @@
       </div>
 
       <!-- Payment Details section -->
-      <div id="paymentDetailsSection" style="margin-top:32px;">
+      <div id="paymentDetailsSection" style="margin-top:32px;" data-help-default="admin-settings-packages-payment#pkg#3">
         <div class="section-heading">
           <span class="show-pt">Detalhes de Pagamento</span>
           <span class="show-en">Payment Details</span>
@@ -1265,7 +1265,7 @@
            The one place the scheduling link's rules are set. Every open slot a
            client is ever offered is computed from these numbers, so they live
            on one screen instead of being scattered through the code. -->
-      <div id="availabilitySection" style="margin-top:32px;">
+      <div id="availabilitySection" style="margin-top:32px;" data-help-default="admin-settings-hours-alerts#hours#2">
         <div class="section-heading">
           <span class="show-pt">Disponibilidade</span>
           <span class="show-en">Availability</span>
@@ -1346,7 +1346,7 @@
            written -- push has nothing to do with invoicing. This comment had
            drifted above the Availability block, describing a section two
            divs away. -->
-      <div id="notificationsSection" style="margin-top:32px;">
+      <div id="notificationsSection" style="margin-top:32px;" data-help-default="admin-settings-hours-alerts#hours#3">
         <div class="section-heading">
           <span class="show-pt">Notifica&#231;&#245;es</span>
           <span class="show-en">Notifications</span>
@@ -2887,6 +2887,7 @@
       rmBtn.type = "button";
       rmBtn.className = "btn-remove-item";
       rmBtn.innerHTML = "&#10005;";
+      rmBtn.setAttribute("data-help", "admin-settings-packages-payment#pkg#1");
       rmBtn.setAttribute("aria-label", "Remove item");
       (function(r) {
         rmBtn.onclick = function() { r.parentNode && r.parentNode.removeChild(r); };

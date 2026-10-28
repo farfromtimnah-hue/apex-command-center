@@ -7,11 +7,11 @@ import fs from "node:fs";
 import vm from "node:vm";
 
 var PAGES = ["dashboard.html", "client.html", "finance-new.html", "calendar.html",
-  "clients.html", "documents.html", "finance.html", "sessions.html", "settings.html",
+  "clients.html", "documents.html", "sessions.html", "settings.html",
   "meeting-prep.html", "apex-invoice-view.html"];
 // Pages that only needed the one-line message (they had alert boxes, no questions).
 var NOTICE_PAGES = ["dashboard.html", "client.html",
-  "clients.html", "documents.html", "finance.html", "sessions.html", "settings.html",
+  "clients.html", "documents.html", "sessions.html", "settings.html",
   "meeting-prep.html", "add-user.html", "contract-review.html", "client-analytics.html"];
 var IOS = "ios/App/App/public/";
 var failed = 0;

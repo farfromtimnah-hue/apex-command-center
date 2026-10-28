@@ -88,7 +88,6 @@ ok(/var goalsMonth = todayStr\(\)\.slice\(0, 7\);/.test(portal),
    "goalsMonth is still seeded from todayStr() (f05bedd stays fixed)");
 
 for (const [file, what] of [
-  ["finance.html", "the recurring-invoice start-date default"],
   ["client.html",  "the new-session date default and the overdue-task comparison"],
   ["calendar.html", "the isPastEvent() today comparison"],
 ]) {

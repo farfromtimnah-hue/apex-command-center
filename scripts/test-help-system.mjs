@@ -2020,7 +2020,7 @@ const configSrc = read("help-config.js");
   ok(/\/help\/\*[\s\S]{0,200}Access-Control-Allow-Origin: \*/.test(headers), "(plumbing) _headers sends Access-Control-Allow-Origin: * for /help/");
   const sw = read("sw.js");
   ok(/\/help\//.test(sw.slice(sw.indexOf("function isStaticAsset("), sw.indexOf("self.addEventListener(\"install\""))), "(plumbing) sw.js never treats /help/ files as cache-first static assets");
-  const PAGES = ["portal", "add-user", "calendar", "clients", "client-analytics", "client", "documents", "dashboard", "finance-new", "finance", "login-activity", "seller-diagnostics", "settings", "sales", "sessions", "tasks", "vendors", "apex-club", "contract-review"];
+  const PAGES = ["portal", "add-user", "calendar", "clients", "client-analytics", "client", "documents", "dashboard", "finance-new", "login-activity", "seller-diagnostics", "settings", "sales", "sessions", "tasks", "vendors", "apex-club", "contract-review"];
   const NOT = ["estimate-view", "contract-view", "apex-invoice-view", "invoice-view", "receipt-view", "apex-receipt-view", "change-order-view", "ack-view", "book", "agendar", "apex-referral", "referral", "club", "link", "card", "index", "privacy", "terms", "invite-login", "help"];
   PAGES.forEach(function (p) {
     const src = read(p + ".html");

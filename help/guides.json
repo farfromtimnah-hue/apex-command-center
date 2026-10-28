@@ -14198,6 +14198,14 @@
                 "pt": "help/img/guides/admin-clients-roster/roster-s10.pt.jpg",
                 "en": "help/img/guides/admin-clients-roster/roster-s10.en.jpg"
               }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Quando um recurso foi anexado a um cliente e ainda não foi enviado, a faixa Recursos Pendentes de Envio aparece na página Clientes. Cada linha mostra o cliente, o recurso e a categoria. Enviar via WhatsApp abre o WhatsApp com a mensagem pronta. Com a lista vazia, a faixa não aparece. Sem imagem: nada esperava envio. Escrito a partir do código.",
+                "en": "When a resource was attached to a client and not sent yet, the strip Pending Resource Sends shows on the Clients page. Each line shows the client, the resource and the category. Send via WhatsApp opens WhatsApp with the message ready. When the list is empty, the strip is not on the page. No picture: nothing was waiting to be sent. Written from the code."
+              },
+              "image": null
             }
           ]
         }
@@ -16527,6 +16535,17 @@
               "image": {
                 "pt": "help/img/guides/admin-client-record/open-07.pt.jpg",
                 "en": "help/img/guides/admin-client-record/open-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Quando o cliente anotou no registro diário leads que não estão no pipeline dele, aparece uma faixa no alto da Visão geral (1). O número grande é quantos leads faltam. O texto diz quantos foram relatados e quantos estão no pipeline nos últimos 30 dias. Use a faixa para lembrar o cliente de passar esses leads para o pipeline.",
+                "en": "When the client noted leads in the daily log that are not in their pipeline, a banner shows at the top of the Overview (1). The big number is how many leads are missing. The text says how many were reported and how many are in the pipeline in the last 30 days. Use the banner to remind the client to move those leads to the pipeline."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/open-08.pt.jpg",
+                "en": "help/img/guides/admin-client-record/open-08.en.jpg"
               }
             }
           ]
@@ -26900,6 +26919,17 @@
                 "en": "Some documents carry the tag Preview only, file missing. They exist as a record but have no file yet. Tap Upload file on that line to add the file. Delete removes a document, so use it with care. A tag Hidden from client means the client cannot see that document."
               },
               "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "+ Anexar Recurso abre uma janela. Da Biblioteca (1) escolhe um recurso que você já guardou, e Criar Novo faz um ali mesmo. Na lista (2) escolha o recurso e toque em Anexar ao Cliente (3). O recurso aparece na lista do cliente e espera o envio. A janela foi fechada sem anexar.",
+                "en": "+ Attach Resource opens a window. From Library (1) picks a resource you saved earlier, and Create New makes one right there. In the list (2) choose the resource and tap Attach to Client (3). The resource shows in the client's list and waits to be sent. The window was closed without attaching."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-documents/docs-03.pt.jpg",
+                "en": "help/img/guides/admin-client-documents/docs-03.en.jpg"
+              }
             }
           ]
         }

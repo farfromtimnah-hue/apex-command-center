@@ -1675,7 +1675,7 @@
         </div>
 
         <div class="content-card">
-          <button class="kpi-section-head" id="goalsCollapseBtn" onclick="toggleGoalsSection()"
+          <button class="kpi-section-head" id="goalsCollapseBtn" data-help="monthly-goals#goals#4" onclick="toggleGoalsSection()"
                   aria-expanded="true" aria-controls="goalsSectionBody" style="margin:0;">
             <div class="card-title" style="margin:0;">
               <span class="show-pt">Suas metas mensais</span>
@@ -3423,10 +3423,10 @@
               (en ? "Add a device (keep current ones)" : "Novo aparelho (manter os atuais)") + '</button>' +
               '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;font-size:12px;" onclick="lossCardOpen(\'' + escHtml(p.id) + '\')">' +
               (en ? "Lost, replaced or leaving" : "Aparelho perdido, trocado ou saída") + '</button>' +
-              '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;font-size:12px;" onclick="peopleSetStatus(\'' + escHtml(p.id) + '\', \'disable\')">' +
+              '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;font-size:12px;" data-help="people-and-access#people#22" onclick="peopleSetStatus(\'' + escHtml(p.id) + '\', \'disable\')">' +
               (en ? "Disable" : "Desativar") + '</button>';
           } else {
-            html += '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;font-size:12px;" onclick="peopleSetStatus(\'' + escHtml(p.id) + '\', \'enable\')">' +
+            html += '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;font-size:12px;" data-help="people-and-access#people#23" onclick="peopleSetStatus(\'' + escHtml(p.id) + '\', \'enable\')">' +
               (en ? "Enable" : "Ativar") + '</button>';
           }
           html += '</div>';
@@ -3897,7 +3897,7 @@
         // could edit their lists, tap the colors' button, and silently lose the
         // list edits.
         '<div class="err-msg" id="rsErr"></div>' +
-        '<button class="btn-gold" id="rsSaveBtn" style="width:100%;margin-top:6px;min-height:48px;" onclick="referralSettingsSave()">' +
+        '<button class="btn-gold" id="rsSaveBtn" style="width:100%;margin-top:6px;min-height:48px;" data-help="referral-page-settings#page#7" onclick="referralSettingsSave()">' +
         (en ? "Save settings" : "Salvar ajustes") + '</button>' +
         '</div>';
     }
@@ -4127,7 +4127,7 @@
               'oninput="gmListSet(\'' + d.key + '\', ' + i + ', this.value)" style="flex:1;">' +
             (d.key === "vendedores" ? gmSellerRequestBtnHtml(v) : '') +
             // Part I2: the salesperson's card (phone, email, title, photo).
-            (d.key === "vendedores" && v ? '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;" onclick="gmSellerProfileOpen(' + escHtml(JSON.stringify(v)).replace(/'/g, "&#39;") + ')">' + (en ? "Card" : "Cartão") + '</button>' : '') +
+            (d.key === "vendedores" && v ? '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;" data-help="contact-card#card#9" onclick="gmSellerProfileOpen(' + escHtml(JSON.stringify(v)).replace(/'/g, "&#39;") + ')">' + (en ? "Card" : "Cartão") + '</button>' : '') +
             '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 12px;" ' +
               'aria-label="' + (en ? "Remove" : "Remover") + '" ' +
               'onclick="gmListRemove(\'' + d.key + '\', ' + i + ')">&times;</button>' +
@@ -7194,7 +7194,7 @@
         html += '</div>';
       });
       html += '</div>' +
-        '<button class="btn-gold" style="width:100%;margin-top:14px;" onclick="spaSubmit(\'' + key + '\')">' +
+        '<button class="btn-gold" style="width:100%;margin-top:14px;" data-help="other-assessments#others" onclick="spaSubmit(\'' + key + '\')">' +
         '<span class="show-pt">Concluir</span><span class="show-en">Finish</span></button>' +
         '<button class="btn-outline" style="width:100%;margin-top:10px;" onclick="spaExit(\'' + key + '\')">' +
         '<span class="show-pt">Salvar e continuar depois</span><span class="show-en">Save and continue later</span></button>' +
@@ -8448,7 +8448,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1793153640"></script>
+  <script src="gm.js?v=1793154379"></script>
   <script src="nav.js"></script>
   <script src="help-config.js"></script>
   <script src="help-core.js"></script>
@@ -8480,9 +8480,15 @@
       gmcontracts: "contracts-tab", gminvoices: "invoices-and-payments", gmcalendar: "calendar",
       worksched: "working-days-and-blocked-periods", xray: "business-xray", mgmtxray: "management-xray",
       leadxray: "leadership-xray", permxray: "permissiveness-xray", falhasxray: "failures-xray",
-      pilares: "growth-pillars", assigned: "assigned-tools"
+      pilares: "growth-pillars", assigned: "assigned-tools", feedback360: "other-assessments#others#1"
     };
+    var HELP_BY_VIEW = { viewPassword: "sign-in-screens", viewLinkGoogle: "sign-in-screens", viewEntryHome: "daily-log#log#2", viewEntryForm: "daily-log#log#4", viewGoals: "monthly-goals", viewGoalsPrompt: "monthly-goals", viewSchedule: "working-days-and-blocked-periods", peopleCardWrap: "people-and-access#people#1" };
     function apply() {
+      for (var v in HELP_BY_VIEW) {
+        if (!Object.prototype.hasOwnProperty.call(HELP_BY_VIEW, v)) { continue; }
+        var vb = document.getElementById(v);
+        if (vb && !vb.hasAttribute("data-help-default")) { vb.setAttribute("data-help-default", HELP_BY_VIEW[v]); }
+      }
       for (var k in HELP_BY_TAB) {
         if (!Object.prototype.hasOwnProperty.call(HELP_BY_TAB, k)) { continue; }
         var box = document.getElementById("tab" + k.charAt(0).toUpperCase() + k.slice(1));

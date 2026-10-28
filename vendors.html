@@ -284,7 +284,7 @@
         <span id="headerEmail"></span>
         <span class="role-badge" id="headerRole"></span>
       </div>
-      <button class="lang-btn" onclick="apexNavToggleLang()">
+      <button class="lang-btn" data-help="admin-menu-language-learn#menu#2" onclick="apexNavToggleLang()">
         <span class="show-pt">EN</span>
         <span class="show-en">PT</span>
       </button>
@@ -351,7 +351,7 @@
       <div id="vndQText" style="font-size:14px;margin-bottom:12px;"></div>
       <textarea id="vndQAnswer" class="field-input" rows="3" style="width:100%;resize:vertical;"></textarea>
       <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
-        <button class="btn btn-sm" id="vndQMicBtn" onclick="window.ApexVendors.toggleQuestionMic()">
+        <button data-help="admin-vendors#vendors#2" class="btn btn-sm" id="vndQMicBtn" onclick="window.ApexVendors.toggleQuestionMic()">
           &#127908; <span class="show-pt">Ditar</span><span class="show-en">Dictate</span>
         </button>
         <span id="vndQMicStatus" style="font-size:12px;color:var(--muted);"></span>
@@ -365,10 +365,10 @@
       <div id="vndQConfirmCard" hidden style="margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);">
         <div id="vndQConfirmText" style="font-size:13.5px;margin-bottom:10px;"></div>
         <div style="display:flex;gap:8px;">
-          <button class="btn btn-gold btn-sm" onclick="window.ApexVendors.confirmQuestionAnswer()">
+          <button data-help="admin-vendors#vendors#2" class="btn btn-gold btn-sm" onclick="window.ApexVendors.confirmQuestionAnswer()">
             <span class="show-pt">Sim, est&aacute; certo</span><span class="show-en">Yes, that's right</span>
           </button>
-          <button class="btn btn-sm" onclick="window.ApexVendors.correctQuestionAnswer()">
+          <button data-help="admin-vendors#vendors#2" class="btn btn-sm" onclick="window.ApexVendors.correctQuestionAnswer()">
             <span class="show-pt">Corrigir</span><span class="show-en">Correct it</span>
           </button>
         </div>
@@ -403,7 +403,7 @@
 
     <!-- Vendor detail (hash route) -->
     <div id="vndDetail" hidden>
-      <button class="btn-quiet" onclick="closeVendorDetail()">&larr; <span class="show-pt">Voltar</span><span class="show-en">Back</span></button>
+      <button data-help="admin-vendors#vendors#1" class="btn-quiet" onclick="closeVendorDetail()">&larr; <span class="show-pt">Voltar</span><span class="show-en">Back</span></button>
       <div class="card" style="margin-top:12px;">
         <div class="vendor-card-head">
           <div class="vendor-card-name" id="vdName"></div>
@@ -519,7 +519,7 @@
       <button class="sheet-close" onclick="closeSheet('sheetHistory')">&times;</button>
       <div class="sheet-title"><span class="show-pt">Hist&oacute;rico</span><span class="show-en">History</span></div>
       <div id="historyBody"></div>
-      <button class="btn btn-sm" id="historyMoreBtn" style="margin-top:10px;" onclick="loadMoreHistory()">
+      <button data-help="admin-vendors#vendors#8" class="btn btn-sm" id="historyMoreBtn" style="margin-top:10px;" onclick="loadMoreHistory()">
         <span class="show-pt">Ver mais</span><span class="show-en">Show more</span>
       </button>
     </div>
@@ -545,7 +545,7 @@
       <button class="btn btn-gold" style="margin-top:14px;" onclick="submitReallocate()">
         <span class="show-pt">Salvar</span><span class="show-en">Save</span>
       </button>
-      <button class="btn btn-sm" id="reallocateUnassignBtn" hidden style="margin-top:8px;" onclick="window.ApexVendors.unassignAutoMatch()">
+      <button data-help="admin-vendors#vendors#4" class="btn btn-sm" id="reallocateUnassignBtn" hidden style="margin-top:8px;" onclick="window.ApexVendors.unassignAutoMatch()">
         <span class="show-pt">Desvincular</span><span class="show-en">Unassign</span>
       </button>
       <button class="btn btn-sm" id="reallocateNotVendorBtn" hidden style="margin-top:8px;" onclick="window.ApexVendors.markReallocateNotVendor()">

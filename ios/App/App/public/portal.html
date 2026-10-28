@@ -3426,7 +3426,7 @@
               '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;font-size:12px;" data-help="people-and-access#people#22" onclick="peopleSetStatus(\'' + escHtml(p.id) + '\', \'disable\')">' +
               (en ? "Disable" : "Desativar") + '</button>';
           } else {
-            html += '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;font-size:12px;" onclick="peopleSetStatus(\'' + escHtml(p.id) + '\', \'enable\')">' +
+            html += '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;font-size:12px;" data-help="people-and-access#people#23" onclick="peopleSetStatus(\'' + escHtml(p.id) + '\', \'enable\')">' +
               (en ? "Enable" : "Ativar") + '</button>';
           }
           html += '</div>';
@@ -4127,7 +4127,7 @@
               'oninput="gmListSet(\'' + d.key + '\', ' + i + ', this.value)" style="flex:1;">' +
             (d.key === "vendedores" ? gmSellerRequestBtnHtml(v) : '') +
             // Part I2: the salesperson's card (phone, email, title, photo).
-            (d.key === "vendedores" && v ? '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;" onclick="gmSellerProfileOpen(' + escHtml(JSON.stringify(v)).replace(/'/g, "&#39;") + ')">' + (en ? "Card" : "Cartão") + '</button>' : '') +
+            (d.key === "vendedores" && v ? '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;" data-help="contact-card#card#9" onclick="gmSellerProfileOpen(' + escHtml(JSON.stringify(v)).replace(/'/g, "&#39;") + ')">' + (en ? "Card" : "Cartão") + '</button>' : '') +
             '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 12px;" ' +
               'aria-label="' + (en ? "Remove" : "Remover") + '" ' +
               'onclick="gmListRemove(\'' + d.key + '\', ' + i + ')">&times;</button>' +
@@ -8482,7 +8482,7 @@
       leadxray: "leadership-xray", permxray: "permissiveness-xray", falhasxray: "failures-xray",
       pilares: "growth-pillars", assigned: "assigned-tools", feedback360: "other-assessments#others#1"
     };
-    var HELP_BY_VIEW = { viewPassword: "sign-in-screens", viewLinkGoogle: "sign-in-screens", viewEntryHome: "daily-log#log#2", viewEntryForm: "daily-log#log#4", viewGoals: "monthly-goals", viewGoalsPrompt: "monthly-goals", viewSchedule: "working-days-and-blocked-periods" };
+    var HELP_BY_VIEW = { viewPassword: "sign-in-screens", viewLinkGoogle: "sign-in-screens", viewEntryHome: "daily-log#log#2", viewEntryForm: "daily-log#log#4", viewGoals: "monthly-goals", viewGoalsPrompt: "monthly-goals", viewSchedule: "working-days-and-blocked-periods", peopleCardWrap: "people-and-access#people#1" };
     function apply() {
       for (var v in HELP_BY_VIEW) {
         if (!Object.prototype.hasOwnProperty.call(HELP_BY_VIEW, v)) { continue; }

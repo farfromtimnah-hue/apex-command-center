@@ -8487,6 +8487,18 @@
           },
           "section": "history",
           "step": 11
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ir para o Portal"
+            ],
+            "en": [
+              "Go to Portal"
+            ]
+          },
+          "section": "log",
+          "step": 1
         }
       ]
     },
@@ -18541,6 +18553,22 @@
                 "pt": "help/img/guides/sign-in-screens/signin-05.pt.jpg",
                 "en": "help/img/guides/sign-in-screens/signin-05.en.jpg"
               }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Na primeira vez que você entra com uma senha temporária, a página pede Defina sua nova senha. Por segurança, você precisa criar uma senha pessoal de pelo menos 10 caracteres. Digite a senha nova duas vezes e toque em Salvar nova senha. Esta tela só aparece uma vez.",
+                "en": "The first time you sign in with a temporary password, the page asks you to Set your new password. For security, you must create a personal password of at least 10 characters. Type the new password twice and tap Save new password. This screen only shows once."
+              },
+              "image": null
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Depois a página oferece Vincular conta Google (opcional). Vincular deixa você entrar também com um clique, além de usuário e senha. Toque em Vincular conta Google para vincular, ou em Pular por enquanto. Você pode pular a qualquer momento.",
+                "en": "Then the page offers Link Google account (optional). Linking lets you also sign in with one click, in addition to username and password. Tap Link Google account to link it, or Skip for now. You can skip at any time."
+              },
+              "image": null
             }
           ]
         }
@@ -18569,6 +18597,32 @@
           },
           "section": "signin",
           "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Salvar nova senha"
+            ],
+            "en": [
+              "Save new password"
+            ]
+          },
+          "section": "signin",
+          "step": 9
+        },
+        {
+          "labels": {
+            "pt": [
+              "Vincular conta Google",
+              "Pular por enquanto"
+            ],
+            "en": [
+              "Link Google account",
+              "Skip for now"
+            ]
+          },
+          "section": "signin",
+          "step": 10
         }
       ]
     },

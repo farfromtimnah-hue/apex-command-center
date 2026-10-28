@@ -256,6 +256,66 @@
   {
    "label": "✕",
    "reason": "Close icon of a window, nothing to learn"
+  },
+  {
+   "label": "Switch client",
+   "reason": "Staff preview bar, not part of the client portal"
+  },
+  {
+   "label": "Trocar cliente",
+   "reason": "Staff preview bar, not part of the client portal"
+  },
+  {
+   "label": "Exit preview",
+   "reason": "Staff preview bar, not part of the client portal"
+  },
+  {
+   "label": "Sair do preview",
+   "reason": "Staff preview bar, not part of the client portal"
+  },
+  {
+   "label": "Português",
+   "reason": "Language choice on the sign in screen"
+  },
+  {
+   "label": "English",
+   "reason": "Language choice on the sign in screen"
+  },
+  {
+   "label": "More",
+   "reason": "Locked teaser menu for leads"
+  },
+  {
+   "label": "Mais",
+   "reason": "Locked teaser menu for leads"
+  },
+  {
+   "label": "Settings",
+   "reason": "Gear menu, opens the settings page; its parts have their own guides"
+  },
+  {
+   "label": "Ajustes",
+   "reason": "Gear menu, opens the settings page; its parts have their own guides"
+  },
+  {
+   "label": "i",
+   "reason": "Small info mark inside a question, explained in the assessment guide"
+  },
+  {
+   "label": "Try again",
+   "reason": "Generic retry button after an error"
+  },
+  {
+   "label": "Tentar de novo",
+   "reason": "Generic retry button after an error"
+  },
+  {
+   "label": "Not now",
+   "reason": "Generic dismiss button"
+  },
+  {
+   "label": "Agora não",
+   "reason": "Generic dismiss button"
   }
  ]
 }

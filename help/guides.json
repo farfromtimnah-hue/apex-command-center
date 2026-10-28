@@ -14764,8 +14764,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "São as faturas que a Apex envia aos seus clientes. Toda fatura começa como rascunho. Nada sai da Apex até você enviar pelo WhatsApp. Abra Financeiro (1) no menu da esquerda. Os nomes e valores nas imagens são de teste.",
-                "en": "These are the invoices that Apex sends to its own clients. Every invoice starts as a draft. Nothing leaves Apex until you send it on WhatsApp yourself. Open Financial (1) in the left menu. Names and amounts in the pictures are test values."
+                "pt": "São as faturas que a Apex envia aos seus clientes. Toda fatura começa como rascunho. Nada sai da Apex até você enviar pelo WhatsApp. Abra Financeiro (1) no menu da esquerda.",
+                "en": "These are the invoices that Apex sends to its own clients. Every invoice starts as a draft. Nothing leaves Apex until you send it on WhatsApp yourself. Open Financial (1) in the left menu."
               },
               "image": {
                 "pt": "help/img/guides/admin-invoices/invoices-s01.pt.jpg",
@@ -15028,8 +15028,8 @@
             {
               "n": 25,
               "text": {
-                "pt": "Marcar como pago (lembrete) só coloca uma etiqueta na fatura enviada. Não muda o status nem o total pendente. Escreva Como você confirmou (1) e toque em Colocar etiqueta (2), ou em Cancelar (3). A fatura só fica paga quando o banco confirma, ou quando você registra o pagamento. Depois da etiqueta, o botão vira Remover etiqueta. A janela foi fechada sem salvar.",
-                "en": "Mark as paid (reminder) only puts a tag on the sent invoice. It does not change the status or the outstanding total. Write How you confirmed it (1) and tap Add tag (2), or Cancel (3). The invoice is only paid when the bank confirms, or when you record the payment. After the tag, the button becomes Remove tag. The window was closed without saving."
+                "pt": "Marcar como pago (lembrete) só coloca uma etiqueta na fatura enviada. Não muda o status nem o total pendente. Escreva Como você confirmou (1) e toque em Colocar etiqueta (2), ou em Cancelar (3). A fatura só fica paga quando o banco confirma, ou quando você registra o pagamento. Depois da etiqueta, o botão vira Remover etiqueta.",
+                "en": "Mark as paid (reminder) only puts a tag on the sent invoice. It does not change the status or the outstanding total. Write How you confirmed it (1) and tap Add tag (2), or Cancel (3). The invoice is only paid when the bank confirms, or when you record the payment. After the tag, the button becomes Remove tag."
               },
               "image": {
                 "pt": "help/img/guides/admin-invoices/invoices-25.pt.jpg",
@@ -15852,8 +15852,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Configurações no menu da esquerda (2). As abas do alto (1) são Fotos de Perfil, Modelos WhatsApp, Pacotes, Pagamento, Disponibilidade e Notificações. O nome e a foto estão trocados na figura.",
-                "en": "Open Settings in the left menu (2). The tabs at the top (1) are Profile Pictures, WhatsApp Templates, Packages, Payment, Availability and Notifications. The name and photo are replaced in the picture."
+                "pt": "Abra Configurações no menu da esquerda (2). As abas do alto (1) são Fotos de Perfil, Modelos WhatsApp, Pacotes, Pagamento, Disponibilidade e Notificações.",
+                "en": "Open Settings in the left menu (2). The tabs at the top (1) are Profile Pictures, WhatsApp Templates, Packages, Payment, Availability and Notifications."
               },
               "image": {
                 "pt": "help/img/guides/admin-message-templates/templates-01.pt.jpg",
@@ -15874,8 +15874,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Cada modelo é um cartão com um nome. Mude as palavras dentro da caixa (1). A linha Variável disponível (2) lista as partes que a Apex preenche sozinha, escritas entre chaves, por exemplo {appUrl}. Deixe do jeito que estão, ou a mensagem perde essa parte. Embaixo da caixa (3) aparece quem mudou por último e quando. Toque em Salvar (4) naquele cartão. Nada foi salvo nesta figura, e o nome da pessoa está trocado.",
-                "en": "Each template is a card with a name. Change the words inside the box (1). The line Available token (2) lists the pieces that Apex fills in by itself, written between curly brackets, for example {appUrl}. Leave them exactly as they are, or the message loses that piece. Under the box (3) you see who changed it last and when. Tap Save (4) on that card. Nothing was saved for this picture, and the name of the person is replaced."
+                "pt": "Cada modelo é um cartão com um nome. Mude as palavras dentro da caixa (1). A linha Variável disponível (2) lista as partes que a Apex preenche sozinha, escritas entre chaves, por exemplo {appUrl}. Deixe do jeito que estão, ou a mensagem perde essa parte. Embaixo da caixa (3) aparece quem mudou por último e quando. Toque em Salvar (4) naquele cartão.",
+                "en": "Each template is a card with a name. Change the words inside the box (1). The line Available token (2) lists the pieces that Apex fills in by itself, written between curly brackets, for example {appUrl}. Leave them exactly as they are, or the message loses that piece. Under the box (3) you see who changed it last and when. Tap Save (4) on that card."
               },
               "image": {
                 "pt": "help/img/guides/admin-message-templates/templates-03.pt.jpg",
@@ -15896,8 +15896,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Depois, Pacotes (1) é o catálogo de pacotes com preços e descrições. Os preços estão cobertos na figura.",
-                "en": "Next, Packages (1) is the catalog of packages with prices and descriptions. The prices are covered in the picture."
+                "pt": "Depois, Pacotes (1) é o catálogo de pacotes com preços e descrições.",
+                "en": "Next, Packages (1) is the catalog of packages with prices and descriptions."
               },
               "image": {
                 "pt": "help/img/guides/admin-message-templates/templates-05.pt.jpg",
@@ -15907,8 +15907,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Pagamento (1) guarda os dados de pagamento que aparecem nas faturas: o QR Code do Zelle, o link de pagamento por cartão (Stripe) e o e-mail ou telefone do Zelle. Eles estão cobertos na figura.",
-                "en": "Payment (1) holds the payment details that appear on invoices: the Zelle QR code, the Stripe card payment link and the Zelle email or phone. They are covered in the picture."
+                "pt": "Pagamento (1) guarda os dados de pagamento que aparecem nas faturas: o QR Code do Zelle, o link de pagamento por cartão (Stripe) e o e-mail ou telefone do Zelle.",
+                "en": "Payment (1) holds the payment details that appear on invoices: the Zelle QR code, the Stripe card payment link and the Zelle email or phone."
               },
               "image": {
                 "pt": "help/img/guides/admin-message-templates/templates-06.pt.jpg",
@@ -15929,8 +15929,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Notificações (1) liga os alertas neste aparelho, com a chave Notificações neste dispositivo. Precisa do app instalado na tela de início. A chave não foi ligada nesta figura.",
-                "en": "Notifications (1) turns on the alerts on this device, with the switch Notifications on this device. It needs the app installed on the Home Screen. The switch was not turned on for this picture."
+                "pt": "Notificações (1) liga os alertas neste aparelho, com a chave Notificações neste dispositivo. Precisa do app instalado na tela de início.",
+                "en": "Notifications (1) turns on the alerts on this device, with the switch Notifications on this device. It needs the app installed on the Home Screen."
               },
               "image": {
                 "pt": "help/img/guides/admin-message-templates/templates-08.pt.jpg",
@@ -16811,8 +16811,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "No registro do cliente, toque em Preparação da reunião (5), o botão dourado no alto. A figura é o registro do cliente de teste Marlow Pool & Patio. Os outros números são as setas (1) (2) e as duas etiquetas (3) (4).",
-                "en": "On the client record, tap Meeting prep (5), the gold button at the top. The picture is the record of the test client Marlow Pool & Patio. The other numbers are the arrows (1) (2) and the two pills (3) (4)."
+                "pt": "No registro do cliente, toque em Preparação da reunião (5), o botão dourado no alto. Os outros números são as setas (1) (2) e as duas etiquetas (3) (4).",
+                "en": "On the client record, tap Meeting prep (5), the gold button at the top. The other numbers are the arrows (1) (2) and the two pills (3) (4)."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-01.pt.jpg",
@@ -16833,8 +16833,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "O exemplo abre a reunião de resultados do Raio-X com nomes de teste. O topo (1) nomeia o cliente, o dono e a reunião. Antes de começar (2) mostra quem participa e o multiplicador do pipeline. A pergunta do gargalo (3) tem uma caixa para escrever a resposta nas palavras do cliente.",
-                "en": "The example opens the X-Ray results meeting with test names. The top (1) names the client, the owner and the meeting. Before you start (2) shows who attends and the pipeline multiplier. The bottleneck question (3) has a box to write the answer in the client's words."
+                "pt": "O topo (1) nomeia o cliente, o dono e a reunião. Antes de começar (2) mostra quem participa e o multiplicador do pipeline. A pergunta do gargalo (3) tem uma caixa para escrever a resposta nas palavras do cliente.",
+                "en": "The top (1) names the client, the owner and the meeting. Before you start (2) shows who attends and the pipeline multiplier. The bottleneck question (3) has a box to write the answer in the client's words."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-03.pt.jpg",
@@ -16855,8 +16855,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "O que o sistema já responde (1) tem os números que a Apex já tem, como as metas do mês, o dinheiro que entrou e saiu hoje, os leads de hoje e o pipeline aberto, para você não precisar perguntar ao cliente. Os valores estão cobertos.",
-                "en": "O que o sistema já responde (What the system already answers) (1) has the numbers Apex already has, like the targets for the month, money in and out today, leads today and the open pipeline, so you do not need to ask the client. The amounts are covered."
+                "pt": "O que o sistema já responde (1) tem os números que a Apex já tem, como as metas do mês, o dinheiro que entrou e saiu hoje, os leads de hoje e o pipeline aberto, para você não precisar perguntar ao cliente.",
+                "en": "O que o sistema já responde (What the system already answers) (1) has the numbers Apex already has, like the targets for the month, money in and out today, leads today and the open pipeline, so you do not need to ask the client."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-05.pt.jpg",
@@ -16888,8 +16888,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "As metas, na ordem (1) lista os vinte e seis campos na ordem em que o cliente preenche. Cada um diz se é perguntado, derivado ou padrão Apex, e mostra o que já está definido. Os valores estão cobertos.",
-                "en": "As metas, na ordem (The targets, in order) (1) lists the twenty-six fields in the order the client fills them. Each says if it is asked, derived or an Apex default, and shows what is already set. Amounts are covered."
+                "pt": "As metas, na ordem (1) lista os vinte e seis campos na ordem em que o cliente preenche. Cada um diz se é perguntado, derivado ou padrão Apex, e mostra o que já está definido.",
+                "en": "As metas, na ordem (The targets, in order) (1) lists the twenty-six fields in the order the client fills them. Each says if it is asked, derived or an Apex default, and shows what is already set."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-08.pt.jpg",
@@ -16899,8 +16899,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "O primeiro registro, indicador por indicador (1): ele pergunta o valor de hoje para cada um. Zero é um valor: precisa ser digitado, não pulado. A lista é só para ler.",
-                "en": "O primeiro registro, indicador por indicador (The first daily log, indicator by indicator) (1): he asks today's value for each one. Zero is a value: it gets typed, not skipped. The list is read only."
+                "pt": "O primeiro registro, indicador por indicador (1): você pergunta o valor de hoje para cada um. Zero é um valor: precisa ser digitado, não pulado. A lista é só para ler.",
+                "en": "O primeiro registro, indicador por indicador (The first daily log, indicator by indicator) (1): you ask for today's value for each one. Zero is a value: it gets typed, not skipped. The list is read only."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-09.pt.jpg",
@@ -24101,8 +24101,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra um lead. Toque em Clientes no menu da esquerda e depois na aba Leads. Cada lead é uma linha (1). A etiqueta pequena (2) mostra se o lead está Quente ou Frio. Toque em Ver em colunas (3) para ver os leads em colunas. Toque no nome para abrir a ficha. Os nomes da figura são nomes de teste.",
-                "en": "Open a lead. Tap Clients in the left menu, then the Leads tab. Each lead is a row (1). The small tag (2) shows if the lead is Warm or Cold. Tap Switch to column view (3) to see the leads in columns. Tap a name to open its record. The names in the picture are test names."
+                "pt": "Abra um lead. Toque em Clientes no menu da esquerda e depois na aba Leads. Cada lead é uma linha (1). A etiqueta pequena (2) mostra se o lead está Quente ou Frio. Toque em Ver em colunas (3) para ver os leads em colunas. Toque no nome para abrir a ficha.",
+                "en": "Open a lead. Tap Clients in the left menu, then the Leads tab. Each lead is a row (1). The small tag (2) shows if the lead is Warm or Cold. Tap Switch to column view (3) to see the leads in columns. Tap a name to open its record."
               },
               "image": {
                 "pt": "help/img/guides/admin-lead-pipeline/lead-01.pt.jpg",
@@ -24156,8 +24156,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "No formulário Registrar contato, escolha o Meio (1) e o Resultado (2), por exemplo Sem resposta. Escreva uma nota em Notas (3) se quiser e toque em Salvar. Nada foi salvo nesta figura.",
-                "en": "In the Log contact form, choose the Method (1) and the Result (2), such as No response. Write a note in Notes (3) if you want, then tap Save. Nothing was saved for this picture."
+                "pt": "No formulário Registrar contato, escolha o Meio (1) e o Resultado (2), por exemplo Sem resposta. Escreva uma nota em Notas (3) se quiser e toque em Salvar.",
+                "en": "In the Log contact form, choose the Method (1) and the Result (2), such as No response. Write a note in Notes (3) if you want, then tap Save."
               },
               "image": {
                 "pt": "help/img/guides/admin-lead-pipeline/lead-06.pt.jpg",
@@ -24178,8 +24178,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Tornou-se cliente pede o Pacote (1) antes de salvar. Escolha o pacote e toque em Confirmar (2). A ficha vira um cliente ativo e sai da aba Leads. Nada foi confirmado nesta figura.",
-                "en": "Became a client asks for the Package (1) before it saves. Choose it, then tap Confirm (2). The record becomes an active client and leaves the Leads tab. Nothing was confirmed for this picture."
+                "pt": "Tornou-se cliente pede o Pacote (1) antes de salvar. Escolha o pacote e toque em Confirmar (2). A ficha vira um cliente ativo e sai da aba Leads.",
+                "en": "Became a client asks for the Package (1) before it saves. Choose it, then tap Confirm (2). The record becomes an active client and leaves the Leads tab."
               },
               "image": {
                 "pt": "help/img/guides/admin-lead-pipeline/lead-08.pt.jpg",
@@ -24550,8 +24550,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Parceiros são pessoas e empresas que indicam clientes para a Apex. Toque em Clientes e depois na aba Parceiros. Cada parceiro mostra quantos clientes indicou e quantos viraram clientes. Toque em + Novo parceiro (1) para adicionar. A etiqueta (2) é o status. Toque em Editar (3) para mudar um parceiro. Toque em Copiar link de indicação (4) para copiar o link do parceiro. Quem chega por esse link cai na lista de Leads, já ligado ao parceiro. O nome e o número da figura são valores de teste.",
-                "en": "Partners are people and businesses that send clients to Apex. Tap Clients, then the Partners tab. Each partner shows how many clients they referred and how many became clients. Tap + New partner (1) to add one. The tag (2) is the status. Tap Edit (3) to change a partner. Tap Copy referral link (4) to copy the partner's own link. A person who comes through that link lands in the Leads list, already linked to the partner. The name and number in the picture are test values."
+                "pt": "Parceiros são pessoas e empresas que indicam clientes para a Apex. Toque em Clientes e depois na aba Parceiros. Cada parceiro mostra quantos clientes indicou e quantos viraram clientes. Toque em + Novo parceiro (1) para adicionar. A etiqueta (2) é o status. Toque em Editar (3) para mudar um parceiro. Toque em Copiar link de indicação (4) para copiar o link do parceiro. Quem chega por esse link cai na lista de Leads, já ligado ao parceiro.",
+                "en": "Partners are people and businesses that send clients to Apex. Tap Clients, then the Partners tab. Each partner shows how many clients they referred and how many became clients. Tap + New partner (1) to add one. The tag (2) is the status. Tap Edit (3) to change a partner. Tap Copy referral link (4) to copy the partner's own link. A person who comes through that link lands in the Leads list, already linked to the partner."
               },
               "image": {
                 "pt": "help/img/guides/admin-partners/partners-01.pt.jpg",
@@ -24561,8 +24561,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "O formulário Parceiro Apex (1) tem Nome, Tipo, Status, Contato, Última interação e Próxima ação. O status é Prospectando, Ativo ou Inativo. Preencha o que você souber. Nada foi salvo nesta figura.",
-                "en": "The form Apex Partner (1) has Name, Type, Status, Contact, Last interaction and Next action. Status is Prospectando (courting), Ativo (active) or Inativo (inactive). Fill what you know. Nothing was saved for this picture."
+                "pt": "O formulário Parceiro Apex (1) tem Nome, Tipo, Status, Contato, Última interação e Próxima ação. O status é Prospectando, Ativo ou Inativo. Preencha o que você souber.",
+                "en": "The form Apex Partner (1) has Name, Type, Status, Contact, Last interaction and Next action. Status is Prospectando (prospecting), Ativo (active) or Inativo (inactive). Fill what you know."
               },
               "image": {
                 "pt": "help/img/guides/admin-partners/partners-02.pt.jpg",
@@ -26871,8 +26871,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Na aba Saúde Financeira, a caixa de pergunta (1) faz uma pergunta de cada vez sobre um cliente cujos valores combinados ainda não são conhecidos: histórico de pagamentos, fim do contrato, desconto, plano ou cadastro. Os nomes e as perguntas na imagem são inventados.",
-                "en": "On the Financial Health tab, the question box (1) asks one question at a time about a client whose agreed terms are not known yet: payment history, contract end, discount, plan or intake. The names and questions in the picture are made up."
+                "pt": "Na aba Saúde Financeira, a caixa de pergunta (1) faz uma pergunta de cada vez sobre um cliente cujos valores combinados ainda não são conhecidos: histórico de pagamentos, fim do contrato, desconto, plano ou cadastro.",
+                "en": "On the Financial Health tab, the question box (1) asks one question at a time about a client whose agreed terms are not known yet: payment history, contract end, discount, plan or intake."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-terms/terms-s01.pt.jpg",
@@ -27449,8 +27449,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Documentos no menu da esquerda e toque em Arquivo de PDFs. A lista (1) guarda os PDFs dos relatórios das sessões que a Apex fez, uma linha para cada: o cliente e a data da sessão. Toque em Abrir PDF (2) em uma linha para ler. Os nomes dos clientes na figura estão trocados.",
-                "en": "Open Documents in the left menu and tap PDF Archive. The list (1) holds the PDF reports of the sessions Apex made, one line for each: the client and the session date. Tap Open PDF (2) on a line to read it. The client names in the picture are replaced."
+                "pt": "Abra Documentos no menu da esquerda e toque em Arquivo de PDFs. A lista (1) guarda os PDFs dos relatórios das sessões que a Apex fez, uma linha para cada: o cliente e a data da sessão. Toque em Abrir PDF (2) em uma linha para ler.",
+                "en": "Open Documents in the left menu and tap PDF Archive. The list (1) holds the PDF reports of the sessions Apex made, one line for each: the client and the session date. Tap Open PDF (2) on a line to read it."
               },
               "image": {
                 "pt": "help/img/guides/admin-pdf-archive/pdf-01.pt.jpg",
@@ -28227,8 +28227,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Financeiro no menu da esquerda. Três abas (1) ficam embaixo dos totais: Saúde Financeira, Faturas e Categorias. Os nomes e valores nas imagens são inventados.",
-                "en": "Open Financial in the left menu. Three tabs (1) sit under the totals: Financial Health, Invoices and Categories. Names and amounts in the pictures are made up."
+                "pt": "Abra Financeiro no menu da esquerda. Três abas (1) ficam embaixo dos totais: Saúde Financeira, Faturas e Categorias.",
+                "en": "Open Financial in the left menu. Three tabs (1) sit under the totals: Financial Health, Invoices and Categories."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-overview/ov-s01.pt.jpg",
@@ -28239,7 +28239,7 @@
               "n": 2,
               "text": {
                 "pt": "Os quatro cartões no alto são Dá pra usar, Entrou (mês), Saiu (mês) e Líquido. Embaixo de Entrou e Saiu, Ver linha por linha (2) abre o extrato do mês, com seletor de mês.",
-                "en": "The four tiles at the top are Available to use, In (month), Out (month) and Net. Under In and Out, See line by line (2) opens the ledger of the month, with a month picker."
+                "en": "The four tiles at the top are Available to use, In (month), Out (month) and Net. Under In and Out, See line by line (2) opens the full list of the month, with a month picker."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-overview/ov-s02.pt.jpg",
@@ -28271,8 +28271,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Transações (1) é a lista das compras do banco. Filtros: buscar na descrição, escolher uma conta, Todos ou entradas ou saídas, uma categoria, uma data de início e fim, e Incluir transferências. Mostrar mais carrega mais linhas. As linhas estão cobertas de cinza porque mostram lojas reais.",
-                "en": "Transactions (1) is the list of bank charges. Filters: search the description, choose an account, All or money in or out, a category, a start and end date, and Include transfers. Show more loads more rows. The rows are covered grey here because they show real merchants."
+                "pt": "Transações (1) é a lista das compras do banco. Filtros: buscar na descrição, escolher uma conta, Todos ou entradas ou saídas, uma categoria, uma data de início e fim, e Incluir transferências. Mostrar mais carrega mais linhas.",
+                "en": "Transactions (1) is the list of bank charges. Filters: search the description, choose an account, All or money in or out, a category, a start and end date, and Include transfers. Show more loads more rows."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-overview/ov-s05.pt.jpg",
@@ -28300,8 +28300,8 @@
         "en": "Financial: policies, prompts, suggested bills, invoice warning and invoice link"
       },
       "summary": {
-        "pt": "Telas menores do Financeiro, escritas a partir do código: nomear apólices, copiar prompt, sugestão de conta fixa, aviso de fatura agendada, link da fatura e relatório impresso.",
-        "en": "Smaller Financial screens, written from the code: name policies, copy prompt, suggested fixed bill, scheduled invoice warning, invoice link and the printed report."
+        "pt": "Telas menores do Financeiro: nomear apólices, copiar prompt, sugestão de conta fixa, aviso de fatura agendada, link da fatura e relatório impresso.",
+        "en": "Smaller Financial screens: name policies, copy prompt, suggested fixed bill, scheduled invoice warning, invoice link and the printed report."
       },
       "keywords": {
         "pt": [
@@ -28335,16 +28335,16 @@
             {
               "n": 1,
               "text": {
-                "pt": "Quando o robô não sabe de quem é uma apólice, a lista Precisa de você mostra a linha apólices sem nome. Toque na linha para abrir a janela De quem é cada apólice. Para cada código do banco, escolha o nome da pessoa na lista e toque em Salvar. Duas apólices não podem ficar na mesma conta.",
-                "en": "When the robot does not know whose a policy is, the Needs you list shows the row policies not named. Tap the row to open the window Whose policy is which. For each bank code, pick the person's name from the list, then tap Save. Two policies cannot go on the same bill."
+                "pt": "Quando a Apex não sabe de quem é uma apólice, a lista Precisa de você mostra a linha apólices sem nome. Toque na linha para abrir a janela De quem é cada apólice. Para cada código do banco, escolha o nome da pessoa na lista e toque em Salvar. Duas apólices não podem ficar na mesma conta.",
+                "en": "When Apex does not know whose a policy is, the Needs you list shows the row policies not named. Tap the row to open the window Whose policy is which. For each bank code, pick the person's name from the list, then tap Save. Two policies cannot go on the same bill."
               },
               "image": null
             },
             {
               "n": 2,
               "text": {
-                "pt": "Algumas linhas da lista Precisa de você têm os botões Copiar prompt e Entrevista concluída. Copiar prompt busca a lista mais nova e copia um texto para você colar no Claude. Uma janela diz Prompt copiado. Entrevista concluída avisa o sistema que você terminou a conversa. Existem três: depósitos para confirmar, clientes sem valores combinados e cobranças sem categoria. Nada foi tocado.",
-                "en": "Some rows of the Needs you list have the buttons Copy prompt and Interview done. Copy prompt fetches the newest list and copies a text for you to paste into Claude. A window says Prompt copied. Interview done tells the system you finished the conversation. There are three: deposits to confirm, clients without agreed terms, and charges without a category. Nothing was tapped."
+                "pt": "Algumas linhas da lista Precisa de você têm os botões Copiar prompt e Entrevista concluída. Copiar prompt busca a lista mais nova e copia um texto para você colar no seu assistente de IA. Uma janela diz Prompt copiado. Entrevista concluída avisa o sistema que você terminou a conversa. Existem três: depósitos para confirmar, clientes sem valores combinados e cobranças sem categoria.",
+                "en": "Some rows of the Needs you list have the buttons Copy prompt and Interview done. Copy prompt fetches the newest list and copies a text for you to paste into your AI assistant. A window says Prompt copied. Interview done tells the system you finished the conversation. There are three: deposits to confirm, clients without agreed terms, and charges without a category."
               },
               "image": null
             },
@@ -29376,8 +29376,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "O menu do celular. No celular o menu é uma barra no pé da tela (1). Ela tem cinco grupos: Início, Clientes, Agenda, Financeiro e Negócio. A engrenagem (2) no alto abre as Configurações. Toque em um grupo para abrir uma lista curta de páginas. A imagem é o Dashboard mostrado na largura de um celular.",
-                "en": "The phone menu. On a phone the menu is a bar at the bottom of the screen (1). It has five groups: Home, Clients, Agenda, Financial and Business. The gear (2) at the top opens Settings. Tap a group to open a short list of pages. The picture is the Dashboard shown at the width of a phone."
+                "pt": "O menu do celular. No celular o menu é uma barra no pé da tela (1). Ela tem cinco grupos: Início, Clientes, Agenda, Financeiro e Negócio. A engrenagem (2) no alto abre as Configurações. Toque em um grupo para abrir uma lista curta de páginas.",
+                "en": "The phone menu. On a phone the menu is a bar at the bottom of the screen (1). It has five groups: Home, Clients, Agenda, Financial and Business. The gear (2) at the top opens Settings. Tap a group to open a short list of pages."
               },
               "image": {
                 "en": "help/img/guides/admin-menu-language-learn/menu-06.en.jpg",

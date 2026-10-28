@@ -339,7 +339,7 @@ function navSvg(type) {
 
     // Collapse toggle
     html += '<div class="apex-nav-footer">';
-    html += '<button class="apex-nav-toggle" id="apexNavToggle" onclick="apexNavToggle()"></button>';
+    html += '<button class="apex-nav-toggle" data-help="admin-menu-language-learn#menu#1" id="apexNavToggle" onclick="apexNavToggle()"></button>';
     html += '</div>';
 
     return html;

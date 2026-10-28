@@ -169,7 +169,7 @@
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
             '<span class="pay-row-amt">' + fmtCents(b.amount_cents) + '</span>' +
             '<div class="pay-row-actions">' +
-              '<button class="btn btn-sm btn-gold" onclick="window.ApexVendors.confirmAutoBatch(\'' + b.id + '\')">' + t("Está certo", "Confirm") + '</button>' +
+              '<button data-help="admin-vendors#vendors#3" class="btn btn-sm btn-gold" onclick="window.ApexVendors.confirmAutoBatch(\'' + b.id + '\')">' + t("Está certo", "Confirm") + '</button>' +
               '<button data-help="admin-vendors#vendors#4" class="btn btn-sm" onclick="window.ApexVendors.openChangeAuto(\'' + b.id + '\')">' + t("Mudar", "Change") + '</button>' +
             '</div>' +
           '</div>' +

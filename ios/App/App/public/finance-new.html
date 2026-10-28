@@ -2620,7 +2620,7 @@
           <span class="show-en">No transactions found.</span>
         </div>
         <div class="btn-row" style="margin-top:10px;">
-          <button class="btn btn-sm" id="txnShowMoreBtn" onclick="showMoreTransactions()" hidden></button>
+          <button data-help="admin-finance-overview#ov#5" class="btn btn-sm" id="txnShowMoreBtn" onclick="showMoreTransactions()" hidden></button>
         </div>
       </div>
     </div>
@@ -3026,7 +3026,7 @@
             <span class="show-pt">Suas categorias</span>
             <span class="show-en">Your categories</span>
           </span>
-          <button class="btn btn-sm btn-gold" onclick="openNewCategory()">
+          <button data-help="admin-finance-categories#cat#4" class="btn btn-sm btn-gold" onclick="openNewCategory()">
             <span class="show-pt">+ Nova categoria</span>
             <span class="show-en">+ New category</span>
           </button>
@@ -5135,7 +5135,7 @@
             ? ' &middot; <a class="bill-compare-link" href="utility-savings.html" target="_blank" rel="noopener">' +
               t("como baixar", "how to lower it") + "</a>"
             : "") +
-          (b.pay_url ? ' &middot; <a class="bill-pay-link" href="' + esc(b.pay_url) +
+          (b.pay_url ? ' &middot; <a data-help="admin-finance-bills#bills#3" class="bill-pay-link" href="' + esc(b.pay_url) +
             '" target="_blank" rel="noopener">' + t("pagar", "pay") + "</a>" : "") +
           (b.payee_notes ? " &middot; " + esc(b.payee_notes) : "") +
         "</span>";
@@ -5798,7 +5798,7 @@
               t("Sem cobertura", "Not covered") +
             "</div>";
         var payLink = b.pay_url
-          ? ' &middot; <a class="bill-pay-link" href="' + esc(b.pay_url) + '" target="_blank" rel="noopener">' +
+          ? ' &middot; <a data-help="admin-finance-bills#bills#3" class="bill-pay-link" href="' + esc(b.pay_url) + '" target="_blank" rel="noopener">' +
             t("pagar", "pay") + "</a>" : "";
 
         return '<div class="overdue-row" draggable="true" data-bill-id="' + esc(b.id) + '" ' +
@@ -5832,7 +5832,7 @@
           // Clicking edits THIS MONTH ONLY. It never touches fixed_bills, so
           // next month is back to the normal amount on its own; that is the
           // same one-off-vs-recurring rule "Paguei no cartão" already follows.
-          '<button type="button" class="bill-amount-edit" ' +
+          '<button data-help="admin-finance-bills#bills#3" type="button" class="bill-amount-edit" ' +
             'onclick="editOverdueAmount(\'' + esc(b.id) + '\',' + Number(b.amount_cents) + ',\'' +
               esc(String(b.name).replace(/'/g, "\\'")) + '\')" ' +
             'title="' + t("Alterar o valor deste m&ecirc;s", "Change this month's amount") + '" ' +
@@ -6529,7 +6529,7 @@
         var catLabel = cat
           ? esc(categoryName(cat))
           : '<span style="color:var(--muted)">&mdash;</span>';
-        var catCell = '<button class="btn btn-sm" style="font-weight:500" onclick="openCategoryModal(\'' +
+        var catCell = '<button data-help="admin-finance-overview#ov#6" class="btn btn-sm" style="font-weight:500" onclick="openCategoryModal(\'' +
           esc(t.id) + '\')">' + catLabel + "</button>";
 
 

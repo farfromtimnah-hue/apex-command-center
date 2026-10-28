@@ -22859,7 +22859,7 @@
               "n": 2,
               "text": {
                 "pt": "Abra Negócio, depois Pipeline. Um lead do Thumbtack é uma linha comum (1) no estágio Novo Lead, com o nome do cliente, o serviço e uma etiqueta se ninguém foi escolhido ainda. Digite o nome na caixa de busca para achar.",
-                "en": "Open Business, then Pipeline. A Thumbtack lead is a normal row (1) in the New Lead stage, with the customer's name, the service and a tag if nobody is assigned yet. Type the name in the search box to find it. The picture uses the test customer of the testing environment."
+                "en": "Open Business, then Pipeline. A Thumbtack lead is a normal row (1) in the New Lead stage, with the customer's name, the service and a tag if nobody is assigned yet. Type the name in the search box to find it."
               },
               "image": {
                 "pt": "help/img/guides/thumbtack-leads/leads-02.pt.jpg",

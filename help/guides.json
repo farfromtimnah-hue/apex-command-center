@@ -24431,8 +24431,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "A caixa Ainda não categorizado mostra o dinheiro que ainda não tem categoria. Categorizar agora (1) abre uma compra de cada vez. Você escolhe a categoria e se vale só para esta compra, para esta e as futuras, ou para todo o histórico. No nosso teste não tocamos.",
-                "en": "The box Not categorized yet shows the money that has no category. Categorize now (1) opens one charge at a time. You choose the category, then whether it applies to this charge only, to this and future charges, or to all history. We did not tap it in our test."
+                "pt": "A caixa Ainda não categorizado mostra o dinheiro que ainda não tem categoria. Categorizar agora (1) abre uma compra de cada vez. Você escolhe a categoria e se vale só para esta compra, para esta e as futuras, ou para todo o histórico.",
+                "en": "The box Not categorized yet shows the money that has no category. Categorize now (1) opens one charge at a time. You choose the category, then whether it applies to this charge only, to this and future charges, or to all history."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-categories/cat-s02.pt.jpg",
@@ -24442,8 +24442,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Categorizar automaticamente (2) pede ao Claude para separar as compras sem categoria por você. Confira o resultado depois. No nosso teste não tocamos.",
-                "en": "Auto-categorize (2) asks Claude to sort the uncategorized charges for you. Check the result afterwards. We did not tap it in our test."
+                "pt": "Categorizar automaticamente (2) pede ao Claude para separar as compras sem categoria por você. Confira o resultado depois.",
+                "en": "Auto-categorize (2) asks Claude to sort the uncategorized charges for you. Check the result afterwards."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-categories/cat-s03.pt.jpg",
@@ -24453,8 +24453,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Suas categorias (1) lista todas as categorias em três grupos: Entrada, Saída e Transferência. + Nova categoria (2) cria uma, e ela aparece na hora na lista de cada transação. Não criamos nenhuma.",
-                "en": "Your categories (1) lists every category in three groups: Money in, Money out and Transfer. + New category (2) adds one, and it appears at once in the list of every transaction. We did not add one."
+                "pt": "Suas categorias (1) lista todas as categorias em três grupos: Entrada, Saída e Transferência. + Nova categoria (2) cria uma, e ela aparece na hora na lista de cada transação.",
+                "en": "Your categories (1) lists every category in three groups: Money in, Money out and Transfer. + New category (2) adds one, and it appears at once in the list of every transaction."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-categories/cat-s04.pt.jpg",
@@ -24464,8 +24464,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Regras é uma lista mais abaixo nesta aba. Cada regra separa sozinha todas as compras futuras daquela loja, então o trabalho diminui a cada mês. Use o menu da regra para mudar a categoria, ou Excluir para apagar a regra. Sem imagem: a lista mostra lojas reais.",
-                "en": "Rules is a list lower on this tab. Each rule sorts every future charge from that shop on its own, so the work shrinks every month. Use the menu on a rule to change its category, or Excluir to delete the rule. No picture: the list shows real shops."
+                "pt": "Regras é uma lista mais abaixo nesta aba. Cada regra separa sozinha todas as compras futuras daquela loja, então o trabalho diminui a cada mês. Use o menu da regra para mudar a categoria, ou Excluir para apagar a regra.",
+                "en": "Rules is a list lower on this tab. Each rule sorts every future charge from that shop on its own, so the work shrinks every month. Use the menu on a rule to change its category, or Excluir to delete the rule."
               },
               "image": null
             }
@@ -24878,8 +24878,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Já parece pago, confirma? lista compras do banco que parecem pagar uma conta. Toque em Confirmar para aceitar. Não tocamos.",
-                "en": "Looks already paid, confirm? lists bank charges that seem to pay a bill. Tap Confirm to accept the match. We did not tap it."
+                "pt": "Já parece pago, confirma? lista compras do banco que parecem pagar uma conta. Toque em Confirmar para aceitar.",
+                "en": "Looks already paid, confirm? lists bank charges that seem to pay a bill. Tap Confirm to accept the match."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-bills/bills-s02.pt.jpg",
@@ -24889,8 +24889,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Cada conta atrasada tem botões: Vincular transação liga uma compra do banco à conta, Marcar pago marca como paga, Paguei no cartão e Cancelei fecham de outros jeitos. Não tocamos neles.",
-                "en": "Each overdue bill has buttons: Link transaction ties a bank charge to the bill, Mark paid marks it paid, Paid with card and Cancelled close it in the other ways. We did not tap them."
+                "pt": "Cada conta atrasada tem botões: Vincular transação liga uma compra do banco à conta, Marcar pago marca como paga, Paguei no cartão e Cancelei fecham de outros jeitos.",
+                "en": "Each overdue bill has buttons: Link transaction ties a bank charge to the bill, Mark paid marks it paid, Paid with card and Cancelled close it in the other ways."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-bills/bills-s03.pt.jpg",
@@ -24900,8 +24900,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Precisa de você é uma lista recolhida de perguntas que as regras automáticas não souberam responder, como uma compra sem categoria. Toque na seta para abrir e responda uma de cada vez. Sem imagem: ela lista compras reais.",
-                "en": "Needs you is a folded list of questions the automatic rules could not answer, such as a charge with no category. Tap its arrow to open it and answer one at a time. No picture: it lists real charges."
+                "pt": "Precisa de você é uma lista recolhida de perguntas que as regras automáticas não souberam responder, como uma compra sem categoria. Toque na seta para abrir e responda uma de cada vez.",
+                "en": "Needs you is a folded list of questions the automatic rules could not answer, such as a charge with no category. Tap its arrow to open it and answer one at a time."
               },
               "image": null
             },
@@ -24919,8 +24919,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Contas fixas (1) lista as suas contas do mês. Toque na seta para abrir a lista: dá para adicionar, editar ou remover uma conta, definir um período e arrastar para mudar a prioridade. Não mudamos nenhuma conta.",
-                "en": "Fixed bills (1) lists your monthly bills. Tap its arrow to open the list: you can add, edit or remove a bill, set a date range and drag a bill to set its priority. We did not change any bill."
+                "pt": "Contas fixas (1) lista as suas contas do mês. Toque na seta para abrir a lista: dá para adicionar, editar ou remover uma conta, definir um período e arrastar para mudar a prioridade.",
+                "en": "Fixed bills (1) lists your monthly bills. Tap its arrow to open the list: you can add, edit or remove a bill, set a date range and drag a bill to set its priority."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-bills/bills-s06.pt.jpg",
@@ -24930,8 +24930,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Contas de água e lixo encaminhadas para a caixa de e-mail da Apex são lidas sozinhas e entram nas contas. A Alice recebe um aviso no celular 2 dias antes do vencimento e outro quando a conta atrasa. Não há botão para tocar. Sem imagem. Escrito a partir do código.",
-                "en": "Water and waste bills forwarded to the Apex mailbox are read by themselves and added to the bills. Alice gets a notice on the phone 2 days before the due date and another when the bill is late. There is no button to tap. No picture. Written from the code."
+                "pt": "Contas de água e lixo encaminhadas para a caixa de e-mail da Apex são lidas sozinhas e entram nas contas. A Alice recebe um aviso no celular 2 dias antes do vencimento e outro quando a conta atrasa. Não há botão para tocar.",
+                "en": "Water and waste bills forwarded to the Apex mailbox are read by themselves and added to the bills. Alice gets a notice on the phone 2 days before the due date and another when the bill is late. There is no button to tap."
               },
               "image": null
             }
@@ -26487,8 +26487,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Sincronizar pede ao banco as últimas compras e saldos. A página mostra então quando foi a última atualização. Se o banco avisar que a conexão quebrou, um aviso oferece Reconectar, e Conectar de novo se isso não resolver. Não tocamos neles.",
-                "en": "Sync now asks the bank for the latest charges and balances. The page then shows when it was last updated. If the bank says a link is broken, a banner offers Reconnect, and Link again if that does not work. We did not tap them."
+                "pt": "Sincronizar pede ao banco as últimas compras e saldos. A página mostra então quando foi a última atualização. Se o banco avisar que a conexão quebrou, um aviso oferece Reconectar, e Conectar de novo se isso não resolver.",
+                "en": "Sync now asks the bank for the latest charges and balances. The page then shows when it was last updated. If the bank says a link is broken, a banner offers Reconnect, and Link again if that does not work."
               },
               "image": null
             },
@@ -26506,16 +26506,16 @@
             {
               "n": 4,
               "text": {
-                "pt": "Transferências suspeitas lista dinheiro que parece mudança entre as suas próprias contas. Toque na seta para abrir. Em cada uma, É transferência confirma, Sempre confirma e lembra do pagador, e Não é diz que não é transferência. Não tocamos. Sem imagem: a lista mostra contas reais.",
-                "en": "Suspected transfers lists money that looks like a move between your own accounts. Tap its arrow to open it. For each one, Is a transfer confirms it, Always confirms it and remembers the payer, and Not one says it is not a transfer. We did not tap them. No picture: the list shows real accounts."
+                "pt": "Transferências suspeitas lista dinheiro que parece mudança entre as suas próprias contas. Toque na seta para abrir. Em cada uma, É transferência confirma, Sempre confirma e lembra do pagador, e Não é diz que não é transferência.",
+                "en": "Suspected transfers lists money that looks like a move between your own accounts. Tap its arrow to open it. For each one, Is a transfer confirms it, Always confirms it and remembers the payer, and Not one says it is not a transfer."
               },
               "image": null
             },
             {
               "n": 5,
               "text": {
-                "pt": "Contas conectadas lista cada conta bancária conectada, comercial ou pessoal. Dá para adicionar uma conta comercial ou pessoal, e marcar cada conta nova como comercial ou pessoal. A marca pode ser mudada depois. Sem imagem: mostra nomes reais de contas.",
-                "en": "Linked accounts lists every connected bank account, business or personal. You can add a business or personal account, and tag each new account as business or personal. You can change the tag later. No picture: it shows real account names."
+                "pt": "Contas conectadas lista cada conta bancária conectada, comercial ou pessoal. Dá para adicionar uma conta comercial ou pessoal, e marcar cada conta nova como comercial ou pessoal. A marca pode ser mudada depois.",
+                "en": "Linked accounts lists every connected bank account, business or personal. You can add a business or personal account, and tag each new account as business or personal. You can change the tag later."
               },
               "image": null
             }
@@ -26588,8 +26588,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Depósitos a conciliar é uma caixa que aparece na aba Saúde Financeira só quando o banco recebeu dinheiro que parece pagamento de uma fatura da Apex. Quando nada espera, a caixa não aparece. Sem imagem: nada esperava quando este guia foi escrito. Ele foi escrito a partir do código e ganha imagens quando aparecer um depósito real.",
-                "en": "Deposits to match is a box that appears on the Financial Health tab only when the bank received money that looks like payment of an Apex invoice. When nothing waits, the box is not on the page. No picture: nothing was waiting when this guide was written. It was written from the code and will get pictures when a real deposit appears."
+                "pt": "Depósitos a conciliar é uma caixa que aparece na aba Saúde Financeira só quando o banco recebeu dinheiro que parece pagamento de uma fatura da Apex. Quando nada espera, a caixa não aparece.",
+                "en": "Deposits to match is a box that appears on the Financial Health tab only when the bank received money that looks like payment of an Apex invoice. When nothing waits, the box is not on the page."
               },
               "image": null
             },
@@ -26882,8 +26882,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Digite a resposta na caixa, ou toque em Ditar e fale. Depois toque em Enviar. Se você não souber, toque em Não sei e a pergunta é pulada. Não respondemos nenhuma pergunta.",
-                "en": "Type the answer in the box, or tap Dictate and speak it. Then tap Send. If you do not know, tap I don't know and the question is skipped. We did not answer any question."
+                "pt": "Digite a resposta na caixa, ou toque em Ditar e fale. Depois toque em Enviar. Se você não souber, toque em Não sei e a pergunta é pulada.",
+                "en": "Type the answer in the box, or tap Dictate and speak it. Then tap Send. If you do not know, tap I don't know and the question is skipped."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-terms/terms-s02.pt.jpg",
@@ -26904,8 +26904,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Abaixo da lista, uma tabela mostra os próximos 6 meses, uma coluna por mês. A previsão dos próximos 90 dias conta esta receita só para clientes com valores combinados. Sem imagem da tabela: ela mostra clientes e valores reais.",
-                "en": "Below the list, a table shows the next 6 months, one column per month. The next 90 days outlook counts this income only for clients with agreed terms. No picture of the table: it shows real clients and amounts."
+                "pt": "Abaixo da lista, uma tabela mostra os próximos 6 meses, uma coluna por mês. A previsão dos próximos 90 dias conta esta receita só para clientes com valores combinados.",
+                "en": "Below the list, a table shows the next 6 months, one column per month. The next 90 days outlook counts this income only for clients with agreed terms."
               },
               "image": null
             }
@@ -28238,8 +28238,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Os quatro cartões no alto são Dá pra usar, Entrou (mês), Saiu (mês) e Líquido. Embaixo de Entrou e Saiu, Ver linha por linha (2) abre o extrato do mês, com seletor de mês. Não abrimos.",
-                "en": "The four tiles at the top are Available to use, In (month), Out (month) and Net. Under In and Out, See line by line (2) opens the ledger of the month, with a month picker. We did not open it."
+                "pt": "Os quatro cartões no alto são Dá pra usar, Entrou (mês), Saiu (mês) e Líquido. Embaixo de Entrou e Saiu, Ver linha por linha (2) abre o extrato do mês, com seletor de mês.",
+                "en": "The four tiles at the top are Available to use, In (month), Out (month) and Net. Under In and Out, See line by line (2) opens the ledger of the month, with a month picker."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-overview/ov-s02.pt.jpg",
@@ -28249,8 +28249,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Editar seções (1) deixa você reordenar os cartões da Saúde Financeira, recolher ou voltar para a ordem original. Não mudamos nada.",
-                "en": "Edit sections (1) lets you reorder the cards of Financial Health, collapse them, or reset them to the original order. We did not change anything."
+                "pt": "Editar seções (1) deixa você reordenar os cartões da Saúde Financeira, recolher ou voltar para a ordem original.",
+                "en": "Edit sections (1) lets you reorder the cards of Financial Health, collapse them, or reset them to the original order."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-overview/ov-s03.pt.jpg",
@@ -28260,8 +28260,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Orçamentos por categoria (1) mostra cada orçamento como gasto contra o limite, a média semanal, as semanas que faltam, e um aviso vermelho quando o mês deve passar do limite. Adicionar orçamento cria um novo. Não criamos nenhum.",
-                "en": "Category budgets (1) shows each budget as spent against the limit, the weekly average, the weeks left, and a red note when the month is projected to go over. Add budget adds a new one. We did not add one."
+                "pt": "Orçamentos por categoria (1) mostra cada orçamento como gasto contra o limite, a média semanal, as semanas que faltam, e um aviso vermelho quando o mês deve passar do limite. Adicionar orçamento cria um novo.",
+                "en": "Category budgets (1) shows each budget as spent against the limit, the weekly average, the weeks left, and a red note when the month is projected to go over. Add budget adds a new one."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-overview/ov-s04.pt.jpg",
@@ -28282,8 +28282,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Em uma linha, toque no botão da categoria para escolher uma. Uma janela pergunta se vale só para esta compra, para esta e as futuras, ou para todo o histórico. Um botão marca a compra como transferência. Não categorizamos nada. Sem imagem: abre sobre uma compra real.",
-                "en": "On a row, tap the category button to pick a category. A window asks if it applies to this charge only, to this and future charges, or to all history. A switch marks the charge as a transfer. We did not categorize anything. No picture: it opens on a real charge."
+                "pt": "Em uma linha, toque no botão da categoria para escolher uma. Uma janela pergunta se vale só para esta compra, para esta e as futuras, ou para todo o histórico. Um botão marca a compra como transferência.",
+                "en": "On a row, tap the category button to pick a category. A window asks if it applies to this charge only, to this and future charges, or to all history. A switch marks the charge as a transfer."
               },
               "image": null
             }
@@ -28335,8 +28335,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Quando o robô não sabe de quem é uma apólice, a lista Precisa de você mostra a linha apólices sem nome. Toque na linha para abrir a janela De quem é cada apólice. Para cada código do banco, escolha o nome da pessoa na lista e toque em Salvar. Duas apólices não podem ficar na mesma conta. Sem imagem: esta tela mostra nomes e códigos reais. Escrito a partir do código; nada foi aberto nem salvo.",
-                "en": "When the robot does not know whose a policy is, the Needs you list shows the row policies not named. Tap the row to open the window Whose policy is which. For each bank code, pick the person's name from the list, then tap Save. Two policies cannot go on the same bill. No picture: this screen shows real names and codes. Written from the code; nothing was opened or saved."
+                "pt": "Quando o robô não sabe de quem é uma apólice, a lista Precisa de você mostra a linha apólices sem nome. Toque na linha para abrir a janela De quem é cada apólice. Para cada código do banco, escolha o nome da pessoa na lista e toque em Salvar. Duas apólices não podem ficar na mesma conta.",
+                "en": "When the robot does not know whose a policy is, the Needs you list shows the row policies not named. Tap the row to open the window Whose policy is which. For each bank code, pick the person's name from the list, then tap Save. Two policies cannot go on the same bill."
               },
               "image": null
             },
@@ -28351,8 +28351,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Quando o extrato mostra uma cobrança que se repete, aparece a caixa Cobranças que se repetem no seu extrato: são contas fixas? Cada linha mostra o nome, o dia do mês, em quantos meses apareceu e o valor. Toque em É conta fixa para acompanhar essa cobrança como conta fixa. Se não for uma conta, não toque. Sem imagem: a caixa só aparece quando há uma sugestão. Nada foi tocado.",
-                "en": "When the statement shows a charge that repeats, the box Charges that repeat on your statement, are these fixed bills? appears. Each line shows the name, the day of the month, in how many months it showed up, and the amount. Tap Yes, track it to follow that charge as a fixed bill. If it is not a bill, do not tap. No picture: the box only appears when there is a suggestion. Nothing was tapped."
+                "pt": "Quando o extrato mostra uma cobrança que se repete, aparece a caixa Cobranças que se repetem no seu extrato: são contas fixas? Cada linha mostra o nome, o dia do mês, em quantos meses apareceu e o valor. Toque em É conta fixa para acompanhar essa cobrança como conta fixa. Se não for uma conta, não toque.",
+                "en": "When the statement shows a charge that repeats, the box Charges that repeat on your statement, are these fixed bills? appears. Each line shows the name, the day of the month, in how many months it showed up, and the amount. Tap Yes, track it to follow that charge as a fixed bill. If it is not a bill, do not tap."
               },
               "image": null
             },
@@ -28375,8 +28375,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "O relatório financeiro impresso abre a partir da ferramenta Financeiro do cliente, com o botão Relatório. A página mostra o título, para quem foi preparado, o período, o saldo, a lista Lançamentos e os Totais por categoria. PT / EN muda o idioma. Imprimir / Salvar em PDF faz o arquivo. Sem imagem: mostra dinheiro real do cliente. Nada foi aberto.",
-                "en": "The printed financial report opens from the client's Finance tool, with the Report button. The page shows the title, who it was prepared for, the period, the balance, the Entries list and the Totals by category. PT / EN changes the language. Print / Save as PDF makes the file. No picture: it shows the client's real money. Nothing was opened."
+                "pt": "O relatório financeiro impresso abre a partir da ferramenta Financeiro do cliente, com o botão Relatório. A página mostra o título, para quem foi preparado, o período, o saldo, a lista Lançamentos e os Totais por categoria. PT / EN muda o idioma. Imprimir / Salvar em PDF faz o arquivo.",
+                "en": "The printed financial report opens from the client's Finance tool, with the Report button. The page shows the title, who it was prepared for, the period, the balance, the Entries list and the Totals by category. PT / EN changes the language. Print / Save as PDF makes the file."
               },
               "image": null
             }

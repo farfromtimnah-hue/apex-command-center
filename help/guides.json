@@ -14444,7 +14444,7 @@
               "n": 6,
               "text": {
                 "pt": "Gere o resumo. Toque em Resumir na reunião. Abre uma tela onde você escolhe quais seções o relatório terá (por exemplo Recomendações, Ações do Cliente e Foco da Próxima Sessão) e depois toque em Gerar Resumo. A Apex escreve o resumo em português e em inglês. Demora um pouco. Há um limite de 20 resumos por hora para cada pessoa.",
-                "en": "Make the summary. Tap Resumir on the meeting. A screen opens where you choose which sections the report will have (for example Recommendations, Client Action Items and Next Session Focus), then tap Gerar Resumo. Apex writes a summary in Portuguese and English. It takes a short while. There is a limit of 20 summaries per hour for each person."
+                "en": "Make the summary. Tap Summarize on the meeting. A screen opens where you choose which sections the report will have (for example Recommendations, Client Action Items and Next Session Focus), then tap Generate Summary. Apex writes a summary in Portuguese and English. It takes a short while. There is a limit of 20 summaries per hour for each person."
               },
               "image": null
             },
@@ -14452,7 +14452,7 @@
               "n": 7,
               "text": {
                 "pt": "Confira e aprove. Leia o resumo na aba Resumido. Corrija o que estiver errado. Depois toque em Aprovar & Enviar. Depois de aprovado, Gerar PDF cria o relatório com a marca da Apex para o cliente.",
-                "en": "Check and approve. Read the summary in the Resumido tab. Fix what is wrong. Then tap Aprovar & Enviar (Approve & Send). After it is approved, Gerar PDF (Generate PDF) makes the branded report for the client."
+                "en": "Check and approve. Read the summary in the Summarized tab. Fix what is wrong. Then tap Approve & Send. After it is approved, Generate PDF makes the branded report for the client."
               },
               "image": null
             },
@@ -14700,7 +14700,7 @@
               "n": 1,
               "text": {
                 "pt": "No registro do cliente. Abra o cliente, toque em Trabalho Apex e escolha Recursos ou Documentos. 1. + Anexar Recurso dá um recurso ao cliente: escolha From Library para pegar um que você guardou, ou Create New para criar ali mesmo, e toque em Attach to Client. 2. Enviar Arquivo coloca um arquivo no cartão Documentos deste cliente. 3. Ver abre um documento. 4. Ocultar do cliente tira o documento da vista do cliente. Um documento oculto mostra Mostrar ao cliente para você trazê-lo de volta. Excluir apaga.",
-                "en": "On the client record. Open the client, tap Apex work and choose Resources or Documents. 1. + Anexar Recurso (+ Attach Resource) gives the client a resource: choose From Library to pick one you saved, or Create New to make one right there, then tap Attach to Client. 2. Enviar Arquivo (Upload File) puts a file in the Documents card of this client. 3. Ver (View) opens a document. 4. Ocultar do cliente (Hide from client) takes it off the client's view. A hidden document shows Mostrar ao cliente (Show to client) so you can bring it back. Excluir (Delete) removes it."
+                "en": "On the client record. Open the client, tap Apex work and choose Resources or Documents. 1. + Attach Resource gives the client a resource: choose From Library to pick one you saved, or Create New to make one right there, then tap Attach to Client. 2. Upload File puts a file in the Documents card of this client. 3. View opens a document. 4. Hide from client takes it off the client's view. A hidden document shows Show to client so you can bring it back. Delete removes it."
               },
               "image": {
                 "pt": "help/img/guides/admin-resources-documents/client-01.pt.jpg",
@@ -16126,7 +16126,7 @@
               "n": 2,
               "text": {
                 "pt": "A página mostra um evento de cada vez (1): a imagem, o nome, a data, o local e os convidados. Editar (2) abre o formulário.",
-                "en": "The page shows one event at a time (1): the picture, the name, the date, the place and the speakers. Editar (Edit) (2) opens the form."
+                "en": "The page shows one event at a time (1): the picture, the name, the date, the place and the speakers. Edit (2) opens the form."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-02.pt.jpg",
@@ -16148,7 +16148,7 @@
               "n": 4,
               "text": {
                 "pt": "Cada convidado tem botões. WhatsApp (1) abre o WhatsApp com a mensagem de confirmação daquele convidado, e Editar msg (2) muda o texto dessa mensagem. +1 (3) diz que o convidado traz mais uma pessoa, e isso conta dois lugares. A seta (4) diz que o convidado não vem desta vez, mas vem no próximo. O visto (5) diz que o convidado veio, e o x (6) diz que não veio.",
-                "en": "Each guest has buttons. WhatsApp (1) opens WhatsApp with the confirmation message for that guest, and Editar msg (2) changes the words of that message. +1 (3) says the guest brings one more person, which counts two seats. The arrow (4) says the guest does not come this time but will come to the next one. The check mark (5) says the guest came, and the cross (6) says the guest did not show up."
+                "en": "Each guest has buttons. WhatsApp (1) opens WhatsApp with the confirmation message for that guest, and Edit msg (2) changes the words of that message. +1 (3) says the guest brings one more person, which counts two seats. The arrow (4) says the guest does not come this time but will come to the next one. The check mark (5) says the guest came, and the cross (6) says the guest did not show up."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-04.pt.jpg",
@@ -16159,7 +16159,7 @@
               "n": 5,
               "text": {
                 "pt": "Quando um convidado tem +1 (1) mas a segunda pessoa ainda não tem nome, uma etiqueta diz Acompanhante: faltando (2), e o botão Adicionar (3) está ali para preencher.",
-                "en": "When a guest has +1 (1) but the second person has no name yet, a tag says Acompanhante: faltando (plus-one missing) (2), and the button Adicionar (3) is there to fill it in."
+                "en": "When a guest has +1 (1) but the second person has no name yet, a tag says Plus one: missing (2), and the button Add (3) is there to fill it in."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-05.pt.jpg",
@@ -16170,7 +16170,7 @@
               "n": 6,
               "text": {
                 "pt": "No fim da lista, o link público de inscrição (3) tem Copiar e Compartilhar. As pessoas se inscrevem nessa página pública, que qualquer um pode repassar, sem precisar de login. Acima dele ficam os botões Pessoas (1) e Copiar lista (2).",
-                "en": "At the bottom of the list, the public sign-up link (3) has Copiar (Copy) and Compartilhar (Share). People sign up on that public page, which anyone can forward, so no login is needed. Above it are the buttons Pessoas (1) and Copiar lista (2)."
+                "en": "At the bottom of the list, the public sign-up link (3) has Copy and Share. People sign up on that public page, which anyone can forward, so no login is needed. Above it are the buttons People (1) and Copy list (2)."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-06.pt.jpg",
@@ -16181,7 +16181,7 @@
               "n": 7,
               "text": {
                 "pt": "O cartão Adicionar pessoa adiciona um convidado à mão: o evento (1), Nome (2), WhatsApp com DDD (3), Empresa (opcional) (4), a caixa Vem com acompanhante (5) e o botão Adicionar (6).",
-                "en": "The card Adicionar pessoa (Add person) adds a guest by hand: the event (1), Nome (2), WhatsApp with area code (3), Empresa (optional) (4), the box Vem com acompanhante (comes with a plus-one) (5) and the button Adicionar (6)."
+                "en": "The card Add someone adds a guest by hand: the event (1), Name (2), WhatsApp number (3), Company (optional) (4), the box Bringing a plus-one (5) and the button Add (6)."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-07.pt.jpg",
@@ -16192,7 +16192,7 @@
               "n": 8,
               "text": {
                 "pt": "Para criar um evento, role até o fim da página e toque em Novo evento (1).",
-                "en": "To create an event, scroll to the bottom of the page and tap Novo evento (New event) (1)."
+                "en": "To create an event, scroll to the bottom of the page and tap New event (1)."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-08.pt.jpg",
@@ -16203,7 +16203,7 @@
               "n": 9,
               "text": {
                 "pt": "Só o nome e a data são obrigatórios. Preencha Nome do evento (1), Data (2), Horário (3), Local (4) e Convidados (5), que palestram. Tudo o que você preencher aparece na página de inscrição.",
-                "en": "Only the name and the date are required. Fill in Nome do evento (Event name) (1), Data (Date) (2), Horário (Start time) (3), Local (Venue) (4) and Convidados (Speakers) (5), who speak. Everything you fill in shows on the registration page."
+                "en": "Only the name and the date are required. Fill in Event name (1), Date (2), Start time (3), Venue (4) and Speakers (5), the people who speak. Everything you fill in shows on the registration page."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-09.pt.jpg",
@@ -16214,7 +16214,7 @@
               "n": 10,
               "text": {
                 "pt": "Valor por pessoa (1): deixe vazio quando a Apex não cobra por este evento. Valor por casal (2) é o preço de um casal. Aceitar cartão neste evento (3) liga o pagamento por cartão, com preços próprios (4) (5).",
-                "en": "Valor por pessoa (Price per person) (1): leave it empty when Apex does not charge for this event. Valor por casal (2) is the price for a couple. Aceitar cartão neste evento (3) turns on card payment, with its own prices (4) (5)."
+                "en": "Price per person (1): leave it empty when Apex does not charge for this event. Price per couple (2) is the price for a couple. Accept card at this event (3) turns on card payment, with its own prices (4) (5)."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-10.pt.jpg",
@@ -16225,7 +16225,7 @@
               "n": 11,
               "text": {
                 "pt": "Role para baixo dentro da caixa. Observações (1) aparece para quem se inscreve. Ajustar janela de pagamentos (2) define as datas em que os pagamentos são aceitos. Toque em Cancelar (3) para sair, ou em Salvar (4) para guardar o evento.",
-                "en": "Scroll down in the box. Observações (1) shows to the people who sign up. Ajustar janela de pagamentos (2) sets the dates when payments are accepted. Tap Cancelar (3) to leave, or Salvar (4) to save the event."
+                "en": "Scroll down in the box. Notes (1) shows to the people who sign up. Adjust payment window (2) shows the Count payments from and until dates, which set when payments are counted. Tap Cancel (3) to leave, or Save (4) to save the event."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-11.pt.jpg",
@@ -16236,7 +16236,7 @@
               "n": 12,
               "text": {
                 "pt": "Para mudar o evento, toque em Editar no cartão do evento. O mesmo formulário abre de novo com os valores salvos (1) a (5). Nesse formulário também há um botão vermelho Excluir. Use com cuidado.",
-                "en": "To change the event, tap Editar on the event card. The same form opens again with the saved values (1) to (5). In this form there is also a red Excluir (Delete) button. Use it with care."
+                "en": "To change the event, tap Edit on the event card. The same form opens again with the saved values (1) to (5). In this form there is also a red Delete button. Use it with care."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-12.pt.jpg",
@@ -17002,7 +17002,7 @@
               "n": 5,
               "text": {
                 "pt": "O que o sistema já responde (1) tem os números que a Apex já tem, como as metas do mês, o dinheiro que entrou e saiu hoje, os leads de hoje e o pipeline aberto, para você não precisar perguntar ao cliente.",
-                "en": "O que o sistema já responde (What the system already answers) (1) has the numbers Apex already has, like the targets for the month, money in and out today, leads today and the open pipeline, so you do not need to ask the client."
+                "en": "What the system already answers (1) has the numbers Apex already has, like the targets for the month, money in and out today, leads today and the open pipeline, so you do not need to ask the client."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-05.pt.jpg",
@@ -17013,7 +17013,7 @@
               "n": 6,
               "text": {
                 "pt": "O que o sistema já sabe (1): o pacote, os donos e o Raio-X.",
-                "en": "O que o sistema já sabe (What the system already knows) (1): the package, the owners and the X-Ray."
+                "en": "What the system already knows (1): the package, the owners and the X-Ray."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-06.pt.jpg",
@@ -17024,7 +17024,7 @@
               "n": 7,
               "text": {
                 "pt": "A reunião, passo a passo (1) é o roteiro, um passo numerado de cada vez. Cada passo tem botões, por exemplo para definir as metas na ficha do cliente (2) ou abrir o registro de hoje (3).",
-                "en": "A reunião, passo a passo (The meeting, step by step) (1) is the script, one numbered step at a time. Each step has buttons, for example to set the targets on the client page (2) or to open today's entry (3)."
+                "en": "The meeting, step by step (1) is the script, one numbered step at a time. Each step has buttons, for example to set the targets on the client page (2) or to open today's entry (3)."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-07.pt.jpg",
@@ -17035,7 +17035,7 @@
               "n": 8,
               "text": {
                 "pt": "As metas, na ordem (1) lista os vinte e seis campos na ordem em que o cliente preenche. Cada um diz se é perguntado, derivado ou padrão Apex, e mostra o que já está definido.",
-                "en": "As metas, na ordem (The targets, in order) (1) lists the twenty-six fields in the order the client fills them. Each says if it is asked, derived or an Apex default, and shows what is already set."
+                "en": "The targets, in order (1) lists the twenty-six fields in the order the client fills them. Each says if it is asked, derived or an Apex default, and shows what is already set."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-08.pt.jpg",
@@ -17046,7 +17046,7 @@
               "n": 9,
               "text": {
                 "pt": "O primeiro registro, indicador por indicador (1): você pergunta o valor de hoje para cada um. Zero é um valor: precisa ser digitado, não pulado. A lista é só para ler.",
-                "en": "O primeiro registro, indicador por indicador (The first daily log, indicator by indicator) (1): you ask for today's value for each one. Zero is a value: it gets typed, not skipped. The list is read only."
+                "en": "The first daily log, indicator by indicator (1): you ask for today's value for each one. Zero is a value: it gets typed, not skipped. The list is read only."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-09.pt.jpg",
@@ -17057,7 +17057,7 @@
               "n": 10,
               "text": {
                 "pt": "Depois da reunião (1) tem três conferências, cada uma com um botão: gerar e aprovar o resumo da sessão, confirmar as metas lançadas e combinar a próxima sessão.",
-                "en": "Depois da reunião (After the meeting) (1) has three checks, each with a button: generate and approve the session summary, confirm the targets that were entered, and agree the next session."
+                "en": "After the meeting (1) has three checks, each with a button: generate and approve the session summary, confirm the targets that were entered, and agree the next session."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-10.pt.jpg",
@@ -24611,7 +24611,7 @@
               "n": 5,
               "text": {
                 "pt": "Regras é uma lista mais abaixo nesta aba. Cada regra separa sozinha todas as compras futuras daquela loja, então o trabalho diminui a cada mês. Use o menu da regra para mudar a categoria, ou Excluir para apagar a regra.",
-                "en": "Rules is a list lower on this tab. Each rule sorts every future charge from that shop on its own, so the work shrinks every month. Use the menu on a rule to change its category, or Excluir to delete the rule."
+                "en": "Rules is a list lower on this tab. Each rule sorts every future charge from that shop on its own, so the work shrinks every month. Use the menu on a rule to change its category, or Delete to delete the rule."
               },
               "image": null
             }
@@ -26011,8 +26011,8 @@
         "en": "Model contract review: check the clauses"
       },
       "summary": {
-        "pt": "Revisar cada cláusula do contrato modelo e enviar a revisão. A página é em português.",
-        "en": "Review each clause of the model contract and send the review. The page is in Portuguese."
+        "pt": "Revisar cada cláusula do contrato modelo e enviar a revisão.",
+        "en": "Review each clause of the model contract and send the review."
       },
       "keywords": {
         "pt": [
@@ -26044,8 +26044,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Revisão do contrato no menu da esquerda. Esta página serve para conferir o contrato modelo cláusula por cláusula. Ela é em português de propósito. O primeiro cartão, Controles (desenvolvedor), é para o desenvolvedor. A caixa (1) libera a revisão para o Pr. Rafael. Os campos (2) registram o nome do advogado, o número da Florida Bar e a data, e Registrar revisão do advogado (3) guarda esses dados. O status da versão aparece ao lado.",
-                "en": "Open Contract review in the left menu. This page is where the model contract is checked clause by clause. It is in Portuguese on purpose. The first card, Controls (developer), is for the developer. The box (1) releases the review to Pr. Rafael. The fields (2) record the attorney's name, Florida Bar number and date, and Register attorney review (3) saves them. The version status is shown beside them."
+                "pt": "Abra Revisão do contrato no menu da esquerda. Esta página serve para conferir o contrato modelo cláusula por cláusula. O primeiro cartão, Controles (desenvolvedor), é para o desenvolvedor. A caixa (1) libera a revisão para o Pr. Rafael. Os campos (2) registram o nome do advogado, o número da Florida Bar e a data, e Registrar revisão do advogado (3) guarda esses dados. O status da versão aparece ao lado.",
+                "en": "Open Contract review in the left menu. This page is where the model contract is checked clause by clause. The first card, Controls (developer), is for the developer. The box (1) releases the review to Pr. Rafael. The fields (2) record the attorney's name, Florida Bar number and date, and Record attorney review (3) saves them. The version status is shown beside them."
               },
               "image": {
                 "pt": "help/img/guides/admin-contract-review/review-01.pt.jpg",
@@ -26056,7 +26056,7 @@
               "n": 2,
               "text": {
                 "pt": "Cada cláusula é um cartão (1) com o texto em inglês que vai para o contrato e as regras do bloco à direita. Em cada cláusula toque em OK como está (2) se estiver bem, ou em Sugerir mudanças (3) para escrever o que deve mudar. Na caixa da sugestão você pode digitar ou tocar em Ditar para falar, e depois tocar em Salvar mudanças. O cartão mostra a escolha e a data, por exemplo OK como está ou Mudanças sugeridas.",
-                "en": "Each clause is a card (1) with the English text that goes into the contract and the rules of the block on the right. For each clause tap OK como está (2) if it is fine, or Sugerir mudanças (3) to write what should change. In the suggestion box you can type or tap Ditar to speak, then tap Salvar mudanças. The card shows the choice and the date, for example OK como está or Mudanças sugeridas."
+                "en": "Each clause is a card (1) with the English text that goes into the contract and the rules of the block on the right. For each clause tap OK as is (2) if it is fine, or Suggest changes (3) to write what should change. In the suggestion box you can type or tap Dictate to speak, then tap Save changes. The card shows the choice and the date, for example OK as is or Changes suggested."
               },
               "image": {
                 "pt": "help/img/guides/admin-contract-review/review-02.pt.jpg",
@@ -26066,8 +26066,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "A barra (1) conta quantas cláusulas foram revisadas, por exemplo 2 de 162. Toque em Enviar revisão (1) quando terminar, para enviar a revisão. Enviar para o seu advogado (PDF) imprime toda a biblioteca do contrato em PDF para mandar ao seu próprio advogado. Antes disso, o cartão Dados de conformidade guarda o bloco de contato do Recovery Fund e os documentos de piscina. Um contrato que precisa deles não pode ser enviado enquanto estiverem vazios.",
-                "en": "The bar (1) counts how many clauses were reviewed, for example 2 of 162. Tap Enviar revisão (1) when you finish, to send the review. Enviar para o seu advogado (PDF) prints the whole contract library as a PDF to send to your own attorney. Before that, the card Dados de conformidade holds the Recovery Fund contact block and the pool documents. A contract that needs them cannot be sent while they are empty."
+                "pt": "A barra conta quantas cláusulas foram revisadas, por exemplo 2 de 162. Toque em Enviar revisão (1) quando terminar, para enviar a revisão. Enviar para o seu advogado (PDF) imprime toda a biblioteca do contrato em PDF para mandar ao seu próprio advogado. Antes disso, o cartão Dados de conformidade guarda o bloco de contato do Recovery Fund e os documentos de piscina. Um contrato que precisa deles não pode ser enviado enquanto estiverem vazios.",
+                "en": "The bar counts how many clauses were reviewed, for example 2 of 162. Tap Send review (1) when you finish, to send the review. Send to your attorney (PDF) prints the whole contract library as a PDF to send to your own attorney. Before that, the card Compliance data holds the Recovery Fund contact block and the pool documents. A contract that needs them cannot be sent while they are empty."
               },
               "image": {
                 "pt": "help/img/guides/admin-contract-review/review-03.pt.jpg",

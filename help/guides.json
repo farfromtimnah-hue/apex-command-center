@@ -28859,99 +28859,6 @@
       ]
     },
     {
-      "id": "admin-sessions-transcripts",
-      "audience": "admin",
-      "title": {
-        "pt": "Sessões: a aba Transcrições",
-        "en": "Sessions: the Transcripts tab"
-      },
-      "summary": {
-        "pt": "Ache uma transcrição na aba Transcrições da página Sessões: filtre por cliente e por datas e leia o status de cada uma.",
-        "en": "Find a transcript in the Transcripts tab of the Sessions page: filter by client and by dates and read the status of each one."
-      },
-      "keywords": {
-        "pt": [
-          "transcrições",
-          "transcrição",
-          "filtrar por cliente",
-          "datas",
-          "aprovado",
-          "pendente",
-          "descartado",
-          "caixa de entrada"
-        ],
-        "en": [
-          "transcripts",
-          "transcript",
-          "filter by client",
-          "dates",
-          "approved",
-          "pending",
-          "discarded",
-          "inbox"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "tr",
-          "title": {
-            "pt": "A aba Transcrições",
-            "en": "The Transcripts tab"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Abra a aba e filtre. Na página Sessões toque em Transcrições. Escolha um cliente na lista All Clients (1) para ver só ele. Defina uma data de início e uma data de fim (2) para ver só aquele período. A imagem cobre os nomes dos clientes.",
-                "en": "Open the tab and filter. On the Sessions page tap Transcripts. Pick one client in the list All Clients (1) to see only that client. Set a start date and an end date (2) to see only that period. The picture covers the client names."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-sessions-transcripts/tr-01.pt.jpg",
-                "en": "help/img/guides/admin-sessions-transcripts/tr-01.en.jpg"
-              }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Leia o status. Cada linha mostra o cliente, a data e uma etiqueta (3): Aprovado, Pendente, Descartado ou Caixa de Entrada. Embaixo do nome, Clique para ver a transcrição abre o texto daquela reunião.",
-                "en": "Read the status. Each row shows the client, the date and a tag (3): Approved, Pending, Discarded or Inbox. Under the name, Click to view transcript opens the text of that meeting."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-sessions-transcripts/tr-02.pt.jpg",
-                "en": "help/img/guides/admin-sessions-transcripts/tr-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Adicione um cliente novo. Na página Sessões, abra a aba Nova Sessão e abra a lista Cliente. A primeira escolha, + Novo Cliente, abre um pequeno formulário (1): Nome (obrigatório), Setor, Localização, Pacote e Ativo. Toque em Salvar Cliente (2) para adicionar o cliente, ou no X para fechar sem salvar. Nada é salvo até você tocar em Salvar Cliente.",
-                "en": "Add a new client. On the Sessions page, open the tab New Session and open the Client list. The first choice, + New Client, opens a small form (1): Name (required), Sector, Location, Package and Active. Tap Save Client (2) to add the client, or the X to close without saving. Nothing is saved until you tap Save Client."
-              },
-              "image": {
-                "en": "help/img/guides/admin-sessions-transcripts/tr-03.en.jpg",
-                "pt": "help/img/guides/admin-sessions-transcripts/tr-03.pt.jpg"
-              }
-            }
-          ]
-        }
-      ],
-      "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "Filtrar transcrições por cliente"
-            ],
-            "en": [
-              "Filter transcripts by client"
-            ]
-          },
-          "section": "tr",
-          "step": 1
-        }
-      ]
-    },
-    {
       "id": "admin-new-session-details",
       "audience": "admin",
       "title": {
@@ -29666,6 +29573,121 @@
           },
           "section": "menu",
           "step": 2
+        }
+      ]
+    },
+    {
+      "id": "admin-sessions-transcripts",
+      "audience": "admin",
+      "title": {
+        "pt": "Sessões: a aba Transcrições",
+        "en": "Sessions: the Transcripts tab"
+      },
+      "summary": {
+        "pt": "Ache uma transcrição na aba Transcrições da página Sessões: filtre por cliente e por datas e leia o status de cada uma.",
+        "en": "Find a transcript in the Transcripts tab of the Sessions page: filter by client and by dates and read the status of each one."
+      },
+      "keywords": {
+        "pt": [
+          "transcrições",
+          "transcrição",
+          "filtrar por cliente",
+          "datas",
+          "aprovado",
+          "pendente",
+          "descartado",
+          "caixa de entrada"
+        ],
+        "en": [
+          "transcripts",
+          "transcript",
+          "filter by client",
+          "dates",
+          "approved",
+          "pending",
+          "discarded",
+          "inbox"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "tr",
+          "title": {
+            "pt": "A aba Transcrições",
+            "en": "The Transcripts tab"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra a aba e filtre. Na página Sessões toque em Transcrições. Escolha um cliente na lista All Clients (1) para ver só ele. Defina uma data de início e uma data de fim (2) para ver só aquele período. A imagem cobre os nomes dos clientes.",
+                "en": "Open the tab and filter. On the Sessions page tap Transcripts. Pick one client in the list All Clients (1) to see only that client. Set a start date and an end date (2) to see only that period. The picture covers the client names."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-sessions-transcripts/tr-01.pt.jpg",
+                "en": "help/img/guides/admin-sessions-transcripts/tr-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Leia o status. Cada linha mostra o cliente, a data e uma etiqueta (3): Aprovado, Pendente, Descartado ou Caixa de Entrada. Embaixo do nome, Clique para ver a transcrição abre o texto daquela reunião.",
+                "en": "Read the status. Each row shows the client, the date and a tag (3): Approved, Pending, Discarded or Inbox. Under the name, Click to view transcript opens the text of that meeting."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-sessions-transcripts/tr-02.pt.jpg",
+                "en": "help/img/guides/admin-sessions-transcripts/tr-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Adicione um cliente novo. Na página Sessões, abra a aba Nova Sessão e abra a lista Cliente. A primeira escolha, + Novo Cliente, abre um pequeno formulário (1): Nome (obrigatório), Setor, Localização, Pacote e Ativo. Toque em Salvar Cliente (2) para adicionar o cliente, ou no X para fechar sem salvar. Nada é salvo até você tocar em Salvar Cliente.",
+                "en": "Add a new client. On the Sessions page, open the tab New Session and open the Client list. The first choice, + New Client, opens a small form (1): Name (required), Sector, Location, Package and Active. Tap Save Client (2) to add the client, or the X to close without saving. Nothing is saved until you tap Save Client."
+              },
+              "image": {
+                "en": "help/img/guides/admin-sessions-transcripts/tr-03.en.jpg",
+                "pt": "help/img/guides/admin-sessions-transcripts/tr-03.pt.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Escolha as seções do relatório. Quando uma reunião é salva ou aberta, a página dela mostra Seções do Relatório (1): Radiografia Atual, Recomendações, Ações do Cliente, Acompanhamento do Consultor, Foco da Próxima Sessão, Matriz SWOT, Leitura Cruzada da SWOT, Plano de 30 Dias e Meta dos 30 Dias. Capa e Sumário Executivo são sempre incluídos. Desmarque o que não quiser e toque em Gerar Resumo (3). A lista das outras reuniões está coberta na imagem.",
+                "en": "Choose the report sections. When a meeting is saved or opened, its page shows Report Sections (1): Current Business X-Ray, Recommendations, Client Action Items, Consultant Follow-up, Next Session Focus, SWOT Matrix, SWOT Cross-Analysis, 30-Day Plan and 30-Day Goals. Cover and Executive Summary are always included. Untick what you do not want, then tap Generate Summary (3). The list of other meetings is covered in the picture."
+              },
+              "image": {
+                "en": "help/img/guides/admin-sessions-transcripts/tr-04.en.jpg",
+                "pt": "help/img/guides/admin-sessions-transcripts/tr-04.pt.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Crie uma seção nova. Toque em + Nova Seção (2). Um formulário abre com Título PT e Título EN (1), uma caixa para o que a IA deve escrever (2), Salvar Seção (3) e Cancelar (4). Salvar Seção põe a seção nova na lista para os próximos relatórios. Cancelar fecha o formulário sem salvar, como fizemos no nosso teste.",
+                "en": "Make a new section. Tap + New Section (2). A form opens with Title PT and Title EN (1), a box for what the AI should write (2), Save Section (3) and Cancel (4). Save Section adds the new section to the list for later reports. Cancel closes the form without saving, as we did in our test."
+              },
+              "image": {
+                "en": "help/img/guides/admin-sessions-transcripts/tr-05.en.jpg",
+                "pt": "help/img/guides/admin-sessions-transcripts/tr-05.pt.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Filtrar transcrições por cliente"
+            ],
+            "en": [
+              "Filter transcripts by client"
+            ]
+          },
+          "section": "tr",
+          "step": 1
         }
       ]
     }

@@ -1341,7 +1341,7 @@
               "n": 1,
               "text": {
                 "pt": "Abra o orçamento. Em Negócio, toque em Orçamentos. Toque no orçamento que quer enviar.",
-                "en": "Open the estimate. Under Negócio, tap Orçamentos. Tap the estimate you want to send."
+                "en": "Open the estimate. Under Business, tap Estimates. Tap the estimate you want to send."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s1-01.jpg",
@@ -1352,7 +1352,7 @@
               "n": 2,
               "text": {
                 "pt": "Toque em Enviar. O botão azul escuro, perto do topo, abre a tela de envio.",
-                "en": "Tap Enviar. The dark blue button near the top opens the send screen."
+                "en": "Tap Send. The dark blue button near the top opens the send screen."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s1-02.jpg",
@@ -1363,7 +1363,7 @@
               "n": 3,
               "text": {
                 "pt": "Toque em Abrir meu email. Fica na segunda linha de botões, à esquerda. Se o botão estiver cinza, veja a seção 3.",
-                "en": "Tap Abrir meu email. It is on the second row of buttons, on the left. If the button is grey, see section 3."
+                "en": "Tap Open my email app. It is on the second row of buttons, on the left. If the button is grey, see section 3."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s1-03.jpg",
@@ -1405,7 +1405,7 @@
               "n": 1,
               "text": {
                 "pt": "Toque em Copiar para enviar pelo navegador. Fica na segunda linha de botões, à direita. O texto pronto é copiado.",
-                "en": "Tap Copiar para enviar pelo navegador. It is on the second row of buttons, on the right. The ready text is copied."
+                "en": "Tap Copy to send from a web email. It is on the second row of buttons, on the right. The ready text is copied."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s2-01.jpg",
@@ -1426,8 +1426,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Abra um email novo e cole o texto. Toque no corpo do email e cole (Command V no Mac, Ctrl V no Windows). Aparecem 3 passos, o endereço, o assunto, uma linha de iguais e a mensagem.",
-                "en": "Open a new email and paste the text. Tap the body of the email and paste (Command V on a Mac, Ctrl V on Windows). You see 3 steps, the address, the subject, a line of equals signs and the message."
+                "pt": "Abra um email novo e cole o texto. Toque no corpo do email e cole (Command V no Mac, Ctrl V no Windows). Aparecem o endereço, o assunto, uma linha de iguais e a mensagem.",
+                "en": "Open a new email and paste the text. Tap the body of the email and paste (Command V on a Mac, Ctrl V on Windows). You see the address, the subject, a line of equals signs and the message."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s2-03.jpg",
@@ -1438,7 +1438,7 @@
               "n": 4,
               "text": {
                 "pt": "Copie o endereço e o assunto para as caixas. Copie o endereço da linha To e cole na caixa Para. Copie o assunto da linha Subject e cole na caixa Assunto.",
-                "en": "Copy the address and the subject into the boxes. Copy the address from the To line and paste it into the Para (To) box. Copy the subject from the Subject line and paste it into the Assunto (Subject) box."
+                "en": "Copy the address and the subject into the boxes. Copy the address from the To line and paste it into the To box. Copy the subject from the Subject line and paste it into the Subject box."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s2-04.jpg",
@@ -1449,7 +1449,7 @@
               "n": 5,
               "text": {
                 "pt": "Selecione o texto do topo até a linha de iguais. Comece no começo do corpo do email e vá até o fim da linha que diz APAGUE TUDO ACIMA DESTA LINHA, inclusive ela.",
-                "en": "Select the text from the top down to the line of equals signs. Start at the beginning of the email body and go to the end of the line that says APAGUE TUDO ACIMA DESTA LINHA, including that line."
+                "en": "Select the text from the top down to the line of equals signs. Start at the beginning of the email body and go to the end of the line that says DELETE EVERYTHING ABOVE THIS LINE, including that line."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s2-05.jpg",
@@ -1491,7 +1491,7 @@
               "n": 1,
               "text": {
                 "pt": "Os botões de email ficam cinza. Abaixo deles aparece: Sem email cadastrado. Toque para adicionar. Mensagem de texto e WhatsApp continuam funcionando.",
-                "en": "The email buttons are grey. Below them it says: Sem email cadastrado. Toque para adicionar (No email on file. Tap to add). Text message and WhatsApp still work."
+                "en": "The email buttons are grey. Below them it says: No email on file. Tap to add. Text message and WhatsApp still work."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s3-01.jpg",
@@ -1513,7 +1513,7 @@
               "n": 3,
               "text": {
                 "pt": "Digite o email e toque em Salvar. Se o formato estiver errado, aparece um aviso em vermelho: Email inválido. Use o formato nome@exemplo.com.",
-                "en": "Type the email and tap Salvar. If the format is wrong, a red warning shows: Email inválido. Use o formato nome@exemplo.com (Invalid email)."
+                "en": "Type the email and tap Save. If the format is wrong, a red warning shows: Invalid email. Use the form name@example.com."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s3-03.jpg",
@@ -1524,7 +1524,7 @@
               "n": 4,
               "text": {
                 "pt": "Corrija o email e toque em Salvar. Use o formato nome@exemplo.com.",
-                "en": "Fix the email and tap Salvar. Use the format name@example.com."
+                "en": "Fix the email and tap Save. Use the format name@example.com."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s3-04.jpg",
@@ -1624,7 +1624,7 @@
               "n": 1,
               "text": {
                 "pt": "Abra Faturas e toque em Paga. Em Negócio, toque em Faturas. Toque no filtro Paga para ver só as faturas pagas.",
-                "en": "Open Faturas and tap Paga. Under Negócio, tap Faturas. Tap the Paga filter to see only paid invoices."
+                "en": "Open Invoices and tap Paid. Under Business, tap Invoices. Tap the Paid filter to see only paid invoices."
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-01.jpg",
@@ -1635,7 +1635,7 @@
               "n": 2,
               "text": {
                 "pt": "Toque na fatura paga. A fatura abre. Role a tela para baixo até a seção Pagamentos.",
-                "en": "Tap the paid invoice. The invoice opens. Scroll down to the Pagamentos section."
+                "en": "Tap the paid invoice. The invoice opens. Scroll down to the Payments section."
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-02.jpg",
@@ -1646,7 +1646,7 @@
               "n": 3,
               "text": {
                 "pt": "Em Pagamentos, toque em Enviar recibo. Ver recibo mostra o recibo para você. Enviar recibo abre a tela de envio.",
-                "en": "Under Pagamentos, tap Enviar recibo. Ver recibo shows you the receipt. Enviar recibo opens the send screen."
+                "en": "Under Payments, tap Send receipt. View receipt shows you the receipt. Send receipt opens the send screen."
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-03.jpg",
@@ -1678,8 +1678,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "A mensagem foi enviada. O cliente recebe a mensagem com o link do recibo.",
-                "en": "The message was sent. The customer gets the message with the receipt link."
+                "pt": "Depois que você envia, o cliente recebe a mensagem com o link do recibo.",
+                "en": "After you send it, the customer gets the message with the receipt link."
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-06.jpg",
@@ -3581,8 +3581,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Cada linha (1) mostra o nome do item, depois a categoria, a unidade, o custo e a venda, depois o detalhamento do custo. À direita (2) está a margem em dólares e em percentual. Os valores em dinheiro estão cobertos na figura.",
-                "en": "Each row (1) shows the item name, then its category, unit, cost and price, then the cost breakdown. On the right (2) is the margin in dollars and percent. The money amounts are covered in the picture."
+                "pt": "Cada linha (1) mostra o nome do item, depois a categoria, a unidade, o custo e a venda, depois o detalhamento do custo. À direita (2) está a margem em dólares e em percentual.",
+                "en": "Each row (1) shows the item name, then its category, unit, cost and price, then the cost breakdown. On the right (2) is the margin in dollars and percent."
               },
               "image": {
                 "pt": "help/img/guides/pricing-setup/pricing-03.pt.jpg",
@@ -3907,8 +3907,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Toque no Acesso que você quer (1). O que você escolher fica dourado. Aqui a escolha é Equipe sem acesso ao financeiro.",
-                "en": "Tap the Access you want (1). The one you pick turns gold. Here the choice is Staff without finance access."
+                "pt": "Toque no Acesso que você quer (1). O que você escolher fica dourado. Por exemplo, Equipe sem acesso ao financeiro.",
+                "en": "Tap the Access you want (1). The one you pick turns gold. For example, Staff without finance access."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-05.pt.jpg",
@@ -3918,8 +3918,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Escolha o país (1) do número do celular. A imagem mostra uma pessoa de teste com um número inventado.",
-                "en": "Pick the country (1) of the mobile number. The picture shows a test person with a made-up number."
+                "pt": "Escolha o país (1) do número do celular.",
+                "en": "Pick the country (1) of the mobile number."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-06.pt.jpg",
@@ -3951,8 +3951,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Um cartão mostra o link da pessoa (1). Ele vale por 72 horas (2). Quando você cria o link, a Apex não manda nada para a pessoa. Na imagem o link está coberto de cinza.",
-                "en": "A card shows the link for the person (1). It is valid for 72 hours (2). When you create the link, Apex does not send anything to the person. In the picture the link is covered with grey."
+                "pt": "Um cartão mostra o link da pessoa (1). Ele vale por 72 horas (2). Quando você cria o link, a Apex não manda nada para a pessoa.",
+                "en": "A card shows the link for the person (1). It is valid for 72 hours (2). When you create the link, Apex does not send anything to the person."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-09.pt.jpg",
@@ -5723,8 +5723,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Veja como um lead vira projeto. Em um lead, toque na linha Estágio e escolha Fechado. Uma mensagem diz Lead ganho virou projeto, com o link Ver projeto (1). Isso funcionou até para um lead sem orçamento.",
-                "en": "See how a lead becomes a project. In a lead, tap the Stage row and choose Closed. A message says Won lead is now a project, with the link View project (1). This worked even for a lead with no estimate."
+                "pt": "Veja como um lead vira projeto. Em um lead, toque na linha Estágio e escolha Fechado. Uma mensagem diz Lead ganho virou projeto, com o link Ver projeto (1). Isso funciona até para um lead sem orçamento.",
+                "en": "See how a lead becomes a project. In a lead, tap the Stage row and choose Closed. A message says Won lead is now a project, with the link View project (1). This works even for a lead with no estimate."
               },
               "image": {
                 "pt": "help/img/guides/projects/more-03.pt.jpg",
@@ -6564,8 +6564,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Abaixo, o cartão Suas metas mensais (1) mostra o mês no meio. Uma seta de cada lado (2 e 3) muda o mês. Ele abre no mês atual, aqui Outubro 2026.",
-                "en": "Under it, the card Your monthly goals (1) shows the month in the middle. An arrow on each side (2 and 3) changes the month. It opens on the current month, here October 2026."
+                "pt": "Abaixo, o cartão Suas metas mensais (1) mostra o mês no meio. Uma seta de cada lado (2 e 3) muda o mês. Ele abre no mês atual, por exemplo outubro de 2026.",
+                "en": "Under it, the card Your monthly goals (1) shows the month in the middle. An arrow on each side (2 and 3) changes the month. It opens on the current month, for example October 2026."
               },
               "image": {
                 "pt": "help/img/guides/monthly-goals/goals-04.pt.jpg",
@@ -6694,8 +6694,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Saiba quais mudanças são salvas na hora. Na primeira vez que você define as metas de um mês, elas são salvas e a lista diz que o mês já tem metas. Nada espera aprovação neste caso. Salvamos as metas de novembro assim.",
-                "en": "Know which changes are saved at once. The first time you set the goals of a month, they are saved and the list says that month already has goals. Nothing waits for approval in this case. We saved the goals of November like this."
+                "pt": "Saiba quais mudanças são salvas na hora. Na primeira vez que você define as metas de um mês, elas são salvas e a lista diz que o mês já tem metas. Nada espera aprovação neste caso.",
+                "en": "Know which changes are saved at once. The first time you set the goals of a month, they are saved and the list says that month already has goals. Nothing waits for approval in this case."
               },
               "image": null
             },
@@ -10159,8 +10159,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Cada linha (2) mostra o nome, o telefone, o status e o último contato. Os nomes e telefones na imagem estão cobertos.",
-                "en": "Each row (2) shows the name, the phone, the status and the last contact. The names and phones in the picture are covered."
+                "pt": "Cada linha (2) mostra o nome, o telefone, o status e o último contato.",
+                "en": "Each row (2) shows the name, the phone, the status and the last contact."
               },
               "image": {
                 "pt": "help/img/guides/win-back-past-customers/winback-05.pt.jpg",
@@ -10808,8 +10808,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Role até Marketing. A caixa Link da sua página (link na bio) (1) guarda o link da sua página pública. Uma parte do link está coberta na figura.",
-                "en": "Scroll down to Marketing. The box Your page link (link in bio) (1) holds the link of your public page. Part of the link is covered in the picture."
+                "pt": "Role até Marketing. A caixa Link da sua página (link na bio) (1) guarda o link da sua página pública.",
+                "en": "Scroll down to Marketing. The box Your page link (link in bio) (1) holds the link of your public page."
               },
               "image": {
                 "pt": "help/img/guides/link-in-bio-page/page-03.pt.jpg",
@@ -12692,8 +12692,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Role até Notices to Owner e liberações (1). Na Flórida, em geral, o subempreiteiro ou fornecedor precisa ser pago em até 45 dias depois que você recebe pelo trabalho dele, salvo disputa real.",
-                "en": "Scroll to Notices to Owner and lien releases (1). Florida generally requires paying a subcontractor or supplier within 45 days after you are paid for their work, unless there is a genuine dispute."
+                "pt": "Role até Notices to Owner e liberações (1). Pague cada subempreiteiro ou fornecedor logo depois que você receber pelo trabalho dele, salvo disputa real.",
+                "en": "Scroll to Notices to Owner and lien releases (1). Pay each subcontractor or supplier promptly after you are paid for their work, unless there is a genuine dispute."
               },
               "image": {
                 "pt": "help/img/guides/liens-and-final-affidavit/liens-02.pt.jpg",
@@ -18184,8 +18184,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "A página do Google. Abre a página do próprio Google, Sign in with Google, que pede Email or phone (1). Digite o e-mail da sua conta Google e toque em Next (2). A figura mostra a página sem nada digitado.",
-                "en": "Google's own page. Google's own page opens, Sign in with Google, asking for Email or phone (1). Type the email of your Google account and tap Next (2). The picture shows the page with nothing typed."
+                "pt": "A página do Google. Ela mostra Sign in with Google e pede Email or phone (1). Digite o e-mail da sua conta Google e toque em Next (2). A figura mostra a página sem nada digitado.",
+                "en": "Google's own page. It shows Sign in with Google and asks for Email or phone (1). Type the email of your Google account and tap Next (2). The picture shows the page with nothing typed."
               },
               "image": {
                 "pt": "help/img/guides/sign-in-screens/signin-05.pt.jpg",
@@ -19908,7 +19908,7 @@
               "n": 10,
               "text": {
                 "pt": "Cada menu mostra o nome da sua coluna e um exemplo da primeira linha. O Apex só preenche um menu sozinho quando o nome da coluna é exatamente igual. Confira todos os menus (1 a 6).",
-                "en": "Each menu shows the name of your column and a sample from your first row. Apex fills in a menu by itself only when the column name is exactly the same. Check every menu (1 to 6)."
+                "en": "Each menu shows the name of your column and an example from your first row. Apex fills in a menu by itself only when the column name is exactly the same. Check every menu (1 to 6)."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/import-10.pt.jpg",
@@ -21199,8 +21199,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Leia a linha do quadro (1): um sistema de inteligência artificial (Claude, da Anthropic) lê o arquivo para organizar as cláusulas. Você revisa o resultado e confirma que ele corresponde ao seu contrato original.",
-                "en": "Read the line with the box (1): an artificial intelligence system (Claude, by Anthropic) reads the file to organize the clauses. You review the result and confirm it matches your original contract."
+                "pt": "Leia a linha do quadro (1): um sistema de inteligência artificial lê o arquivo para organizar as cláusulas. Você revisa o resultado e confirma que ele corresponde ao seu contrato original.",
+                "en": "Read the line with the box (1): an artificial intelligence system reads the file to organize the clauses. You review the result and confirm it matches your original contract."
               },
               "image": {
                 "pt": "help/img/guides/own-contract-upload/upload-s06.pt.jpg",
@@ -22565,8 +22565,8 @@
             {
               "n": 10,
               "text": {
-                "pt": "Uma caixa pergunta Desconectar o Thumbtack? (1). Ela diz que os novos leads do Thumbtack param de chegar, e que os leads que você já recebeu continuam no seu funil, mas os detalhes do Thumbtack são apagados. A imagem é do portal em inglês.",
-                "en": "A box asks Disconnect Thumbtack? (1). It says that new Thumbtack leads stop arriving, and that the leads you already received stay in your pipeline, but Thumbtack's extra details are erased. The picture is from the English portal."
+                "pt": "Uma caixa pergunta Desconectar o Thumbtack? (1). Ela diz que os novos leads do Thumbtack param de chegar, e que os leads que você já recebeu continuam no seu funil, mas os detalhes do Thumbtack são apagados.",
+                "en": "A box asks Disconnect Thumbtack? (1). It says that new Thumbtack leads stop arriving, and that the leads you already received stay in your pipeline, but Thumbtack's extra details are erased."
               },
               "image": {
                 "pt": "help/img/guides/thumbtack-connect/connect-10.pt.jpg",
@@ -22745,8 +22745,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Digite o telefone dos EUA em Telefone (EUA) (1), dez dígitos, sem espaços. O Thumbtack confere o número e recusa um que não seja válido. A imagem usa um número inventado.",
-                "en": "Type the US phone number in Phone (US) (2), ten digits, with no spaces. Thumbtack checks the number and refuses one that is not valid. The picture uses a made-up number."
+                "pt": "Digite o telefone dos EUA em Telefone (EUA) (2), dez dígitos, sem espaços. O Thumbtack confere o número e recusa um que não seja válido.",
+                "en": "Type the US phone number in Phone (US) (2), ten digits, with no spaces. Thumbtack checks the number and refuses one that is not valid."
               },
               "image": {
                 "pt": "help/img/guides/thumbtack-phone-numbers/phones-04.pt.jpg",
@@ -22858,8 +22858,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Abra Negócio, depois Pipeline. Um lead do Thumbtack é uma linha comum (1) no estágio Novo Lead, com o nome do cliente, o serviço e uma etiqueta se ninguém foi escolhido ainda. Digite o nome na caixa de busca para achar. A imagem usa o cliente de teste do ambiente de testes.",
-                "en": "Open Business, then Pipeline. A Thumbtack lead is a normal row (1) in the New Lead stage, with the customer's name, the service and a tag if nobody is assigned yet. Type the name in the search box to find it. The picture uses the test customer of the testing environment."
+                "pt": "Abra Negócio, depois Pipeline. Um lead do Thumbtack é uma linha comum (1) no estágio Novo Lead, com o nome do cliente, o serviço e uma etiqueta se ninguém foi escolhido ainda. Digite o nome na caixa de busca para achar.",
+                "en": "Open Business, then Pipeline. A Thumbtack lead is a normal row (1) in the New Lead stage, with the customer's name, the service and a tag if nobody is assigned yet. Type the name in the search box to find it."
               },
               "image": {
                 "pt": "help/img/guides/thumbtack-leads/leads-02.pt.jpg",
@@ -27599,8 +27599,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Toque em um estágio (1) para ver só os leads dele (2). Aqui Orçamento Enviado mostra seus 4 leads.",
-                "en": "Tap a stage (1) to see only the leads in it (2). Here Estimate Sent shows its 4 leads."
+                "pt": "Toque em um estágio (1) para ver só os leads dele (2). Por exemplo, Orçamento Enviado mostra 4 leads.",
+                "en": "Tap a stage (1) to see only the leads in it (2). For example, Estimate Sent shows 4 leads."
               },
               "image": {
                 "pt": "help/img/guides/pipeline/see-leads-07.pt.jpg",

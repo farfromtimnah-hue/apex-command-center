@@ -19623,7 +19623,7 @@
             {
               "n": 7,
               "text": {
-                "pt": "Digite a Unidade (1), como você conta o item, por exemplo each, sq ft ou hour.",
+                "pt": "Digite a Unidade (1), como você conta o item, por exemplo cada, sq ft ou hora.",
                 "en": "Type the Unit (1), how you count the item, for example each, sq ft or hour."
               },
               "image": {
@@ -19656,7 +19656,7 @@
             {
               "n": 10,
               "text": {
-                "pt": "Na linha de custo, digite um nome (1), por exemplo Stone, e o valor (2), por exemplo 90.",
+                "pt": "Na linha de custo, digite um nome (1), por exemplo Pedra, e o valor (2), por exemplo 90.",
                 "en": "In the cost line, type a name (1), for example Stone, and the amount (2), for example 90."
               },
               "image": {
@@ -19678,7 +19678,7 @@
             {
               "n": 12,
               "text": {
-                "pt": "Adicione uma linha para cada custo: toque em + Adicionar custo de novo e preencha o nome (1), o valor (2) e o tipo (3), por exemplo Installer, 60, Mão de obra.",
+                "pt": "Adicione uma linha para cada custo: toque em + Adicionar custo de novo e preencha o nome (1), o valor (2) e o tipo (3), por exemplo Instalador, 60, Mão de obra.",
                 "en": "Add one line for each cost: tap + Add cost again and fill the name (1), the amount (2) and the type (3), for example Installer, 60, Labor."
               },
               "image": {

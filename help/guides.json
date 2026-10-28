@@ -14191,8 +14191,8 @@
             {
               "n": 10,
               "text": {
-                "pt": "Arquivar (1) esconde o cliente das listas, mas guarda todos os registros. Use Ver arquivados para encontrar o cliente de novo. Nunca arquive o cliente de teste.",
-                "en": "Archive (1) hides a client from the lists but keeps all the records. Use Show archived to find the client again. Never archive the testing client."
+                "pt": "Arquivar (1) esconde o cliente das listas, mas guarda todos os registros. Use Ver arquivados para encontrar o cliente de novo.",
+                "en": "Archive (1) hides a client from the lists but keeps all the records. Use Show archived to find the client again."
               },
               "image": {
                 "pt": "help/img/guides/admin-clients-roster/roster-s10.pt.jpg",
@@ -14202,8 +14202,8 @@
             {
               "n": 11,
               "text": {
-                "pt": "Quando um recurso foi anexado a um cliente e ainda não foi enviado, a faixa Recursos Pendentes de Envio (1) aparece na página Clientes. Cada linha (2) mostra o cliente, o recurso e a categoria. Enviar via WhatsApp (3) abre o WhatsApp com a mensagem pronta. Com a lista vazia, a faixa não aparece. O cliente nas imagens é o cliente de teste.",
-                "en": "When a resource was attached to a client and not sent yet, the strip Pending Resource Sends (1) shows on the Clients page. Each line (2) shows the client, the resource and the category. Send via WhatsApp (3) opens WhatsApp with the message ready. When the list is empty, the strip is not on the page. The client in the pictures is the test client."
+                "pt": "Quando um recurso foi anexado a um cliente e ainda não foi enviado, a faixa Recursos Pendentes de Envio (1) aparece na página Clientes. Cada linha (2) mostra o cliente, o recurso e a categoria. Enviar via WhatsApp (3) abre o WhatsApp com a mensagem pronta. Com a lista vazia, a faixa não aparece.",
+                "en": "When a resource was attached to a client and not sent yet, the strip Pending Resource Sends (1) shows on the Clients page. Each line (2) shows the client, the resource and the category. Send via WhatsApp (3) opens WhatsApp with the message ready. When the list is empty, the strip is not on the page."
               },
               "image": {
                 "pt": "help/img/guides/admin-clients-roster/roster-11.pt.jpg",
@@ -14213,8 +14213,8 @@
             {
               "n": 12,
               "text": {
-                "pt": "O WhatsApp abre uma página com o número do cliente e a mensagem pronta. Toque em Continuar para o WhatsApp Web, ou em Abrir app se usa o aplicativo. Nada foi enviado ainda. O número é o do cliente de teste.",
-                "en": "WhatsApp opens a page with the client's number and the message ready. Tap Continue to WhatsApp Web, or Open app if you use the app. Nothing has been sent yet. The number is the test client's."
+                "pt": "O WhatsApp abre uma página com o número do cliente e a mensagem pronta. Toque em Continuar para o WhatsApp Web, ou em Abrir app se usa o aplicativo. A mensagem só é enviada quando você aperta enviar no WhatsApp.",
+                "en": "WhatsApp opens a page with the client's number and the message ready. Tap Continue to WhatsApp Web, or Open app if you use the app. The message is sent only when you press send in WhatsApp."
               },
               "image": {
                 "pt": "help/img/guides/admin-clients-roster/roster-12.pt.jpg",
@@ -14224,8 +14224,8 @@
             {
               "n": 13,
               "text": {
-                "pt": "No chat, confira o nome no alto e leia a mensagem pronta. A mensagem só sai quando você toca no botão verde de enviar. Aqui o chat era a conversa da Nicole consigo mesma, e a mensagem aparece depois de enviada. O aplicativo marca o recurso como enviado e a faixa some.",
-                "en": "In the chat, check the name at the top and read the ready message. The message only goes out when you tap the green send button. Here the chat was Nicole's conversation with herself, and the message shows after it was sent. The app marks the resource as sent and the strip goes away."
+                "pt": "No chat, confira o nome no alto e leia a mensagem pronta. A mensagem só sai quando você toca no botão verde de enviar. O aplicativo marca o recurso como enviado e a faixa some.",
+                "en": "In the chat, check the name at the top and read the ready message. The message only goes out when you tap the green send button. The app marks the resource as sent and the strip goes away."
               },
               "image": {
                 "pt": "help/img/guides/admin-clients-roster/roster-13.pt.jpg",
@@ -15211,8 +15211,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "O Calendário mostra todas as sessões da Apex num só lugar. Ele acompanha o Google Calendar do Pr. Rafa: uma sessão que você cria aqui aparece lá, e os eventos do Google aparecem aqui só para leitura. Abra Calendário (1) no menu da esquerda. Os nomes dos clientes e dos eventos estão escondidos nas imagens.",
-                "en": "The Calendar shows every Apex session in one place. It stays in step with Pr. Rafa's Google Calendar: a session you add here appears there, and the events in Google show here for reading. Open Calendar (1) in the left menu. Customer and event names are hidden in the pictures."
+                "pt": "O Calendário mostra todas as sessões da Apex num só lugar. Ele acompanha o Google Calendar do Pr. Rafa: uma sessão que você cria aqui aparece lá, e os eventos do Google aparecem aqui só para leitura. Abra Calendário (1) no menu da esquerda.",
+                "en": "The Calendar shows every Apex session in one place. It stays in step with Pr. Rafa's Google Calendar: a session you add here appears there, and the events in Google show here for reading. Open Calendar (1) in the left menu."
               },
               "image": {
                 "pt": "help/img/guides/admin-calendar-sessions/calendar-s01.pt.jpg",
@@ -15255,8 +15255,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Sincronizar (4) pede ao Google os eventos mais recentes. Os quatro cartões acima mostram os totais de sessões. Se a sincronização achar duas reuniões que se sobrepõem, aparece uma caixa com os problemas e o link Entendi, dispensar (escondida nestas imagens).",
-                "en": "Sync Now (4) asks Google for the latest events. The four tiles above show the totals of sessions. If the sync finds two meetings that overlap, a box appears with the problems and a Got it, dismiss link (hidden in these pictures)."
+                "pt": "Sincronizar (4) pede ao Google os eventos mais recentes. Os quatro cartões acima mostram os totais de sessões.",
+                "en": "Sync Now (4) asks Google for the latest events. The four tiles above show the totals of sessions."
               },
               "image": {
                 "pt": "help/img/guides/admin-calendar-sessions/calendar-s05.pt.jpg",
@@ -15299,7 +15299,7 @@
             {
               "n": 9,
               "text": {
-                "pt": "Mude ou cancele uma sessão. Toque na sessão no calendário para abrir. A janela que abre tem Reagendar, Editar e Cancelar reuniao. Cancelar reuniao pergunta uma coisa: 1. Esta reunião foi cancelada guarda o registro como Cancelado no seu histórico e tira a reunião do calendário do cliente. 2. Foi um erro apaga o registro para sempre, então use só para uma sessão criada por engano. Nenhuma das duas pode ser desfeita.",
+                "pt": "Mude ou cancele uma sessão. Toque na sessão no calendário para abrir. A janela que abre tem Reagendar, Editar e Cancelar reunião. Cancelar reunião pergunta uma coisa: 1. Esta reunião foi cancelada guarda o registro como Cancelado no seu histórico e tira a reunião do calendário do cliente. 2. Foi um erro apaga o registro para sempre, então use só para uma sessão criada por engano. Nenhuma das duas pode ser desfeita.",
                 "en": "Change or cancel a session. Tap a session in the calendar to open it. The sheet that opens has Reschedule, Edit and Cancel meeting. Cancel meeting asks one thing: 1. This meeting was cancelled keeps the record as Cancelled in your history and takes the meeting off the client's calendar. 2. This was a mistake deletes the record for good, so use it only for a session made by error. Neither can be undone."
               },
               "image": {
@@ -15685,8 +15685,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "O Dashboard é a primeira página do app da equipe. Ele muda conforme quem entrou. O Rafa vê as próximas reuniões, o microfone e a revisão de contrato. A Nicole, como desenvolvedora, vê as filas que precisam dela. Este é o da Alice, de operações e finanças: Visão Geral (1), Falar reunião (2) e + Nova Sessão (3). A figura foi feita com a visão do desenvolvedor trocada para Alice, e o nome e a foto estão trocados.",
-                "en": "The Dashboard is the first page of the staff app. It changes with who signs in. Rafa sees his upcoming meetings, the microphone and the contract review. Nicole, as developer, sees the queues that need her. This is Alice's, the operations and finance person: Overview (1), Speak a meeting (2) and + New Session (3). The picture was taken with the developer view switched to Alice, and the name and photo are replaced."
+                "pt": "O Dashboard é a primeira página do app da equipe. Ele muda conforme quem entrou. O Rafa vê as próximas reuniões, o microfone e a revisão de contrato. A Nicole, como desenvolvedora, vê as filas que precisam dela. Este é o da Alice, de operações e finanças: Visão Geral (1), Falar reunião (2) e + Nova Sessão (3).",
+                "en": "The Dashboard is the first page of the staff app. It changes with who signs in. Rafa sees his upcoming meetings, the microphone and the contract review. Nicole, as developer, sees the queues that need her. This is Alice's, the operations and finance person: Overview (1), Speak a meeting (2) and + New Session (3)."
               },
               "image": {
                 "pt": "help/img/guides/admin-dashboard-reminders/today-01.pt.jpg",
@@ -15697,7 +15697,7 @@
               "n": 2,
               "text": {
                 "pt": "Cinco cartões mostram o trabalho do dia: Faturas não enviadas (1), Faturas vencidas com o total (2), Lembretes de reunião (3), Tarefas (4) e Envios pendentes (de recursos) (5). O valor é um valor de teste.",
-                "en": "Five tiles show the work of the day: Unsent invoices (1), Overdue invoices with the total (2), Meeting reminders (3), Tasks (4) and Pending sends of resources (5). The amount is a test value."
+                "en": "Five tiles show the work of the day: Unsent invoices (1), Overdue invoices with the total (2), Meeting reminders (3), Tasks (4) and Pending sends of resources (5)."
               },
               "image": {
                 "pt": "help/img/guides/admin-dashboard-reminders/today-02.pt.jpg",
@@ -15718,8 +15718,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Lembretes de Reunião (1) lista cada reunião das próximas 24 horas, para ninguém esquecer de lembrar o cliente. Os nomes das reuniões estão trocados por nomes de teste na figura.",
-                "en": "Meeting Reminders (1) lists every meeting in the next 24 hours, so nobody forgets to remind the client. Meeting names are replaced with test names in the picture."
+                "pt": "Lembretes de Reunião (1) lista cada reunião das próximas 24 horas, para ninguém esquecer de lembrar o cliente.",
+                "en": "Meeting Reminders (1) lists every meeting in the next 24 hours, so nobody forgets to remind the client."
               },
               "image": {
                 "pt": "help/img/guides/admin-dashboard-reminders/today-04.pt.jpg",
@@ -15773,8 +15773,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Mais embaixo, Aguardando horário (1) é a lista de links de horário esperando o cliente: veja o guia Enviar horários. Calendário (2) abre o calendário. Os nomes dos clientes estão trocados por nomes de teste.",
-                "en": "Further down, Waiting on a time (1) is the list of time links waiting for the client: see the guide Send times. Calendar (2) opens the calendar. Client names are replaced with test names."
+                "pt": "Mais embaixo, Aguardando horário (1) é a lista de links de horário esperando o cliente: veja o guia Enviar horários. Calendário (2) abre o calendário.",
+                "en": "Further down, Waiting on a time (1) is the list of time links waiting for the client: see the guide Send times. Calendar (2) opens the calendar."
               },
               "image": {
                 "pt": "help/img/guides/admin-dashboard-reminders/today-09.pt.jpg",
@@ -16005,8 +16005,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "A página mostra um evento de cada vez (1): a imagem, o nome, a data, o local e os convidados. Editar (2) abre o formulário. As imagens estão cobertas e os nomes são valores de teste.",
-                "en": "The page shows one event at a time (1): the picture, the name, the date, the place and the speakers. Editar (Edit) (2) opens the form. The pictures are covered and the names are test values."
+                "pt": "A página mostra um evento de cada vez (1): a imagem, o nome, a data, o local e os convidados. Editar (2) abre o formulário.",
+                "en": "The page shows one event at a time (1): the picture, the name, the date, the place and the speakers. Editar (Edit) (2) opens the form."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-02.pt.jpg",
@@ -16016,8 +16016,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Embaixo do evento você vê quantas pessoas estão confirmadas e quantas se inscreveram (1), e um link (2) para esconder ou mostrar a lista. Os nomes dos convidados são nomes de teste.",
-                "en": "Under the event you see how many people are confirmed and how many registered (1), and a link (2) to hide or show the list. The guest names are test names."
+                "pt": "Embaixo do evento você vê quantas pessoas estão confirmadas e quantas se inscreveram (1), e um link (2) para esconder ou mostrar a lista.",
+                "en": "Under the event you see how many people are confirmed and how many registered (1), and a link (2) to hide or show the list."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-03.pt.jpg",
@@ -16060,8 +16060,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "O cartão Adicionar pessoa adiciona um convidado à mão: o evento (1), Nome (2), WhatsApp com DDD (3), Empresa (opcional) (4), a caixa Vem com acompanhante (5) e o botão Adicionar (6). Nada foi adicionado nesta figura.",
-                "en": "The card Adicionar pessoa (Add person) adds a guest by hand: the event (1), Nome (2), WhatsApp with area code (3), Empresa (optional) (4), the box Vem com acompanhante (comes with a plus-one) (5) and the button Adicionar (6). Nothing was added for this picture."
+                "pt": "O cartão Adicionar pessoa adiciona um convidado à mão: o evento (1), Nome (2), WhatsApp com DDD (3), Empresa (opcional) (4), a caixa Vem com acompanhante (5) e o botão Adicionar (6).",
+                "en": "The card Adicionar pessoa (Add person) adds a guest by hand: the event (1), Nome (2), WhatsApp with area code (3), Empresa (optional) (4), the box Vem com acompanhante (comes with a plus-one) (5) and the button Adicionar (6)."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-07.pt.jpg",
@@ -16104,8 +16104,8 @@
             {
               "n": 11,
               "text": {
-                "pt": "Role para baixo dentro da caixa. Observações (1) aparece para quem se inscreve. Ajustar janela de pagamentos (2) define as datas em que os pagamentos são aceitos. Toque em Cancelar (3) para sair, ou em Salvar (4) para guardar o evento. O formulário foi cancelado nesta figura.",
-                "en": "Scroll down in the box. Observações (1) shows to the people who sign up. Ajustar janela de pagamentos (2) sets the dates when payments are accepted. Tap Cancelar (3) to leave, or Salvar (4) to save the event. The form was cancelled for this picture."
+                "pt": "Role para baixo dentro da caixa. Observações (1) aparece para quem se inscreve. Ajustar janela de pagamentos (2) define as datas em que os pagamentos são aceitos. Toque em Cancelar (3) para sair, ou em Salvar (4) para guardar o evento.",
+                "en": "Scroll down in the box. Observações (1) shows to the people who sign up. Ajustar janela de pagamentos (2) sets the dates when payments are accepted. Tap Cancelar (3) to leave, or Salvar (4) to save the event."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-11.pt.jpg",
@@ -16115,8 +16115,8 @@
             {
               "n": 12,
               "text": {
-                "pt": "Para mudar o evento, toque em Editar no cartão do evento. O mesmo formulário abre de novo com os valores salvos (1) a (5). Nesse formulário também há um",
-                "en": "To change the event, tap Editar on the event card. The same form opens again with the saved values (1) to (5). In this form there is also a red Excluir (Delete)"
+                "pt": "Para mudar o evento, toque em Editar no cartão do evento. O mesmo formulário abre de novo com os valores salvos (1) a (5). Nesse formulário também há um botão vermelho Excluir. Use com cuidado.",
+                "en": "To change the event, tap Editar on the event card. The same form opens again with the saved values (1) to (5). In this form there is also a red Excluir (Delete) button. Use it with care."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-12.pt.jpg",
@@ -16293,7 +16293,7 @@
             {
               "n": 1,
               "text": {
-                "pt": "Só entram no app da equipe as pessoas cujo email do Google está na lista de usuários aprovados. Esta página é para o desenvolvedor. Abra Adicionar Usuário no menu da esquerda. O formulário Adicionar / Atualizar Usuario tem Email do Google (1), Perfil (2) e Salvar (3).",
+                "pt": "Só entram no app da equipe as pessoas cujo email do Google está na lista de usuários aprovados. Esta página é para o desenvolvedor. Abra Adicionar Usuário no menu da esquerda. O formulário Adicionar / Atualizar Usuário tem Email do Google (1), Perfil (2) e Salvar (3).",
                 "en": "Only people whose Google email is on the list of approved users can sign in to the staff app. This page is for the developer. Open Add User in the left menu. The form Add / Update User has Google Email (1), Role (2) and Save (3)."
               },
               "image": {
@@ -16304,8 +16304,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Escreva o endereço Gmail com o qual a pessoa entra (1). Escolha o perfil (2): Alice, Rafa ou Developer. O perfil decide quais páginas a pessoa vê. Toque em Salvar (3). Se o email já está na lista, Salvar muda o perfil dele. Nada foi salvo nesta figura.",
-                "en": "Type the Gmail address the person signs in with (1). Choose the role (2): Alice, Rafa or Developer. The role decides which pages the person sees. Tap Save (3). If the email is already on the list, Save changes its role. Nothing was saved for this picture."
+                "pt": "Escreva o endereço Gmail com o qual a pessoa entra (1). Escolha o perfil (2): Alice, Rafa ou Developer. O perfil decide quais páginas a pessoa vê. Toque em Salvar (3). Se o email já está na lista, Salvar muda o perfil dele.",
+                "en": "Type the Gmail address the person signs in with (1). Choose the role (2): Alice, Rafa or Developer. The role decides which pages the person sees. Tap Save (3). If the email is already on the list, Save changes its role."
               },
               "image": {
                 "pt": "help/img/guides/admin-add-user/users-02.pt.jpg",
@@ -16315,8 +16315,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Usuarios Aprovados (1) é a lista de todos que têm acesso, cada um com um perfil. Os emails estão trocados por emails de teste na figura.",
-                "en": "Approved Users (1) is the list of everyone who has access, each with a role. The emails are replaced by test emails in the picture."
+                "pt": "Usuários Aprovados (1) é a lista de todos que têm acesso, cada um com um perfil.",
+                "en": "Approved Users (1) is the list of everyone who has access, each with a role."
               },
               "image": {
                 "pt": "help/img/guides/admin-add-user/users-03.pt.jpg",
@@ -16326,8 +16326,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Mais abaixo na página Adicionar Usuário está o cartão Google Drive. Ele vigia as planilhas de onde a Apex importou dados e avisa se alguém as editar depois. Só lê a data de alteração, nunca o conteúdo. Status (1) diz Connected quando está ligado. Connect Google Drive (2) liga a conta. Check Status (3) confere. Nada foi tocado. O texto deste cartão está só em inglês.",
-                "en": "Further down the Add User page is the Google Drive card. It watches the spreadsheets Apex imported data from and warns if anyone edits them later. It only reads the change time, never the content. Status (1) says Connected when it is on. Connect Google Drive (2) links the account. Check Status (3) checks it. Nothing was tapped."
+                "pt": "Mais abaixo na página Adicionar Usuário está o cartão Google Drive. Ele vigia as planilhas de onde a Apex importou dados e avisa se alguém as editar depois. Só lê a data de alteração, nunca o conteúdo. Status (1) diz Connected quando está ligado. Connect Google Drive (2) liga a conta. Check Status (3) confere. O texto deste cartão está só em inglês.",
+                "en": "Further down the Add User page is the Google Drive card. It watches the spreadsheets Apex imported data from and warns if anyone edits them later. It only reads the change time, never the content. Status (1) says Connected when it is on. Connect Google Drive (2) links the account. Check Status (3) checks it."
               },
               "image": {
                 "pt": "help/img/guides/admin-add-user/users-04.pt.jpg",
@@ -16416,8 +16416,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "No fim, Quem entrou nesta conta (1) lista os clientes com registros e quantos dias cada um lançou, e depois os clientes sem nenhum registro. Os nomes dos clientes são nomes de teste na figura.",
-                "en": "At the bottom, Who counted toward this (1) lists the clients with entries and how many days each one entered, and then the clients with no entries at all. The client names are test names in the picture."
+                "pt": "No fim, Quem contou nesta média (1) lista os clientes com registros e quantos dias cada um lançou, e depois os clientes sem nenhum registro.",
+                "en": "At the bottom, Who counted toward this (1) lists the clients with entries and how many days each one entered, and then the clients with no entries at all."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-analytics/analytics-03.pt.jpg",
@@ -16438,8 +16438,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Escolha o cliente (1) na lista e leia os números dele no mês. O bloco (2) é exatamente o que o cliente vê, com a mesma tela e os mesmos cálculos. Abrir perfil (3) vai para o registro do cliente. Os valores estão cobertos e o nome é um nome de teste.",
-                "en": "Choose the client (1) in the list and read that client's numbers for the month. The block (2) is exactly what the client sees, with the same screen and the same math. Open profile (3) goes to the client record. Amounts are covered and the name is a test name."
+                "pt": "Escolha o cliente (1) na lista e leia os números dele no mês. O bloco (2) é exatamente o que o cliente vê, com a mesma tela e os mesmos cálculos. Abrir perfil (3) vai para o registro do cliente.",
+                "en": "Choose the client (1) in the list and read that client's numbers for the month. The block (2) is exactly what the client sees, with the same screen and the same math. Open profile (3) goes to the client record."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-analytics/analytics-05.pt.jpg",
@@ -16449,8 +16449,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Histórico do indicador mostra um indicador mês a mês. Escolha o indicador na lista (1). A tabela (2) traz, para cada mês, o Realizado, a Meta e a porcentagem da meta atingida. Os valores em dinheiro estão trocados na imagem.",
-                "en": "Indicator history shows one indicator month by month. Choose the indicator in the list (1). The table (2) gives, for each month, the Actual, the Target and the percent of the target reached. The money amounts are replaced in the picture."
+                "pt": "Histórico do indicador mostra um indicador mês a mês. Escolha o indicador na lista (1). A tabela (2) traz, para cada mês, o Realizado, a Meta e a porcentagem da meta atingida.",
+                "en": "Indicator history shows one indicator month by month. Choose the indicator in the list (1). The table (2) gives, for each month, the Actual, the Target and the percent of the target reached."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-analytics/analytics-06.pt.jpg",
@@ -16548,8 +16548,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "O cartão Visão geral lista os dados do negócio (2). Alterar Logo (1) envia o logo do cliente. O logo não foi mudado.",
-                "en": "The Overview card lists the business facts (2). Change Logo (1) uploads the client logo. The logo was not changed."
+                "pt": "O cartão Visão geral lista os dados do negócio (2). Alterar Logo (1) envia o logo do cliente.",
+                "en": "The Overview card lists the business facts (2). Change Logo (1) uploads the client logo."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record/open-04.pt.jpg",
@@ -16570,8 +16570,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Contatos: + Adicionar abre um formulário pequeno para uma pessoa. Preencha o nome (1), que é obrigatório, o cargo (2), o telefone (3), o WhatsApp (4) e o email (5), e toque em Salvar Contato (6). O formulário foi fechado sem salvar.",
-                "en": "Contacts: + Add opens a small form for a person. Fill in the name (1), which is required, the role (2), the phone (3), the WhatsApp (4) and the email (5), then tap Save Contact (6). The form was closed without saving."
+                "pt": "Contatos: + Adicionar abre um formulário pequeno para uma pessoa. Preencha o nome (1), que é obrigatório, o cargo (2), o telefone (3), o WhatsApp (4) e o email (5), e toque em Salvar Contato (6).",
+                "en": "Contacts: + Add opens a small form for a person. Fill in the name (1), which is required, the role (2), the phone (3), the WhatsApp (4) and the email (5), then tap Save Contact (6)."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record/open-06.pt.jpg",
@@ -16581,8 +16581,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Notas: + Adicionar Nota abre uma caixa. Escreva o que você quer que todos lembrem (1) e toque em Salvar (2). A caixa foi fechada sem salvar.",
-                "en": "Notes: + Add Note opens a box. Write what you want everyone to remember (1) and tap Save (2). The box was closed without saving."
+                "pt": "Notas: + Adicionar Nota abre uma caixa. Escreva o que você quer que todos lembrem (1) e toque em Salvar (2).",
+                "en": "Notes: + Add Note opens a box. Write what you want everyone to remember (1) and tap Save (2)."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record/open-07.pt.jpg",
@@ -16612,8 +16612,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "O cartão Portal do Cliente mostra o nome do login, se há senha definida e o último acesso. Ver portal do cliente (1) abre o portal exatamente como o cliente vê, só para ler. Redefinir Senha (2) cria uma senha temporária nova. Enviar link do app (3) envia o link para instalar o app. Enviar novo login (link) (4) envia ao cliente um link de login novo pelo WhatsApp. Editar Campos (5) fica ao lado. As chaves (6) ligam ou desligam o Registro diário e as Metas para este cliente. Nenhum desses botões foi tocado.",
-                "en": "The Client Portal card shows the login name, whether a password is set and the last login. View client portal (1) opens the portal exactly as the client sees it, read only. Reset Password (2) makes a new temporary password. Send app link (3) sends the link to install the app. Send new login (link) (4) sends the client a fresh login link on WhatsApp. Edit Fields (5) is next to it. The switches (6) turn the Daily log and Goals on or off for this client. None of these buttons was tapped."
+                "pt": "O cartão Portal do Cliente mostra o nome do login, se há senha definida e o último acesso. Ver portal do cliente (1) abre o portal exatamente como o cliente vê, só para ler. Redefinir Senha (2) cria uma senha temporária nova. Enviar link do app (3) envia o link para instalar o app. Enviar novo login (link) (4) envia ao cliente um link de login novo pelo WhatsApp. Editar Campos (5) fica ao lado. As chaves (6) ligam ou desligam o Registro diário e as Metas para este cliente.",
+                "en": "The Client Portal card shows the login name, whether a password is set and the last login. View client portal (1) opens the portal exactly as the client sees it, read only. Reset Password (2) makes a new temporary password. Send app link (3) sends the link to install the app. Send new login (link) (4) sends the client a fresh login link on WhatsApp. Edit Fields (5) is next to it. The switches (6) turn the Daily log and Goals on or off for this client."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record/portal-01.pt.jpg",
@@ -16623,8 +16623,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Embaixo do cartão, Logins de Vendedor (1) lista os pedidos deste cliente para dar um login do portal a um vendedor, e os logins ativos. Diagnóstico de vendedores (2) abre material de coaching dos vendedores. Os nomes são nomes de teste.",
-                "en": "Below the card, Salesperson Logins (1) lists the requests from this client to give a salesperson a portal login, and the active logins. Seller diagnostics (2) opens coaching material for the salespeople. Names are test names."
+                "pt": "Embaixo do cartão, Logins de Vendedor (1) lista os pedidos deste cliente para dar um login do portal a um vendedor, e os logins ativos. Diagnóstico de vendedores (2) abre material de coaching dos vendedores.",
+                "en": "Below the card, Salesperson Logins (1) lists the requests from this client to give a salesperson a portal login, and the active logins. Seller diagnostics (2) opens coaching material for the salespeople."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record/portal-02.pt.jpg",
@@ -16643,8 +16643,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Aba Financeiro (1). O menu (2) pula para: Contrato APEX (os contratos deste cliente com a Apex, e Montar contrato para fazer um novo), Status do contrato, Faturas (Não pagas e Arquivo), Método de Pagamento com o plano de pagamento (Definir) e Fornecedores. Os valores estão cobertos.",
-                "en": "Money tab (1). The menu (2) jumps to: APEX Contract (the contracts of this client with Apex, and Montar contrato to build a new one), Contract status, Invoices (Unpaid and Archive), Payment Method with the payment plan (Set plan), and Vendors. Amounts are covered."
+                "pt": "Aba Financeiro (1). O menu (2) pula para: Contrato APEX (os contratos deste cliente com a Apex, e Montar contrato para fazer um novo), Status do contrato, Faturas (Não pagas e Arquivo), Método de Pagamento com o plano de pagamento (Definir) e Fornecedores.",
+                "en": "Money tab (1). The menu (2) jumps to: APEX Contract (the contracts of this client with Apex, and Montar contrato to build a new one), Contract status, Invoices (Unpaid and Archive), Payment Method with the payment plan (Set plan), and Vendors."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record/tabs-01.pt.jpg",
@@ -24420,8 +24420,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Financeiro no menu da esquerda e toque na aba Categorias (1). Aqui o dinheiro é separado em grupos. É opcional: os saldos e o fluxo funcionam sem isto. Os nomes e valores nas imagens são inventados.",
-                "en": "Open Financial in the left menu, then tap the Categories tab (1). This is where the money is sorted into groups. It is optional: balances and cash flow work without it. Names and amounts in the pictures are made up."
+                "pt": "Abra Financeiro no menu da esquerda e toque na aba Categorias (1). Aqui o dinheiro é separado em grupos. É opcional: os saldos e o fluxo funcionam sem isto.",
+                "en": "Open Financial in the left menu, then tap the Categories tab (1). This is where the money is sorted into groups. It is optional: balances and cash flow work without it."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-categories/cat-s01.pt.jpg",
@@ -24442,8 +24442,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Categorizar automaticamente (2) pede ao Claude para separar as compras sem categoria por você. Confira o resultado depois.",
-                "en": "Auto-categorize (2) asks Claude to sort the uncategorized charges for you. Check the result afterwards."
+                "pt": "Categorizar automaticamente (2) pede ao assistente da Apex para separar as compras sem categoria por você. Confira o resultado depois.",
+                "en": "Auto-categorize (2) asks the Apex assistant to sort the uncategorized charges for you. Check the result afterwards."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-categories/cat-s03.pt.jpg",
@@ -24867,8 +24867,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Na aba Saúde Financeira, a caixa Contas atrasadas (1) mostra contas e faturas que já deviam ter sido pagas. Os nomes e valores nas imagens são inventados.",
-                "en": "On the Financial Health tab, the box Overdue bills (1) shows bills and invoices that should already have been paid. Names and amounts in the pictures are made up."
+                "pt": "Na aba Saúde Financeira, a caixa Contas atrasadas (1) mostra contas e faturas que já deviam ter sido pagas.",
+                "en": "On the Financial Health tab, the box Overdue bills (1) shows bills and invoices that should already have been paid."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-bills/bills-s01.pt.jpg",
@@ -25156,8 +25156,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Toque em Editar Campos para escolher quais números este cliente preenche todo dia. Marque os indicadores que valem para ele (1) e escreva a meta mensal de cada um (2). Os marcados como automático são calculados pelo Apex, então você não muda. Toque em Salvar (3) para guardar. Nada foi salvo nesta figura.",
-                "en": "Tap Edit Fields to choose which numbers this client fills in every day. Tick the indicators that apply (1) and write the monthly target for each one (2). The ones marked automatic are worked out by Apex, so you cannot change them. Tap Save (3) to keep the changes. Nothing was saved for this picture."
+                "pt": "Toque em Editar Campos para escolher quais números este cliente preenche todo dia. Marque os indicadores que valem para ele (1) e escreva a meta mensal de cada um (2). Os marcados como automático são calculados pelo Apex, então você não muda. Toque em Salvar (3) para guardar.",
+                "en": "Tap Edit Fields to choose which numbers this client fills in every day. Tick the indicators that apply (1) and write the monthly target for each one (2). The ones marked automatic are worked out by Apex, so you cannot change them. Tap Save (3) to keep the changes."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-login-access/access-02.pt.jpg",
@@ -25862,8 +25862,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Revisão do contrato no menu da esquerda. Esta página serve para conferir o contrato modelo cláusula por cláusula. Ela é em português de propósito. O primeiro cartão, Controles (desenvolvedor), é para o desenvolvedor. A caixa (1) libera a revisão para o Pr. Rafael. Os campos (2) registram o nome do advogado, o número da Florida Bar e a data, e Registrar revisão do advogado (3) guarda esses dados. O status da versão aparece ao lado. Nada foi salvo nesta figura.",
-                "en": "Open Contract review in the left menu. This page is where the model contract is checked clause by clause. It is in Portuguese on purpose. The first card, Controls (developer), is for the developer. The box (1) releases the review to Pr. Rafael. The fields (2) record the attorney's name, Florida Bar number and date, and Register attorney review (3) saves them. The version status is shown beside them. Nothing was saved for this picture."
+                "pt": "Abra Revisão do contrato no menu da esquerda. Esta página serve para conferir o contrato modelo cláusula por cláusula. Ela é em português de propósito. O primeiro cartão, Controles (desenvolvedor), é para o desenvolvedor. A caixa (1) libera a revisão para o Pr. Rafael. Os campos (2) registram o nome do advogado, o número da Florida Bar e a data, e Registrar revisão do advogado (3) guarda esses dados. O status da versão aparece ao lado.",
+                "en": "Open Contract review in the left menu. This page is where the model contract is checked clause by clause. It is in Portuguese on purpose. The first card, Controls (developer), is for the developer. The box (1) releases the review to Pr. Rafael. The fields (2) record the attorney's name, Florida Bar number and date, and Register attorney review (3) saves them. The version status is shown beside them."
               },
               "image": {
                 "pt": "help/img/guides/admin-contract-review/review-01.pt.jpg",
@@ -25999,8 +25999,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "O cartão do Zoho Mail também lista os emails que o Apex leu (1): a data, o assunto, a conta a que foi ligado e o resultado. parsed quer dizer que o Apex entendeu uma conta. unmatched quer dizer que não achou a qual conta pertence. rejected e ignored querem dizer que ele deixou o email de lado. Last read mostra quando o Apex olhou a caixa de entrada pela última vez. Os assuntos estão cobertos na figura.",
-                "en": "The Zoho Mail card also lists the emails Apex read (1): the date, the subject, the bill it was matched to and the result. parsed means Apex understood a bill. unmatched means it did not find which bill. rejected and ignored mean it left the email alone. Last read shows when Apex last looked at the inbox. The subjects are covered in the picture."
+                "pt": "O cartão do Zoho Mail também lista os emails que o Apex leu (1): a data, o assunto, a conta a que foi ligado e o resultado. parsed quer dizer que o Apex entendeu uma conta. unmatched quer dizer que não achou a qual conta pertence. rejected e ignored querem dizer que ele deixou o email de lado. Last read mostra quando o Apex olhou a caixa de entrada pela última vez.",
+                "en": "The Zoho Mail card also lists the emails Apex read (1): the date, the subject, the bill it was matched to and the result. parsed means Apex understood a bill. unmatched means it did not find which bill. rejected and ignored mean it left the email alone. Last read shows when Apex last looked at the inbox."
               },
               "image": {
                 "pt": "help/img/guides/admin-connections/connect-03.pt.jpg",
@@ -26090,8 +26090,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Na ficha do cliente, abra a aba Financeiro. O cartão Contrato APEX (1) lista os contratos que a Apex fez para este cliente, cada um com número, pacote, total e status, por exemplo Assinado por todos ou Cancelado. Toque em uma linha para abrir. Toque em Montar contrato (2) para fazer um novo. O cartão Método de Pagamento tem o plano de pagamento: toque em Definir (3) para escrever como o cliente paga. Os valores estão cobertos na figura.",
-                "en": "On a client record, open the tab Money (Financeiro). The card APEX Contract (1) lists the contracts Apex made for this client, each with its number, package, total and status, for example Assinado por todos or Cancelado. Tap a row to open it. Tap Montar contrato (2) to build a new one. The card Payment Method has a payment plan: tap Set plan (3) to write how the client pays. The amounts are covered in the picture."
+                "pt": "Na ficha do cliente, abra a aba Financeiro. O cartão Contrato APEX (1) lista os contratos que a Apex fez para este cliente, cada um com número, pacote, total e status, por exemplo Assinado por todos ou Cancelado. Toque em uma linha para abrir. Toque em Montar contrato (2) para fazer um novo. O cartão Método de Pagamento tem o plano de pagamento: toque em Definir (3) para escrever como o cliente paga.",
+                "en": "On a client record, open the tab Money (Financeiro). The card APEX Contract (1) lists the contracts Apex made for this client, each with its number, package, total and status, for example Assinado por todos or Cancelado. Tap a row to open it. Tap Montar contrato (2) to build a new one. The card Payment Method has a payment plan: tap Set plan (3) to write how the client pays."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-money/money-01.pt.jpg",
@@ -26373,8 +26373,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Em Registrar Crescimento Mensal, escolha o Mês atual (1). Em Mês base (2) escreva cada trabalho e o valor, com + receita para mais linhas. Faça o mesmo em Mês atual, receitas (3). O Apex soma as linhas e calcula o crescimento. Toque em Salvar (4). Há uma entrada por mês: salvar o mesmo mês de novo corrige o valor. Inserir % diretamente serve quando você já sabe a porcentagem. Nada foi salvo nesta figura.",
-                "en": "In Log Monthly Growth, choose the Current month (1). Under Baseline month (2) write each job and its value, with + revenue for more lines. Do the same under Current month, revenue (3). Apex adds the lines and works out the growth. Tap Save (4). There is one entry per month: saving the same month again corrects the value. Enter % directly is for when you already know the percent. Nothing was saved for this picture."
+                "pt": "Em Registrar Crescimento Mensal, escolha o Mês atual (1). Em Mês base (2) escreva cada trabalho e o valor, com + receita para mais linhas. Faça o mesmo em Mês atual, receitas (3). O Apex soma as linhas e calcula o crescimento. Toque em Salvar (4). Há uma entrada por mês: salvar o mesmo mês de novo corrige o valor. Inserir % diretamente serve quando você já sabe a porcentagem.",
+                "en": "In Log Monthly Growth, choose the Current month (1). Under Baseline month (2) write each job and its value, with + revenue for more lines. Do the same under Current month, revenue (3). Apex adds the lines and works out the growth. Tap Save (4). There is one entry per month: saving the same month again corrects the value. Enter % directly is for when you already know the percent."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-results/results-02.pt.jpg",
@@ -26395,8 +26395,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Toque em Editar em Presença Digital. Escolha o lugar (1): Website, Instagram, TikTok, LinkedIn, Facebook, Google Business ou YouTube. Cole o endereço em URL (2). + Adicionar Nota de Revisão (3) deixa você escrever o que acha daquela página. Toque em Salvar (4). Nada foi salvo nesta figura.",
-                "en": "Tap Edit on Digital Presence. Choose the place (1): Website, Instagram, TikTok, LinkedIn, Facebook, Google Business or YouTube. Paste the address in URL (2). + Add Review Note (3) lets you write what you think about that page. Tap Save (4). Nothing was saved for this picture."
+                "pt": "Toque em Editar em Presença Digital. Escolha o lugar (1): Website, Instagram, TikTok, LinkedIn, Facebook, Google Business ou YouTube. Cole o endereço em URL (2). + Adicionar Nota de Revisão (3) deixa você escrever o que acha daquela página. Toque em Salvar (4).",
+                "en": "Tap Edit on Digital Presence. Choose the place (1): Website, Instagram, TikTok, LinkedIn, Facebook, Google Business or YouTube. Paste the address in URL (2). + Add Review Note (3) lets you write what you think about that page. Tap Save (4)."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-results/results-04.pt.jpg",
@@ -26476,8 +26476,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Na aba Saúde Financeira, os dois cartões de conta (1) mostram Conta comercial e Conta pessoal. Cada um mostra Dá pra usar, o saldo no banco e quatro números do mês: Entrou, Saiu, Saiu para suas contas e Mudança na conta. Uma nota diz quanto ainda está pendente e pode mudar. Os nomes e valores nas imagens são inventados.",
-                "en": "On the Financial Health tab, the two account cards (1) show Business account and Personal account. Each shows Available to use, the bank balance, and four numbers for the month: In, Out, Moved to your accounts and Change in account. A note says how much is still pending and may change. Names and amounts in the pictures are made up."
+                "pt": "Na aba Saúde Financeira, os dois cartões de conta (1) mostram Conta comercial e Conta pessoal. Cada um mostra Dá pra usar, o saldo no banco e quatro números do mês: Entrou, Saiu, Saiu para suas contas e Mudança na conta. Uma nota diz quanto ainda está pendente e pode mudar.",
+                "en": "On the Financial Health tab, the two account cards (1) show Business account and Personal account. Each shows Available to use, the bank balance, and four numbers for the month: In, Out, Moved to your accounts and Change in account. A note says how much is still pending and may change."
               },
               "image": {
                 "pt": "help/img/guides/admin-finance-accounts/acc-s01.pt.jpg",
@@ -26703,8 +26703,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "+ Anexar Recurso abre uma janela. Da Biblioteca (1) escolhe um recurso que você já guardou, e Criar Novo faz um ali mesmo. Na lista (2) escolha o recurso e toque em Anexar ao Cliente (3). O recurso aparece na lista do cliente e espera o envio. A janela foi fechada sem anexar.",
-                "en": "+ Attach Resource opens a window. From Library (1) picks a resource you saved earlier, and Create New makes one right there. In the list (2) choose the resource and tap Attach to Client (3). The resource shows in the client's list and waits to be sent. The window was closed without attaching."
+                "pt": "+ Anexar Recurso abre uma janela. Da Biblioteca (1) escolhe um recurso que você já guardou, e Criar Novo faz um ali mesmo. Na lista (2) escolha o recurso e toque em Anexar ao Cliente (3). O recurso aparece na lista do cliente e espera o envio.",
+                "en": "+ Attach Resource opens a window. From Library (1) picks a resource you saved earlier, and Create New makes one right there. In the list (2) choose the resource and tap Attach to Client (3). The resource shows in the client's list and waits to be sent."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-documents/docs-03.pt.jpg",
@@ -28594,8 +28594,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Atividade no menu da esquerda. A página mostra o registro de acesso. As abas (1) são Atividade e Revisões de perda. Os filtros (2) são Pessoa e Data. A tabela (3) lista quem fez o quê e quando: o nome de login, a ação, o caminho e o método, e a hora. Use para ver quem entrou ou mudou dados. Os nomes de login na figura estão trocados.",
-                "en": "Open Activity in the left menu. The page shows the access log. The tabs (1) are Activity and Loss reviews. The filters (2) are Person and Date. The table (3) lists who did what and when: the login name, the action, the path and method, and the time. Use it to see who signed in or changed data. The login names in the picture are replaced."
+                "pt": "Abra Atividade no menu da esquerda. A página mostra o registro de acesso. As abas (1) são Atividade e Revisões de perda. Os filtros (2) são Pessoa e Data. A tabela (3) lista quem fez o quê e quando: o nome de login, a ação, o caminho e o método, e a hora. Use para ver quem entrou ou mudou dados.",
+                "en": "Open Activity in the left menu. The page shows the access log. The tabs (1) are Activity and Loss reviews. The filters (2) are Person and Date. The table (3) lists who did what and when: the login name, the action, the path and method, and the time. Use it to see who signed in or changed data."
               },
               "image": {
                 "pt": "help/img/guides/admin-activity-support-preview/tools-01.pt.jpg",
@@ -28616,8 +28616,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "O Dashboard tem uma seção chamada Logins criados sem acesso (3+ dias). Ela só aparece quando um login foi criado há pelo menos 3 dias e a pessoa nunca entrou. Cada linha mostra o negócio, há quantos dias foi criado, um botão Abrir cliente e um botão Reenviar. Reenviar manda a mensagem de login de novo, então use só quando quiser. A seção está escondida agora porque nenhum login está esperando.",
-                "en": "The Dashboard has a section called Logins created without access (3+ days). It shows only when a login was made at least 3 days ago and the person never signed in. Each line shows the business, how many days ago it was made, an Open client button and a Resend button. Resend sends the login message again, so use it only when you mean to. The section is hidden now because no login is waiting."
+                "pt": "O Dashboard tem uma seção chamada Logins criados sem acesso (3+ dias). Ela só aparece quando um login foi criado há pelo menos 3 dias e a pessoa nunca entrou. Cada linha mostra o negócio, há quantos dias foi criado, um botão Abrir cliente e um botão Reenviar. Reenviar manda a mensagem de login de novo, então use só quando quiser.",
+                "en": "The Dashboard has a section called Logins created without access (3+ days). It shows only when a login was made at least 3 days ago and the person never signed in. Each line shows the business, how many days ago it was made, an Open client button and a Resend button. Resend sends the login message again, so use it only when you mean to."
               },
               "image": null
             },
@@ -28646,8 +28646,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Escolha um cliente para ver. Depois de tocar em Client, abre uma lista. Digite no filtro (1) para achar o negócio e toque na linha dele (2). O portal abre só para ver, então você não muda nada. Toque em Cancelar (3) para fechar a lista. Os nomes dos negócios na figura estão trocados.",
-                "en": "Pick a client to preview. After you tap Client, a list opens. Type in the filter (1) to find the business, then tap its line (2). The portal opens in view-only mode, so you cannot change anything. Tap Cancel (3) to close the list. The business names in the picture are replaced."
+                "pt": "Escolha um cliente para ver. Depois de tocar em Client, abre uma lista. Digite no filtro (1) para achar o negócio e toque na linha dele (2). O portal abre só para ver, então você não muda nada. Toque em Cancelar (3) para fechar a lista.",
+                "en": "Pick a client to preview. After you tap Client, a list opens. Type in the filter (1) to find the business, then tap its line (2). The portal opens in view-only mode, so you cannot change anything. Tap Cancel (3) to close the list."
               },
               "image": {
                 "pt": "help/img/guides/admin-activity-support-preview/tools-06.pt.jpg",
@@ -28657,8 +28657,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Anexe um recurso a um cliente. Na página do cliente, abra a aba Trabalho Apex e ache o cartão Recursos. Toque em + Anexar Recurso. Abre uma janela. Da Biblioteca (1) escolhe um recurso que já existe, e Criar Novo (2) faz um novo. Em Da Biblioteca, escolha o recurso na lista (3) e toque em Anexar ao Cliente (4). A figura mostra só a janela: nada foi anexado.",
-                "en": "Attach a resource to a client. On the client page, open the Apex work tab and find the Resources card. Tap + Attach Resource. A window opens. From Library (1) picks a resource that already exists, and Create New (2) makes a new one. In From Library, pick the resource in the list (3) and tap Attach to Client (4). The picture shows the window only: nothing was attached."
+                "pt": "Anexe um recurso a um cliente. Na página do cliente, abra a aba Trabalho Apex e ache o cartão Recursos. Toque em + Anexar Recurso. Abre uma janela. Da Biblioteca (1) escolhe um recurso que já existe, e Criar Novo (2) faz um novo. Em Da Biblioteca, escolha o recurso na lista (3) e toque em Anexar ao Cliente (4).",
+                "en": "Attach a resource to a client. On the client page, open the Apex work tab and find the Resources card. Tap + Attach Resource. A window opens. From Library (1) picks a resource that already exists, and Create New (2) makes a new one. In From Library, pick the resource in the list (3) and tap Attach to Client (4)."
               },
               "image": {
                 "pt": "help/img/guides/admin-activity-support-preview/tools-07.pt.jpg",
@@ -28928,8 +28928,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Leia o aviso de leads fora do pipeline. Na aba Visão geral, um aviso bege (1) pode aparecer no alto. O número grande é quantos leads o cliente relatou no registro diário que não chegaram ao pipeline nos últimos 30 dias. A linha embaixo mostra as duas contagens e a data do último lead no pipeline. Quando as contagens batem, o aviso fica escondido. O nome do cliente na figura é o negócio de teste.",
-                "en": "Read the pipeline gap banner. On the Overview tab, a beige banner (1) can appear at the top. The big number is how many leads the client reported in the daily log that never reached the pipeline in the last 30 days. The line under it shows the two counts and the date of the last lead entered. When the counts match, the banner is hidden. The client name in the picture is the test business."
+                "pt": "Leia o aviso de leads fora do pipeline. Na aba Visão geral, um aviso bege (1) pode aparecer no alto. O número grande é quantos leads o cliente relatou no registro diário que não chegaram ao pipeline nos últimos 30 dias. A linha embaixo mostra as duas contagens e a data do último lead no pipeline. Quando as contagens batem, o aviso fica escondido.",
+                "en": "Read the pipeline gap banner. On the Overview tab, a beige banner (1) can appear at the top. The big number is how many leads the client reported in the daily log that never reached the pipeline in the last 30 days. The line under it shows the two counts and the date of the last lead entered. When the counts match, the banner is hidden."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record-forms/forms-01.pt.jpg",
@@ -28950,8 +28950,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Abra a janela Enviar novo login (link). No cartão Portal do Cliente, toque em Enviar novo login (link). A janela diz que o dono abre o link, recebe um código por SMS e cria uma passkey. A linha (1) mostra o telefone que recebe o código, com o número escondido. Usar outro número (2) deixa você digitar outro telefone. Criar link de login (3) faz o link e manda o código, então toque só quando quiser. Fechar (4) sai sem fazer nada. A figura mostra só a janela: nenhum link foi criado.",
-                "en": "Open the Send new login (link) window. In the Client Portal card, tap Send new login (link). The window says the owner opens the link, gets a code by text and creates a passkey. The line (1) shows the phone number that gets the code, with the number hidden. Use another number (2) lets you type a different phone. Create login link (3) makes the link and texts the code, so tap it only when you mean to. Close (4) leaves without doing anything. The picture shows the window only: no link was created."
+                "pt": "Abra a janela Enviar novo login (link). No cartão Portal do Cliente, toque em Enviar novo login (link). A janela diz que o dono abre o link, recebe um código por SMS e cria uma passkey. A linha (1) mostra o telefone que recebe o código. Usar outro número (2) deixa você digitar outro telefone. Criar link de login (3) faz o link e manda o código, então toque só quando quiser. Fechar (4) sai sem fazer nada.",
+                "en": "Open the Send new login (link) window. In the Client Portal card, tap Send new login (link). The window says the owner opens the link, gets a code by text and creates a passkey. The line (1) shows the phone number that gets the code. Use another number (2) lets you type a different phone. Create login link (3) makes the link and texts the code, so tap it only when you mean to. Close (4) leaves without doing anything."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record-forms/forms-03.pt.jpg",
@@ -28961,8 +28961,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Abra as opções do aparelho do dono. Na parte de baixo da página do cliente, em Segurança do login, toque em Aparelho do dono: perdido, trocado ou saída. Uma caixa pergunta o que aconteceu. Comprou celular novo (1) e Perdido ou roubado (2) começam o fluxo de verdade, que muda o login do dono. A opção 3, Saiu da empresa, não tem botão aqui: use o botão de desativar na ficha. Esta caixa não tem botão de cancelar, e apertar Escape conta como uma escolha. Para sair sem escolher, recarregue a página. A figura mostra só a caixa.",
-                "en": "Open the owner's device choices. At the bottom of the client page, in Login security, tap Owner's device: lost, replaced or leaving. A box asks what happened. Got a new phone (1) and Lost or stolen (2) start the real flow, which changes the owner's login. Option 3, Left the company, has no button here: use the turn-off button on the profile. This box has no cancel button, and pressing Escape counts as a choice. To leave without choosing, reload the page. The picture shows the box only."
+                "pt": "Abra as opções do aparelho do dono. Na parte de baixo da página do cliente, em Segurança do login, toque em Aparelho do dono: perdido, trocado ou saída. Uma caixa pergunta o que aconteceu. Comprou celular novo (1) e Perdido ou roubado (2) começam o fluxo de verdade, que muda o login do dono. A opção 3, Saiu da empresa, não tem botão aqui: use o botão de desativar na ficha. Esta caixa não tem botão de cancelar, e apertar Escape conta como uma escolha. Para sair sem escolher, recarregue a página.",
+                "en": "Open the owner's device choices. At the bottom of the client page, in Login security, tap Owner's device: lost, replaced or leaving. A box asks what happened. Got a new phone (1) and Lost or stolen (2) start the real flow, which changes the owner's login. Option 3, Left the company, has no button here: use the turn-off button on the profile. This box has no cancel button, and pressing Escape counts as a choice. To leave without choosing, reload the page."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record-forms/forms-04.pt.jpg",
@@ -28972,8 +28972,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Abra o formulário do plano de pagamento. Na aba Financeiro, no cartão Metodo de Pagamento, toque em Definir (diz Editar quando já existe um plano). O formulário Termos de Pagamento tem quatro partes. Opção de preço (1) escolhe à vista ou parcelado. Ajuste (2) coloca um desconto ou uma cobrança e mostra o total ajustado. Divisão ou cronograma de pagamento (3) escolhe Divisão Igual ou Personalizado ou Balão, e a caixa de cobrança contínua. Progresso e agendamento (4) guarda os pagamentos já feitos antes do sistema. Os valores na figura estão escondidos. Feche o formulário no x para sair sem salvar.",
-                "en": "Open the payment plan form. In the Money tab, in the Payment Method card, tap Set plan (it says Edit when a plan exists). The form Payment Terms has four parts. Pricing option (1) picks upfront or installments. Adjustment (2) adds a discount or a charge and shows the adjusted total. Split or payment schedule (3) picks Even Split or Custom or Balloon, and the box for an ongoing subscription. Progress and schedule (4) holds the payments already made before the system. The amounts in the picture are hidden. Close the form with the x to leave without saving."
+                "pt": "Abra o formulário do plano de pagamento. Na aba Financeiro, no cartão Método de Pagamento, toque em Definir (diz Editar quando já existe um plano). O formulário Termos de Pagamento tem quatro partes. Opção de preço (1) escolhe à vista ou parcelado. Ajuste (2) coloca um desconto ou uma cobrança e mostra o total ajustado. Divisão ou cronograma de pagamento (3) escolhe Divisão Igual ou Personalizado ou Balão, e a caixa de cobrança contínua. Progresso e agendamento (4) guarda os pagamentos já feitos antes do sistema. Feche o formulário no x para sair sem salvar.",
+                "en": "Open the payment plan form. In the Money tab, in the Payment Method card, tap Set plan (it says Edit when a plan exists). The form Payment Terms has four parts. Pricing option (1) picks upfront or installments. Adjustment (2) adds a discount or a charge and shows the adjusted total. Split or payment schedule (3) picks Even Split or Custom or Balloon, and the box for an ongoing subscription. Progress and schedule (4) holds the payments already made before the system. Close the form with the x to leave without saving."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record-forms/forms-05.pt.jpg",
@@ -28994,8 +28994,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Abra um dia na Semana de Registros. Na aba Resultados, a Semana de Registros mostra sete cartões de dia. Toque em um dia (1). O painel (2) abre embaixo dos cartões com os números daquele dia, em grupos: Financeiro, Clientes e mercado, Processos, Crescimento e Rotina. Toque no x para fechar. Os valores em dinheiro na figura estão escondidos.",
-                "en": "Open a day in Entry Week. In the Results tab, Entry Week shows seven day cards. Tap a day (1). The panel (2) opens under the cards with that day's numbers, grouped by Financial, Clients and market, Processes, Growth and Routine. Tap the x to close it. The money amounts in the picture are hidden."
+                "pt": "Abra um dia na Semana de Registros. Na aba Resultados, a Semana de Registros mostra sete cartões de dia. Toque em um dia (1). O painel (2) abre embaixo dos cartões com os números daquele dia, em grupos: Financeiro, Clientes e mercado, Processos, Crescimento e Rotina. Toque no x para fechar.",
+                "en": "Open a day in Entry Week. In the Results tab, Entry Week shows seven day cards. Tap a day (1). The panel (2) opens under the cards with that day's numbers, grouped by Financial, Clients and market, Processes, Growth and Routine. Tap the x to close it."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record-forms/forms-07.pt.jpg",
@@ -29005,8 +29005,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Escolha um mês de registros. Embaixo da Semana de Registros, a lista de mês (1) Ver registros do mês deixa você escolher um mês. Cada dia daquele mês aparece como um cartão (3). Cada parte de um dia tem um lápis pequeno (2). Ver a lista não muda nada. Os valores em dinheiro na figura estão escondidos.",
-                "en": "Pick a month of entries. Under Entry Week, the month list (1) See entries for month lets you choose a month. Each day of that month shows as a card (3). Every section of a day has a small pencil (2). Seeing the list changes nothing. The money amounts in the picture are hidden."
+                "pt": "Escolha um mês de registros. Embaixo da Semana de Registros, a lista de mês (1) Ver registros do mês deixa você escolher um mês. Cada dia daquele mês aparece como um cartão (3). Cada parte de um dia tem um lápis pequeno (2). Ver a lista não muda nada.",
+                "en": "Pick a month of entries. Under Entry Week, the month list (1) See entries for month lets you choose a month. Each day of that month shows as a card (3). Every section of a day has a small pencil (2). Seeing the list changes nothing."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record-forms/forms-08.pt.jpg",
@@ -29016,8 +29016,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Corrija um registro. Só a Rafa e o desenvolvedor podem fazer isso. Toque no lápis de uma parte. Os números viram caixas (1) onde você pode digitar. Salvar correção (2) guarda a mudança e o sistema registra cada campo mudado. Cancelar (3) volta sem mudar nada. A figura mostra só as caixas: nada foi salvo. Os valores estão escondidos.",
-                "en": "Correct an entry. Only Rafa and the developer can do this. Tap the pencil of one section. The numbers turn into boxes (1) you can type in. Save correction (2) saves your change and the system records each changed field. Cancel (3) goes back without changing anything. The picture shows the boxes only: nothing was saved. The amounts are hidden."
+                "pt": "Corrija um registro. Só a Rafa e o desenvolvedor podem fazer isso. Toque no lápis de uma parte. Os números viram caixas (1) onde você pode digitar. Salvar correção (2) guarda a mudança e o sistema registra cada campo mudado. Cancelar (3) volta sem mudar nada.",
+                "en": "Correct an entry. Only Rafa and the developer can do this. Tap the pencil of one section. The numbers turn into boxes (1) you can type in. Save correction (2) saves your change and the system records each changed field. Cancel (3) goes back without changing anything."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record-forms/forms-09.pt.jpg",
@@ -29027,8 +29027,8 @@
             {
               "n": 10,
               "text": {
-                "en": "After you tap Create login link. The window says Link created, shows the number that gets the code (hidden) and says the link is valid for 72 hours. The code goes to the owner by text. Under it are the link, Copy link and Send on WhatsApp. Treat the link like a password: do not post it. Tap Close when you are done.",
-                "pt": "Depois de tocar em Criar link de login. A janela diz Link criado, mostra o número que recebe o código (escondido) e diz que o link vale por 72 horas. O código vai para o dono por SMS. Embaixo ficam o link, Copiar link e Enviar pelo WhatsApp. Trate o link como uma senha: não publique. Toque em Fechar quando terminar."
+                "en": "After you tap Create login link. The window says Link created, shows the number that gets the code and says the link is valid for 72 hours. The code goes to the owner by text. Under it are the link, Copy link and Send on WhatsApp. Treat the link like a password: do not post it. Tap Close when you are done.",
+                "pt": "Depois de tocar em Criar link de login. A janela diz Link criado, mostra o número que recebe o código e diz que o link vale por 72 horas. O código vai para o dono por SMS. Embaixo ficam o link, Copiar link e Enviar pelo WhatsApp. Trate o link como uma senha: não publique. Toque em Fechar quando terminar."
               },
               "image": null
             }

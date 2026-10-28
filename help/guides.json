@@ -29150,6 +29150,164 @@
           "step": 3
         }
       ]
+    },
+    {
+      "id": "admin-activity-support-preview",
+      "audience": "admin",
+      "title": {
+        "pt": "Atividade, Suporte e ver como cliente",
+        "en": "Activity, Support and preview as client"
+      },
+      "summary": {
+        "pt": "Ler o registro de acesso, o painel de Suporte, trocar de visão e anexar um recurso.",
+        "en": "Read the access log and Support panel, switch views, and attach a resource."
+      },
+      "keywords": {
+        "pt": [
+          "atividade",
+          "registro de acesso",
+          "revisões de perda",
+          "suporte",
+          "ver portal como cliente",
+          "seletor de visão",
+          "anexar recurso",
+          "logins sem acesso"
+        ],
+        "en": [
+          "activity",
+          "access log",
+          "loss reviews",
+          "support panel",
+          "preview portal as client",
+          "view switcher",
+          "attach resource",
+          "dormant logins"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "tools",
+          "title": {
+            "pt": "Ferramentas da equipe",
+            "en": "Staff tools"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra Atividade no menu da esquerda. A página mostra o registro de acesso. As abas (1) são Atividade e Revisões de perda. Os filtros (2) são Pessoa e Data. A tabela (3) lista quem fez o quê e quando: o nome de login, a ação, o caminho e o método, e a hora. Use para ver quem entrou ou mudou dados. Os nomes de login na figura estão trocados.",
+                "en": "Open Activity in the left menu. The page shows the access log. The tabs (1) are Activity and Loss reviews. The filters (2) are Person and Date. The table (3) lists who did what and when: the login name, the action, the path and method, and the time. Use it to see who signed in or changed data. The login names in the picture are replaced."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-activity-support-preview/tools-01.pt.jpg",
+                "en": "help/img/guides/admin-activity-support-preview/tools-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Veja as revisões de aparelho perdido. Toque em Revisões de perda (1). O filtro Status (2) mostra Abertas, Revisadas ou Todas. A área (3) lista as revisões que os donos abriram ao dizer que o celular foi perdido ou roubado. Ela diz Nenhuma revisão quando não há nenhuma.",
+                "en": "Check lost device reviews. Tap Loss reviews (1). The Status filter (2) shows Open, Reviewed or All. The area (3) lists the reviews that owners started when they said a phone was lost or stolen. It says No reviews when there are none."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-activity-support-preview/tools-02.pt.jpg",
+                "en": "help/img/guides/admin-activity-support-preview/tools-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "O Dashboard tem uma seção chamada Logins criados sem acesso (3+ dias). Ela só aparece quando um login foi criado há pelo menos 3 dias e a pessoa nunca entrou. Cada linha mostra o negócio, há quantos dias foi criado, um botão Abrir cliente e um botão Reenviar. Reenviar manda a mensagem de login de novo, então use só quando quiser. A seção está escondida agora porque nenhum login está esperando.",
+                "en": "The Dashboard has a section called Logins created without access (3+ days). It shows only when a login was made at least 3 days ago and the person never signed in. Each line shows the business, how many days ago it was made, an Open client button and a Resend button. Resend sends the login message again, so use it only when you mean to. The section is hidden now because no login is waiting."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Leia o painel de Suporte. Ele fica no Dashboard, só para o desenvolvedor. O título (1) mostra o número de tickets abertos. As abas (2) alternam entre Abertos e Resolvidos. Toque em Mark resolved (3) em um ticket quando ele estiver resolvido. Limpar resolvidos (4) tira os resolvidos da lista. Os tickets daqui são os tickets automáticos de erro.",
+                "en": "Read the Support panel. It is on the Dashboard, only for the developer. The title (1) shows the number of open tickets. The tabs (2) switch between Open and Resolved. Tap Mark resolved (3) on a ticket when it is fixed. Clear resolved (4) removes the resolved ones from the list. The tickets here are the automatic error tickets."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-activity-support-preview/tools-04.pt.jpg",
+                "en": "help/img/guides/admin-activity-support-preview/tools-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Ache o seletor de visão. Na parte de baixo do menu da esquerda (1) há cinco botões pequenos: Alice, Rafa, Dev, Client e Seller. Alice, Rafa e Dev mudam o menu de equipe que você vê. Client e Seller não mudam o seu menu: abrem uma lista para você ver o portal como aquele cliente.",
+                "en": "Find the view switcher. At the bottom of the left menu (1) are five small buttons: Alice, Rafa, Dev, Client and Seller. Alice, Rafa and Dev change which staff menu you see. Client and Seller do not change your menu: they open a list so you can look at the client portal as that client."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-activity-support-preview/tools-05.pt.jpg",
+                "en": "help/img/guides/admin-activity-support-preview/tools-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Escolha um cliente para ver. Depois de tocar em Client, abre uma lista. Digite no filtro (1) para achar o negócio e toque na linha dele (2). O portal abre só para ver, então você não muda nada. Toque em Cancelar (3) para fechar a lista. Os nomes dos negócios na figura estão trocados.",
+                "en": "Pick a client to preview. After you tap Client, a list opens. Type in the filter (1) to find the business, then tap its line (2). The portal opens in view-only mode, so you cannot change anything. Tap Cancel (3) to close the list. The business names in the picture are replaced."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-activity-support-preview/tools-06.pt.jpg",
+                "en": "help/img/guides/admin-activity-support-preview/tools-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Anexe um recurso a um cliente. Na página do cliente, abra a aba Trabalho Apex e ache o cartão Recursos. Toque em + Anexar Recurso. Abre uma janela. Da Biblioteca (1) escolhe um recurso que já existe, e Criar Novo (2) faz um novo. Em Da Biblioteca, escolha o recurso na lista (3) e toque em Anexar ao Cliente (4). A figura mostra só a janela: nada foi anexado.",
+                "en": "Attach a resource to a client. On the client page, open the Apex work tab and find the Resources card. Tap + Attach Resource. A window opens. From Library (1) picks a resource that already exists, and Create New (2) makes a new one. In From Library, pick the resource in the list (3) and tap Attach to Client (4). The picture shows the window only: nothing was attached."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-activity-support-preview/tools-07.pt.jpg",
+                "en": "help/img/guides/admin-activity-support-preview/tools-07.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Revisões de perda"
+            ],
+            "en": [
+              "Loss reviews"
+            ]
+          },
+          "section": "tools",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Limpar resolvidos"
+            ],
+            "en": [
+              "Clear resolved"
+            ]
+          },
+          "section": "tools",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Anexar ao Cliente"
+            ],
+            "en": [
+              "Attach to Client"
+            ]
+          },
+          "section": "tools",
+          "step": 7
+        }
+      ]
     }
   ],
   "pages": {

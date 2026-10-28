@@ -25178,8 +25178,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Mais abaixo, o cartão Segurança do login tem os assentos. Assentos mostra quantos logins estão em uso, quantos estão incluídos e o pico. O menu (1) escolhe o que acontece no limite: Count only, Notify the owner ou Block at the limit. Escreva o número de assentos e toque em Save. Origem do negócio (2) diz se o negócio veio direto da Apex (consultoria) ou do cadastro público. Este cartão está em inglês nos dois idiomas.",
-                "en": "Further down, the card Login security has the seats. Seats shows how many logins are in use, how many are included and the peak. The menu (1) chooses what happens at the limit: Count only, Notify the owner or Block at the limit. Write the number of seats and tap Save. Business source (2) says if the business came from Apex direct (consulting) or from public signup. This card is in English on both languages."
+                "pt": "Mais abaixo, o cartão Segurança do login tem os assentos. Assentos mostra quantos logins estão em uso, quantos estão incluídos e o pico. O menu (1) escolhe o que acontece no limite: Só contar, Avisar o dono ou Bloquear no limite. Escreva o número de assentos e toque em Salvar. Origem do negócio (2) diz se o negócio veio direto da Apex (consultoria) ou do cadastro público.",
+                "en": "Further down, the card Login security has the seats. Seats shows how many logins are in use, how many are included and the peak. The menu (1) chooses what happens at the limit: Count only, Notify the owner or Block at the limit. Write the number of seats and tap Save. Business source (2) says if the business came from Apex direct (consulting) or from public signup."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-login-access/access-04.pt.jpg",
@@ -25189,7 +25189,7 @@
             {
               "n": 5,
               "text": {
-                "pt": "Turn off the old login for this business (3) desliga o login antigo de usuário e senha do negócio. Depois disso o dono só entra pelo novo login com passkey. O usuário antigo aparece acima do botão.",
+                "pt": "Desativar login antigo deste negócio (3) desliga o login antigo de usuário e senha do negócio. Depois disso o dono só entra pelo novo login com passkey. O usuário antigo aparece acima do botão.",
                 "en": "Turn off the old login for this business (3) switches off the old username and password login for the business. After that the owner can only sign in with the new passkey login. The old username is shown above the button."
               },
               "image": {
@@ -25200,8 +25200,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Resend access (4) cria um novo link de convite para o novo login do dono, por exemplo quando o primeiro convite se perdeu. Owner's device: lost, replaced or leaving (5) pergunta o que aconteceu. Escolha Comprou celular novo, ou Perdido ou roubado e depois quando foi perdido. O Apex revisa a atividade desde então.",
-                "en": "Resend access (4) makes a new invitation link for the owner's new login, for example when the first invitation was lost. Owner's device: lost, replaced or leaving (5) asks what happened. Choose Got a new phone, or Lost or stolen and then when it was lost. Apex reviews the activity since then."
+                "pt": "Reenviar acesso (4) cria um novo link de convite para o novo login do dono, por exemplo quando o primeiro convite se perdeu. Aparelho do dono: perdido, trocado ou saída (5) pergunta o que aconteceu. Escolha Comprou celular novo, ou Perdido ou roubado e depois Agora ou Hoje, para dizer quando foi perdido. O Apex revisa a atividade desde então.",
+                "en": "Resend access (4) makes a new invitation link for the owner's new login, for example when the first invitation was lost. Owner's device: lost, replaced or leaving (5) asks what happened. Choose Got a new phone, or Lost or stolen and then Now or Today, to say when it was lost. Apex reviews the activity since then."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-login-access/access-06.pt.jpg",
@@ -26384,7 +26384,7 @@
             {
               "n": 3,
               "text": {
-                "pt": "Semana de Registros mostra o registro diário do cliente em uma semana. As setas (1) vão para a semana antes ou depois. Cada dia (2) mostra se o registro foi Completed ou Not scheduled. Embaixo, Ver registros do mês (3) lista as entradas de um mês anterior.",
+                "pt": "Semana de Registros mostra o registro diário do cliente em uma semana. As setas (1) vão para a semana antes ou depois. Cada dia (2) mostra se o registro foi Completo ou Não trabalha. Embaixo, Ver registros do mês (3) lista as entradas de um mês anterior.",
                 "en": "Entry Week shows the client's daily log for one week. The arrows (1) go to the week before or after. Each day (2) shows if the log was Completed or Not scheduled. Under it, See entries for month (3) lists the entries of an earlier month."
               },
               "image": {
@@ -26970,7 +26970,7 @@
             {
               "n": 2,
               "text": {
-                "pt": "A semana, dia a dia. Este cartão (1) tem setas para ir às outras semanas e mostra as datas da semana. Cada dia é um quadro: Completo, ou Não trabalhou. Uma linha explica que um zero registrado e um dia não preenchido não são a mesma coisa, e que a diferença está nomeada aqui dia a dia.",
+                "pt": "A semana, dia a dia. Este cartão (1) tem setas para ir às outras semanas e mostra as datas da semana. Cada dia é um quadro: Completo, ou Não trabalha. Uma linha explica que um zero registrado e um dia não preenchido não são a mesma coisa, e que a diferença está nomeada aqui dia a dia.",
                 "en": "The week, day by day. This card (1) has arrows to go to the other weeks and shows the dates of the week. Each day is a tile: Completed, or Not scheduled. A line explains that a logged zero and a day nobody filled in are not the same thing, and that the difference is named here day by day."
               },
               "image": {
@@ -28624,7 +28624,7 @@
             {
               "n": 4,
               "text": {
-                "pt": "Leia o painel de Suporte. Ele fica no Dashboard, só para o desenvolvedor. O título (1) mostra o número de tickets abertos. As abas (2) alternam entre Abertos e Resolvidos. Toque em Mark resolved (3) em um ticket quando ele estiver resolvido. Limpar resolvidos (4) tira os resolvidos da lista. Os tickets daqui são os tickets automáticos de erro.",
+                "pt": "Leia o painel de Suporte. Ele fica no Dashboard, só para o desenvolvedor. O título (1) mostra o número de tickets abertos. As abas (2) alternam entre Abertos e Resolvidos. Toque em Marcar resolvido (3) em um ticket quando ele estiver resolvido. Limpar resolvidos (4) tira os resolvidos da lista. Os tickets daqui são os tickets automáticos de erro.",
                 "en": "Read the Support panel. It is on the Dashboard, only for the developer. The title (1) shows the number of open tickets. The tabs (2) switch between Open and Resolved. Tap Mark resolved (3) on a ticket when it is fixed. Clear resolved (4) removes the resolved ones from the list. The tickets here are the automatic error tickets."
               },
               "image": {

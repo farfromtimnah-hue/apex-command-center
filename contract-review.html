@@ -370,7 +370,7 @@
                 <input type="text" id="crAttName" placeholder="Nome do advogado / Attorney name">
                 <input type="text" id="crAttBar" placeholder="Florida Bar #" style="margin-top:6px;">
                 <input type="date" id="crAttDate" style="margin-top:6px;">
-                <div class="cr-actions"><button type="button" class="cr-btn gold" onclick="crSaveAttorney()"><span class="show-pt">Registrar revis&atilde;o do advogado</span><span class="show-en">Record attorney review</span></button><span id="crAttMsg" class="cr-err"></span></div>
+                <div class="cr-actions"><button data-help="admin-contract-review#review#3" type="button" class="cr-btn gold" onclick="crSaveAttorney()"><span class="show-pt">Registrar revis&atilde;o do advogado</span><span class="show-en">Record attorney review</span></button><span id="crAttMsg" class="cr-err"></span></div>
               </div>
               <div class="cr-field">
                 <label><span class="show-pt">Status da vers&atilde;o</span><span class="show-en">Version status</span></label>
@@ -772,8 +772,8 @@
       var docs = document.getElementById("crDocs");
       if (docs) {
         docs.innerHTML = '<div class="cr-meta">' +
-          t("Cap. 515: ", "Ch. 515: ") + (st.ch515_doc_present ? '<a href="#" onclick="crOpenDoc(\'ch515\'); return false;">' + escHtml(st.ch515_doc_version || "PDF") + '</a>' : '<span class="cr-err">' + t("não enviado", "not uploaded") + '</span>') +
-          ' &middot; ' + t("Afogamento: ", "Drowning: ") + (st.drowning_pub_present ? '<a href="#" onclick="crOpenDoc(\'drowning\'); return false;">' + escHtml(st.drowning_pub_version || "PDF") + '</a>' : '<span class="cr-err">' + t("não enviado", "not uploaded") + '</span>') + '</div>';
+          t("Cap. 515: ", "Ch. 515: ") + (st.ch515_doc_present ? '<a data-help="admin-contract-review#review#2" href="#" onclick="crOpenDoc(\'ch515\'); return false;">' + escHtml(st.ch515_doc_version || "PDF") + '</a>' : '<span class="cr-err">' + t("não enviado", "not uploaded") + '</span>') +
+          ' &middot; ' + t("Afogamento: ", "Drowning: ") + (st.drowning_pub_present ? '<a data-help="admin-contract-review#review#2" href="#" onclick="crOpenDoc(\'drowning\'); return false;">' + escHtml(st.drowning_pub_version || "PDF") + '</a>' : '<span class="cr-err">' + t("não enviado", "not uploaded") + '</span>') + '</div>';
       }
       var subs = document.getElementById("crSubmissions");
       if (subs && isDev) {
@@ -830,7 +830,7 @@
       if (!box) { return; }
       box.innerHTML = crStateSlots.map(function(sl, i) {
         return '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #ddd;"><div><strong>' + escHtml(sl.state_name) + '</strong>: ' + escHtml(sl.title) + (sl.cite ? ' (' + escHtml(sl.cite) + ')' : "") + '</div>' +
-          '<div class="cr-meta">' + (sl.loaded ? '<a href="#" onclick="crOpenStateDoc(' + i + '); return false;">' + escHtml(sl.version || "PDF") + '</a>' : '<span class="cr-err">' + t("Aguardando: documento oficial n\u00e3o carregado", "Waiting: official document not loaded") + '</span>') +
+          '<div class="cr-meta">' + (sl.loaded ? '<a data-help="admin-contract-review#review#2" href="#" onclick="crOpenStateDoc(' + i + '); return false;">' + escHtml(sl.version || "PDF") + '</a>' : '<span class="cr-err">' + t("Aguardando: documento oficial n\u00e3o carregado", "Waiting: official document not loaded") + '</span>') +
           (sl.shipped ? ' &middot; ' + t("arquivo oficial inclu\u00eddo no site", "official file shipped with the site") : "") +
           (sl.ack ? ' &middot; ' + t("o cliente assina o recibo", "the customer signs an acknowledgment") : "") + '</div>' +
           '<input type="text" id="crStateVer_' + i + '" placeholder="' + t("Vers\u00e3o (ex.: data da publica\u00e7\u00e3o)", "Version (e.g. publication date)") + '">' +

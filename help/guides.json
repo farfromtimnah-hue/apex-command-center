@@ -14581,6 +14581,14 @@
                 "pt": "help/img/guides/admin-resources-documents/hub-s09.pt.jpg",
                 "en": "help/img/guides/admin-resources-documents/hub-s09.en.jpg"
               }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Quando o Claude arquivou um documento sem cliente, a linha dele no Hub tem o botão Anexar a cliente. Toque nele, escreva o nome exato do cliente e toque em Anexar. O arquivo vai para o perfil do cliente e fica escondido dele até você mostrar. Sem imagem: nenhum arquivo esperava um cliente, e a janela lista clientes reais. Escrito a partir do código.",
+                "en": "When Claude filed a document with no client, its line in the Hub has the button Attach to client. Tap it, write the exact name of the client and tap Attach. The file moves to the client's profile and stays hidden from the client until you show it. No picture: no file was waiting for a client, and the window lists real clients. Written from the code."
+              },
+              "image": null
             }
           ]
         },
@@ -24133,6 +24141,14 @@
                 "pt": "help/img/guides/admin-lead-pipeline/lead-08.pt.jpg",
                 "en": "help/img/guides/admin-lead-pipeline/lead-08.en.jpg"
               }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "No aplicativo do iPhone, os botões de ligar passam o número para o OpenPhone, e não para o app Telefone. No navegador, eles seguem abrindo a ligação do próprio aparelho. Sem imagem: isso só se vê dentro do app. Escrito a partir do código.",
+                "en": "In the iPhone app, the call buttons hand the number to OpenPhone, not to the Phone app. In the browser, they keep opening the device's own call. No picture: this only shows inside the app. Written from the code."
+              },
+              "image": null
             }
           ]
         }
@@ -25003,6 +25019,14 @@
                 "pt": "help/img/guides/admin-finance-bills/bills-s06.pt.jpg",
                 "en": "help/img/guides/admin-finance-bills/bills-s06.en.jpg"
               }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Contas de água e lixo encaminhadas para a caixa de e-mail da Apex são lidas sozinhas e entram nas contas. A Alice recebe um aviso no celular 2 dias antes do vencimento e outro quando a conta atrasa. Não há botão para tocar. Sem imagem. Escrito a partir do código.",
+                "en": "Water and waste bills forwarded to the Apex mailbox are read by themselves and added to the bills. Alice gets a notice on the phone 2 days before the due date and another when the bill is late. There is no button to tap. No picture. Written from the code."
+              },
+              "image": null
             }
           ]
         }

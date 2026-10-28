@@ -97,7 +97,7 @@ const publicIds = REAL.guides.filter((g) => (g.who || []).includes("public")).ma
 
 // ================================================================ A. every role against every guide
 {
-  const counts = { owner: 82, partner: 82, staff_finance: 65, staff: 56, seller: 39, lead: 14, alice: 138, rafa: 138, developer: 138, none: 2 };
+  const counts = { owner: 82, partner: 82, staff_finance: 65, staff: 56, seller: 39, lead: 14, alice: 139, rafa: 139, developer: 139, none: 2 };
   TOKENS.forEach((r) => {
     const got = idsFor(r);
     const core2 = allIds.filter((id) => core.guideVisibleTo(REAL.guides.find((g) => g.id === id), REAL.groups, r));
@@ -140,7 +140,7 @@ const publicIds = REAL.guides.filter((g) => (g.who || []).includes("public")).ma
   const f = W.helpFilterGuides(REAL, "seller", "admin");
   ok(f.guides.length === 39 && !("groups" in f) && f.guides.every((g) => !("who" in g)), "filterGuides for a seller: 39 guides, no groups, no who lists");
   ok(Object.keys(f.pages).every((k) => f.pages[k].guides.every((id) => f.guides.some((g) => g.id === id))), "the screen overviews list only visible guides");
-  ok(W.helpFilterGuides(REAL, "alice", "client").guides.length === 85 && W.helpFilterGuides(REAL, "alice", "admin").guides.length === 53, "staff pick a side: 85 client guides or 53 admin guides");
+  ok(W.helpFilterGuides(REAL, "alice", "client").guides.length === 85 && W.helpFilterGuides(REAL, "alice", "admin").guides.length === 54, "staff pick a side: 85 client guides or 54 admin guides");
   ok(JSON.stringify(W.helpFilterGuides(REAL, "staff", "x").guides.map((g) => g.id)) === JSON.stringify(core.filterGuides(REAL, "staff", "x").guides.map((g) => g.id)), "parity: filterGuides agrees between the Worker and HelpCore");
 }
 
@@ -196,7 +196,7 @@ async function payload(key, query, extraHeaders, status, secret) {
   // staff
   const a = await payload("alice", "?lang=pt&audience=admin");
   const c = await payload("rafa", "?lang=pt&audience=client");
-  ok(a.json.audience === "admin" && a.json.guides.length === 53 && c.json.audience === "client" && c.json.guides.length === 85, "staff may ask for either side");
+  ok(a.json.audience === "admin" && a.json.guides.length === 54 && c.json.audience === "client" && c.json.guides.length === 85, "staff may ask for either side");
   const d = await payload("developer", "?lang=pt");
   ok(d.json.audience === "admin", "staff with no audience field start on the admin side");
   const sf = await payload("staff", "?lang=pt&audience=admin");
@@ -402,7 +402,7 @@ async function bodyBytes(res) { return new Uint8Array(await res.arrayBuffer()); 
     ok(Object.keys(idx.ids).length === idsFor(role).filter((id) => REAL.guides.find((g) => g.id === id).audience !== "admin").length, "the Ask index for " + role + " holds exactly the guides that " + role + " can see");
   }
   ok(W.helpIndexFor(null, "client").text.split("\n").length === 2, "the Ask index for a signed out viewer holds only the two public guides");
-  ok(W.helpIndexFor("alice", "admin").text === W.helpIndexFor("developer", "admin").text && Object.keys(W.helpIndexFor("rafa", "admin").ids).length === 53, "the admin index is the same for the three admins and holds all 53 admin guides");
+  ok(W.helpIndexFor("alice", "admin").text === W.helpIndexFor("developer", "admin").text && Object.keys(W.helpIndexFor("rafa", "admin").ids).length === 54, "the admin index is the same for the three admins and holds all 54 admin guides");
   ok(W.helpIndexFor("seller", "client") === W.helpIndexFor("seller", "client") && W.helpIndexFor("seller", "client") !== W.helpIndexFor("owner", "client"), "the index is cached per role and is not shared between roles");
 
   // the real handler: a seller, with a model that tries to name hidden guides

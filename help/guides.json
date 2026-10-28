@@ -14158,8 +14158,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Toque em Salvar Cliente (1) para cadastrar o cliente. No nosso teste não salvamos.",
-                "en": "Tap Save Client (1) to add the client. We did not save in our test."
+                "pt": "Toque em Salvar Cliente (1) para cadastrar o cliente.",
+                "en": "Tap Save Client (1) to add the client."
               },
               "image": {
                 "pt": "help/img/guides/admin-clients-roster/roster-s07.pt.jpg",
@@ -14349,8 +14349,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Puxar do Fireflies (1) busca agora as gravações novas. No nosso teste não tocamos.",
-                "en": "Pull from Fireflies (1) fetches new recordings now. We did not tap it in our test."
+                "pt": "Puxar do Fireflies (1) busca agora as gravações novas.",
+                "en": "Pull from Fireflies (1) fetches new recordings now."
               },
               "image": {
                 "pt": "help/img/guides/admin-sessions-summary/sessions-s04.pt.jpg",
@@ -14371,8 +14371,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Gere o resumo. Toque em Resumir na reunião. Abre uma tela onde você escolhe quais seções o relatório terá (por exemplo Recomendações, Ações do Cliente e Foco da Próxima Sessão) e depois toque em Gerar Resumo. A Apex escreve o resumo em português e em inglês. Demora um pouco. Há um limite de 20 resumos por hora para cada pessoa. Este passo não tem imagem porque mostraria a reunião de um cliente real.",
-                "en": "Make the summary. Tap Resumir on the meeting. A screen opens where you choose which sections the report will have (for example Recommendations, Client Action Items and Next Session Focus), then tap Gerar Resumo. Apex writes a summary in Portuguese and English. It takes a short while. There is a limit of 20 summaries per hour for each person. This step is not pictured because it would show a real client's meeting."
+                "pt": "Gere o resumo. Toque em Resumir na reunião. Abre uma tela onde você escolhe quais seções o relatório terá (por exemplo Recomendações, Ações do Cliente e Foco da Próxima Sessão) e depois toque em Gerar Resumo. A Apex escreve o resumo em português e em inglês. Demora um pouco. Há um limite de 20 resumos por hora para cada pessoa.",
+                "en": "Make the summary. Tap Resumir on the meeting. A screen opens where you choose which sections the report will have (for example Recommendations, Client Action Items and Next Session Focus), then tap Gerar Resumo. Apex writes a summary in Portuguese and English. It takes a short while. There is a limit of 20 summaries per hour for each person."
               },
               "image": null
             },
@@ -14398,8 +14398,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Toque em Salvar Transcript (4). A reunião vai para a lista como uma reunião gravada. No nosso teste não salvamos.",
-                "en": "Tap Save Transcript (4). The meeting then goes to the list like a recorded one. We did not save in our test."
+                "pt": "Toque em Salvar Transcript (4). A reunião vai para a lista como uma reunião gravada.",
+                "en": "Tap Save Transcript (4). The meeting then goes to the list like a recorded one."
               },
               "image": {
                 "pt": "help/img/guides/admin-sessions-summary/sessions-s09.pt.jpg",
@@ -14599,8 +14599,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Toque em Salvar Recurso (6). Cada linha da lista tem um botão Editar. No nosso teste não salvamos.",
-                "en": "Tap Save Resource (6). Each line in the list has an Edit button. We did not save in our test."
+                "pt": "Toque em Salvar Recurso (6). Cada linha da lista tem um botão Editar.",
+                "en": "Tap Save Resource (6). Each line in the list has an Edit button."
               },
               "image": {
                 "pt": "help/img/guides/admin-resources-documents/hub-s09.pt.jpg",
@@ -14610,8 +14610,8 @@
             {
               "n": 10,
               "text": {
-                "pt": "Quando o Claude arquivou um documento sem cliente, a linha dele no Hub tem o botão Anexar a cliente. Toque nele, escreva o nome exato do cliente e toque em Anexar. O arquivo vai para o perfil do cliente e fica escondido dele até você mostrar. Sem imagem: nenhum arquivo esperava um cliente, e a janela lista clientes reais. Escrito a partir do código.",
-                "en": "When Claude filed a document with no client, its line in the Hub has the button Attach to client. Tap it, write the exact name of the client and tap Attach. The file moves to the client's profile and stays hidden from the client until you show it. No picture: no file was waiting for a client, and the window lists real clients. Written from the code."
+                "pt": "Quando o Claude arquivou um documento sem cliente, a linha dele no Hub tem o botão Anexar a cliente. Toque nele, escreva o nome exato do cliente e toque em Anexar. O arquivo vai para o perfil do cliente e fica escondido dele até você mostrar.",
+                "en": "When Claude filed a document with no client, its line in the Hub has the button Attach to client. Tap it, write the exact name of the client and tap Attach. The file moves to the client's profile and stays hidden from the client until you show it."
               },
               "image": null
             }
@@ -15039,8 +15039,8 @@
             {
               "n": 26,
               "text": {
-                "pt": "Faturas que se repetem todo mês chegam sozinhas como rascunho, no período certo. Elas aparecem em Faturas prontas para enviar e na aba Rascunho. Confira o valor e a data e use Revisar e enviar. Você não precisa criar essas faturas. Sem imagem: nenhuma fatura automática estava esperando. Escrito a partir do código.",
-                "en": "Invoices that repeat every month arrive by themselves as drafts, in the right period. They show in Invoices ready to send and in the Draft tab. Check the amount and the date and use Review and send. You do not need to create these invoices. No picture: no automatic invoice was waiting. Written from the code."
+                "pt": "Faturas que se repetem todo mês chegam sozinhas como rascunho, no período certo. Elas aparecem em Faturas prontas para enviar e na aba Rascunho. Confira o valor e a data e use Revisar e enviar. Você não precisa criar essas faturas.",
+                "en": "Invoices that repeat every month arrive by themselves as drafts, in the right period. They show in Invoices ready to send and in the Draft tab. Check the amount and the date and use Review and send. You do not need to create these invoices."
               },
               "image": null
             }
@@ -15266,8 +15266,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Em Nova Sessão, preencha 1. Tipo de reunião: o padrão é reunião com cliente. 2. Cliente: escolha o cliente na lista. 3. Categoria: Cliente ou Cliente Potencial (um prospecto). 4. Data: o dia. 5. Hora: o horário, escolhido na lista. Você também pode marcar Enviar lembrete por texto. No nosso teste nada foi salvo.",
-                "en": "In New Session, fill in 1. Meeting type: the default is a client meeting. 2. Client: choose the client from the list. 3. Category: Client or Prospective (a prospect). 4. Date: the day. 5. Time: picked from the list. You can also tick Send text reminder. Nothing was saved in our test."
+                "pt": "Em Nova Sessão, preencha 1. Tipo de reunião: o padrão é reunião com cliente. 2. Cliente: escolha o cliente na lista. 3. Categoria: Cliente ou Cliente Potencial (um prospecto). 4. Data: o dia. 5. Hora: o horário, escolhido na lista. Você também pode marcar Enviar lembrete por texto.",
+                "en": "In New Session, fill in 1. Meeting type: the default is a client meeting. 2. Client: choose the client from the list. 3. Category: Client or Prospective (a prospect). 4. Date: the day. 5. Time: picked from the list. You can also tick Send text reminder."
               },
               "image": {
                 "pt": "help/img/guides/admin-calendar-sessions/calendar-s06.pt.jpg",
@@ -15288,8 +15288,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Toque numa sessão no calendário para abrir. A janela tem Enviar WhatsApp (1), Editar (2) e Cancelar reunião (3). No nosso teste não tocamos neles.",
-                "en": "Tap a session in the calendar to open it. The sheet has Send WhatsApp (1), Edit (2) and Cancel meeting (3). We did not tap them in our test."
+                "pt": "Toque numa sessão no calendário para abrir. A janela tem Enviar WhatsApp (1), Editar (2) e Cancelar reunião (3).",
+                "en": "Tap a session in the calendar to open it. The sheet has Send WhatsApp (1), Edit (2) and Cancel meeting (3)."
               },
               "image": {
                 "pt": "help/img/guides/admin-calendar-sessions/calendar-s08.pt.jpg",
@@ -15475,8 +15475,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Toque em Criar link (5). No nosso teste não tocamos, então nenhum link foi criado.",
-                "en": "Tap Create link (5). We did not tap it in our test, so no link was made."
+                "pt": "Toque em Criar link (5). Ele cria o link de agendamento do cliente.",
+                "en": "Tap Create link (5). It makes the booking link for the client."
               },
               "image": {
                 "pt": "help/img/guides/admin-send-times/send-s06.pt.jpg",
@@ -15552,8 +15552,8 @@
             {
               "n": 13,
               "text": {
-                "pt": "Pular esta semana (6) deixa o cliente fora desta semana. Quando o cliente escolhe um horário, o pedido passa para Agendados. No nosso teste não tocamos nestes botões.",
-                "en": "Skip this week (6) leaves the client out of this week. Once the client picks a time, the request moves to Scheduled. We did not tap these buttons in our test."
+                "pt": "Pular esta semana (6) deixa o cliente fora desta semana. Quando o cliente escolhe um horário, o pedido passa para Agendados.",
+                "en": "Skip this week (6) leaves the client out of this week. Once the client picks a time, the request moves to Scheduled."
               },
               "image": {
                 "pt": "help/img/guides/admin-send-times/send-s13.pt.jpg",
@@ -15729,8 +15729,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Enviar Lembrete (1) abre o WhatsApp com o lembrete já escrito. Envie de lá. Ele não foi tocado nesta figura, porque chega a um cliente.",
-                "en": "Send Reminder (1) opens WhatsApp with the reminder already written. Send it from there. It was not tapped for this picture, because it reaches a client."
+                "pt": "Enviar Lembrete (1) abre o WhatsApp com o lembrete já escrito. Envie de lá.",
+                "en": "Send Reminder (1) opens WhatsApp with the reminder already written. Send it from there."
               },
               "image": {
                 "pt": "help/img/guides/admin-dashboard-reminders/today-05.pt.jpg",
@@ -16027,8 +16027,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Cada convidado tem botões. WhatsApp (1) abre o WhatsApp com a mensagem de confirmação daquele convidado, e Editar msg (2) muda o texto dessa mensagem. +1 (3) diz que o convidado traz mais uma pessoa, e isso conta dois lugares. A seta (4) diz que o convidado não vem desta vez, mas vem no próximo. O visto (5) diz que o convidado veio, e o x (6) diz que não veio. O WhatsApp não foi tocado.",
-                "en": "Each guest has buttons. WhatsApp (1) opens WhatsApp with the confirmation message for that guest, and Editar msg (2) changes the words of that message. +1 (3) says the guest brings one more person, which counts two seats. The arrow (4) says the guest does not come this time but will come to the next one. The check mark (5) says the guest came, and the cross (6) says the guest did not show up. WhatsApp was not tapped."
+                "pt": "Cada convidado tem botões. WhatsApp (1) abre o WhatsApp com a mensagem de confirmação daquele convidado, e Editar msg (2) muda o texto dessa mensagem. +1 (3) diz que o convidado traz mais uma pessoa, e isso conta dois lugares. A seta (4) diz que o convidado não vem desta vez, mas vem no próximo. O visto (5) diz que o convidado veio, e o x (6) diz que não veio.",
+                "en": "Each guest has buttons. WhatsApp (1) opens WhatsApp with the confirmation message for that guest, and Editar msg (2) changes the words of that message. +1 (3) says the guest brings one more person, which counts two seats. The arrow (4) says the guest does not come this time but will come to the next one. The check mark (5) says the guest came, and the cross (6) says the guest did not show up."
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-04.pt.jpg",
@@ -16115,8 +16115,8 @@
             {
               "n": 12,
               "text": {
-                "pt": "Para mudar o evento, toque em Editar no cartão do evento. O mesmo formulário abre de novo com os valores salvos (1) a (5). Nesse formulário também há um botão vermelho Excluir, que não foi tocado. Os valores da figura são valores de teste.",
-                "en": "To change the event, tap Editar on the event card. The same form opens again with the saved values (1) to (5). In this form there is also a red Excluir (Delete) button, which was not tapped. The values in the picture are test values."
+                "pt": "Para mudar o evento, toque em Editar no cartão do evento. O mesmo formulário abre de novo com os valores salvos (1) a (5). Nesse formulário também há um",
+                "en": "To change the event, tap Editar on the event card. The same form opens again with the saved values (1) to (5). In this form there is also a red Excluir (Delete)"
               },
               "image": {
                 "pt": "help/img/guides/admin-apex-club/club-12.pt.jpg",
@@ -16337,8 +16337,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Quando alguém edita uma planilha que a Apex importou, o painel do desenvolvedor mostra o cartão Planilhas importadas que mudaram. Ele diz que alguém editou a planilha e que pode ainda estar trabalhando nela em vez de no sistema. O cartão só aparece quando há uma mudança. Sem imagem: nenhuma planilha tinha mudado. Escrito a partir do código.",
-                "en": "When someone edits a spreadsheet Apex imported, the developer dashboard shows the card Imported spreadsheets that changed. It says someone edited the sheet and may still be working there instead of in the system. The card only shows when there is a change. No picture: no sheet had changed. Written from the code."
+                "pt": "Quando alguém edita uma planilha que a Apex importou, o painel do desenvolvedor mostra o cartão Planilhas importadas que mudaram. Ele diz que alguém editou a planilha e que pode ainda estar trabalhando nela em vez de no sistema. O cartão só aparece quando há uma mudança.",
+                "en": "When someone edits a spreadsheet Apex imported, the developer dashboard shows the card Imported spreadsheets that changed. It says someone edited the sheet and may still be working there instead of in the system. The card only shows when there is a change."
               },
               "image": null
             }
@@ -16515,8 +16515,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Cada cliente tem um registro com tudo sobre ele. Abra Clientes no menu da esquerda e toque no nome do cliente (1) na lista. As abas (2) ficam acima da lista. Os nomes são nomes de teste, e Arquivar não foi tocado.",
-                "en": "Each client has one record with everything about them. Open Clients in the left menu and tap the client name (1) in the list. The tabs (2) sit above the list. The names are test names, and Archive was not tapped."
+                "pt": "Cada cliente tem um registro com tudo sobre ele. Abra Clientes no menu da esquerda e toque no nome do cliente (1) na lista. As abas (2) ficam acima da lista.",
+                "en": "Each client has one record with everything about them. Open Clients in the left menu and tap the client name (1) in the list. The tabs (2) sit above the list."
               },
               "image": {
                 "pt": "help/img/guides/admin-client-record/open-01.pt.jpg",
@@ -16877,8 +16877,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "A reunião, passo a passo (1) é o roteiro, um passo numerado de cada vez. Cada passo tem botões, por exemplo para definir as metas na ficha do cliente (2) ou abrir o registro de hoje (3). Os botões não foram tocados.",
-                "en": "A reunião, passo a passo (The meeting, step by step) (1) is the script, one numbered step at a time. Each step has buttons, for example to set the targets on the client page (2) or to open today's entry (3). The buttons were not tapped."
+                "pt": "A reunião, passo a passo (1) é o roteiro, um passo numerado de cada vez. Cada passo tem botões, por exemplo para definir as metas na ficha do cliente (2) ou abrir o registro de hoje (3).",
+                "en": "A reunião, passo a passo (The meeting, step by step) (1) is the script, one numbered step at a time. Each step has buttons, for example to set the targets on the client page (2) or to open today's entry (3)."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-07.pt.jpg",
@@ -16910,8 +16910,8 @@
             {
               "n": 10,
               "text": {
-                "pt": "Depois da reunião (1) tem três conferências, cada uma com um botão: gerar e aprovar o resumo da sessão, confirmar as metas lançadas e combinar a próxima sessão. Os botões não foram tocados.",
-                "en": "Depois da reunião (After the meeting) (1) has three checks, each with a button: generate and approve the session summary, confirm the targets that were entered, and agree the next session. The buttons were not tapped."
+                "pt": "Depois da reunião (1) tem três conferências, cada uma com um botão: gerar e aprovar o resumo da sessão, confirmar as metas lançadas e combinar a próxima sessão.",
+                "en": "Depois da reunião (After the meeting) (1) has three checks, each with a button: generate and approve the session summary, confirm the targets that were entered, and agree the next session."
               },
               "image": {
                 "pt": "help/img/guides/admin-meeting-prep/prep-10.pt.jpg",
@@ -24189,8 +24189,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "No aplicativo do iPhone, os botões de ligar passam o número para o OpenPhone, e não para o app Telefone. No navegador, eles seguem abrindo a ligação do próprio aparelho. Sem imagem: isso só se vê dentro do app. Escrito a partir do código.",
-                "en": "In the iPhone app, the call buttons hand the number to OpenPhone, not to the Phone app. In the browser, they keep opening the device's own call. No picture: this only shows inside the app. Written from the code."
+                "pt": "No aplicativo do iPhone, os botões de ligar passam o número para o OpenPhone, e não para o app Telefone. No navegador, eles seguem abrindo a ligação do próprio aparelho.",
+                "en": "In the iPhone app, the call buttons hand the number to OpenPhone, not to the Phone app. In the browser, they keep opening the device's own call."
               },
               "image": null
             }
@@ -29027,8 +29027,8 @@
             {
               "n": 10,
               "text": {
-                "en": "After you tap Create login link. The window says Link created, shows the number that gets the code (hidden) and says the link is valid for 72 hours. The code goes to the owner by text. Under it are the link, Copy link and Send on WhatsApp. Treat the link like a password: do not post it. Tap Close when you are done. This was done once, on the test client, with the owner number being Nicole's own. No picture, because the link must not be shown.",
-                "pt": "Depois de tocar em Criar link de login. A janela diz Link criado, mostra o número que recebe o código (escondido) e diz que o link vale por 72 horas. O código vai para o dono por SMS. Embaixo ficam o link, Copiar link e Enviar pelo WhatsApp. Trate o link como uma senha: não publique. Toque em Fechar quando terminar. Isto foi feito uma vez, no cliente de teste, com o número do dono sendo o da própria Nicole. Sem figura, porque o link não pode aparecer."
+                "en": "After you tap Create login link. The window says Link created, shows the number that gets the code (hidden) and says the link is valid for 72 hours. The code goes to the owner by text. Under it are the link, Copy link and Send on WhatsApp. Treat the link like a password: do not post it. Tap Close when you are done.",
+                "pt": "Depois de tocar em Criar link de login. A janela diz Link criado, mostra o número que recebe o código (escondido) e diz que o link vale por 72 horas. O código vai para o dono por SMS. Embaixo ficam o link, Copiar link e Enviar pelo WhatsApp. Trate o link como uma senha: não publique. Toque em Fechar quando terminar."
               },
               "image": null
             }

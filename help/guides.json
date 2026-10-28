@@ -402,6 +402,18 @@
           },
           "section": "more",
           "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Nome digitado"
+            ],
+            "en": [
+              "Type my name"
+            ]
+          },
+          "section": "send-contract",
+          "step": 16
         }
       ]
     },
@@ -719,6 +731,42 @@
           },
           "section": "void",
           "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ajustar as faturas em aberto"
+            ],
+            "en": [
+              "Adjust the unpaid invoices"
+            ]
+          },
+          "section": "send-change-order",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Nova parcela só para o aditivo"
+            ],
+            "en": [
+              "New invoice step for the change"
+            ]
+          },
+          "section": "send-change-order",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Marcar como enviado sem abrir mensagem"
+            ],
+            "en": [
+              "Marcar como enviado sem abrir mensagem"
+            ]
+          },
+          "section": "send-change-order",
+          "step": 7
         }
       ]
     },
@@ -1294,6 +1342,30 @@
           },
           "section": "create-send",
           "step": 13
+        },
+        {
+          "labels": {
+            "pt": [
+              "Confirmar aceite"
+            ],
+            "en": [
+              "Confirm acceptance"
+            ]
+          },
+          "section": "mark-accepted",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Sim, fechar e criar projeto"
+            ],
+            "en": [
+              "Yes, close and create the project"
+            ]
+          },
+          "section": "mark-accepted",
+          "step": 3
         }
       ]
     },
@@ -5853,6 +5925,18 @@
           },
           "section": "overview",
           "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Abrir o projeto"
+            ],
+            "en": [
+              "Open the project"
+            ]
+          },
+          "section": "overview",
+          "step": 7
         }
       ]
     },
@@ -7128,6 +7212,30 @@
               "Home"
             ]
           }
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ver COI"
+            ],
+            "en": [
+              "View COI"
+            ]
+          },
+          "section": "home",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ver workers' comp"
+            ],
+            "en": [
+              "View workers' comp"
+            ]
+          },
+          "section": "home",
+          "step": 5
         }
       ]
     },
@@ -10126,6 +10234,18 @@
           },
           "section": "lists",
           "step": 6
+        },
+        {
+          "labels": {
+            "pt": [
+              "Trocar minha foto"
+            ],
+            "en": [
+              "Change my photo"
+            ]
+          },
+          "section": "lists",
+          "step": 9
         }
       ]
     },
@@ -10803,6 +10923,18 @@
           },
           "section": "card",
           "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ver o cartão"
+            ],
+            "en": [
+              "View the card"
+            ]
+          },
+          "section": "card",
+          "step": 8
         }
       ]
     },
@@ -11127,6 +11259,42 @@
           },
           "section": "help",
           "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Falar com o suporte"
+            ],
+            "en": [
+              "Contact support"
+            ]
+          },
+          "section": "help",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Algo não está funcionando Erro, tela em branco, botão que não responde"
+            ],
+            "en": [
+              "Something isn't working An error, a blank screen, a button that does nothing"
+            ]
+          },
+          "section": "help",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Preciso de ajuda com o meu negócio Dúvida de consultoria, metas, estratégia"
+            ],
+            "en": [
+              "I need help with my business A consulting question — goals, strategy"
+            ]
+          },
+          "section": "help",
+          "step": 2
         }
       ]
     },
@@ -12231,6 +12399,18 @@
           },
           "section": "csettings",
           "step": 11
+        },
+        {
+          "labels": {
+            "pt": [
+              "Modelo padrão Apex"
+            ],
+            "en": [
+              "Apex standard template"
+            ]
+          },
+          "section": "csettings",
+          "step": 12
         }
       ]
     },
@@ -12689,6 +12869,18 @@
           },
           "section": "ack",
           "step": 6
+        },
+        {
+          "labels": {
+            "pt": [
+              "Restaurar"
+            ],
+            "en": [
+              "Restore"
+            ]
+          },
+          "section": "completion",
+          "step": 12
         }
       ]
     },
@@ -14112,6 +14304,18 @@
           },
           "section": "cover",
           "step": 16
+        },
+        {
+          "labels": {
+            "pt": [
+              "Espelhar"
+            ],
+            "en": [
+              "Flip"
+            ]
+          },
+          "section": "cover",
+          "step": 13
         }
       ]
     },
@@ -20186,6 +20390,54 @@
           },
           "section": "import",
           "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Excluir item"
+            ],
+            "en": [
+              "Delete item"
+            ]
+          },
+          "section": "item",
+          "step": 18
+        },
+        {
+          "labels": {
+            "pt": [
+              "Usar essa linha"
+            ],
+            "en": [
+              "Use this row"
+            ]
+          },
+          "section": "import",
+          "step": 6
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ver o que será importado"
+            ],
+            "en": [
+              "Preview the import"
+            ]
+          },
+          "section": "import",
+          "step": 13
+        },
+        {
+          "labels": {
+            "pt": [
+              "Voltar às colunas"
+            ],
+            "en": [
+              "Back to the columns"
+            ]
+          },
+          "section": "import",
+          "step": 18
         }
       ]
     },
@@ -28264,6 +28516,30 @@
               "Pipeline"
             ]
           }
+        },
+        {
+          "labels": {
+            "pt": [
+              "Limpar busca"
+            ],
+            "en": [
+              "Clear search"
+            ]
+          },
+          "section": "see-leads",
+          "step": 8
+        },
+        {
+          "labels": {
+            "pt": [
+              "Dispensar"
+            ],
+            "en": [
+              "Dismiss"
+            ]
+          },
+          "section": "lead-sheet",
+          "step": 15
         }
       ]
     },

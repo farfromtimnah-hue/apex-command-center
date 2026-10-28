@@ -17613,8 +17613,8 @@
         "en": "Business X-Ray: answer it and read your report"
       },
       "summary": {
-        "pt": "Responda as 98 perguntas de Sim ou Não do Raio X Empresarial, envie e leia a nota, o nível de maturidade e o resultado por área.",
-        "en": "Answer the 98 Yes or No questions of the Business X-Ray, submit it and read the score, the maturity level and the result by area."
+        "pt": "Responda as perguntas do Raio X Empresarial (98 no total, 62 delas pontuadas), envie e leia a nota, o nível de maturidade e o resultado por área.",
+        "en": "Answer the questions of the Business X-Ray (98 in all, 62 of them scored), submit it and read the score, the maturity level and the result by area."
       },
       "keywords": {
         "pt": [
@@ -17742,8 +17742,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Leia o resultado. A página diz Raio X concluído: Obrigado! Seu diagnóstico foi enviado. A nota (1) mostra as respostas Sim de 62, por exemplo 62/62, com a porcentagem e o nível de maturidade, por exemplo 100% e Maturidade Alta. Embaixo, as seções I a VI têm cada uma uma linha com a contagem, a porcentagem e uma etiqueta, por exemplo Bom.",
-                "en": "Read your result. The page says X-Ray completed: Thank you! Your diagnostic has been submitted. The score (1) shows the Yes answers out of 62, for example 62/62, with the percent and the maturity level, for example 100% and Maturity: High. Below it, sections I to VI each have a row with their count, the percent and a tag, for example Good."
+                "pt": "Leia o resultado. A página diz Raio X concluído: Obrigado! Seu diagnóstico foi enviado. A nota (1) conta só as 62 perguntas de Sim ou Não das seções I a VI. Ela mostra as respostas Sim de 62, por exemplo 62/62, com a porcentagem e o nível de maturidade, por exemplo 100% e Maturidade Alta. Embaixo, as seções I a VI têm cada uma uma linha com a contagem, a porcentagem e uma etiqueta, por exemplo Bom.",
+                "en": "Read your result. The page says X-Ray completed: Thank you! Your diagnostic has been submitted. The score (1) counts only the 62 Yes or No questions of sections I to VI. It shows the Yes answers out of 62, for example 62/62, with the percent and the maturity level, for example 100% and Maturity: High. Below it, sections I to VI each have a row with their count, the percent and a tag, for example Good."
               },
               "image": {
                 "pt": "help/img/guides/business-xray/answer-09.pt.jpg",

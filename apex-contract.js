@@ -218,11 +218,11 @@
   }
   function row(label, value, onclick, sub) {
     var tag = onclick ? "button" : "div";
-    return '<' + tag + (onclick ? ' type="button" onclick="' + onclick + '"' : "") + ' class="gm-sheet-row" style="' + (onclick ? "" : "cursor:default;") + '"><span class="gm-sheet-row-body"><span class="gm-sheet-row-label">' + label +
+    return '<' + tag + (onclick ? ' type="button" data-help="admin-client-money#money#2" onclick="' + onclick + '"' : "") + ' class="gm-sheet-row" style="' + (onclick ? "" : "cursor:default;") + '"><span class="gm-sheet-row-body"><span class="gm-sheet-row-label">' + label +
       '</span><span class="gm-sheet-row-value' + (value ? "" : " gm-empty") + '">' + (value || "&mdash;") + '</span>' + (sub ? '<span class="gm-sheet-row-sub">' + sub + '</span>' : "") + '</span>' +
       (onclick ? '<span class="gm-sheet-row-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></span>' : "") + '</' + tag + '>';
   }
-  function chip(label, sel, onclick) { return '<button type="button" class="gm-choice-chip' + (sel ? " gm-chip-sel" : "") + '" onclick="' + onclick + '">' + label + '</button>'; }
+  function chip(label, sel, onclick) { return '<button type="button" data-help="admin-client-record-forms#forms#6" class="gm-choice-chip' + (sel ? " gm-chip-sel" : "") + '" onclick="' + onclick + '">' + label + '</button>'; }
   function field(label, html) { return '<label class="gm-field-label" style="display:block;margin:10px 0 4px;">' + label + '</label>' + html; }
   function pill(st) { var s = STATUS[st] || { pt: st, cls: "gm-muted" }; return '<span class="gm-pill ' + s.cls + '">' + s.pt + '</span>'; }
 

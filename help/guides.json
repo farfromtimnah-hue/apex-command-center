@@ -22734,8 +22734,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Digite o Nome da pessoa (1). É o nome para o identificador de chamadas, por exemplo Test Contact.",
-                "en": "Type the Person's name (1). This is the name for the caller ID, for example Test Contact."
+                "pt": "Digite o Nome da pessoa (1). É o nome para o identificador de chamadas, por exemplo Maria Souza.",
+                "en": "Type the Person's name (1). This is the name for the caller ID, for example Maria Souza."
               },
               "image": {
                 "pt": "help/img/guides/thumbtack-phone-numbers/phones-03.pt.jpg",
@@ -27632,8 +27632,8 @@
             {
               "n": 10,
               "text": {
-                "pt": "Abra Todos os vendedores (1) e escolha uma pessoa, por exemplo Test Sales Person. O número entre parênteses é quantos leads essa pessoa tem.",
-                "en": "Open All salespeople (1) and pick a person, for example Test Sales Person. The number in brackets is how many leads that person has."
+                "pt": "Abra Todos os vendedores (1) e escolha uma pessoa, por exemplo Ana Costa. O número entre parênteses é quantos leads essa pessoa tem.",
+                "en": "Open All salespeople (1) and pick a person, for example Ana Costa. The number in brackets is how many leads that person has."
               },
               "image": {
                 "pt": "help/img/guides/pipeline/see-leads-10.pt.jpg",
@@ -27643,8 +27643,8 @@
             {
               "n": 11,
               "text": {
-                "pt": "Os números seguem seus filtros. Uma linha (1) diz o que você está vendo, por exemplo Outubro 2026 · Test Sales Person. As caixas (2) contam só esses leads. A caixa de busca não muda os números. Toque no X de um filtro para voltar a todos.",
-                "en": "The numbers follow your filters. A line (1) names what you are looking at, for example October 2026 · Test Sales Person. The boxes (2) count only those leads. The search box does not change them. Tap the X in a filter to go back to all."
+                "pt": "Os números seguem seus filtros. Uma linha (1) diz o que você está vendo, por exemplo Outubro 2026 · Ana Costa. As caixas (2) contam só esses leads. A caixa de busca não muda os números. Toque no X de um filtro para voltar a todos.",
+                "en": "The numbers follow your filters. A line (1) names what you are looking at, for example October 2026 · Ana Costa. The boxes (2) count only those leads. The search box does not change them. Tap the X in a filter to go back to all."
               },
               "image": {
                 "pt": "help/img/guides/pipeline/see-leads-11.pt.jpg",

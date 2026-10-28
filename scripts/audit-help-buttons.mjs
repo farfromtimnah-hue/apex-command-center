@@ -86,11 +86,13 @@ function extract(text, file) {
 function check(item, aud) {
   if (item.noHelp) return { status: "no-help", why: "data-no-help" };
   const d = SIDE[aud];
+  // Staff pages fall back to the client guide of the same tool (help-widget.js resolveFrom).
+  const rt = (info) => HC.resolveTarget(info, d) || (aud === "admin" ? HC.resolveTarget(info, SIDE.client) : null);
   const tries = [];
   if (item.label) { tries.push(item.label.pt, item.label.en); }
   if (item.ariaLabel) { tries.push(item.ariaLabel.pt, item.ariaLabel.en); }
   if (item.dataHelp) {
-    const r = HC.resolveTarget({ dataHelp: item.dataHelp, texts: [] }, d);
+    const r = rt({ dataHelp: item.dataHelp, texts: [] }) || (item.file === "nav.js" ? (HC.resolveTarget({ dataHelp: item.dataHelp, texts: [] }, SIDE.admin) || HC.resolveTarget({ dataHelp: item.dataHelp, texts: [] }, SIDE.client)) : null);
     if (r) return { status: "linked", via: "data-help" };
     return { status: "bad-data-help", why: item.dataHelp };
   }
@@ -100,7 +102,7 @@ function check(item, aud) {
   for (const lang of ["pt", "en"]) {
     const texts = [item.label && item.label[lang], item.ariaLabel && item.ariaLabel[lang]].filter(Boolean);
     if (!texts.length || texts.every((x) => !x)) { res[lang] = "empty"; continue; }
-    const r = HC.resolveTarget({ texts }, d);
+    const r = rt({ texts });
     res[lang] = r ? "ok" : "miss";
   }
   const label = (item.label && (item.label.en || item.label.pt)) || (item.ariaLabel && (item.ariaLabel.en || item.ariaLabel.pt)) || "";

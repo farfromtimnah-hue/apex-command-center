@@ -113,7 +113,20 @@
   ];
 
   // ── SVG icon builder ────────────────────────────────────────────────────
-  function navSvg(type) {
+    // Learn links for the staff menu: each item opens the guide that explains its page.
+  var NAV_HELP = {
+    dashboard: "admin-dashboard-reminders#today#1", clients: "admin-clients-roster#roster#1",
+    clientanalytics: "admin-client-analytics#analytics#1", sessions: "admin-sessions-summary#sessions#1",
+    calendar: "admin-calendar-sessions#calendar#1", documents: "admin-resources-documents#hub#1",
+    tasks: "admin-tasks#tasks#1", financenew: "admin-finance-overview#ov#1",
+    vendors: "admin-vendors#vendors#1", apexclub: "admin-apex-club#club#1",
+    sales: "admin-sales-growth#sales#1", settings: "admin-settings-pictures-message#pics#1",
+    learn: "admin-menu-language-learn#menu#3", contractreview: "admin-contract-review#review#1",
+    adduser: "admin-add-user#users#1", loginactivity: "admin-activity-support-preview#tools#1"
+  };
+  function navHelpAttr(key) { return NAV_HELP[key] ? ' data-help="' + NAV_HELP[key] + '"' : ''; }
+
+function navSvg(type) {
     var open = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
     var body = "";
     if (type === "home") {
@@ -296,7 +309,7 @@
       var activeClass = (activePage === item.href) ? " apex-nav-active" : "";
       html +=
         '<a class="apex-nav-item' + activeClass + '" href="' + item.href + '"' +
-        ' data-apex-track="nav:' + item.key + '"' +
+        ' data-apex-track="nav:' + item.key + '"' + navHelpAttr(item.key) +
         (item.learn ? ' data-apex-learn="1"' : '') +
         ' data-tip-pt="' + item.tipPt + '" data-tip-en="' + item.tipEn + '">';
       html += '<span class="apex-nav-icon">' + navSvg(item.icon) + '</span>';
@@ -319,7 +332,7 @@
       for (var j = 0; j < buttons.length; j++) {
         var b = buttons[j];
         var ac = (devView === b.v) ? " apex-nav-view-active" : "";
-        html += '<button id="' + b.id + '" class="apex-nav-view-btn' + ac + '" onclick="apexNavSetView(\'' + b.v + '\')">' + b.label + '</button>';
+        html += '<button id="' + b.id + '" class="apex-nav-view-btn' + ac + '" data-help="admin-activity-support-preview#tools#5" onclick="apexNavSetView(\'' + b.v + '\')">' + b.label + '</button>';
       }
       html += '</div></div>';
     }
@@ -919,11 +932,11 @@
       var t = cfg.spots[i];
       if (t.group) {
         var groupCls = mobileGroupHasPage(t, activePage) ? " m-tab-active" : "";
-        barHtml += '<button type="button" class="m-tab' + groupCls + '" data-dock-group="' + t.key + '"' +
+        barHtml += '<button type="button" class="m-tab' + groupCls + '" data-dock-group="' + t.key + '" data-help="admin-menu-language-learn#menu#7"' +
           ' aria-haspopup="menu" aria-expanded="false" onclick="apexDockGroupToggle(\'' + t.key + '\')">';
       } else {
         var activeCls = (activePage === t.href) ? " m-tab-active" : "";
-        barHtml += '<a class="m-tab' + activeCls + '" href="' + t.href + '" data-apex-track="dock:' + t.key + '">';
+        barHtml += '<a class="m-tab' + activeCls + '" href="' + t.href + '" data-apex-track="dock:' + t.key + '"' + navHelpAttr(t.key) + '>';
       }
       barHtml += '<span class="m-tab-ico">' + navSvg(t.icon) + '</span>';
       barHtml += '<span class="m-tab-label">' + buildMobileLabelSpan(t) + '</span>';
@@ -961,6 +974,7 @@
       gear.id = "apexNavGear";
       gear.href = def.href;
       gear.setAttribute("data-apex-track", "gear:settings");
+      gear.setAttribute("data-help", NAV_HELP.settings);
       gear.setAttribute("aria-label", "Configurações / Settings");
       gear.innerHTML = navSvg(def.icon);
       var before = host.querySelector(".lang-btn");
@@ -1024,7 +1038,7 @@
       var m = group.items[i];
       var here = (activePage === m.href);
       html += '<a class="mg-item' + (here ? " mg-item-active" : "") + '" role="menuitem" href="' + m.href + '"' +
-        ' data-apex-track="docktool:' + m.key + '"' +
+        ' data-apex-track="docktool:' + m.key + '"' + navHelpAttr(m.key) +
         (m.learn ? ' data-apex-learn="1"' : '') +
         (here ? ' aria-current="page"' : '') + '>';
       html += '<span class="mg-item-ico">' + navSvg(m.icon) + '</span>';

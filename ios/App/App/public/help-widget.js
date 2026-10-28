@@ -421,7 +421,7 @@
   function openSheet(target) {
     if (overlay) { closeSheet(true); }
     lastFocus = doc.activeElement;
-    side = defaultSide();   // never remembered: every opening starts on the page's own side
+    side = (target && target.audience === "client" && isStaff()) ? "client" : defaultSide();   // never remembered: every opening starts on the page's own side, or the client side for a client tool opened by staff
     overlay = el("div", "aphelp-root aphelp-overlay");
     sheet = el("div", "aphelp-sheet");
     sheet.setAttribute("role", "dialog");
@@ -1075,7 +1075,14 @@
     var texts = [];
     if (btn) { texts.push(visibleText(btn)); texts.push(btn.getAttribute("aria-label")); }
     // Only the guides of the side this page starts on can be matched, so a client never lands on an admin guide.
-    var res = HC.resolveTarget({ dataHelp: dh ? dh.getAttribute("data-help") : null, texts: texts, fallbackHelp: fb ? fb.getAttribute("data-help-default") : null }, dataFor(defaultSide()));
+    var info = { dataHelp: dh ? dh.getAttribute("data-help") : null, texts: texts, fallbackHelp: fb ? fb.getAttribute("data-help-default") : null };
+    var res = HC.resolveTarget(info, dataFor(defaultSide()));
+    // Staff see the client tools inside the client record page: when no staff guide
+    // matches, the client guide for the same tool opens. A client never gets this.
+    if (!res && isStaff() && defaultSide() === "admin") {
+      res = HC.resolveTarget(info, dataFor("client"));
+      if (res) { res.audience = "client"; }
+    }
     return res ? { res: res, el: btn || dh } : null;
   }
 

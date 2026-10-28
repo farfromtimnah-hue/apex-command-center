@@ -402,18 +402,6 @@
           },
           "section": "more",
           "step": 1
-        },
-        {
-          "labels": {
-            "pt": [
-              "Nome digitado"
-            ],
-            "en": [
-              "Type my name"
-            ]
-          },
-          "section": "send-contract",
-          "step": 16
         }
       ]
     },
@@ -731,42 +719,6 @@
           },
           "section": "void",
           "step": 2
-        },
-        {
-          "labels": {
-            "pt": [
-              "Ajustar as faturas em aberto"
-            ],
-            "en": [
-              "Adjust the unpaid invoices"
-            ]
-          },
-          "section": "send-change-order",
-          "step": 4
-        },
-        {
-          "labels": {
-            "pt": [
-              "Nova parcela só para o aditivo"
-            ],
-            "en": [
-              "New invoice step for the change"
-            ]
-          },
-          "section": "send-change-order",
-          "step": 4
-        },
-        {
-          "labels": {
-            "pt": [
-              "Marcar como enviado sem abrir mensagem"
-            ],
-            "en": [
-              "Marcar como enviado sem abrir mensagem"
-            ]
-          },
-          "section": "send-change-order",
-          "step": 7
         }
       ]
     },
@@ -1342,30 +1294,6 @@
           },
           "section": "create-send",
           "step": 13
-        },
-        {
-          "labels": {
-            "pt": [
-              "Confirmar aceite"
-            ],
-            "en": [
-              "Confirm acceptance"
-            ]
-          },
-          "section": "mark-accepted",
-          "step": 2
-        },
-        {
-          "labels": {
-            "pt": [
-              "Sim, fechar e criar projeto"
-            ],
-            "en": [
-              "Yes, close and create the project"
-            ]
-          },
-          "section": "mark-accepted",
-          "step": 3
         }
       ]
     },
@@ -5925,18 +5853,6 @@
           },
           "section": "overview",
           "step": 2
-        },
-        {
-          "labels": {
-            "pt": [
-              "Abrir o projeto"
-            ],
-            "en": [
-              "Open the project"
-            ]
-          },
-          "section": "overview",
-          "step": 7
         }
       ]
     },
@@ -7212,30 +7128,6 @@
               "Home"
             ]
           }
-        },
-        {
-          "labels": {
-            "pt": [
-              "Ver COI"
-            ],
-            "en": [
-              "View COI"
-            ]
-          },
-          "section": "home",
-          "step": 5
-        },
-        {
-          "labels": {
-            "pt": [
-              "Ver workers' comp"
-            ],
-            "en": [
-              "View workers' comp"
-            ]
-          },
-          "section": "home",
-          "step": 5
         }
       ]
     },
@@ -10234,18 +10126,6 @@
           },
           "section": "lists",
           "step": 6
-        },
-        {
-          "labels": {
-            "pt": [
-              "Trocar minha foto"
-            ],
-            "en": [
-              "Change my photo"
-            ]
-          },
-          "section": "lists",
-          "step": 9
         }
       ]
     },
@@ -10923,18 +10803,6 @@
           },
           "section": "card",
           "step": 2
-        },
-        {
-          "labels": {
-            "pt": [
-              "Ver o cartão"
-            ],
-            "en": [
-              "View the card"
-            ]
-          },
-          "section": "card",
-          "step": 8
         }
       ]
     },
@@ -11259,30 +11127,6 @@
           },
           "section": "help",
           "step": 1
-        },
-        {
-          "labels": {
-            "pt": [
-              "Falar com o suporte"
-            ],
-            "en": [
-              "Contact support"
-            ]
-          },
-          "section": "help",
-          "step": 1
-        },
-        {
-          "labels": {
-            "pt": [
-              "Algo não está funcionando Erro, tela em branco, botão que não responde"
-            ],
-            "en": [
-              "Something isn't working An error, a blank screen, a button that does nothing"
-            ]
-          },
-          "section": "help",
-          "step": 2
         }
       ]
     },
@@ -12387,18 +12231,6 @@
           },
           "section": "csettings",
           "step": 11
-        },
-        {
-          "labels": {
-            "pt": [
-              "Modelo padrão Apex"
-            ],
-            "en": [
-              "Apex standard template"
-            ]
-          },
-          "section": "csettings",
-          "step": 12
         }
       ]
     },
@@ -12857,18 +12689,6 @@
           },
           "section": "ack",
           "step": 6
-        },
-        {
-          "labels": {
-            "pt": [
-              "Restaurar"
-            ],
-            "en": [
-              "Restore"
-            ]
-          },
-          "section": "completion",
-          "step": 12
         }
       ]
     },
@@ -14292,18 +14112,6 @@
           },
           "section": "cover",
           "step": 16
-        },
-        {
-          "labels": {
-            "pt": [
-              "Espelhar"
-            ],
-            "en": [
-              "Flip"
-            ]
-          },
-          "section": "cover",
-          "step": 13
         }
       ]
     },
@@ -20378,54 +20186,6 @@
           },
           "section": "import",
           "step": 2
-        },
-        {
-          "labels": {
-            "pt": [
-              "Excluir item"
-            ],
-            "en": [
-              "Delete item"
-            ]
-          },
-          "section": "item",
-          "step": 18
-        },
-        {
-          "labels": {
-            "pt": [
-              "Usar essa linha"
-            ],
-            "en": [
-              "Use this row"
-            ]
-          },
-          "section": "import",
-          "step": 6
-        },
-        {
-          "labels": {
-            "pt": [
-              "Ver o que será importado"
-            ],
-            "en": [
-              "Preview the import"
-            ]
-          },
-          "section": "import",
-          "step": 13
-        },
-        {
-          "labels": {
-            "pt": [
-              "Voltar às colunas"
-            ],
-            "en": [
-              "Back to the columns"
-            ]
-          },
-          "section": "import",
-          "step": 18
         }
       ]
     },
@@ -28504,30 +28264,6 @@
               "Pipeline"
             ]
           }
-        },
-        {
-          "labels": {
-            "pt": [
-              "Limpar busca"
-            ],
-            "en": [
-              "Clear search"
-            ]
-          },
-          "section": "see-leads",
-          "step": 8
-        },
-        {
-          "labels": {
-            "pt": [
-              "Dispensar"
-            ],
-            "en": [
-              "Dismiss"
-            ]
-          },
-          "section": "lead-sheet",
-          "step": 15
         }
       ]
     },
@@ -29198,8 +28934,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Veja as revisões de aparelho perdido. Toque em Revisões de perda (1). O filtro Status (2) mostra Abertas, Revisadas ou Todas. A área (3) lista as revisões que os donos abriram ao dizer que o celular foi perdido ou roubado. Ela diz Nenhuma revisão quando não há nenhuma.",
-                "en": "Check lost device reviews. Tap Loss reviews (1). The Status filter (2) shows Open, Reviewed or All. The area (3) lists the reviews that owners started when they said a phone was lost or stolen. It says No reviews when there are none."
+                "pt": "Veja as revisões de aparelho perdido. Toque em Revisões de perda (1). O filtro Status (2) mostra Abertas, Revisadas ou Todas. A área (3) lista as revisões que os donos abriram ao dizer que o celular foi perdido ou roubado. Cada revisão aberta tem três botões: Marcar sinalizado marca como motivo de atenção, Marcar revisado registra que você olhou, e Reverificar confere de novo a atividade desde a perda. As mesmas revisões aparecem no cartão Segurança do login da ficha do cliente. Ela diz Nenhuma revisão quando não há nenhuma.",
+                "en": "Check lost device reviews. Tap Loss reviews (1). The Status filter (2) shows Open, Reviewed or All. The area (3) lists the reviews that owners started when they said a phone was lost or stolen. Each open review has three buttons: Mark flagged marks it as a concern, Mark reviewed records that you looked at it, and Recheck looks at the activity since the loss again. The same reviews show in the Login security card on the client page. It says No reviews when there are none."
               },
               "image": {
                 "pt": "help/img/guides/admin-activity-support-preview/tools-02.pt.jpg",
@@ -29440,6 +29176,17 @@
               "image": {
                 "en": "help/img/guides/admin-new-session-details/newsession-09.en.jpg",
                 "pt": "help/img/guides/admin-new-session-details/newsession-09.pt.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Confira antes de agendar. Se o horário bater com outra reunião, uma caixa chamada Verifique antes de agendar lista os problemas (1). Agendar mesmo assim (2) agenda, e Escolher outro horário (3) volta ao formulário. Ela avisa, mas nunca bloqueia.",
+                "en": "Check before booking. If the time clashes with another meeting, a box called Check before booking lists the problems (1). Book anyway (2) books it, and Choose a different time (3) takes you back to the form. It warns you but never blocks you."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-new-session-details/newsession-10.pt.jpg",
+                "en": "help/img/guides/admin-new-session-details/newsession-10.en.jpg"
               }
             }
           ]
@@ -29836,6 +29583,46 @@
                 "en": "help/img/guides/admin-session-sheet/sheet-10.en.jpg",
                 "pt": "help/img/guides/admin-session-sheet/sheet-10.pt.jpg"
               }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Gere um link do Meet que falta. Quando uma sessão online não tem link do Meet, ou só tem um temporário, a ficha mostra uma linha Meet com o botão Gerar link do Meet. Toque nele para gerar o link.",
+                "en": "Make a missing Meet link. When an online session has no Meet link, or only a temporary one, the sheet shows a row Meet with the button Generate Meet link. Tap it to make the link."
+              },
+              "image": null
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Coloque uma reunião presencial no Google. Quando uma sessão presencial nunca chegou ao Google, a ficha mostra uma linha Google com o botão Adicionar ao Google Calendar. Ele cria o evento no Google sem link do Meet, para o lembrete chegar ao celular do Rafa e ninguém marcar por cima no Google.",
+                "en": "Put an in-person meeting on Google. When an in-person session never reached Google, the sheet shows a row Google with the button Add to Google Calendar. It creates the Google event without a Meet link, so the reminder reaches Rafa's phone and nobody books over it in Google."
+              },
+              "image": null
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Veja a rota. Em uma reunião presencial com local, Rotas abre o caminho até esse endereço no Apple Maps no iPhone ou no Mac, e no Google Maps nos outros aparelhos.",
+                "en": "Get directions. On an in-person meeting with a location, Directions opens the route to that address in Apple Maps on an iPhone or Mac, and in Google Maps on other devices."
+              },
+              "image": null
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Remova uma cópia obsoleta. Uma reunião que veio do Google pode mostrar o botão Remover cópia obsoleta quando o evento dela no Google não existe mais. A Apex pergunta ao Google primeiro e recusa se o evento ainda estiver lá, então uma reunião ativa nunca some.",
+                "en": "Remove a stale copy. A meeting that came from Google can show the button Remove stale copy when its Google event no longer exists. Apex asks Google first and refuses when the event is still there, so a live meeting is never hidden."
+              },
+              "image": null
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Mude uma reunião ou a série toda. Quando a reunião faz parte de uma série que se repete, a Apex pergunta quais reuniões mudar: Esta reunião, Esta e todas as seguintes, ou Todas as reuniões.",
+                "en": "Change one meeting or the whole series. When a meeting belongs to a repeating series, Apex asks which meetings to change: This meeting, This and all following, or All meetings."
+              },
+              "image": null
             }
           ]
         }

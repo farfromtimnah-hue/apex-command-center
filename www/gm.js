@@ -241,6 +241,47 @@ var gmSheetHistoryArmed = false;
 // prompt opened from inside another sheet can hand control back to it.
 var gmSheetOnUserClose = null;
 
+// Which guide explains each window. Learn opens it for any button in the window that has no guide of its own (data-help-default).
+var GM_SHEET_HELP = [
+  ["Declaração de pagamento final", "Final payment affidavit", "liens-and-final-affidavit"],
+  ["Importar tabela de preços", "Import pricing table", "pricing-item-and-import#import#1"],
+  ["Encaminhar para assinatura", "Route for signature", "ask-another-signer#route#2"],
+  ["Sem contrato assinado", "No signed contract", "contracts-that-need-you#cards#4"],
+  ["Enviar link de agendamento", "Send booking link", "online-booking-page"],
+  ["Assinatura da empresa", "Company signature", "contract#send-contract#11"],
+  ["Reunião com a Apex", "Meeting with Apex", "calendar#more#2"],
+  ["Orçamento aceito", "Estimate accepted", "estimate#mark-accepted#3"],
+  ["Enviar cartão de contato", "Send contact card", "contact-card#card#5"],
+  ["Novo aditivo", "New change order", "change-order#send-change-order#2"],
+  ["Enviar cópia assinada", "Send signed copy", "contract#more#1"],
+  ["Cartão do vendedor", "Salesperson card", "salespeople-and-lists#lists"],
+  ["Histórico de contatos", "Contact history", "contact-a-lead#contact#10"],
+  ["Criar contrato", "Create contract", "contract#send-contract#3"],
+  ["Revisão do advogado", "Attorney review", "contract-price-values-and-clauses#clauses#12"],
+  ["Resultado do contato", "Contact outcome", "contact-a-lead#contact#6"],
+  ["Notice to Owner", "Notice to Owner", "liens-and-final-affidavit#liens#1"],
+  ["Enviar orçamento", "Send estimate", "estimate#create-send#14"],
+  ["Marcar como aceito", "Mark accepted", "estimate#mark-accepted#1"],
+  ["Enviar contrato", "Send contract", "contract#send-contract#12"],
+  ["Cláusula própria", "Custom clause", "contract-price-values-and-clauses#clauses#6"],
+  ["Enviar fatura", "Send invoice", "invoice#send-invoice#2"],
+  ["Enviar recibo", "Send receipt", "receipt"],
+  ["Aditivo", "Change order", "change-order#send-change-order#2"],
+  ["Meus aparelhos", "My devices", "my-devices"],
+  ["Orçamento", "Estimate", "estimate"],
+  ["Novo lead", "New lead", "pipeline"],
+  ["Contrato", "Contract", "contracts-tab"],
+  ["Fatura", "Invoice", "invoices-and-payments#invoices#6"],
+  ["Relatório", "Report", "finances#finances#17"]
+];
+function gmSheetHelpFor(titleHtml) {
+  var t = String(titleHtml || "").replace(/<[^>]*>/g, "").replace(/&[a-z]+;/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+  for (var i = 0; i < GM_SHEET_HELP.length; i++) {
+    if (t.indexOf(GM_SHEET_HELP[i][0].toLowerCase()) === 0 || t.indexOf(GM_SHEET_HELP[i][1].toLowerCase()) === 0) { return GM_SHEET_HELP[i][2]; }
+  }
+  return "";
+}
+
 function gmSheetOpen(titleHtml, bodyHtml, tourKey) {
   gmSheetOnUserClose = null;
   gmSheetCloseNow();
@@ -258,6 +299,8 @@ function gmSheetOpen(titleHtml, bodyHtml, tourKey) {
   overlay.addEventListener("click", function(ev) {
     if (ev.target === overlay) { gmSheetClose(); }
   });
+  var sheetHelp = gmSheetHelpFor(titleHtml);
+  if (sheetHelp) { overlay.querySelector(".gm-sheet").setAttribute("data-help-default", sheetHelp); }
   document.body.appendChild(overlay);
   gmSheetEl = overlay;
   if (!gmSheetHistoryArmed) {

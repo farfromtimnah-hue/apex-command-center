@@ -248,6 +248,14 @@
   {
    "label": "EN",
    "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "×",
+   "reason": "Close icon of a window, nothing to learn"
+  },
+  {
+   "label": "✕",
+   "reason": "Close icon of a window, nothing to learn"
   }
  ]
 }

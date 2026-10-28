@@ -24261,143 +24261,6 @@
       ]
     },
     {
-      "id": "admin-menu-language-learn",
-      "audience": "admin",
-      "title": {
-        "pt": "O menu, o botão de idioma e o Aprenda",
-        "en": "The menu, the language button and Learn"
-      },
-      "summary": {
-        "pt": "Veja o menu do app da equipe, troque o idioma EN e PT, abra o Aprenda e use o clique direito em um botão.",
-        "en": "See the staff app menu, change the language with EN and PT, open Learn and right click a button."
-      },
-      "keywords": {
-        "pt": [
-          "menu",
-          "idioma",
-          "EN",
-          "PT",
-          "aprenda",
-          "clique direito",
-          "segurar o botão",
-          "menu do celular",
-          "configurações"
-        ],
-        "en": [
-          "menu",
-          "language",
-          "EN",
-          "PT",
-          "learn",
-          "right click",
-          "press and hold",
-          "phone menu",
-          "settings"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "menu",
-          "title": {
-            "pt": "O menu, o idioma e o Aprenda",
-            "en": "The menu, the language and Learn"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "O menu da esquerda. No computador o menu fica à esquerda de toda página. Clique em uma entrada para abrir a página: Dashboard, Clientes, Análise de Clientes, Sessões, Calendário, Documentos, Tarefas, Financeiro, Fornecedores, Apex Club, Vendas, Aprenda e Configurações (1). Adicionar Usuário e Atividade são só para o login de desenvolvedor. Revisão do contrato é do desenvolvedor, e do Rafa depois que a Nicole libera.",
-                "en": "The left menu. On a computer the menu is on the left of every page. Click an entry to open that page: Dashboard, Clients, Client Analytics, Sessions, Calendar, Documents, Tasks, Financial, Vendors, Apex Club, Sales, Learn and Settings (1). Add User and Activity are only for the developer login. Contract review is for the developer, and for Rafa after Nicole releases it."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-menu-language-learn/menu-01.pt.jpg",
-                "en": "help/img/guides/admin-menu-language-learn/menu-01.en.jpg"
-              }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "O botão EN e PT. No alto, à direita de toda página, um botão (1) mostra o outro idioma: diz PT enquanto a página está em inglês e EN enquanto está em português. Toque nele para trocar a página inteira. O Apex lembra a sua escolha para o seu login.",
-                "en": "The EN and PT button. At the top right of every page, one button (1) shows the other language: it says PT while the page is in English and EN while it is in Portuguese. Tap it to change the whole page. Apex remembers your choice for your login."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-menu-language-learn/menu-02.pt.jpg",
-                "en": "help/img/guides/admin-menu-language-learn/menu-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Abra o Aprenda. Clique em Aprenda (1) no menu. Em inglês a entrada se chama Learn.",
-                "en": "Open Learn. Click Learn (1) in the menu. In Portuguese the entry is called Aprenda."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-menu-language-learn/menu-03.pt.jpg",
-                "en": "help/img/guides/admin-menu-language-learn/menu-03.en.jpg"
-              }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "A página do Aprenda. Digite uma palavra ou uma pergunta na caixa de busca (1) e toque em Buscar. Os guias das telas da equipe ficam logo abaixo. Embaixo da dica, o link Ver guias do cliente mostra os guias do lado do cliente. Voltar leva você à página de onde veio.",
-                "en": "The Learn page. Type a word or a question in the search box (1) and tap Search. The guides for the staff screens are listed below. Under the tip, the link See client guides shows the guides for the client side. Back takes you to the page you came from."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-menu-language-learn/menu-04.pt.jpg",
-                "en": "help/img/guides/admin-menu-language-learn/menu-04.en.jpg"
-              }
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "Aprenda sem sair da tela. No computador, clique com o botão direito em qualquer botão, por exemplo + Nova Sessão. Uma caixa pequena (1) diz Aprender sobre este botão. Clique nela e o guia abre no passo certo. Se o botão ainda não tem guia, a caixa diz Buscar no Aprenda. No app do celular, toque e segure o botão.",
-                "en": "Learn without leaving the screen. On a computer, right click any button, for example + New Session. A small box (1) says Learn about this button. Click it and the guide opens at the right step. If the button has no guide yet, the box says Search in Learn. In the phone app, press and hold the button instead."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-menu-language-learn/menu-05.pt.jpg",
-                "en": "help/img/guides/admin-menu-language-learn/menu-05.en.jpg"
-              }
-            },
-            {
-              "n": 6,
-              "text": {
-                "pt": "O menu do celular. No celular o menu é uma barra no pé da tela. Ela tem grupos, por exemplo Clientes, Agenda, Financeiro ou Tarefas, e Negócio, e uma engrenagem para Configurações. Toque em um grupo para abrir uma lista curta de páginas e toque na página que quiser.",
-                "en": "The phone menu. On a phone the menu is a bar at the bottom of the screen. It has groups, for example Clients, Calendar, Financial or Tasks, and Business, and a gear for Settings. Tap a group to open a short list of pages, then tap the page you want."
-              },
-              "image": null
-            }
-          ]
-        }
-      ],
-      "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "Aprenda no menu"
-            ],
-            "en": [
-              "Learn in the menu"
-            ]
-          },
-          "section": "menu",
-          "step": 3
-        },
-        {
-          "labels": {
-            "pt": [
-              "Idioma"
-            ],
-            "en": [
-              "Language"
-            ]
-          },
-          "section": "menu",
-          "step": 2
-        }
-      ]
-    },
-    {
       "id": "admin-tell-us-goal-approvals",
       "audience": "admin",
       "title": {
@@ -29652,6 +29515,157 @@
           },
           "section": "sheet",
           "step": 3
+        }
+      ]
+    },
+    {
+      "id": "admin-menu-language-learn",
+      "audience": "admin",
+      "title": {
+        "pt": "O menu, o botão de idioma e o Aprenda",
+        "en": "The menu, the language button and Learn"
+      },
+      "summary": {
+        "pt": "Veja o menu do app da equipe, troque o idioma EN e PT, abra o Aprenda e use o clique direito em um botão.",
+        "en": "See the staff app menu, change the language with EN and PT, open Learn and right click a button."
+      },
+      "keywords": {
+        "pt": [
+          "menu",
+          "idioma",
+          "EN",
+          "PT",
+          "aprenda",
+          "clique direito",
+          "segurar o botão",
+          "menu do celular",
+          "configurações"
+        ],
+        "en": [
+          "menu",
+          "language",
+          "EN",
+          "PT",
+          "learn",
+          "right click",
+          "press and hold",
+          "phone menu",
+          "settings"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "menu",
+          "title": {
+            "pt": "O menu, o idioma e o Aprenda",
+            "en": "The menu, the language and Learn"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O menu da esquerda. No computador o menu fica à esquerda de toda página. Clique em uma entrada para abrir a página: Dashboard, Clientes, Análise de Clientes, Sessões, Calendário, Documentos, Tarefas, Financeiro, Fornecedores, Apex Club, Vendas, Aprenda e Configurações (1). Adicionar Usuário e Atividade são só para o login de desenvolvedor. Revisão do contrato é do desenvolvedor, e do Rafa depois que a Nicole libera.",
+                "en": "The left menu. On a computer the menu is on the left of every page. Click an entry to open that page: Dashboard, Clients, Client Analytics, Sessions, Calendar, Documents, Tasks, Financial, Vendors, Apex Club, Sales, Learn and Settings (1). Add User and Activity are only for the developer login. Contract review is for the developer, and for Rafa after Nicole releases it."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-menu-language-learn/menu-01.pt.jpg",
+                "en": "help/img/guides/admin-menu-language-learn/menu-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O botão EN e PT. No alto, à direita de toda página, um botão (1) mostra o outro idioma: diz PT enquanto a página está em inglês e EN enquanto está em português. Toque nele para trocar a página inteira. O Apex lembra a sua escolha para o seu login.",
+                "en": "The EN and PT button. At the top right of every page, one button (1) shows the other language: it says PT while the page is in English and EN while it is in Portuguese. Tap it to change the whole page. Apex remembers your choice for your login."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-menu-language-learn/menu-02.pt.jpg",
+                "en": "help/img/guides/admin-menu-language-learn/menu-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Abra o Aprenda. Clique em Aprenda (1) no menu. Em inglês a entrada se chama Learn.",
+                "en": "Open Learn. Click Learn (1) in the menu. In Portuguese the entry is called Aprenda."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-menu-language-learn/menu-03.pt.jpg",
+                "en": "help/img/guides/admin-menu-language-learn/menu-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "A página do Aprenda. Digite uma palavra ou uma pergunta na caixa de busca (1) e toque em Buscar. Os guias das telas da equipe ficam logo abaixo. Embaixo da dica, o link Ver guias do cliente mostra os guias do lado do cliente. Voltar leva você à página de onde veio.",
+                "en": "The Learn page. Type a word or a question in the search box (1) and tap Search. The guides for the staff screens are listed below. Under the tip, the link See client guides shows the guides for the client side. Back takes you to the page you came from."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-menu-language-learn/menu-04.pt.jpg",
+                "en": "help/img/guides/admin-menu-language-learn/menu-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Aprenda sem sair da tela. No computador, clique com o botão direito em qualquer botão, por exemplo + Nova Sessão. Uma caixa pequena (1) diz Aprender sobre este botão. Clique nela e o guia abre no passo certo. Se o botão ainda não tem guia, a caixa diz Buscar no Aprenda. No app do celular, toque e segure o botão.",
+                "en": "Learn without leaving the screen. On a computer, right click any button, for example + New Session. A small box (1) says Learn about this button. Click it and the guide opens at the right step. If the button has no guide yet, the box says Search in Learn. In the phone app, press and hold the button instead."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-menu-language-learn/menu-05.pt.jpg",
+                "en": "help/img/guides/admin-menu-language-learn/menu-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "O menu do celular. No celular o menu é uma barra no pé da tela (1). Ela tem cinco grupos: Início, Clientes, Agenda, Financeiro e Negócio. A engrenagem (2) no alto abre as Configurações. Toque em um grupo para abrir uma lista curta de páginas. A imagem é o Dashboard mostrado na largura de um celular.",
+                "en": "The phone menu. On a phone the menu is a bar at the bottom of the screen (1). It has five groups: Home, Clients, Agenda, Financial and Business. The gear (2) at the top opens Settings. Tap a group to open a short list of pages. The picture is the Dashboard shown at the width of a phone."
+              },
+              "image": {
+                "en": "help/img/guides/admin-menu-language-learn/menu-06.en.jpg",
+                "pt": "help/img/guides/admin-menu-language-learn/menu-06.pt.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Um grupo do menu do celular. Toque em Clientes (1) e uma lista abre acima da barra: Clientes, Análise de Clientes, Revisão do contrato e Adicionar Usuário. Embaixo da lista, os botões DEV mostram Alice, Rafa, Dev, Client e Seller, que mostram o app como aquela pessoa. Toque na página que quiser, ou toque no grupo de novo para fechar a lista.",
+                "en": "A group of the phone menu. Tap Clients (1) and a list opens above the bar: Clients, Client Analytics, Contract review and Add User. Under the list, the DEV buttons show Alice, Rafa, Dev, Client and Seller, which preview the app as that person. Tap the page you want, or tap the group again to close the list."
+              },
+              "image": {
+                "en": "help/img/guides/admin-menu-language-learn/menu-07.en.jpg",
+                "pt": "help/img/guides/admin-menu-language-learn/menu-07.pt.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Aprenda no menu"
+            ],
+            "en": [
+              "Learn in the menu"
+            ]
+          },
+          "section": "menu",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Idioma"
+            ],
+            "en": [
+              "Language"
+            ]
+          },
+          "section": "menu",
+          "step": 2
         }
       ]
     }

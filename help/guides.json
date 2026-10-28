@@ -28813,183 +28813,6 @@
       ]
     },
     {
-      "id": "admin-session-sheet",
-      "audience": "admin",
-      "title": {
-        "pt": "A ficha da sessão: preparação, empresa, WhatsApp, editar e cancelar",
-        "en": "The session sheet: prep, company, WhatsApp, edit and cancel"
-      },
-      "summary": {
-        "pt": "Abra uma sessão no Calendário e veja a preparação da reunião, o link de outra empresa, o evento do Google, o WhatsApp de confirmação, como editar a data e a hora e como cancelar.",
-        "en": "Open a session on the Calendar and see the meeting prep, linking another company, the Google event, the confirmation WhatsApp, how to change the date and time, and how to cancel."
-      },
-      "keywords": {
-        "pt": [
-          "ficha da sessão",
-          "reagendar",
-          "editar sessão",
-          "cancelar reunião",
-          "enviar whatsapp",
-          "preparação da reunião",
-          "vincular outra empresa",
-          "abrir evento"
-        ],
-        "en": [
-          "session sheet",
-          "reschedule",
-          "edit session",
-          "cancel meeting",
-          "send whatsapp",
-          "meeting prep",
-          "link another company",
-          "open event"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "sheet",
-          "title": {
-            "pt": "A ficha da sessão no Calendário",
-            "en": "The session sheet on the Calendar"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Abra a ficha. No Calendário, toque em uma reunião. Uma ficha abre com o nome do cliente, a Data, a Hora, o Tipo (por exemplo Google Meet), o Status e o link do Meet. Embaixo ficam as Empresas, o link da Preparação da reunião, o link do Google Calendar, o Registro da reunião e os botões.",
-                "en": "Open the sheet. On the Calendar, tap a meeting. A sheet opens with the client name, the Date, the Time, the Type (for example Google Meet), the Status and the Meet link. Below are the Companies, the Meeting prep link, the Google Calendar link, the Meeting Record and the buttons."
-              },
-              "image": null
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Abra a preparação. Toque em Preparação da reunião (1). A página de preparação desta reunião abre. O guia Preparação da reunião explica essa página.",
-                "en": "Open the meeting prep. Tap Meeting prep (1). The prep page for this meeting opens. The guide Meeting prep explains it."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-session-sheet/sheet-02.pt.jpg",
-                "en": "help/img/guides/admin-session-sheet/sheet-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Vincule outra empresa à mesma reunião. Toque em + vincular outra empresa (2). Escolha a empresa. A reunião passa a ser das duas empresas e a página de preparação mostra uma aba para cada empresa.",
-                "en": "Link another company to the same meeting. Tap + link another company (2). Pick the company. The meeting then belongs to both companies, and the prep page shows one tab for each company."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-session-sheet/sheet-03.pt.jpg",
-                "en": "help/img/guides/admin-session-sheet/sheet-03.en.jpg"
-              }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Veja o evento no Google Calendar. Toque em Abrir evento (1), ao lado de Google Calendar. O evento abre no Google Calendar em uma nova aba.",
-                "en": "See the event in Google Calendar. Tap Open event (1) next to Google Calendar. The event opens in Google Calendar in a new tab."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-session-sheet/sheet-04.pt.jpg",
-                "en": "help/img/guides/admin-session-sheet/sheet-04.en.jpg"
-              }
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "Envie a confirmação pelo WhatsApp. Toque em Enviar WhatsApp (1). O WhatsApp abre com a mensagem de confirmação pronta. Você ainda toca em enviar dentro do WhatsApp. Não toque neste botão só para testar.",
-                "en": "Send the confirmation on WhatsApp. Tap Send WhatsApp (1). WhatsApp opens with the confirmation message ready. You still tap send inside WhatsApp yourself. Do not tap this button just to test it."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-session-sheet/sheet-05.pt.jpg",
-                "en": "help/img/guides/admin-session-sheet/sheet-05.en.jpg"
-              }
-            },
-            {
-              "n": 6,
-              "text": {
-                "pt": "Mude a data ou a hora. Toque em Editar (2). O formulário Editar Sessão abre. Mude a Data (1), a Hora de início (2) ou a Duração (3) e toque em Salvar (4). É assim que se reagenda. Cancelar fecha o formulário sem salvar.",
-                "en": "Change the date or the time. Tap Edit (2). The Edit Session form opens. Change the Date (1), the Start time (2) or the Duration (3), then tap Save (4). This is how you reschedule. Cancel closes the form without saving."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-session-sheet/sheet-06.pt.jpg",
-                "en": "help/img/guides/admin-session-sheet/sheet-06.en.jpg"
-              }
-            },
-            {
-              "n": 7,
-              "text": {
-                "pt": "Cancele uma reunião. Toque em Cancelar reunião (3) só quando a reunião não vai acontecer. Fechar (4) fecha a ficha e não muda nada.",
-                "en": "Cancel a meeting. Tap Cancel meeting (3) only when the meeting will not happen. Close (4) closes the sheet and changes nothing."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-session-sheet/sheet-07.pt.jpg",
-                "en": "help/img/guides/admin-session-sheet/sheet-07.en.jpg"
-              }
-            },
-            {
-              "n": 8,
-              "text": {
-                "pt": "Reuniões do Google. Uma reunião que veio do seu Google Calendar e não é uma sessão da Apex mostra a etiqueta Reunião fora da Apex. A ficha dela tem só Abrir evento, Editar, Cancelar reunião e Fechar.",
-                "en": "Meetings from Google. A meeting that came from your Google Calendar and is not an Apex session shows the tag Non-Apex meeting. Its sheet has only Open event, Edit, Cancel meeting and Close."
-              },
-              "image": null
-            },
-            {
-              "n": 9,
-              "text": {
-                "pt": "Sessões da Apex e reuniões do Google. No Calendário, um bloco azul escuro (1) é uma sessão da Apex. Um bloco branco com contorno escuro (2) é uma reunião que veio do seu Google Calendar. A ficha dela mostra a etiqueta Reunião fora da Apex. A imagem esconde os nomes e mantém as cores.",
-                "en": "Apex sessions and Google meetings. On the Calendar, a dark blue block (1) is an Apex session. A block with a white fill and a dark outline (2) is a meeting that came from your Google Calendar. Its sheet shows the tag Non-Apex meeting. The picture hides the names and keeps the colors."
-              },
-              "image": {
-                "en": "help/img/guides/admin-session-sheet/sheet-09.en.jpg",
-                "pt": "help/img/guides/admin-session-sheet/sheet-09.pt.jpg"
-              }
-            }
-          ]
-        }
-      ],
-      "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "Enviar WhatsApp da sessão"
-            ],
-            "en": [
-              "Send the session WhatsApp"
-            ]
-          },
-          "section": "sheet",
-          "step": 5
-        },
-        {
-          "labels": {
-            "pt": [
-              "Cancelar reunião na ficha"
-            ],
-            "en": [
-              "Cancel the meeting from the sheet"
-            ]
-          },
-          "section": "sheet",
-          "step": 7
-        },
-        {
-          "labels": {
-            "pt": [
-              "Vincular outra empresa"
-            ],
-            "en": [
-              "Link another company"
-            ]
-          },
-          "section": "sheet",
-          "step": 3
-        }
-      ]
-    },
-    {
       "id": "admin-activity-support-preview",
       "audience": "admin",
       "title": {
@@ -29608,6 +29431,194 @@
           },
           "section": "forms",
           "step": 9
+        }
+      ]
+    },
+    {
+      "id": "admin-session-sheet",
+      "audience": "admin",
+      "title": {
+        "pt": "A ficha da sessão: preparação, empresa, WhatsApp, editar e cancelar",
+        "en": "The session sheet: prep, company, WhatsApp, edit and cancel"
+      },
+      "summary": {
+        "pt": "Abra uma sessão no Calendário e veja a preparação da reunião, o link de outra empresa, o evento do Google, o WhatsApp de confirmação, como editar a data e a hora e como cancelar.",
+        "en": "Open a session on the Calendar and see the meeting prep, linking another company, the Google event, the confirmation WhatsApp, how to change the date and time, and how to cancel."
+      },
+      "keywords": {
+        "pt": [
+          "ficha da sessão",
+          "reagendar",
+          "editar sessão",
+          "cancelar reunião",
+          "enviar whatsapp",
+          "preparação da reunião",
+          "vincular outra empresa",
+          "abrir evento"
+        ],
+        "en": [
+          "session sheet",
+          "reschedule",
+          "edit session",
+          "cancel meeting",
+          "send whatsapp",
+          "meeting prep",
+          "link another company",
+          "open event"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "sheet",
+          "title": {
+            "pt": "A ficha da sessão no Calendário",
+            "en": "The session sheet on the Calendar"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra a ficha. No Calendário, toque em uma reunião. Uma ficha abre com o nome do cliente, a Data, a Hora, o Tipo (por exemplo Google Meet), o Status e o link do Meet. Embaixo ficam as Empresas, o link da Preparação da reunião, o link do Google Calendar, o Registro da reunião e os botões.",
+                "en": "Open the sheet. On the Calendar, tap a meeting. A sheet opens with the client name, the Date, the Time, the Type (for example Google Meet), the Status and the Meet link. Below are the Companies, the Meeting prep link, the Google Calendar link, the Meeting Record and the buttons."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Abra a preparação. Toque em Preparação da reunião (1). A página de preparação desta reunião abre. O guia Preparação da reunião explica essa página.",
+                "en": "Open the meeting prep. Tap Meeting prep (1). The prep page for this meeting opens. The guide Meeting prep explains it."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-session-sheet/sheet-02.pt.jpg",
+                "en": "help/img/guides/admin-session-sheet/sheet-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Vincule outra empresa à mesma reunião. Toque em + vincular outra empresa (2). Escolha a empresa. A reunião passa a ser das duas empresas e a página de preparação mostra uma aba para cada empresa.",
+                "en": "Link another company to the same meeting. Tap + link another company (2). Pick the company. The meeting then belongs to both companies, and the prep page shows one tab for each company."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-session-sheet/sheet-03.pt.jpg",
+                "en": "help/img/guides/admin-session-sheet/sheet-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Veja o evento no Google Calendar. Toque em Abrir evento (1), ao lado de Google Calendar. O evento abre no Google Calendar em uma nova aba.",
+                "en": "See the event in Google Calendar. Tap Open event (1) next to Google Calendar. The event opens in Google Calendar in a new tab."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-session-sheet/sheet-04.pt.jpg",
+                "en": "help/img/guides/admin-session-sheet/sheet-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Envie a confirmação pelo WhatsApp. Toque em Enviar WhatsApp (1). Uma página do WhatsApp abre com a mensagem de confirmação pronta, com o link do Meet dentro. Ela não escolhe a pessoa: você escolhe a conversa no WhatsApp e aperta enviar lá. O botão então vira Enviado com um visto.",
+                "en": "Send the confirmation on WhatsApp. Tap Send WhatsApp (1). A WhatsApp page opens with the confirmation message ready, with the Meet link in it. It does not pick a person: you choose the chat in WhatsApp and press send there yourself. The button then turns into Sent with a check mark."
+              },
+              "image": {
+                "en": "help/img/guides/admin-session-sheet/sheet-05.en.jpg",
+                "pt": "help/img/guides/admin-session-sheet/sheet-05.pt.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Mude a data ou a hora. Toque em Editar (2). O formulário Editar Sessão abre. Mude a Data (1), a Hora de início (2) ou a Duração (3) e toque em Salvar (4). É assim que se reagenda. Cancelar fecha o formulário sem salvar.",
+                "en": "Change the date or the time. Tap Edit (2). The Edit Session form opens. Change the Date (1), the Start time (2) or the Duration (3), then tap Save (4). This is how you reschedule. Cancel closes the form without saving."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-session-sheet/sheet-06.pt.jpg",
+                "en": "help/img/guides/admin-session-sheet/sheet-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Cancele uma reunião. Toque em Cancelar reunião (3) só quando a reunião não vai acontecer. Fechar (4) fecha a ficha e não muda nada.",
+                "en": "Cancel a meeting. Tap Cancel meeting (3) only when the meeting will not happen. Close (4) closes the sheet and changes nothing."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-session-sheet/sheet-07.pt.jpg",
+                "en": "help/img/guides/admin-session-sheet/sheet-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Reuniões do Google. Uma reunião que veio do seu Google Calendar e não é uma sessão da Apex mostra a etiqueta Reunião fora da Apex. A ficha dela tem só Abrir evento, Editar, Cancelar reunião e Fechar.",
+                "en": "Meetings from Google. A meeting that came from your Google Calendar and is not an Apex session shows the tag Non-Apex meeting. Its sheet has only Open event, Edit, Cancel meeting and Close."
+              },
+              "image": null
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Sessões da Apex e reuniões do Google. No Calendário, um bloco azul escuro (1) é uma sessão da Apex. Um bloco branco com contorno escuro (2) é uma reunião que veio do seu Google Calendar. A ficha dela mostra a etiqueta Reunião fora da Apex. A imagem esconde os nomes e mantém as cores.",
+                "en": "Apex sessions and Google meetings. On the Calendar, a dark blue block (1) is an Apex session. A block with a white fill and a dark outline (2) is a meeting that came from your Google Calendar. Its sheet shows the tag Non-Apex meeting. The picture hides the names and keeps the colors."
+              },
+              "image": {
+                "en": "help/img/guides/admin-session-sheet/sheet-09.en.jpg",
+                "pt": "help/img/guides/admin-session-sheet/sheet-09.pt.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "en": "The WhatsApp page. The page that opens is WhatsApp's own Share on WhatsApp page. It shows the message text, then two buttons: Open app and Continue to WhatsApp Web. Pick one, choose the chat of the client, and press send in WhatsApp. If you close the page without sending, nothing is sent.",
+                "pt": "A página do WhatsApp. A página que abre é a página Compartilhar no WhatsApp do próprio WhatsApp. Ela mostra o texto da mensagem e dois botões: Abrir app e Continuar no WhatsApp Web. Escolha um, ache a conversa do cliente e aperte enviar no WhatsApp. Se você fechar a página sem enviar, nada é enviado."
+              },
+              "image": {
+                "en": "help/img/guides/admin-session-sheet/sheet-10.en.jpg",
+                "pt": "help/img/guides/admin-session-sheet/sheet-10.pt.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Enviar WhatsApp da sessão"
+            ],
+            "en": [
+              "Send the session WhatsApp"
+            ]
+          },
+          "section": "sheet",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Cancelar reunião na ficha"
+            ],
+            "en": [
+              "Cancel the meeting from the sheet"
+            ]
+          },
+          "section": "sheet",
+          "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Vincular outra empresa"
+            ],
+            "en": [
+              "Link another company"
+            ]
+          },
+          "section": "sheet",
+          "step": 3
         }
       ]
     }

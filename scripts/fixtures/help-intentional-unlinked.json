@@ -316,6 +316,10 @@
   {
    "label": "Agora não",
    "reason": "Generic dismiss button"
+  },
+  {
+   "label": "Connect Zoho Books",
+   "reason": "obsolete: Zoho Books is no longer used"
   }
  ]
 }

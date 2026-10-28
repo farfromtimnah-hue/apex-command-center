@@ -26414,8 +26414,8 @@
       "id": "admin-connections",
       "audience": "admin",
       "title": {
-        "pt": "Contas ligadas: Google Calendar, Zoho Books e Zoho Mail",
-        "en": "Linked accounts: Google Calendar, Zoho Books and Zoho Mail"
+        "pt": "Contas ligadas: Google Calendar e Zoho Mail",
+        "en": "Linked accounts: Google Calendar and Zoho Mail"
       },
       "summary": {
         "pt": "Ver o status das ligações e saber quando usar Connect.",
@@ -26424,7 +26424,6 @@
       "keywords": {
         "pt": [
           "google calendar",
-          "zoho books",
           "zoho mail",
           "connect",
           "check status",
@@ -26433,7 +26432,6 @@
         ],
         "en": [
           "google calendar",
-          "zoho books",
           "zoho mail",
           "connect",
           "check status",
@@ -26453,8 +26451,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Adicionar Usuário no menu da esquerda e role para baixo da lista de usuários. Três cartões mostram as contas às quais o Apex está ligado: Google Calendar (1), Zoho Books (2) e Zoho Mail (3). Cada um diz Status: Connected quando funciona. Esses cartões estão em inglês nos dois idiomas.",
-                "en": "Open Add User in the left menu and scroll below the list of users. Three cards show the accounts Apex is linked to: Google Calendar (1), Zoho Books (2) and Zoho Mail (3). Each one says Status: Connected when it works. These cards are in English on both languages."
+                "pt": "Abra Adicionar Usuário no menu da esquerda e role para baixo da lista de usuários. Os cartões mostram as contas às quais o Apex está ligado: Google Calendar (1) e Zoho Mail (3). Cada um diz Status: Connected quando funciona. Um cartão Zoho Books (2) ainda pode aparecer: ele não é mais usado, então não ligue. Esses cartões estão em inglês nos dois idiomas.",
+                "en": "Open Add User in the left menu and scroll below the list of users. The cards show the accounts Apex is linked to: Google Calendar (1) and Zoho Mail (3). Each one says Status: Connected when it works. A Zoho Books card (2) may still show: it is no longer used, so do not connect it. These cards are in English on both languages."
               },
               "image": {
                 "pt": "help/img/guides/admin-connections/connect-01.pt.jpg",
@@ -26464,8 +26462,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Toque em Check Status (2) para perguntar ao Apex se a ligação ainda funciona. Use Connect Google Calendar (1) só quando o status disser que não está conectado, por exemplo depois que o acesso venceu. Ele leva você ao Google para dar permissão ao Apex de novo. Os mesmos dois botões estão nos cartões do Zoho Books e do Zoho Mail. Não toque em Connect quando o status já diz Connected.",
-                "en": "Tap Check Status (2) to ask Apex if the link still works. Use Connect Google Calendar (1) only when the status says it is not connected, for example after the access ran out. It sends you to Google to give Apex permission again. The same two buttons are on the cards for Zoho Books and Zoho Mail. Do not tap Connect when the status already says Connected."
+                "pt": "Toque em Check Status (2) para perguntar ao Apex se a ligação ainda funciona. Use Connect Google Calendar (1) só quando o status disser que não está conectado, por exemplo depois que o acesso venceu. Ele leva você ao Google para dar permissão ao Apex de novo. Os mesmos dois botões estão no cartão do Zoho Mail. Não toque em Connect quando o status já diz Connected.",
+                "en": "Tap Check Status (2) to ask Apex if the link still works. Use Connect Google Calendar (1) only when the status says it is not connected, for example after the access ran out. It sends you to Google to give Apex permission again. The same two buttons are on the Zoho Mail card. Do not tap Connect when the status already says Connected."
               },
               "image": {
                 "pt": "help/img/guides/admin-connections/connect-02.pt.jpg",

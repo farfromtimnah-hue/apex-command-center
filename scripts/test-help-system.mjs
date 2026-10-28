@@ -34,6 +34,12 @@ const accentless = core.resolveTarget({ dataHelp: null, texts: ["novo orcamento"
 ok(accentless && accentless.section === "create" && accentless.step === 1, "(b) accent-less text matches an accented label");
 const pref = core.resolveTarget({ dataHelp: "invoice#paid#1", texts: ["Salvar e enviar"] }, FIXTURE);
 ok(pref && pref.guide === "invoice" && pref.section === "paid" && pref.step === 1, "(b) data-help wins over a text match");
+const fbNone = core.resolveTarget({ dataHelp: null, texts: ["Cancelar"], fallbackHelp: "invoice#create" }, FIXTURE);
+ok(fbNone && fbNone.guide === "invoice" && fbNone.section === "create", "(b) a button with no guide of its own opens the guide of its window (data-help-default)");
+const fbLabelWins = core.resolveTarget({ dataHelp: null, texts: ["Salvar e enviar"], fallbackHelp: "invoice#create" }, FIXTURE);
+ok(fbLabelWins && fbLabelWins.guide === "estimate", "(b) the button's own label beats the window default");
+const fbBad = core.resolveTarget({ dataHelp: null, texts: ["Cancelar"], fallbackHelp: "nope#x" }, FIXTURE);
+ok(fbBad === null, "(b) a window default that names no guide changes nothing");
 const noStep = core.resolveTarget({ dataHelp: "invoice#create", texts: [] }, FIXTURE);
 ok(noStep && noStep.guide === "invoice" && noStep.section === "create" && noStep.step === null, "(b) data-help without a step is allowed");
 ok(core.resolveTarget({ dataHelp: null, texts: ["Botão desconhecido"] }, FIXTURE) === null, "(b) unknown label resolves to nothing");

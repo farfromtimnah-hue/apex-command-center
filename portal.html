@@ -8468,5 +8468,35 @@
     <div class="pg-backdrop" onclick="portalGroupSheetClose()"></div>
     <div class="pg-panel" id="portalGroupPanel" role="menu"></div>
   </div>
+<script>
+  // Learn (Aprenda): which guide explains each portal screen. A button on a screen that
+  // has no guide of its own opens the guide of the screen (data-help-default); the
+  // tab buttons themselves open the guide of the screen they lead to (data-help).
+  (function () {
+    var HELP_BY_TAB = {
+      home: "home-alerts", analytics: "analytics", goals: "daily-log", tasks: "execution-and-tasks",
+      documents: "documents", invoices: "apex-invoice-and-receipt", gmcrm: "pipeline", gmroadmap: "execution-and-tasks",
+      gmfinance: "finances", gmjobs: "projects", gmpricing: "pricing-setup", gmestimates: "estimate",
+      gmcontracts: "contracts-tab", gminvoices: "invoices-and-payments", gmcalendar: "calendar",
+      worksched: "working-days-and-blocked-periods", xray: "business-xray", mgmtxray: "management-xray",
+      leadxray: "leadership-xray", permxray: "permissiveness-xray", falhasxray: "failures-xray",
+      pilares: "growth-pillars", assigned: "assigned-tools"
+    };
+    function apply() {
+      for (var k in HELP_BY_TAB) {
+        if (!Object.prototype.hasOwnProperty.call(HELP_BY_TAB, k)) { continue; }
+        var box = document.getElementById("tab" + k.charAt(0).toUpperCase() + k.slice(1));
+        if (box && !box.hasAttribute("data-help-default")) { box.setAttribute("data-help-default", HELP_BY_TAB[k]); }
+      }
+      var btns = document.querySelectorAll("[data-tab]");
+      for (var i = 0; i < btns.length; i++) {
+        var t = btns[i].getAttribute("data-tab");
+        if (t && Object.prototype.hasOwnProperty.call(HELP_BY_TAB, t) && !btns[i].hasAttribute("data-help") && /^(BUTTON|A)$/.test(btns[i].tagName)) { btns[i].setAttribute("data-help", HELP_BY_TAB[t]); }
+      }
+    }
+    apply();
+    if (window.MutationObserver) { new MutationObserver(apply).observe(document.body, { childList: true, subtree: true }); }
+  })();
+</script>
 </body>
 </html>

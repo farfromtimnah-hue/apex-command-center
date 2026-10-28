@@ -3918,8 +3918,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Escolha o país (1) do número do celular. A imagem mostra uma pessoa de teste com um número inventado.",
-                "en": "Pick the country (1) of the mobile number. The picture shows a test person with a made-up number."
+                "pt": "Escolha o país (1) do número do celular.",
+                "en": "Pick the country (1) of the mobile number."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-06.pt.jpg",
@@ -22745,8 +22745,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Digite o telefone dos EUA em Telefone (EUA) (1), dez dígitos, sem espaços. O Thumbtack confere o número e recusa um que não seja válido. A imagem usa um número inventado.",
-                "en": "Type the US phone number in Phone (US) (2), ten digits, with no spaces. Thumbtack checks the number and refuses one that is not valid. The picture uses a made-up number."
+                "pt": "Digite o telefone dos EUA em Telefone (EUA) (2), dez dígitos, sem espaços. O Thumbtack confere o número e recusa um que não seja válido.",
+                "en": "Type the US phone number in Phone (US) (2), ten digits, with no spaces. Thumbtack checks the number and refuses one that is not valid."
               },
               "image": {
                 "pt": "help/img/guides/thumbtack-phone-numbers/phones-04.pt.jpg",
@@ -22858,7 +22858,7 @@
             {
               "n": 2,
               "text": {
-                "pt": "Abra Negócio, depois Pipeline. Um lead do Thumbtack é uma linha comum (1) no estágio Novo Lead, com o nome do cliente, o serviço e uma etiqueta se ninguém foi escolhido ainda. Digite o nome na caixa de busca para achar. A imagem usa o cliente de teste do ambiente de testes.",
+                "pt": "Abra Negócio, depois Pipeline. Um lead do Thumbtack é uma linha comum (1) no estágio Novo Lead, com o nome do cliente, o serviço e uma etiqueta se ninguém foi escolhido ainda. Digite o nome na caixa de busca para achar.",
                 "en": "Open Business, then Pipeline. A Thumbtack lead is a normal row (1) in the New Lead stage, with the customer's name, the service and a tag if nobody is assigned yet. Type the name in the search box to find it. The picture uses the test customer of the testing environment."
               },
               "image": {

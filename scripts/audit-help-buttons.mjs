@@ -108,8 +108,10 @@ function check(item, aud) {
   if (!/[A-Za-zÀ-ÿ]/.test(((item.label && (item.label.en + item.label.pt)) || "")) && !item.ariaLabel) return { status: "intentional", why: "icon only button (arrow, close, toggle)" };
   const key = HC.normalize((item.label && item.label.en) || label);
   const keyPt = HC.normalize((item.label && item.label.pt) || label);
-  if (intentionalSet.has(key) || intentionalSet.has(keyPt)) return { status: "intentional", why: intentionalSet.get(key) || intentionalSet.get(keyPt) };
-  if (res.pt === "miss" || res.en === "miss") return { status: "unlinked", res };
+  if (res.pt === "miss" || res.en === "miss") {
+    if (intentionalSet.has(key) || intentionalSet.has(keyPt)) return { status: "intentional", why: intentionalSet.get(key) || intentionalSet.get(keyPt) };
+    return { status: "unlinked", res };
+  }
   return { status: "linked", via: "label" };
 }
 

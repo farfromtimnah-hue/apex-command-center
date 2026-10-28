@@ -1,1 +1,253 @@
-{"note":"Buttons that deliberately have no guide. Each label needs a reason.","labels":[{"label":"Sign out","reason":"Account control, nothing to learn"},{"label":"Sair","reason":"Account control, nothing to learn"}]}
+{
+ "note": "Buttons that deliberately have no guide. Each label needs a reason.",
+ "labels": [
+  {
+   "label": "Sign out",
+   "reason": "Account control, nothing to learn"
+  },
+  {
+   "label": "Sair",
+   "reason": "Account control, nothing to learn"
+  },
+  {
+   "label": "Save",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Cancel",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Back",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Confirm",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Continue",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Close",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Delete",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Remove",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Yes",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "No",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Send",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Add",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Clear",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Undo",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Later",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Today",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Copy",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Next",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Previous",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Edit",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Open",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "View",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Done",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "OK",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Apply",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Reset",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Submit",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Search",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Filter",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "All",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Download PDF",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Voltar",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Salvar",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Cancelar",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Confirmar",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Continuar",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Fechar",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Excluir",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Remover",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Sim",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Não",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Enviar",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Adicionar",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Limpar",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Desfazer",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Depois",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Hoje",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Copiar",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Próximo",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Anterior",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Editar",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Abrir",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Ver",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Pronto",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Aplicar",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Redefinir",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Buscar",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "Baixar PDF",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "PT",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  },
+  {
+   "label": "EN",
+   "reason": "Generic button used in many windows. The step the reader is on explains it; the Search in Learn menu stays as the fallback"
+  }
+ ]
+}

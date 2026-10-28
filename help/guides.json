@@ -16297,25 +16297,6 @@
                 "pt": "help/img/guides/admin-add-user/users-03.pt.jpg",
                 "en": "help/img/guides/admin-add-user/users-03.en.jpg"
               }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Mais abaixo na página Adicionar Usuário está o cartão Google Drive. Ele vigia as planilhas de onde a Apex importou dados e avisa se alguém as editar depois. Só lê a data de alteração, nunca o conteúdo. Status (1) diz Connected quando está ligado. Connect Google Drive (2) liga a conta. Check Status (3) confere. Nada foi tocado. O texto deste cartão está só em inglês.",
-                "en": "Further down the Add User page is the Google Drive card. It watches the spreadsheets Apex imported data from and warns if anyone edits them later. It only reads the change time, never the content. Status (1) says Connected when it is on. Connect Google Drive (2) links the account. Check Status (3) checks it. Nothing was tapped."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-add-user/users-04.pt.jpg",
-                "en": "help/img/guides/admin-add-user/users-04.en.jpg"
-              }
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "Quando alguém edita uma planilha que a Apex importou, o painel do desenvolvedor mostra o cartão Planilhas importadas que mudaram. Ele diz que alguém editou a planilha e que pode ainda estar trabalhando nela em vez de no sistema. O cartão só aparece quando há uma mudança. Sem imagem: nenhuma planilha tinha mudado. Escrito a partir do código.",
-                "en": "When someone edits a spreadsheet Apex imported, the developer dashboard shows the card Imported spreadsheets that changed. It says someone edited the sheet and may still be working there instead of in the system. The card only shows when there is a change. No picture: no sheet had changed. Written from the code."
-              },
-              "image": null
             }
           ]
         }
@@ -28813,178 +28794,6 @@
       ]
     },
     {
-      "id": "admin-new-session-details",
-      "audience": "admin",
-      "title": {
-        "pt": "Nova Sessão: tipo, duração, local, repetição e evento",
-        "en": "New Session: type, length, place, repeat and event"
-      },
-      "summary": {
-        "pt": "Veja cada campo do formulário Nova Sessão do Calendário: os tipos de reunião, a duração, o dia inteiro, o local, a repetição, o cliente novo e o evento do Apex Club.",
-        "en": "See each field of the Calendar's New Session form: the meeting types, the length, all day, the place, repeating, a new client and the Apex Club event."
-      },
-      "keywords": {
-        "pt": [
-          "nova sessão",
-          "tipo de reunião",
-          "visita presencial",
-          "repetir",
-          "dia inteiro",
-          "duração",
-          "cliente novo",
-          "evento",
-          "apex club",
-          "local"
-        ],
-        "en": [
-          "new session",
-          "meeting type",
-          "onsite visit",
-          "repeat",
-          "all day",
-          "duration",
-          "new client",
-          "event",
-          "apex club",
-          "location"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "newsession",
-          "title": {
-            "pt": "Preencher o formulário Nova Sessão",
-            "en": "Fill in the New Session form"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Abra o formulário. Na página Calendário, toque em + Nova Sessão (1). Um formulário chamado Nova Sessão abre. Nada é salvo até você tocar em Agendar no fim.",
-                "en": "Open the form. On the Calendar page tap + New Session (1). A form called New Session opens. Nothing is saved until you tap Schedule at the bottom."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-new-session-details/newsession-01.pt.jpg",
-                "en": "help/img/guides/admin-new-session-details/newsession-01.en.jpg"
-              }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Escolha o tipo de reunião (1) e o cliente (2). Os tipos são: Reunião com cliente, Visita presencial, X-Ray, Igreja, Pessoal, Fornecedor ou parceiro, e Evento (Apex Club, conferência). Embaixo da lista de clientes, a primeira escolha é + Novo cliente. Abaixo ficam Enviar lembrete por texto, os botões Cliente ou Cliente Potencial, a data e a hora.",
-                "en": "Pick the meeting type (1) and the client (2). The types are: Client meeting, Onsite visit, X-Ray, Church, Personal, Vendor or partner, and Event (Apex Club, conference). In the app the names of the types show in Portuguese. Under the client list, the first choice is + New client. Below are Send text reminder, the Client or Prospective buttons, the date and the time."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-new-session-details/newsession-02.pt.jpg",
-                "en": "help/img/guides/admin-new-session-details/newsession-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Defina quanto tempo dura. Escolha a Duração (1) na lista: 30 minutos, 1 hora, 1 hora e 30, 2 horas, 3 horas, 4 horas, 6 horas ou 8 horas. Marque Dia inteiro (2) para uma reunião que ocupa o dia todo.",
-                "en": "Set how long it lasts. Pick the Duration (1) from the list: 30 minutes, 1 hour, 1 hour 30, 2 hours, 3 hours, 4 hours, 6 hours or 8 hours. Tick All day (2) for a meeting that takes the whole day."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-new-session-details/newsession-03.pt.jpg",
-                "en": "help/img/guides/admin-new-session-details/newsession-03.en.jpg"
-              }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Escolha onde acontece. Em Tipo, Google Meet é o padrão e o link do Meet é criado sozinho. Toque em Presencial (1) para uma reunião em um lugar. Uma caixa Local, opcional (2) abre, onde você pode digitar o endereço.",
-                "en": "Choose where it happens. Under Type, Google Meet is the default and the Meet link is made by itself. Tap In-Person (1) for a meeting in a place. A box Location, optional (2) opens, where you can type the street address."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-new-session-details/newsession-04.pt.jpg",
-                "en": "help/img/guides/admin-new-session-details/newsession-04.en.jpg"
-              }
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "Repita uma reunião. Marque Repetir. Escolha a Frequência (1): Semanal, A cada 2 semanas ou Mensal. Depois escolha por quanto tempo repete (2): 30d, 90d, 180d ou Personalizado. O formulário lista as reuniões que vai criar.",
-                "en": "Repeat a meeting. Tick Repeat. Pick the Frequency (1): Weekly, Every 2 weeks or Monthly. Then pick how long it repeats (2): 30d, 90d, 180d or Custom. The form lists the meetings it will make."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-new-session-details/newsession-05.pt.jpg",
-                "en": "help/img/guides/admin-new-session-details/newsession-05.en.jpg"
-              }
-            },
-            {
-              "n": 6,
-              "text": {
-                "pt": "Adicione um cliente que não está na lista. Na lista Cliente escolha + Novo cliente. Uma caixa pequena chamada Novo Cliente abre. Digite o Nome do negócio (1) e o Telefone (2). + Mais detalhes, opcional, mostra mais campos. Toque em Salvar (3), ou em Cancelar para sair sem salvar.",
-                "en": "Add a client that is not in the list. In the Client list choose + New client. A small box called New Client opens. Type the Business name (1) and the Phone (2). + More details, optional, shows more fields. Tap Save (3), or Cancel to leave without saving."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-new-session-details/newsession-06.pt.jpg",
-                "en": "help/img/guides/admin-new-session-details/newsession-06.en.jpg"
-              }
-            },
-            {
-              "n": 7,
-              "text": {
-                "pt": "Crie um evento do Apex Club. Escolha o tipo Evento (Apex Club, conferência). Marque É um Apex Club (1). O formulário pede então o nome do evento, os palestrantes, o valor por pessoa e por casal, se aceita cartão, as observações da página de inscrição e um flyer. Deixe o valor vazio quando a Apex não cobra.",
-                "en": "Create an Apex Club event. Choose the type Event (Apex Club, conference). Tick This is an Apex Club (1). The form then asks for the event name, the speakers, the price per person and per couple, accepting a card, notes for the registration page and a flyer. Leave the price empty when Apex does not charge."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-new-session-details/newsession-07.pt.jpg",
-                "en": "help/img/guides/admin-new-session-details/newsession-07.en.jpg"
-              }
-            },
-            {
-              "n": 8,
-              "text": {
-                "pt": "Salve. No fim do formulário toque em Agendar para marcar a sessão, ou em Cancelar para fechar o formulário sem salvar.",
-                "en": "Save it. At the bottom of the form tap Schedule to book the session, or Cancel to close the form without saving."
-              },
-              "image": null
-            },
-            {
-              "n": 9,
-              "text": {
-                "pt": "Defina os seus horários livres. No alto do Calendário, toque em Disponibilidade (1). Ele leva você à parte Disponibilidade das Configurações, onde você define o início e o fim do dia, o aviso mínimo e os dias de trabalho que os clientes veem no link de agendamento. O guia Horários, SMS e avisos mostra essa tela.",
-                "en": "Set your free times. At the top of the Calendar, tap Availability (1). It takes you to the Availability part of Settings, where you set the day start and end, the minimum notice and the working days that clients see on the booking link. The guide Hours, SMS and alerts shows that screen."
-              },
-              "image": {
-                "en": "help/img/guides/admin-new-session-details/newsession-09.en.jpg",
-                "pt": "help/img/guides/admin-new-session-details/newsession-09.pt.jpg"
-              }
-            }
-          ]
-        }
-      ],
-      "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "Criar evento do Apex Club"
-            ],
-            "en": [
-              "Create an Apex Club event"
-            ]
-          },
-          "section": "newsession",
-          "step": 7
-        },
-        {
-          "labels": {
-            "pt": [
-              "Cliente novo na sessão"
-            ],
-            "en": [
-              "New client in the session"
-            ]
-          },
-          "section": "newsession",
-          "step": 6
-        }
-      ]
-    },
-    {
       "id": "admin-session-sheet",
       "audience": "admin",
       "title": {
@@ -29409,6 +29218,178 @@
           },
           "section": "tr",
           "step": 1
+        }
+      ]
+    },
+    {
+      "id": "admin-new-session-details",
+      "audience": "admin",
+      "title": {
+        "pt": "Nova Sessão: tipo, duração, local, repetição e evento",
+        "en": "New Session: type, length, place, repeat and event"
+      },
+      "summary": {
+        "pt": "Veja cada campo do formulário Nova Sessão do Calendário: os tipos de reunião, a duração, o dia inteiro, o local, a repetição, o cliente novo e o evento do Apex Club.",
+        "en": "See each field of the Calendar's New Session form: the meeting types, the length, all day, the place, repeating, a new client and the Apex Club event."
+      },
+      "keywords": {
+        "pt": [
+          "nova sessão",
+          "tipo de reunião",
+          "visita presencial",
+          "repetir",
+          "dia inteiro",
+          "duração",
+          "cliente novo",
+          "evento",
+          "apex club",
+          "local"
+        ],
+        "en": [
+          "new session",
+          "meeting type",
+          "onsite visit",
+          "repeat",
+          "all day",
+          "duration",
+          "new client",
+          "event",
+          "apex club",
+          "location"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "newsession",
+          "title": {
+            "pt": "Preencher o formulário Nova Sessão",
+            "en": "Fill in the New Session form"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o formulário. Na página Calendário, toque em + Nova Sessão (1). Um formulário chamado Nova Sessão abre. Nada é salvo até você tocar em Agendar no fim.",
+                "en": "Open the form. On the Calendar page tap + New Session (1). A form called New Session opens. Nothing is saved until you tap Schedule at the bottom."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-new-session-details/newsession-01.pt.jpg",
+                "en": "help/img/guides/admin-new-session-details/newsession-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Escolha o tipo de reunião (1) e o cliente (2). Os tipos são: Reunião com cliente, Visita presencial, X-Ray, Igreja, Pessoal, Fornecedor ou parceiro, e Evento (Apex Club, conferência). Embaixo da lista de clientes, a primeira escolha é + Novo cliente. Abaixo ficam Enviar lembrete por texto, os botões Cliente ou Cliente Potencial, a data e a hora.",
+                "en": "Pick the meeting type (1) and the client (2). The types are: Client meeting, Onsite visit, X-Ray, Church, Personal, Vendor or partner, and Event (Apex Club, conference). In the app the names of the types show in Portuguese. Under the client list, the first choice is + New client. Below are Send text reminder, the Client or Prospective buttons, the date and the time."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-new-session-details/newsession-02.pt.jpg",
+                "en": "help/img/guides/admin-new-session-details/newsession-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Defina quanto tempo dura. Escolha a Duração (1) na lista: 30 minutos, 1 hora, 1 hora e 30, 2 horas, 3 horas, 4 horas, 6 horas ou 8 horas. Marque Dia inteiro (2) para uma reunião que ocupa o dia todo.",
+                "en": "Set how long it lasts. Pick the Duration (1) from the list: 30 minutes, 1 hour, 1 hour 30, 2 hours, 3 hours, 4 hours, 6 hours or 8 hours. Tick All day (2) for a meeting that takes the whole day."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-new-session-details/newsession-03.pt.jpg",
+                "en": "help/img/guides/admin-new-session-details/newsession-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Escolha onde acontece. Em Tipo, Google Meet é o padrão e o link do Meet é criado sozinho. Toque em Presencial (1) para uma reunião em um lugar. Uma caixa Local, opcional (2) abre, onde você pode digitar o endereço.",
+                "en": "Choose where it happens. Under Type, Google Meet is the default and the Meet link is made by itself. Tap In-Person (1) for a meeting in a place. A box Location, optional (2) opens, where you can type the street address."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-new-session-details/newsession-04.pt.jpg",
+                "en": "help/img/guides/admin-new-session-details/newsession-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Repita uma reunião. Marque Repetir. Escolha a Frequência (1): Semanal, A cada 2 semanas ou Mensal. Depois escolha por quanto tempo repete (2): 30d, 90d, 180d ou Personalizado. O formulário lista as reuniões que vai criar. Tocar em Agendar depois põe todas essas reuniões na agenda. Este guia para antes desse toque.",
+                "en": "Repeat a meeting. Tick Repeat. Pick the Frequency (1): Weekly, Every 2 weeks or Monthly. Then pick how long it repeats (2): 30d, 90d, 180d or Custom. The form lists the meetings it will make. Tapping Schedule afterwards puts all of those meetings on the calendar. This guide stops before that tap."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-new-session-details/newsession-05.pt.jpg",
+                "en": "help/img/guides/admin-new-session-details/newsession-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Adicione um cliente que não está na lista. Na lista Cliente escolha + Novo cliente. Uma caixa pequena chamada Novo Cliente abre. Digite o Nome do negócio (1) e o Telefone (2). + Mais detalhes, opcional, mostra mais campos. Toque em Salvar (3), ou em Cancelar para sair sem salvar.",
+                "en": "Add a client that is not in the list. In the Client list choose + New client. A small box called New Client opens. Type the Business name (1) and the Phone (2). + More details, optional, shows more fields. Tap Save (3), or Cancel to leave without saving."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-new-session-details/newsession-06.pt.jpg",
+                "en": "help/img/guides/admin-new-session-details/newsession-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Crie um evento do Apex Club. Escolha o tipo Evento (Apex Club, conferência). Marque É um Apex Club (1). O formulário pede então o nome do evento, os palestrantes, o valor por pessoa e por casal, se aceita cartão, as observações da página de inscrição e um flyer. Deixe o valor vazio quando a Apex não cobra.",
+                "en": "Create an Apex Club event. Choose the type Event (Apex Club, conference). Tick This is an Apex Club (1). The form then asks for the event name, the speakers, the price per person and per couple, accepting a card, notes for the registration page and a flyer. Leave the price empty when Apex does not charge."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-new-session-details/newsession-07.pt.jpg",
+                "en": "help/img/guides/admin-new-session-details/newsession-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Salve. No fim do formulário toque em Agendar para marcar a sessão, ou em Cancelar para fechar o formulário sem salvar. Com Repetir marcado, Agendar põe todas as reuniões da série na agenda, então confira a lista antes. Não tocamos em Agendar no nosso teste.",
+                "en": "Save it. At the bottom of the form tap Schedule to book the session, or Cancel to close the form without saving. With Repeat ticked, Schedule puts every meeting of the series on the calendar, so check the list first. We did not tap Schedule in our test."
+              },
+              "image": null
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Defina os seus horários livres. No alto do Calendário, toque em Disponibilidade (1). Ele leva você à parte Disponibilidade das Configurações, onde você define o início e o fim do dia, o aviso mínimo e os dias de trabalho que os clientes veem no link de agendamento. O guia Horários, SMS e avisos mostra essa tela.",
+                "en": "Set your free times. At the top of the Calendar, tap Availability (1). It takes you to the Availability part of Settings, where you set the day start and end, the minimum notice and the working days that clients see on the booking link. The guide Hours, SMS and alerts shows that screen."
+              },
+              "image": {
+                "en": "help/img/guides/admin-new-session-details/newsession-09.en.jpg",
+                "pt": "help/img/guides/admin-new-session-details/newsession-09.pt.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Criar evento do Apex Club"
+            ],
+            "en": [
+              "Create an Apex Club event"
+            ]
+          },
+          "section": "newsession",
+          "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Cliente novo na sessão"
+            ],
+            "en": [
+              "New client in the session"
+            ]
+          },
+          "section": "newsession",
+          "step": 6
         }
       ]
     }

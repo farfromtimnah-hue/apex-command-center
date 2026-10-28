@@ -29379,6 +29379,14 @@
                 "pt": "help/img/guides/admin-client-record-forms/forms-09.pt.jpg",
                 "en": "help/img/guides/admin-client-record-forms/forms-09.en.jpg"
               }
+            },
+            {
+              "n": 10,
+              "text": {
+                "en": "After you tap Create login link. The window says Link created, shows the number that gets the code (hidden) and says the link is valid for 72 hours. The code goes to the owner by text. Under it are the link, Copy link and Send on WhatsApp. Treat the link like a password: do not post it. Tap Close when you are done. This was done once, on the test client, with the owner number being Nicole's own. No picture, because the link must not be shown.",
+                "pt": "Depois de tocar em Criar link de login. A janela diz Link criado, mostra o número que recebe o código (escondido) e diz que o link vale por 72 horas. O código vai para o dono por SMS. Embaixo ficam o link, Copiar link e Enviar pelo WhatsApp. Trate o link como uma senha: não publique. Toque em Fechar quando terminar. Isto foi feito uma vez, no cliente de teste, com o número do dono sendo o da própria Nicole. Sem figura, porque o link não pode aparecer."
+              },
+              "image": null
             }
           ]
         }

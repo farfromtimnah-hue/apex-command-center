@@ -25639,6 +25639,72 @@
                 "pt": "help/img/guides/admin-assessment-reports/reports-03.pt.jpg",
                 "en": "help/img/guides/admin-assessment-reports/reports-03.en.jpg"
               }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Raio X de Gestão: o relatório abre como o do Raio X Empresarial. O cartão do título (1) diz quando foi concluído. A pontuação (2) mostra a porcentagem e quantas categorias foram avaliadas. A faixa (3) dá o nome do nível, por exemplo Gestão Consolidada.",
+                "en": "Management X-Ray: the report opens like the Business X-Ray one. The title card (1) says when it was finished. The score (2) shows the percent and how many categories were assessed. The band (3) names the level, for example Consolidated Management."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-assessment-reports/reports-04.pt.jpg",
+                "en": "help/img/guides/admin-assessment-reports/reports-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Raio X Nível de Liderança: a pontuação (2) mostra a porcentagem e quantas competências foram avaliadas. A faixa (3) dá o nome do nível, por exemplo Liderança de Alta Performance, pela faixa que mais apareceu nas respostas.",
+                "en": "Leadership Level X-Ray: the score (2) shows the percent and how many competencies were assessed. The band (3) names the level, for example High-Performance Leadership, by the band that showed up most across the answers."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-assessment-reports/reports-05.pt.jpg",
+                "en": "help/img/guides/admin-assessment-reports/reports-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Raio X de Permissividade: a pontuação (2) não é uma porcentagem. É a diferença entre competência e permissividade, numa escala de menos 20 a mais 20. A faixa (3) diz se o resultado empresarial pede atenção.",
+                "en": "Permissiveness X-Ray: the score (2) is not a percent. It is competence minus permissiveness, on a scale from minus 20 to plus 20. The band (3) says whether the business result needs attention."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-assessment-reports/reports-06.pt.jpg",
+                "en": "help/img/guides/admin-assessment-reports/reports-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Raio X Falhas: a pontuação (2) é a saúde da empresa. Quanto maior, menos falhas aparecem na operação. Abaixo dela vem a intensidade total das falhas. A faixa (3) dá o nível de saúde, por exemplo Nível de Saúde Excelente.",
+                "en": "Failures X-Ray: the score (2) is the health of the company. The higher it is, the fewer failures show up in the operation. Under it comes the total failure intensity. The band (3) gives the health level, for example Excellent Health Level."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-assessment-reports/reports-07.pt.jpg",
+                "en": "help/img/guides/admin-assessment-reports/reports-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Feedback 360: a pontuação (2) é a parte das perguntas respondidas com Sim, entre as respondidas com Sim ou Não. A faixa (3) dá a percepção, por exemplo Percepção Forte. Mais abaixo, a distribuição conta os Sim, os Não e as sem resposta.",
+                "en": "360º Feedback: the score (2) is the share of Yes answers among the questions answered Yes or No. The band (3) gives the perception, for example Strong Perception. Further down, the distribution counts the Yes, the No and the unanswered."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-assessment-reports/reports-08.pt.jpg",
+                "en": "help/img/guides/admin-assessment-reports/reports-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Pilares de Crescimento: funciona como o Feedback 360. A pontuação (2) é a parte de respostas Sim, e a faixa (3) dá a percepção. Abaixo, o cartão de devolutiva e a ação imediata dizem o que fazer com o resultado.",
+                "en": "Growth Pillars: works like the 360º Feedback. The score (2) is the share of Yes answers, and the band (3) gives the perception. Below, the assessment card and the immediate action say what to do with the result."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-assessment-reports/reports-09.pt.jpg",
+                "en": "help/img/guides/admin-assessment-reports/reports-09.en.jpg"
+              }
             }
           ]
         }

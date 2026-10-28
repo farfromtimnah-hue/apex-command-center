@@ -2889,7 +2889,7 @@
             html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 4px;border-bottom:1px solid var(--border);">' +
               '<div style="flex:1;min-width:220px;"><div style="font-size:14px;font-weight:600;">' + escHtml(s.reviewer_name || s.reviewer_email || "") + ' &middot; v' + s.version + '</div>' +
               '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + s.ok_count + ' OK &middot; ' + s.changes_count + (isEnLang ? ' with changes' : ' com mudanças') + ' &middot; ' + escHtml(String(s.submitted_at || "").slice(0, 16)) + ' UTC</div></div>' +
-              '<div style="display:flex;gap:8px;"><a data-help='admin-contract-review#review#1' href="contract-review.html?version=' + s.version + '" class="btn-cta-link">' + (isEnLang ? 'Open review' : 'Abrir revisão') + '</a>' +
+              '<div style="display:flex;gap:8px;"><a data-help="admin-contract-review#review#1" href="contract-review.html?version=' + s.version + '" class="btn-cta-link">' + (isEnLang ? 'Open review' : 'Abrir revisão') + '</a>' +
               '<button data-help="admin-contract-review#review#1" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="markContractReviewSeen(\'' + s.id + '\',this)">' + (isEnLang ? 'Seen' : 'Visto') + '</button></div></div>';
           });
           listEl.innerHTML = html;
@@ -2977,7 +2977,7 @@
             return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 4px;border-bottom:1px solid var(--border);">' +
               '<div style="flex:1;min-width:220px;"><div style="font-size:14px;font-weight:600;">' + escHtml(n.client_name || "") + ' &middot; ' + escHtml(n.job_name || "") + ' &middot; $' + val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + '</div>' +
               '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + (isEnLang ? 'Open for ' + days + ' days' : 'Aberto h\u00e1 ' + days + ' dias') + (n.opened_by ? ' &middot; ' + escHtml(n.opened_by) + ' (' + escHtml(n.opened_role || "") + ')' : '') + '</div></div>' +
-              '<div style="display:flex;gap:8px;flex-wrap:wrap;"><a data-help='admin-meeting-prep#prep#1' href="meeting-prep.html?client=' + encodeURIComponent(n.client_id) + '" class="btn-cta-link">' + (isEnLang ? 'Meeting prep' : 'Prepara\u00e7\u00e3o') + '</a>' +
+              '<div style="display:flex;gap:8px;flex-wrap:wrap;"><a data-help="admin-meeting-prep#prep#1" href="meeting-prep.html?client=' + encodeURIComponent(n.client_id) + '" class="btn-cta-link">' + (isEnLang ? 'Meeting prep' : 'Prepara\u00e7\u00e3o') + '</a>' +
               '<button data-help="liens-and-final-affidavit#liens#8" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="openNoticeResolve(\'' + escHtml(n.id) + '\')">' + (isEnLang ? 'Resolved in the meeting' : 'Resolvido na reuni\u00e3o') + '</button></div></div>';
           }).join("");
           staleNoticeRows = rows;

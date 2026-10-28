@@ -3233,22 +3233,22 @@
         html += '<td class="mc-field" data-label-pt="Total" data-label-en="Total" style="font-weight:600;">$ ' + (parseFloat(inv.total) || 0).toFixed(2) + '</td>';
         html += '<td class="mc-field" data-label-pt="Vencimento" data-label-en="Due Date">' + escHtml(formatDate(inv.due_date)) + '</td>';
         html += '<td class="mc-field" data-label-pt="Status" data-label-en="Status"><span class="' + statusClass + '">' + escHtml(statusLabel) + '</span></td>';
-        html += '<td class="mc-action"><a data-help='admin-invoices#invoices#20' class="btn-inv-view" href="' + escHtml(invPathLocal) + '" target="_blank" rel="noopener">';
+        html += '<td class="mc-action"><a data-help="admin-invoices#invoices#20" class="btn-inv-view" href="' + escHtml(invPathLocal) + '" target="_blank" rel="noopener">';
         html += mcIcon("view");
         html += '<span class="show-pt">Ver Fatura</span><span class="show-en">View Invoice</span>';
         html += '</a></td>';
         if (isDraft) {
-          html += '<td class="mc-action"><button data-help='admin-invoices#invoices#13' class="btn-inv-view" onclick="openInvoiceEditor(\'' + escHtml(inv.invoice_id) + '\')">';
+          html += '<td class="mc-action"><button data-help="admin-invoices#invoices#13" class="btn-inv-view" onclick="openInvoiceEditor(\'' + escHtml(inv.invoice_id) + '\')">';
           html += mcIcon("edit");
           html += '<span class="show-pt">Editar</span><span class="show-en">Edit</span>';
           html += '</button></td>';
-          html += '<td class="mc-action"><button data-help='admin-invoices#invoices#12' class="btn-inv-whatsapp" id="finalizeBtn' + escHtml(inv.invoice_id) + '" onclick="finalizeInvoice(\'' + escHtml(inv.invoice_id) + '\')">';
+          html += '<td class="mc-action"><button data-help="admin-invoices#invoices#12" class="btn-inv-whatsapp" id="finalizeBtn' + escHtml(inv.invoice_id) + '" onclick="finalizeInvoice(\'' + escHtml(inv.invoice_id) + '\')">';
           html += mcIcon("check");
           html += '<span class="show-pt">Finalizar</span><span class="show-en">Finalize</span>';
           html += '</button></td>';
         }
         if (isUnpaid) {
-          html += '<td class="mc-action"><button data-help='admin-record-payment#record#16' class="btn-inv-whatsapp" id="waBtn' + escHtml(inv.invoice_id) + '" onclick="sendInvoiceWhatsApp(\'' + escHtml(inv.invoice_id) + '\',\'' + escHtml(invPath) + '\')">';
+          html += '<td class="mc-action"><button data-help="admin-record-payment#record#16" class="btn-inv-whatsapp" id="waBtn' + escHtml(inv.invoice_id) + '" onclick="sendInvoiceWhatsApp(\'' + escHtml(inv.invoice_id) + '\',\'' + escHtml(invPath) + '\')">';
           html += mcIcon("send");
           html += '<span class="show-pt">Enviar via WhatsApp</span><span class="show-en">Send via WhatsApp</span>';
           html += '</button></td>';

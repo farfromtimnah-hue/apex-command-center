@@ -14983,6 +14983,25 @@
                 "pt": "help/img/guides/admin-invoices/invoices-s24.pt.jpg",
                 "en": "help/img/guides/admin-invoices/invoices-s24.en.jpg"
               }
+            },
+            {
+              "n": 25,
+              "text": {
+                "pt": "Marcar como pago (lembrete) só coloca uma etiqueta na fatura enviada. Não muda o status nem o total pendente. Escreva Como você confirmou (1) e toque em Colocar etiqueta (2), ou em Cancelar (3). A fatura só fica paga quando o banco confirma, ou quando você registra o pagamento. Depois da etiqueta, o botão vira Remover etiqueta. A janela foi fechada sem salvar.",
+                "en": "Mark as paid (reminder) only puts a tag on the sent invoice. It does not change the status or the outstanding total. Write How you confirmed it (1) and tap Add tag (2), or Cancel (3). The invoice is only paid when the bank confirms, or when you record the payment. After the tag, the button becomes Remove tag. The window was closed without saving."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-25.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-25.en.jpg"
+              }
+            },
+            {
+              "n": 26,
+              "text": {
+                "pt": "Faturas que se repetem todo mês chegam sozinhas como rascunho, no período certo. Elas aparecem em Faturas prontas para enviar e na aba Rascunho. Confira o valor e a data e use Revisar e enviar. Você não precisa criar essas faturas. Sem imagem: nenhuma fatura automática estava esperando. Escrito a partir do código.",
+                "en": "Invoices that repeat every month arrive by themselves as drafts, in the right period. They show in Invoices ready to send and in the Draft tab. Check the amount and the date and use Review and send. You do not need to create these invoices. No picture: no automatic invoice was waiting. Written from the code."
+              },
+              "image": null
             }
           ]
         }

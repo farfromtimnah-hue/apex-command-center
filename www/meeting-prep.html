@@ -70,7 +70,7 @@
   <link rel="stylesheet" href="gm.css?v=1792866258">
   <script src="data/us-br-states.js?v=1791950001"></script>
   <script src="client-places.js?v=1791950001"></script>
-  <script src="apex-contract.js?v=1793026397"></script>
+  <script src="apex-contract.js?v=1793153892"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1731,7 +1731,7 @@
             // F53: closed right here when it is resolved in the meeting. The
             // same inline pattern as the lead "Resultado" card (out-btn choices
             // opening a hidden panel, out-state for the answer).
-            h += '<button type="button" class="out-btn" style="margin:0 0 10px;" onclick="openPrepNoticeResolve(\'' + escHtml(n.id) + '\')">' + ptEn("Resolvido na reuni\u00e3o", "Resolved in the meeting") + '</button>';
+            h += '<button data-help="liens-and-final-affidavit#liens#8" type="button" class="out-btn" style="margin:0 0 10px;" onclick="openPrepNoticeResolve(\'' + escHtml(n.id) + '\')">' + ptEn("Resolvido na reuni\u00e3o", "Resolved in the meeting") + '</button>';
             h += '<div class="out-pick" id="prepNoticePanel_' + escHtml(n.id) + '" hidden style="margin:0 0 16px;"></div>';
           });
           box.innerHTML = h;
@@ -2607,7 +2607,7 @@
                '" value="' + escHtml((f.options || []).join(", ")) +
                '" oninput="builderSetOptions(this);">';
         }
-        h += '<button data-help="admin-prep-another-meeting#am#4" type="button" class="builder-del" onclick="builderRemove(' + i + ');">&#215;</button>';
+        h += '<button type="button" class="builder-del" onclick="builderRemove(' + i + ');">&#215;</button>';
         h += '</div>';
       }
 

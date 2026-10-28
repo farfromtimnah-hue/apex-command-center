@@ -253,7 +253,7 @@
     } else {
       h += '<div class="gm-derived-note" style="margin:0 0 10px;">Nenhum contrato ainda.</div>';
     }
-    h += '<button type="button" class="gm-btn-primary" style="margin-top:0;" onclick="ApexContract.build()">' +
+    h += '<button data-help="admin-client-record-forms#forms#6" type="button" class="gm-btn-primary" style="margin-top:0;" onclick="ApexContract.build()">' +
       (hasOpenDraft ? "Continuar contrato" : "Montar contrato") + '</button>';
     S.mount.innerHTML = h;
   }
@@ -492,7 +492,7 @@
     h += liveMissingHtml(f);
     h += '<div class="gm-warn" id="apxErr" style="margin-top:6px;"></div>' +
       (editingId ? "" : '<div class="gm-derived-note" id="apxSavedNote" style="min-height:16px;">' + esc(savedNote) + '</div>') +
-      '<button type="button" class="gm-btn-primary" id="apxSave" onclick="ApexContract._save()">' + (editingId ? "Salvar alterações" : "Salvar contrato") + '</button>';
+      '<button data-help="admin-client-record-forms#forms#6" type="button" class="gm-btn-primary" id="apxSave" onclick="ApexContract._save()">' + (editingId ? "Salvar alterações" : "Salvar contrato") + '</button>';
     return h;
   }
   function defaultTitle(r) {
@@ -502,7 +502,7 @@
   function sumNote(sum, tot) {
     if (sum === tot) { return "As parcelas somam " + money(sum) + ". Confere com o total."; }
     return '<span class="gm-warn">As parcelas somam ' + money(sum) + ", mas o total é " + money(tot) + ". Ajuste um valor ou toque em Gerar de novo.</span>" +
-      ' <button type="button" class="gm-choice-chip" onclick="ApexContract._resched()">Gerar de novo</button>';
+      ' <button data-help="admin-client-record-forms#forms#6" type="button" class="gm-choice-chip" onclick="ApexContract._resched()">Gerar de novo</button>';
   }
   function redrawBuilder(scrollKeep) {
     if (!sheetEl) { return; }
@@ -618,12 +618,12 @@
         else { acts += '<button type="button" class="gm-btn-primary" id="apxAsk" onclick="ApexContract._ask(\'' + c.id + '\')">Pedir assinatura ao Pr. Rafael</button>'; }
       }
     } else if (c.status === "ready" || c.status === "sent" || c.status === "viewed") {
-      acts += '<button type="button" class="gm-btn-primary" onclick="ApexContract._sendOpen(\'' + c.id + '\')">' + (c.status === "ready" ? "Enviar ao cliente" : "Enviar de novo") + '</button>';
-      acts += '<a class="gm-btn-secondary" href="' + esc(link(c, true)) + '" target="_blank" rel="noopener">Ver contrato</a>';
-      if (!(c.client_signatures || []).length) { acts += '<button type="button" class="gm-btn-secondary" onclick="ApexContract._reopen(\'' + c.id + '\')">Editar (retira a assinatura da Apex)</button>'; }
+      acts += '<button data-help="admin-client-money#money#3" type="button" class="gm-btn-primary" onclick="ApexContract._sendOpen(\'' + c.id + '\')">' + (c.status === "ready" ? "Enviar ao cliente" : "Enviar de novo") + '</button>';
+      acts += '<a data-help="admin-client-money#money#3" class="gm-btn-secondary" href="' + esc(link(c, true)) + '" target="_blank" rel="noopener">Ver contrato</a>';
+      if (!(c.client_signatures || []).length) { acts += '<button data-help="admin-client-money#money#3" type="button" class="gm-btn-secondary" onclick="ApexContract._reopen(\'' + c.id + '\')">Editar (retira a assinatura da Apex)</button>'; }
     } else if (c.status === "signed") {
       acts += '<a class="gm-btn-secondary" href="' + esc(link(c, true)) + '" target="_blank" rel="noopener">Ver contrato assinado</a>';
-      if (!c.terms_applied_at) { acts += '<button type="button" class="gm-btn-primary" id="apxTerms" onclick="ApexContract._terms(\'' + c.id + '\')">Salvar condições de pagamento no cliente</button>'; }
+      if (!c.terms_applied_at) { acts += '<button data-help="admin-client-money#money#3" type="button" class="gm-btn-primary" id="apxTerms" onclick="ApexContract._terms(\'' + c.id + '\')">Salvar condições de pagamento no cliente</button>'; }
     }
     if (c.status !== "void" && c.status !== "draft") {
       acts += '<a class="gm-btn-secondary" href="https://apex-api.farfromtimnah.workers.dev/api/public/pdf/apex-contract/' + esc(c.link.split("t=")[1]) + '" target="_blank" rel="noopener">Baixar PDF</a>';
@@ -714,7 +714,7 @@
     var h = field("Mensagem", '<textarea class="gm-input" id="apxMsg">' + esc(msg) + '</textarea>') +
       '<a class="gm-btn-primary" style="text-align:center;text-decoration:none;" id="apxWa" href="' + esc(wa) + '" target="_blank" rel="noopener" onclick="ApexContract._sent(\'' + id + '\', true)">Enviar pelo WhatsApp</a>' +
       '<button type="button" class="gm-btn-secondary" onclick="ApexContract._copy(\'' + id + '\')">Copiar link</button>' +
-      '<button type="button" class="gm-btn-secondary" onclick="ApexContract._linkToggle(\'' + id + '\')">' +
+      '<button data-help="admin-client-money#money#3" type="button" class="gm-btn-secondary" onclick="ApexContract._linkToggle(\'' + id + '\')">' +
         (c.link_disabled_at ? '<span class="show-pt">Ativar link</span><span class="show-en">Enable link</span>' : '<span class="show-pt">Desativar link</span><span class="show-en">Disable link</span>') + '</button>' +
       (c.link_disabled_at ? '<div class="gm-derived-note" style="color:var(--red);"><span class="show-pt">O link deste contrato está desativado: o cliente não consegue abrir.</span><span class="show-en">This contract\'s link is disabled: the client cannot open it.</span></div>' : "") +
       '<div class="gm-derived-note" id="apxCopyNote"></div>' +

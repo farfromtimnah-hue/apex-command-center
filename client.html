@@ -96,7 +96,7 @@
   <script src="gm.js?v=1793153640"></script>
   <script src="data/us-br-states.js?v=1791950001"></script>
   <script src="client-places.js?v=1791950001"></script>
-  <script src="apex-contract.js?v=1793026397"></script>
+  <script src="apex-contract.js?v=1793153892"></script>
   <title data-title-pt="Apex — Cliente" data-title-en="Apex — Client">Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2088,7 +2088,7 @@
               <span class="show-en">Overview</span>
             </h2>
             <div style="display:flex;gap:8px;align-items:center;">
-              <button class="btn-add" id="btnHeroLogo" onclick="document.getElementById('logoFileInput').click()" style="display:none;">
+              <button class="btn-add" id="btnHeroLogo" data-help="admin-client-record#open#4" onclick="document.getElementById('logoFileInput').click()" style="display:none;">
                 <span id="btnHeroLogoLabel">
                   <span class="show-pt">Adicionar Logo</span>
                   <span class="show-en">Add Logo</span>
@@ -2112,11 +2112,11 @@
               <span class="show-en">Sessions</span>
             </h2>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-              <button class="btn-add" id="btnNewSession" onclick="openNewSessionModal()">
+              <button class="btn-add" id="btnNewSession" data-help="admin-sessions-summary#sessions#8" onclick="openNewSessionModal()">
                 <span class="show-pt">Nova Sess&#227;o</span>
                 <span class="show-en">New Session</span>
               </button>
-              <button class="btn-add" id="btnScheduleSession" onclick="openScheduleSessionModal()" style="background:#C9A84C;border-color:#C9A84C;color:#000;">
+              <button class="btn-add" id="btnScheduleSession" data-help="admin-new-session-details#newsession#1" onclick="openScheduleSessionModal()" style="background:#C9A84C;border-color:#C9A84C;color:#000;">
                 <span class="show-pt">Agendar Sess&#227;o</span>
                 <span class="show-en">Schedule Session</span>
               </button>
@@ -2286,7 +2286,7 @@
                 <span class="show-pt">Próximo passo</span><span class="show-en">Next step</span>
               </p>
               <div class="ld-card">
-                <button type="button" class="ld-row ld-row-btn" onclick="openNextStepModal()">
+                <button type="button" class="ld-row ld-row-btn" data-help="admin-lead-pipeline#lead#3" onclick="openNextStepModal()">
                   <span class="ld-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
                   <span class="ld-row-body">
                     <span class="ld-row-label">
@@ -2296,7 +2296,7 @@
                   </span>
                   <span class="ld-row-chev">&rsaquo;</span>
                 </button>
-                <button type="button" class="ld-row ld-row-btn" onclick="jumpToContactLog()">
+                <button type="button" class="ld-row ld-row-btn" data-help="admin-lead-pipeline#lead#3" onclick="jumpToContactLog()">
                   <span class="ld-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
                   <span class="ld-row-body">
                     <span class="ld-row-label">
@@ -2342,7 +2342,7 @@
                    compete with Call/WhatsApp. Same disclosure the gm_leads
                    lead sheet uses, so both sides of the app behave alike. -->
               <div class="cl-contact-more">
-                <button type="button" class="cl-contact-more-btn" id="leadContactMoreBtn"
+                <button type="button" class="cl-contact-more-btn" id="leadContactMoreBtn" data-help="admin-lead-pipeline#lead#5"
                         aria-expanded="false" aria-controls="leadContactMorePanel"
                         onclick="toggleLeadContactMore()">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -2676,11 +2676,11 @@
           </div>
           <!-- Sub-tab bar -->
           <div class="inv-subtab-bar m-scroll-tabs">
-            <button class="inv-subtab active" id="clientSubtabUnpaid" onclick="switchClientInvoiceTab('unpaid')">
+            <button class="inv-subtab active" id="clientSubtabUnpaid" data-help="admin-client-record#tabs#1" onclick="switchClientInvoiceTab('unpaid')">
               <span class="show-pt">Nao Pagas</span>
               <span class="show-en">Unpaid</span>
             </button>
-            <button class="inv-subtab" id="clientSubtabPaid" onclick="switchClientInvoiceTab('paid')">
+            <button class="inv-subtab" id="clientSubtabPaid" data-help="admin-client-record#tabs#1" onclick="switchClientInvoiceTab('paid')">
               <span class="show-pt">Arquivo</span>
               <span class="show-en">Archive</span>
             </button>
@@ -2715,7 +2715,7 @@
                  meeting case: Rafa opens the client's own view without asking
                  them to share a screen. New tab so the profile stays put.
                  Read-only is enforced Worker-side, not by hiding controls. -->
-            <a class="btn-add" id="btnViewPortal" href="#" target="_blank" rel="noopener" hidden
+            <a class="btn-add" id="btnViewPortal" data-help="admin-client-record#portal#1" href="#" target="_blank" rel="noopener" hidden
                style="text-decoration:none;">
               <span id="btnViewPortalRO"><span class="show-pt">Ver portal do cliente</span>
               <span class="show-en">View client portal</span></span>
@@ -2779,7 +2779,7 @@
                  Admin-only, and NOT by virtue of being hidden here: the
                  endpoint refuses client and seller sessions server-side. -->
             <div id="sellerDiagWrap" style="display:none;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
-              <a id="btnSellerDiag" class="btn-add" href="#" style="display:inline-block;text-decoration:none;">
+              <a id="btnSellerDiag" data-help="admin-seller-diagnostics#seller#1" class="btn-add" href="#" style="display:inline-block;text-decoration:none;">
                 <span class="show-pt">Diagn&oacute;stico de vendedores &rarr;</span>
                 <span class="show-en">Seller diagnostics &rarr;</span>
               </a>
@@ -2868,7 +2868,7 @@
             data-ph-pt="Cole o transcript aqui..." data-ph-en="Paste transcript here..." placeholder="Cole o transcript aqui..."
           ></textarea>
         </div>
-        <button class="btn-primary" id="btnSaveSession" onclick="handleNewSession()">
+        <button class="btn-primary" id="btnSaveSession" data-help="admin-sessions-summary#sessions#8" onclick="handleNewSession()">
           <span class="show-pt">Salvar Sessão</span>
           <span class="show-en">Save Session</span>
         </button>
@@ -2930,7 +2930,7 @@
           <span class="show-en">This record will move back to the leads funnel. Choose the stage:</span>
         </p>
         <select id="leadStageSelect" class="status-edit-select" style="width:100%;margin-bottom:12px;"></select>
-        <button class="btn-primary" id="btnConfirmLeadStage" onclick="confirmLeadStagePrompt()">
+        <button class="btn-primary" id="btnConfirmLeadStage" data-help="admin-lead-pipeline#lead#2" onclick="confirmLeadStagePrompt()">
           <span class="show-pt">Converter</span>
           <span class="show-en">Convert</span>
         </button>
@@ -3034,7 +3034,7 @@
             <span class="show-pt">Divisão Igual</span>
             <span class="show-en">Even Split</span>
           </button>
-          <button type="button" class="btn-secondary btn-sm" id="ptSplitCustomBtn" onclick="setSplitMode('custom')">
+          <button type="button" class="btn-secondary btn-sm" id="ptSplitCustomBtn" data-help="admin-client-record-forms#forms#5" onclick="setSplitMode('custom')">
             <span class="show-pt">Personalizado / Balão</span>
             <span class="show-en">Custom / Balloon</span>
           </button>
@@ -3287,7 +3287,7 @@
         <div class="field-group">
           <input type="email" id="ctEmail" placeholder="Email">
         </div>
-        <button class="btn-primary" id="btnSaveContact" onclick="handleSaveContact()">
+        <button class="btn-primary" id="btnSaveContact" data-help="admin-client-record#open#6" onclick="handleSaveContact()">
           <span class="show-pt">Salvar Contato</span>
           <span class="show-en">Save Contact</span>
         </button>
@@ -3308,11 +3308,11 @@
       </div>
       <div class="modal-body">
         <div style="display:flex;gap:8px;">
-          <button type="button" class="btn-primary" id="arModeExistingBtn" onclick="setAttachMode('existing')" style="flex:1;">
+          <button type="button" class="btn-primary" id="arModeExistingBtn" data-help="admin-client-documents#docs#3" onclick="setAttachMode('existing')" style="flex:1;">
             <span class="show-pt">Da Biblioteca</span>
             <span class="show-en">From Library</span>
           </button>
-          <button type="button" class="btn-primary" id="arModeNewBtn" onclick="setAttachMode('new')" style="flex:1;opacity:0.55;">
+          <button type="button" class="btn-primary" id="arModeNewBtn" data-help="admin-client-documents#docs#3" onclick="setAttachMode('new')" style="flex:1;opacity:0.55;">
             <span class="show-pt">Criar Novo</span>
             <span class="show-en">Create New</span>
           </button>
@@ -3373,7 +3373,7 @@
           </div>
         </div>
 
-        <button class="btn-primary" id="btnAttachSubmit" onclick="handleAttachResource()">
+        <button class="btn-primary" id="btnAttachSubmit" data-help="admin-client-documents#docs#3" onclick="handleAttachResource()">
           <span class="show-pt">Anexar ao Cliente</span>
           <span class="show-en">Attach to Client</span>
         </button>
@@ -3445,11 +3445,11 @@
         </div>
         <div style="margin-bottom:10px;">
           <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--card);">
-            <button class="view-toggle-btn active" id="ssTypeMeet" onclick="setScheduleSessionType('online_meet')" style="flex:1;background:transparent;border:none;padding:8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;">
+            <button class="view-toggle-btn active" id="ssTypeMeet" data-help="admin-new-session-details#newsession#4" onclick="setScheduleSessionType('online_meet')" style="flex:1;background:transparent;border:none;padding:8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;">
               <span class="show-pt">Google Meet</span>
               <span class="show-en">Google Meet</span>
             </button>
-            <button class="view-toggle-btn" id="ssTypeInPerson" onclick="setScheduleSessionType('in_person')" style="flex:1;background:transparent;border:none;border-left:1px solid var(--border);padding:8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;">
+            <button class="view-toggle-btn" id="ssTypeInPerson" data-help="admin-new-session-details#newsession#4" onclick="setScheduleSessionType('in_person')" style="flex:1;background:transparent;border:none;border-left:1px solid var(--border);padding:8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;">
               <span class="show-pt">Presencial</span>
               <span class="show-en">In-Person</span>
             </button>
@@ -3474,7 +3474,7 @@
         <div class="field-group">
           <textarea id="ssNotes" style="width:100%;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);background:var(--surface);resize:vertical;min-height:80px;line-height:1.5;" data-ph-pt="Notas (opcional)" data-ph-en="Notes (optional)" placeholder="Notas (opcional)"></textarea>
         </div>
-        <button class="btn-primary" id="btnScheduleSubmit" onclick="handleScheduleSession()">
+        <button class="btn-primary" id="btnScheduleSubmit" data-help="admin-new-session-details#newsession#8" onclick="handleScheduleSession()">
           <span class="show-pt">Agendar</span>
           <span class="show-en">Schedule</span>
         </button>
@@ -3595,7 +3595,7 @@
       <div class="modal-body">
         <div id="stageConflictBody" style="font-size:13px;line-height:1.6;color:var(--text);margin-bottom:16px;"></div>
         <div style="display:flex;gap:10px;">
-          <button class="btn-primary" style="flex:1;" onclick="confirmStageConflict()">
+          <button class="btn-primary" style="flex:1;" data-help="admin-lead-pipeline#lead#2" onclick="confirmStageConflict()">
             <span class="show-pt">Alterar assim mesmo</span>
             <span class="show-en">Change anyway</span>
           </button>
@@ -3679,7 +3679,7 @@
           <div style="margin-bottom:8px;"><strong><span class="show-pt">Usu&aacute;rio:</span><span class="show-en">Username:</span></strong> <code id="clLoginUsername" style="font-size:14px;"></code></div>
           <div><strong><span class="show-pt">Senha tempor&aacute;ria:</span><span class="show-en">Temp password:</span></strong> <code id="clLoginPassword" style="font-size:14px;"></code></div>
         </div>
-        <button class="btn-primary" id="btnSendLoginWhatsapp" onclick="sendLoginViaWhatsapp()" style="width:100%;">
+        <button class="btn-primary" id="btnSendLoginWhatsapp" data-help="admin-client-login-access#access#1" onclick="sendLoginViaWhatsapp()" style="width:100%;">
           <span class="show-pt">Enviar via WhatsApp</span>
           <span class="show-en">Send via WhatsApp</span>
         </button>
@@ -4470,9 +4470,9 @@
               (p.requested_by ? ' &middot; ' + escHtml(p.requested_by) : '') +
               '</div></div>' +
               '<div style="display:flex;gap:8px;">' +
-              '<button class="btn-add" onclick="decideSellerLoginForClient(\'' + p.id + '\',\'approve\',this)">' +
+              '<button class="btn-add" data-help="admin-client-login-access#access#3" onclick="decideSellerLoginForClient(\'' + p.id + '\',\'approve\',this)">' +
               '<span class="show-pt">Aprovar</span><span class="show-en">Approve</span></button>' +
-              '<button class="btn-add" onclick="decideSellerLoginForClient(\'' + p.id + '\',\'reject\',this)">' +
+              '<button class="btn-add" data-help="admin-client-login-access#access#3" onclick="decideSellerLoginForClient(\'' + p.id + '\',\'reject\',this)">' +
               '<span class="show-pt">Rejeitar</span><span class="show-en">Reject</span></button>' +
               '</div></div>';
           });
@@ -4657,7 +4657,7 @@
           '<span class="show-en">This client has no portal login yet.</span></div>';
       }
       html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-        '<button class="btn-add" onclick="createClientLogin()">' +
+        '<button class="btn-add" data-help="admin-client-login-access#access#1" onclick="createClientLogin()">' +
         (s.exists
           ? '<span class="show-pt">Redefinir Senha</span><span class="show-en">Reset Password</span>'
           : '<span class="show-pt">Criar Login</span><span class="show-en">Create Login</span>') +
@@ -4739,10 +4739,10 @@
           '<span class="show-en">Link created. The code is texted to ' + escHtml(res.masked_phone) + '. Valid for 72 hours.</span></p>' +
           '<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;word-break:break-all;">' + escHtml(res.invite_url) + '</div>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-          '<button class="btn-add" style="flex:1;" onclick="ownerInviteCopy()">' +
+          '<button class="btn-add" style="flex:1;" data-help="admin-client-record-forms#forms#10" onclick="ownerInviteCopy()">' +
           (ownerInvite.copied ? '<span class="show-pt">Copiado</span><span class="show-en">Copied</span>'
                               : '<span class="show-pt">Copiar link</span><span class="show-en">Copy link</span>') + '</button>' +
-          '<button class="btn-primary" style="flex:1;" onclick="ownerInviteWhatsapp()">' +
+          '<button class="btn-primary" style="flex:1;" data-help="admin-client-record-forms#forms#10" onclick="ownerInviteWhatsapp()">' +
           '<span class="show-pt">Enviar pelo WhatsApp</span><span class="show-en">Send on WhatsApp</span></button></div>';
         box.innerHTML = html;
         return;
@@ -4880,9 +4880,9 @@
             '<div style="color:var(--muted);">' + t("Perdido em ", "Went missing ") + escHtml(r.reported_loss_at) + '<br>' +
             t("Reportado em ", "Reported ") + escHtml(r.reported_at) + ' (' + hours + 'h)</div>' +
             '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">' +
-            '<button class="btn-add" onclick="lossReviewMark(\'' + escHtml(r.id) + '\', true)">' + t("Marcar sinalizado", "Mark flagged") + '</button>' +
-            '<button class="btn-add" onclick="lossReviewMark(\'' + escHtml(r.id) + '\', false)">' + t("Marcar revisado", "Mark reviewed") + '</button>' +
-            '<button class="btn-add" onclick="lossReviewRecheck(\'' + escHtml(r.id) + '\')">' + t("Reverificar", "Recheck") + '</button>' +
+            '<button class="btn-add" data-help="admin-activity-support-preview#tools#2" onclick="lossReviewMark(\'' + escHtml(r.id) + '\', true)">' + t("Marcar sinalizado", "Mark flagged") + '</button>' +
+            '<button class="btn-add" data-help="admin-activity-support-preview#tools#2" onclick="lossReviewMark(\'' + escHtml(r.id) + '\', false)">' + t("Marcar revisado", "Mark reviewed") + '</button>' +
+            '<button class="btn-add" data-help="admin-activity-support-preview#tools#2" onclick="lossReviewRecheck(\'' + escHtml(r.id) + '\')">' + t("Reverificar", "Recheck") + '</button>' +
             '</div></div>';
         });
         html += '</div>';
@@ -4936,7 +4936,7 @@
       // shown once the owner already has a passkey.
       if (loginSecurity.ownerPersonId && loginSecurity.ownerHasPasskey) {
         html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">' +
-          '<button class="btn-add" onclick="ownerDeviceLossOpen()">' + t("Aparelho do dono: perdido, trocado ou saída", "Owner's device: lost, replaced or leaving") + '</button></div>';
+          '<button class="btn-add" data-help="admin-client-record-forms#forms#4" onclick="ownerDeviceLossOpen()">' + t("Aparelho do dono: perdido, trocado ou saída", "Owner's device: lost, replaced or leaving") + '</button></div>';
       }
       el.innerHTML = html;
     }
@@ -5261,7 +5261,7 @@
             '<span class="show-pt">Ativado em:</span><span class="show-en">Activated on:</span> ' +
             formatDateTimeUTC(a.activated_at) + '</div>' +
             (a.status === "completed"
-              ? '<button class="btn-add" style="margin-right:6px;" onclick="openAssessmentReport(\'' + t.report + '\')">' +
+              ? '<button class="btn-add" style="margin-right:6px;" data-help="admin-assessment-reports#reports#1" onclick="openAssessmentReport(\'' + t.report + '\')">' +
                 '<span class="show-pt">Ver Relat&oacute;rio</span><span class="show-en">View Report</span></button>'
               : '') +
             '<button class="btn-add" onclick="deactivateAssessment(\'' + t.type + '\')">' +
@@ -5491,7 +5491,7 @@
                 '<button type="button" class="btn btn-sm" onclick="shiftWeek(7)" aria-label="' +
                   (isEnLang ? "Next week" : "Próxima semana") + '">&#8250;</button>' +
                 (isCurrentWeek ? "" :
-                  '<button type="button" class="btn btn-sm" onclick="thisWeek()">' +
+                  '<button type="button" class="btn btn-sm" data-help="admin-client-results#results#3" onclick="thisWeek()">' +
                   (isEnLang ? "This week" : "Esta semana") + '</button>') +
               '</div>' +
               '<div style="font-size:12px;color:var(--muted);font-weight:600;">' +
@@ -12548,7 +12548,7 @@
         // is the phone-width one, which is where the app always is. Bundled
         // local page, so the app navigates in place.
         var invTarget = (window.apexIsNative && apexIsNative()) ? "" : ' target="_blank" rel="noopener"';
-        html += '<td class="mc-action"><a class="btn-inv-view" href="' + escHtml(invPath) + '"' + invTarget + '>';
+        html += '<td class="mc-action"><a class="btn-inv-view" data-help="admin-invoices#invoices#20" href="' + escHtml(invPath) + '"' + invTarget + '>';
         html += mcIcon("view");
         html += '<span class="show-pt">Ver Fatura</span><span class="show-en">View Invoice</span>';
         html += '</a></td>';

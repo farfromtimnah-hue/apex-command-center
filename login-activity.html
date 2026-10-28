@@ -410,7 +410,7 @@
       var bits = [];
       if (d && d.group) { bits.push(d.group); }
       if (d && d.method) { bits.push(d.method); }
-      return escHtml(bits.join(" &middot; "));
+      return escHtml(bits.join(" \u00b7 "));
     }
     function loadActivity() {
       var wrap = document.getElementById("actActivityTableWrap");

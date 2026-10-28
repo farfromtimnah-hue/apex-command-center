@@ -1864,8 +1864,8 @@
             {
               "n": 10,
               "text": {
-                "pt": "Aparece a mensagem Pagamento registrado com o número do recibo, por exemplo RCT-000006. A fatura sai de Não Pagas e vai para Arquivo como Paga. O dinheiro já conta como receita.",
-                "en": "A message says Payment recorded and shows the receipt number, for example RCT-000008. The invoice leaves Unpaid and moves to Archive as Paid. The cash is now counted as income."
+                "pt": "Aparece a mensagem Pagamento registrado com o número do recibo. A fatura sai de Não Pagas e vai para Arquivo como Paga. O dinheiro já conta como receita.",
+                "en": "A message says Payment recorded and shows the receipt number. The invoice leaves Unpaid and moves to Archive as Paid. The cash is now counted as income."
               },
               "image": {
                 "pt": "help/img/guides/admin-record-payment/record-s10.pt.jpg",
@@ -14316,8 +14316,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "As reuniões gravadas pelo Fireflies chegam sozinhas em Sessões e a Apex tenta ligar cada uma ao cliente certo. Você só age quando uma reunião não foi ligada a ninguém, ou na hora de gerar e aprovar o resumo. Abra Sessões (1) no menu da esquerda. Os nomes nas imagens são inventados.",
-                "en": "Meetings recorded by Fireflies arrive in Sessions by themselves and Apex tries to match each one to the right client. You only act when a meeting is not matched, or when it is time to make and approve the summary. Open Sessions (1) in the left menu. Names are made up in the pictures."
+                "pt": "As reuniões gravadas pelo Fireflies chegam sozinhas em Sessões e a Apex tenta ligar cada uma ao cliente certo. Você só age quando uma reunião não foi ligada a ninguém, ou na hora de gerar e aprovar o resumo. Abra Sessões (1) no menu da esquerda.",
+                "en": "Meetings recorded by Fireflies arrive in Sessions by themselves and Apex tries to match each one to the right client. You only act when a meeting is not matched, or when it is time to make and approve the summary. Open Sessions (1) in the left menu."
               },
               "image": {
                 "pt": "help/img/guides/admin-sessions-summary/sessions-s01.pt.jpg",
@@ -14327,7 +14327,7 @@
             {
               "n": 2,
               "text": {
-                "pt": "Os três botões do alto (1): Caixa de Entrada, Nova Sessao (para colar uma transcrição) e Transcricoes.",
+                "pt": "Os três botões do alto (1): Caixa de Entrada, Nova Sessão (para colar uma transcrição) e Transcrições.",
                 "en": "The three buttons at the top (1): Inbox, New Session (to paste a transcript) and Transcripts."
               },
               "image": {
@@ -14387,7 +14387,7 @@
             {
               "n": 8,
               "text": {
-                "pt": "Para uma reunião que não foi gravada, toque em Nova Sessao no alto. No formulário: 1. Cliente: escolha o cliente. 2. Data da sessão: o dia da reunião. 3. Transcript: cole o texto da reunião.",
+                "pt": "Para uma reunião que não foi gravada, toque em Nova Sessão no alto. No formulário: 1. Cliente: escolha o cliente. 2. Data da sessão: o dia da reunião. 3. Transcript: cole o texto da reunião.",
                 "en": "For a meeting that was not recorded, tap New Session at the top. In the form: 1. Client: choose the client. 2. Session date: the day of the meeting. 3. Transcript: paste the text of the meeting."
               },
               "image": {
@@ -14610,8 +14610,8 @@
             {
               "n": 10,
               "text": {
-                "pt": "Quando o Claude arquivou um documento sem cliente, a linha dele no Hub tem o botão Anexar a cliente. Toque nele, escreva o nome exato do cliente e toque em Anexar. O arquivo vai para o perfil do cliente e fica escondido dele até você mostrar.",
-                "en": "When Claude filed a document with no client, its line in the Hub has the button Attach to client. Tap it, write the exact name of the client and tap Attach. The file moves to the client's profile and stays hidden from the client until you show it."
+                "pt": "Quando um documento foi arquivado sem cliente, a linha dele no Hub tem o botão Anexar a cliente. Toque nele, escreva o nome exato do cliente e toque em Anexar. O arquivo vai para o perfil do cliente e fica escondido dele até você mostrar.",
+                "en": "When a document was filed with no client, its line in the Hub has the button Attach to client. Tap it, write the exact name of the client and tap Attach. The file moves to the client's profile and stays hidden from the client until you show it."
               },
               "image": null
             }
@@ -14627,8 +14627,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "No registro do cliente. Abra o cliente, toque em Trabalho Apex e escolha Recursos ou Documentos. 1. + Anexar Recurso dá um recurso ao cliente: escolha From Library para pegar um que você guardou, ou Create New para criar ali mesmo, e toque em Attach to Client. 2. Enviar Arquivo coloca um arquivo no cartão Documentos deste cliente. 3. Ver abre um documento. 4. Ocultar do cliente tira o documento da vista do cliente. Um documento oculto mostra Mostrar ao cliente para você trazê-lo de volta. Excluir apaga. Os nomes da equipe estão escondidos nesta imagem.",
-                "en": "On the client record. Open the client, tap Apex work and choose Resources or Documents. 1. + Anexar Recurso (+ Attach Resource) gives the client a resource: choose From Library to pick one you saved, or Create New to make one right there, then tap Attach to Client. 2. Enviar Arquivo (Upload File) puts a file in the Documents card of this client. 3. Ver (View) opens a document. 4. Ocultar do cliente (Hide from client) takes it off the client's view. A hidden document shows Mostrar ao cliente (Show to client) so you can bring it back. Excluir (Delete) removes it. Names of staff are hidden in this picture."
+                "pt": "No registro do cliente. Abra o cliente, toque em Trabalho Apex e escolha Recursos ou Documentos. 1. + Anexar Recurso dá um recurso ao cliente: escolha From Library para pegar um que você guardou, ou Create New para criar ali mesmo, e toque em Attach to Client. 2. Enviar Arquivo coloca um arquivo no cartão Documentos deste cliente. 3. Ver abre um documento. 4. Ocultar do cliente tira o documento da vista do cliente. Um documento oculto mostra Mostrar ao cliente para você trazê-lo de volta. Excluir apaga.",
+                "en": "On the client record. Open the client, tap Apex work and choose Resources or Documents. 1. + Anexar Recurso (+ Attach Resource) gives the client a resource: choose From Library to pick one you saved, or Create New to make one right there, then tap Attach to Client. 2. Enviar Arquivo (Upload File) puts a file in the Documents card of this client. 3. Ver (View) opens a document. 4. Ocultar do cliente (Hide from client) takes it off the client's view. A hidden document shows Mostrar ao cliente (Show to client) so you can bring it back. Excluir (Delete) removes it."
               },
               "image": {
                 "pt": "help/img/guides/admin-resources-documents/client-01.pt.jpg",
@@ -15486,8 +15486,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Cada link que você cria fica esperando numa lista, a caixa Aguardando horário (1). Ela fica no Dashboard e também no fim da página Calendário. O botão Calendário no canto da caixa do Dashboard leva ao calendário. Os nomes são inventados nestas imagens.",
-                "en": "Every link you make waits in a list, the box Waiting on a time (1). It is on the Dashboard, and also at the bottom of the Calendar page. The Calendar button in the corner of the box on the Dashboard takes you to the calendar. Names are made up in these pictures."
+                "pt": "Cada link que você cria fica esperando numa lista, a caixa Aguardando horário (1). Ela fica no Dashboard e também no fim da página Calendário. O botão Calendário no canto da caixa do Dashboard leva ao calendário.",
+                "en": "Every link you make waits in a list, the box Waiting on a time (1). It is on the Dashboard, and also at the bottom of the Calendar page. The Calendar button in the corner of the box on the Dashboard takes you to the calendar."
               },
               "image": {
                 "pt": "help/img/guides/admin-send-times/send-s07.pt.jpg",
@@ -16211,8 +16211,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Abra Vendas no menu da esquerda. Os quatro cartões: Crescimento médio (1) dos clientes que têm um número, Maior (2), Menor (3) e Registrados (4), que conta quantos clientes ativos têm um número no mês. Neste mês nenhum tem ainda, então os cartões mostram traços e 0 de 15.",
-                "en": "Open Sales in the left menu. The four tiles: Average growth (1) of the clients that have a number, Highest (2), Lowest (3) and Entered (4), which counts how many active clients have a number for the month. This month none has one yet, so the tiles show dashes and 0 of 15."
+                "pt": "Abra Vendas no menu da esquerda. Os quatro cartões: Crescimento médio (1) dos clientes que têm um número, Maior (2), Menor (3) e Registrados (4), que conta quantos clientes ativos têm um número no mês.",
+                "en": "Open Sales in the left menu. The four tiles: Average growth (1) of the clients that have a number, Highest (2), Lowest (3) and Entered (4), which counts how many active clients have a number for the month."
               },
               "image": {
                 "pt": "help/img/guides/admin-sales-growth/sales-02.pt.jpg",
@@ -16222,8 +16222,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Mês (1) escolhe o mês para olhar. Ranking de Crescimento (2) lista os clientes (3). Um cliente sem número no mês mostra sem registro. Os nomes dos clientes são nomes de teste na figura.",
-                "en": "Month (1) chooses the month to look at. Growth Ranking (2) lists the clients (3). A client with no number for the month shows no entry. Client names are test names in the picture."
+                "pt": "Mês (1) escolhe o mês para olhar. Ranking de Crescimento (2) lista os clientes (3). Um cliente sem número no mês mostra sem registro.",
+                "en": "Month (1) chooses the month to look at. Growth Ranking (2) lists the clients (3). A client with no number for the month shows no entry."
               },
               "image": {
                 "pt": "help/img/guides/admin-sales-growth/sales-03.pt.jpg",
@@ -16233,8 +16233,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Mais abaixo na página Vendas está o Ranking do Registro Diário. Mês (1) escolhe o mês. As colunas (2) mostram a nota composta, uma nota por categoria e os dias com registro. Cada linha (3) é um cliente. A nota é a porcentagem da meta do mês que ele atingiu. Os nomes estão trocados.",
-                "en": "Further down the Sales page is the Daily Log Leaderboard. Month (1) chooses the month. The columns (2) show the composite score, one score per category and the days with a log. Each row (3) is a client. The score is the percent of the monthly target that client reached. The names are replaced."
+                "pt": "Mais abaixo na página Vendas está o Ranking do Registro Diário. Mês (1) escolhe o mês. As colunas (2) mostram a nota composta, uma nota por categoria e os dias com registro. Cada linha (3) é um cliente. A nota é a porcentagem da meta do mês que ele atingiu.",
+                "en": "Further down the Sales page is the Daily Log Leaderboard. Month (1) chooses the month. The columns (2) show the composite score, one score per category and the days with a log. Each row (3) is a client. The score is the percent of the monthly target that client reached."
               },
               "image": {
                 "pt": "help/img/guides/admin-sales-growth/sales-04.pt.jpg",
@@ -24318,8 +24318,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Escreva o seu aviso. Uma caixa abre embaixo dos botões. Digite na caixa (1) ou toque em Ditar (2) e fale em voz alta. Toque em Enviar (3) para mandar ao suporte. Não toque em Enviar só para testar.",
-                "en": "Write your note. A box opens under the buttons. Type in the box (1), or tap Dictate (2) and say it out loud. Tap Send (3) to send it to support. Do not tap Send only to test it."
+                "pt": "Escreva o seu aviso. Uma caixa abre embaixo dos botões. Digite na caixa (1) ou toque em Ditar (2) e fale em voz alta. Toque em Enviar (3) para mandar ao suporte. Toque em Enviar só quando quiser que o suporte leia.",
+                "en": "Write your note. A box opens under the buttons. Type in the box (1), or tap Dictate (2) and say it out loud. Tap Send (3) to send it to support. Tap Send only when you want support to read it."
               },
               "image": {
                 "pt": "help/img/guides/admin-tell-us-goal-approvals/dash-02.pt.jpg",
@@ -24653,8 +24653,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Fornecedores no menu da esquerda. Os cartões (1) mostram o Total a pagar agora e um cartão para cada fornecedor, com o valor devido agora e o que vem pela frente. Escolha o mês (2). Previsão (3) e Histórico (4) abrem as listas. Toque em + Adicionar fornecedor (5) para incluir um fornecedor. Nas figuras os fornecedores se chamam Vendor A a E e os valores estão cobertos.",
-                "en": "Open Vendors in the left menu. The tiles (1) show Total to pay now and one tile for each vendor, with the amount due now and what is upcoming. Pick the month (2). Forecast (3) and History (4) open the lists. Tap + Add vendor (5) to add a vendor. In the pictures the vendors are called Vendor A to E and the amounts are covered."
+                "pt": "Abra Fornecedores no menu da esquerda. Os cartões (1) mostram o Total a pagar agora e um cartão para cada fornecedor, com o valor devido agora e o que vem pela frente. Escolha o mês (2). Previsão (3) e Histórico (4) abrem as listas. Toque em + Adicionar fornecedor (5) para incluir um fornecedor.",
+                "en": "Open Vendors in the left menu. The tiles (1) show Total to pay now and one tile for each vendor, with the amount due now and what is upcoming. Pick the month (2). Forecast (3) and History (4) open the lists. Tap + Add vendor (5) to add a vendor."
               },
               "image": {
                 "pt": "help/img/guides/admin-vendors/vendors-01.pt.jpg",
@@ -24686,8 +24686,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Remitly sem fornecedor lista dinheiro enviado pela Remitly que ainda não tem fornecedor. Toque na linha para abrir a lista. Para cada pagamento (1) toque no fornecedor a que ele pertence (2). Se não foi um pagamento a fornecedor, toque em Não é de fornecedor (3). O texto do banco na figura está coberto.",
-                "en": "Remitly not assigned to a vendor lists money sent by Remitly that has no vendor yet. Tap the line to open the list. For each payment (1) tap the vendor it belongs to (2). If it was not a payment to a vendor, tap Not a vendor payment (3). The bank text in the picture is covered."
+                "pt": "Remitly sem fornecedor lista dinheiro enviado pela Remitly que ainda não tem fornecedor. Toque na linha para abrir a lista. Para cada pagamento (1) toque no fornecedor a que ele pertence (2). Se não foi um pagamento a fornecedor, toque em Não é de fornecedor (3).",
+                "en": "Remitly not assigned to a vendor lists money sent by Remitly that has no vendor yet. Tap the line to open the list. For each payment (1) tap the vendor it belongs to (2). If it was not a payment to a vendor, tap Not a vendor payment (3)."
               },
               "image": {
                 "pt": "help/img/guides/admin-vendors/vendors-04.pt.jpg",
@@ -24697,8 +24697,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Cada fornecedor tem um cartão abaixo. Registrar pagamento (1) serve para quando você enviou um pagamento: você escreve o valor, a data e os itens que ele cobre. Nada está vencendo nesta figura, então o botão só mostra onde fica. Toque em Próximos (2) para ver os pagamentos planejados para depois.",
-                "en": "Each vendor has a card below. Record payment (1) is for when you sent a payment: you write the amount, the date and the items it covers. Nothing is due in this picture, so the button only shows where it is. Tap Coming up (2) to see the payments that are planned for later."
+                "pt": "Cada fornecedor tem um cartão abaixo. Registrar pagamento (1) serve para quando você enviou um pagamento: você escreve o valor, a data e os itens que ele cobre. Toque em Próximos (2) para ver os pagamentos planejados para depois.",
+                "en": "Each vendor has a card below. Record payment (1) is for when you sent a payment: you write the amount, the date and the items it covers. Tap Coming up (2) to see the payments that are planned for later."
               },
               "image": {
                 "pt": "help/img/guides/admin-vendors/vendors-05.pt.jpg",
@@ -24708,8 +24708,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Para adicionar um fornecedor, toque em + Adicionar fornecedor. Escreva o Nome (1) e o Tipo (2) e toque em Salvar (3). Nada foi salvo nesta figura.",
-                "en": "To add a vendor, tap + Add vendor. Write the Name (1) and the Type (2), then tap Save (3). Nothing was saved for this picture."
+                "pt": "Para adicionar um fornecedor, toque em + Adicionar fornecedor. Escreva o Nome (1) e o Tipo (2) e toque em Salvar (3).",
+                "en": "To add a vendor, tap + Add vendor. Write the Name (1) and the Type (2), then tap Save (3)."
               },
               "image": {
                 "pt": "help/img/guides/admin-vendors/vendors-06.pt.jpg",
@@ -24719,8 +24719,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Previsão abre uma tabela (1) com os pagamentos planejados para os próximos meses, uma coluna para cada fornecedor. Embaixo, Aguardando conclusão lista os pagamentos que esperam o fim de um trabalho. Os valores estão cobertos na figura.",
-                "en": "Forecast opens a table (1) with the payments planned for the next months, one column for each vendor. Under it, Awaiting completion lists payments that wait for a job to finish. The amounts are covered in the picture."
+                "pt": "Previsão abre uma tabela (1) com os pagamentos planejados para os próximos meses, uma coluna para cada fornecedor. Embaixo, Aguardando conclusão lista os pagamentos que esperam o fim de um trabalho.",
+                "en": "Forecast opens a table (1) with the payments planned for the next months, one column for each vendor. Under it, Awaiting completion lists payments that wait for a job to finish."
               },
               "image": {
                 "pt": "help/img/guides/admin-vendors/vendors-07.pt.jpg",
@@ -24741,8 +24741,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Registrar pagamento abre um formulário. Em Transação do Remitly (1) escolha um pagamento do Remitly sem fornecedor, e o valor e a data se preenchem. Ou deixe Nenhuma e escreva o Valor real em dólar (2) e a Data do pagamento (3). A Nota (4) é opcional. Salvar (5) registra. O formulário foi fechado sem salvar.",
-                "en": "Record payment opens a form. In Remitly transaction (1) pick a Remitly payment with no vendor, and the amount and date fill in. Or leave None and write the Real amount in USD (2) and Paid on (3). The Note (4) is optional. Save (5) records it. The form was closed without saving."
+                "pt": "Registrar pagamento abre um formulário. Em Transação do Remitly (1) escolha um pagamento do Remitly sem fornecedor, e o valor e a data se preenchem. Ou deixe Nenhuma e escreva o Valor real em dólar (2) e a Data do pagamento (3). A Nota (4) é opcional. Salvar (5) registra.",
+                "en": "Record payment opens a form. In Remitly transaction (1) pick a Remitly payment with no vendor, and the amount and date fill in. Or leave None and write the Real amount in USD (2) and Paid on (3). The Note (4) is optional. Save (5) records it."
               },
               "image": {
                 "pt": "help/img/guides/admin-vendors/vendors-09.pt.jpg",
@@ -24752,8 +24752,8 @@
             {
               "n": 10,
               "text": {
-                "pt": "Enviei o pagamento aparece quando o fornecedor tem algo a pagar agora. Escreva o Valor em dólar (1) e a Data do envio (2). Ver itens (3) mostra o que o pagamento cobre. Enviar (4) registra. Nada estava a pagar nesta imagem, e nada foi enviado.",
-                "en": "I sent the payment shows when the vendor has something due now. Write the Amount in USD (1) and the Date sent (2). See items (3) shows what the payment covers. Send (4) records it. Nothing was due in this picture, and nothing was sent."
+                "pt": "Enviei o pagamento aparece quando o fornecedor tem algo a pagar agora. Escreva o Valor em dólar (1) e a Data do envio (2). Ver itens (3) mostra o que o pagamento cobre. Enviar (4) registra.",
+                "en": "I sent the payment shows when the vendor has something due now. Write the Amount in USD (1) and the Date sent (2). See items (3) shows what the payment covers. Send (4) records it."
               },
               "image": {
                 "pt": "help/img/guides/admin-vendors/vendors-10.pt.jpg",
@@ -25018,8 +25018,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra a ficha de um cliente e toque em Diagnóstico de Vendedores. O botão só aparece quando o cliente tem um login de vendedor. Leia o aviso primeiro (2): este é material de coaching, ele cita pessoas pelo nome e o cliente não vê esta página. Toque em Voltar ao cliente (1) para sair. Escolha Todos os vendedores ou uma pessoa nos botões (3). Os nomes dos vendedores nas figuras estão trocados.",
-                "en": "Open a client record and tap Seller diagnostics. The button only shows when the client has a salesperson login. Read the warning first (2): this is coaching material, it names people, and the client cannot see this page. Tap Back to client (1) to leave. Pick All salespeople or one person with the buttons (3). The salesperson names in the pictures are replaced."
+                "pt": "Abra a ficha de um cliente e toque em Diagnóstico de Vendedores. O botão só aparece quando o cliente tem um login de vendedor. Leia o aviso primeiro (2): este é material de coaching, ele cita pessoas pelo nome e o cliente não vê esta página. Toque em Voltar ao cliente (1) para sair. Escolha Todos os vendedores ou uma pessoa nos botões (3).",
+                "en": "Open a client record and tap Seller diagnostics. The button only shows when the client has a salesperson login. Read the warning first (2): this is coaching material, it names people, and the client cannot see this page. Tap Back to client (1) to leave. Pick All salespeople or one person with the buttons (3)."
               },
               "image": {
                 "pt": "help/img/guides/admin-seller-diagnostics/seller-01.pt.jpg",
@@ -25667,8 +25667,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Um pacote, a parte de baixo. O Preço base e os preços à vista ou parcelados vêm em seguida (a imagem cobre os números). Ligue Plano de Pagamento (1) para um pacote pago em partes. Marque Mais Popular (2) para mostrar a faixa no cartão. Excluir (3) remove o pacote. Salvar (4) guarda as mudanças. + Adicionar Pacote no fim cria um cartão novo.",
-                "en": "A package, the bottom part. The Base price and the upfront or installment prices come next (the picture covers the numbers). Turn on Payment Plan (1) for a package paid in parts. Tick Most Popular (2) to show the badge on the card. Delete (3) removes the package. Save (4) keeps your changes. + Add Package at the end makes a new card."
+                "pt": "Um pacote, a parte de baixo. Ligue Plano de Pagamento (1) para um pacote pago em partes. Marque Mais Popular (2) para mostrar a faixa no cartão. Excluir (3) remove o pacote. Salvar (4) guarda as mudanças. + Adicionar Pacote no fim cria um cartão novo.",
+                "en": "A package, the bottom part. Turn on Payment Plan (1) for a package paid in parts. Tick Most Popular (2) to show the badge on the card. Delete (3) removes the package. Save (4) keeps your changes. + Add Package at the end makes a new card."
               },
               "image": {
                 "pt": "help/img/guides/admin-settings-packages-payment/pkg-02.pt.jpg",
@@ -25678,8 +25678,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Detalhes de pagamento. Em Detalhes de Pagamento, o QR Code do Zelle e o link do Stripe valem para todas as faturas da Apex. Toque em Alterar QR Code (1) para enviar uma imagem nova. Digite o link de pagamento do Stripe em (2) e toque em Salvar ao lado. Digite o e-mail ou telefone do Zelle em (3) e toque em Salvar ao lado. Ele aparece junto ao QR Code, para quem lê no celular e não consegue escanear. A imagem cobre os valores reais.",
-                "en": "Payment details. Under Payment Details, the Zelle QR code and the Stripe link are used on all Apex invoices. Tap Change QR Code (1) to send a new picture. Type the Stripe payment link in (2) and tap Save next to it. Type the Zelle email or phone in (3) and tap Save next to it. It shows next to the QR code for someone reading on a phone who cannot scan it. The picture covers the real values."
+                "pt": "Detalhes de pagamento. Em Detalhes de Pagamento, o QR Code do Zelle e o link do Stripe valem para todas as faturas da Apex. Toque em Alterar QR Code (1) para enviar uma imagem nova. Digite o link de pagamento do Stripe em (2) e toque em Salvar ao lado. Digite o e-mail ou telefone do Zelle em (3) e toque em Salvar ao lado. Ele aparece junto ao QR Code, para quem lê no celular e não consegue escanear.",
+                "en": "Payment details. Under Payment Details, the Zelle QR code and the Stripe link are used on all Apex invoices. Tap Change QR Code (1) to send a new picture. Type the Stripe payment link in (2) and tap Save next to it. Type the Zelle email or phone in (3) and tap Save next to it. It shows next to the QR code for someone reading on a phone who cannot scan it."
               },
               "image": {
                 "pt": "help/img/guides/admin-settings-packages-payment/pkg-03.pt.jpg",
@@ -28393,8 +28393,8 @@
         "en": "Vendors: edit, add a service, skip a month and delay the start"
       },
       "summary": {
-        "pt": "Telas menores de Fornecedores, escritas a partir do código.",
-        "en": "Smaller Vendors screens, written from the code."
+        "pt": "Telas menores de Fornecedores: editar, adicionar serviço, pular mês e adiar início.",
+        "en": "Smaller Vendors screens: edit a vendor, add a service, skip a month and delay the start."
       },
       "keywords": {
         "pt": [
@@ -28438,7 +28438,7 @@
             {
               "n": 3,
               "text": {
-                "pt": "Quando um pagamento está a pagar ou atrasado, a linha tem os botões Pular este mês e Adiar início. Pular este mês abre uma janela com o campo Motivo; escreva o motivo e toque em Confirmar. O pagamento deste mês não será cobrado.",
+                "pt": "Quando um pagamento está para pagar ou atrasado, a linha tem os botões Pular este mês e Adiar início. Pular este mês abre uma janela com o campo Motivo; escreva o motivo e toque em Confirmar. O pagamento deste mês não será cobrado.",
                 "en": "When a payment is due or late, its line has the buttons Skip this month and Delay start. Skip this month opens a window with the field Reason; write the reason and tap Confirm. This month's payment will not be charged."
               },
               "image": null
@@ -28501,8 +28501,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "O alto da página. O Dashboard do Rafa se chama Visão Geral. Os três números (1) são Reuniões hoje, Tarefas pendentes e Atrasadas. Os botões Diário e Semanal (2) mudam o período. Falar reunião (3) marca uma reunião por voz. Embaixo dos números uma barra mostra quantas tarefas estão feitas. O desenvolvedor vê esta tela com o botão Rafa na barra DEV do menu lateral. A imagem cobre as listas.",
-                "en": "The top of the page. Rafa's Dashboard is called Overview. The three numbers (1) are Meetings today, Tasks due and Overdue. The Daily and Weekly buttons (2) change the period. Speak a meeting (3) books a meeting by voice. Below the numbers a bar shows how many tasks are done. The developer can see this view with the Rafa button in the DEV bar of the side menu. The picture covers the lists."
+                "pt": "O alto da página. O Dashboard do Rafa se chama Visão Geral. Os três números (1) são Reuniões hoje, Tarefas pendentes e Atrasadas. Os botões Diário e Semanal (2) mudam o período. Falar reunião (3) marca uma reunião por voz. Embaixo dos números uma barra mostra quantas tarefas estão feitas. O desenvolvedor vê esta tela com o botão Rafa na barra DEV do menu lateral.",
+                "en": "The top of the page. Rafa's Dashboard is called Overview. The three numbers (1) are Meetings today, Tasks due and Overdue. The Daily and Weekly buttons (2) change the period. Speak a meeting (3) books a meeting by voice. Below the numbers a bar shows how many tasks are done. The developer can see this view with the Rafa button in the DEV bar of the side menu."
               },
               "image": {
                 "pt": "help/img/guides/admin-rafa-dashboard/rd-01.pt.jpg",
@@ -28512,8 +28512,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "As reuniões de hoje e da semana. Embaixo dos números, a caixa (1) lista as reuniões, com a data e a hora. Toque em Semanal (2) para ver a semana toda. Uma reunião que é sessão da Apex tem três botões na linha: Entrar (o Google Meet), Enviar Link (o link do Meet por WhatsApp) e Preparação da reunião. Os outros eventos do calendário mostram só o nome e a hora. A imagem cobre os nomes.",
-                "en": "Today's and this week's meetings. Under the numbers, the box (1) lists the meetings, with the date and time. Tap Weekly (2) to see the whole week. A meeting that is an Apex session has three buttons on its row: Join (the Google Meet), Send Link (the Meet link by WhatsApp) and Meeting prep. Other events from the calendar show only the name and time. The picture covers the names."
+                "pt": "As reuniões de hoje e da semana. Embaixo dos números, a caixa (1) lista as reuniões, com a data e a hora. Toque em Semanal (2) para ver a semana toda. Uma reunião que é sessão da Apex tem três botões na linha: Entrar (o Google Meet), Enviar Link (o link do Meet por WhatsApp) e Preparação da reunião. Os outros eventos do calendário mostram só o nome e a hora.",
+                "en": "Today's and this week's meetings. Under the numbers, the box (1) lists the meetings, with the date and time. Tap Weekly (2) to see the whole week. A meeting that is an Apex session has three buttons on its row: Join (the Google Meet), Send Link (the Meet link by WhatsApp) and Meeting prep. Other events from the calendar show only the name and time."
               },
               "image": {
                 "en": "help/img/guides/admin-rafa-dashboard/rd-02.en.jpg",
@@ -28523,8 +28523,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Minhas tarefas. Embaixo das reuniões, Minhas tarefas lista as tarefas, com o cliente e o prazo, e Atrasada em vermelho. Toque no círculo (1) à esquerda de uma tarefa para marcá-la como feita. Falar minhas tarefas e Adicionar tarefa ficam no alto da lista. A imagem cobre os nomes das tarefas.",
-                "en": "My tasks. Under the meetings, My tasks lists the tasks, with the client and the due date, and Overdue in red. Tap the circle (1) at the left of a task to tick it as done. Speak my tasks and Add task are at the top of the list. The picture covers the task names."
+                "pt": "Minhas tarefas. Embaixo das reuniões, Minhas tarefas lista as tarefas, com o cliente e o prazo, e Atrasada em vermelho. Toque no círculo (1) à esquerda de uma tarefa para marcá-la como feita. Falar minhas tarefas e Adicionar tarefa ficam no alto da lista.",
+                "en": "My tasks. Under the meetings, My tasks lists the tasks, with the client and the due date, and Overdue in red. Tap the circle (1) at the left of a task to tick it as done. Speak my tasks and Add task are at the top of the list."
               },
               "image": {
                 "en": "help/img/guides/admin-rafa-dashboard/rd-03.en.jpg",
@@ -29213,8 +29213,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Sessões da Apex e reuniões do Google. No Calendário, um bloco azul escuro (1) é uma sessão da Apex. Um bloco branco com contorno escuro (2) é uma reunião que veio do seu Google Calendar. A ficha dela mostra a etiqueta Reunião fora da Apex. A imagem esconde os nomes e mantém as cores.",
-                "en": "Apex sessions and Google meetings. On the Calendar, a dark blue block (1) is an Apex session. A block with a white fill and a dark outline (2) is a meeting that came from your Google Calendar. Its sheet shows the tag Non-Apex meeting. The picture hides the names and keeps the colors."
+                "pt": "Sessões da Apex e reuniões do Google. No Calendário, um bloco azul escuro (1) é uma sessão da Apex. Um bloco branco com contorno escuro (2) é uma reunião que veio do seu Google Calendar. A ficha dela mostra a etiqueta Reunião fora da Apex.",
+                "en": "Apex sessions and Google meetings. On the Calendar, a dark blue block (1) is an Apex session. A block with a white fill and a dark outline (2) is a meeting that came from your Google Calendar. Its sheet shows the tag Non-Apex meeting."
               },
               "image": {
                 "en": "help/img/guides/admin-session-sheet/sheet-09.en.jpg",
@@ -29470,8 +29470,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra a aba e filtre. Na página Sessões toque em Transcrições. Escolha um cliente na lista All Clients (1) para ver só ele. Defina uma data de início e uma data de fim (2) para ver só aquele período. A imagem cobre os nomes dos clientes.",
-                "en": "Open the tab and filter. On the Sessions page tap Transcripts. Pick one client in the list All Clients (1) to see only that client. Set a start date and an end date (2) to see only that period. The picture covers the client names."
+                "pt": "Abra a aba e filtre. Na página Sessões toque em Transcrições. Escolha um cliente na lista All Clients (1) para ver só ele. Defina uma data de início e uma data de fim (2) para ver só aquele período.",
+                "en": "Open the tab and filter. On the Sessions page tap Transcripts. Pick one client in the list All Clients (1) to see only that client. Set a start date and an end date (2) to see only that period."
               },
               "image": {
                 "pt": "help/img/guides/admin-sessions-transcripts/tr-01.pt.jpg",
@@ -29503,8 +29503,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Escolha as seções do relatório. Quando uma reunião é salva ou aberta, a página dela mostra Seções do Relatório (1): Radiografia Atual, Recomendações, Ações do Cliente, Acompanhamento do Consultor, Foco da Próxima Sessão, Matriz SWOT, Leitura Cruzada da SWOT, Plano de 30 Dias e Meta dos 30 Dias. Capa e Sumário Executivo são sempre incluídos. Desmarque o que não quiser e toque em Gerar Resumo (3). A lista das outras reuniões está coberta na imagem.",
-                "en": "Choose the report sections. When a meeting is saved or opened, its page shows Report Sections (1): Current Business X-Ray, Recommendations, Client Action Items, Consultant Follow-up, Next Session Focus, SWOT Matrix, SWOT Cross-Analysis, 30-Day Plan and 30-Day Goals. Cover and Executive Summary are always included. Untick what you do not want, then tap Generate Summary (3). The list of other meetings is covered in the picture."
+                "pt": "Escolha as seções do relatório. Quando uma reunião é salva ou aberta, a página dela mostra Seções do Relatório (1): Radiografia Atual, Recomendações, Ações do Cliente, Acompanhamento do Consultor, Foco da Próxima Sessão, Matriz SWOT, Leitura Cruzada da SWOT, Plano de 30 Dias e Meta dos 30 Dias. Capa e Sumário Executivo são sempre incluídos. Desmarque o que não quiser e toque em Gerar Resumo (3).",
+                "en": "Choose the report sections. When a meeting is saved or opened, its page shows Report Sections (1): Current Business X-Ray, Recommendations, Client Action Items, Consultant Follow-up, Next Session Focus, SWOT Matrix, SWOT Cross-Analysis, 30-Day Plan and 30-Day Goals. Cover and Executive Summary are always included. Untick what you do not want, then tap Generate Summary (3)."
               },
               "image": {
                 "en": "help/img/guides/admin-sessions-transcripts/tr-04.en.jpg",

@@ -92,6 +92,11 @@
       var key = normalize(texts[t]);
       if (key && has(map, key)) { return { guide: map[key].guide, section: map[key].section, step: map[key].step }; }
     }
+    // Last resort: the nearest window or sheet says which guide explains it
+    // (data-help-default). A button with its own label or its own data-help never gets here.
+    if (typeof info.fallbackHelp === "string" && info.fallbackHelp) {
+      return resolveTarget({ dataHelp: info.fallbackHelp, texts: [] }, data);
+    }
     return null;
   }
 

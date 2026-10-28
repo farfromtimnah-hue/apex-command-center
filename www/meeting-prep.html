@@ -602,7 +602,7 @@
     </div>
     <div class="header-right">
       <button class="hdr-btn" onclick="goBack()"><span class="show-pt">Voltar</span><span class="show-en">Back</span></button>
-      <button class="hdr-btn" onclick="toggleLang()">PT / EN</button>
+      <button data-help="admin-menu-language-learn#menu#2" class="hdr-btn" onclick="toggleLang()">PT / EN</button>
     </div>
   </header>
 
@@ -906,7 +906,7 @@
       // the package is chosen, so the contract is built right here, from the
       // lead's data. Opens the existing contract when there is one.
       if (d.meeting_type === "xray_results" && !IS_EXAMPLE && window.ApexContract) {
-        h += '<button type="button" class="gm-btn-primary" style="max-width:320px;" onclick="ApexContract.start(CLIENT_ID)">' +
+        h += '<button data-help="admin-prep-xray-results#xr#8" type="button" class="gm-btn-primary" style="max-width:320px;" onclick="ApexContract.start(CLIENT_ID)">' +
              ptEn("Montar contrato", "Build contract") + '</button>';
       }
       h += '</div>';
@@ -1661,7 +1661,7 @@
       h += '<button type="button" class="wk-btn" onclick="shiftWeek(7)">&#8250;</button>';
       // "Esta semana" only when he is not already on it.
       if (!isCurrent) {
-        h += '<button type="button" class="wk-btn" onclick="thisWeek()">' +
+        h += '<button data-help="admin-prep-weekly-rde#rde#2" type="button" class="wk-btn" onclick="thisWeek()">' +
              ptEn("Esta semana", "This week") + '</button>';
       }
       h += '</div><div class="wk-range">' + escHtml(first) + ' &#8211; ' + escHtml(last) + '</div></div>';
@@ -2520,7 +2520,7 @@
       }
       h += '</div>';
 
-      h += '<button type="button" class="step-link primary" onclick="builderOpen();">' +
+      h += '<button data-help="admin-prep-another-meeting#am#3" type="button" class="step-link primary" onclick="builderOpen();">' +
            ptEn("N&#227;o achou? Crie o bloco", "Not there? Build the block") + '</button>';
       h += '<span class="step-note">' +
            ptEn("Funciona agora, nesta reuni&#227;o. Depois a gente constr&#243;i direito.",
@@ -2607,7 +2607,7 @@
                '" value="' + escHtml((f.options || []).join(", ")) +
                '" oninput="builderSetOptions(this);">';
         }
-        h += '<button type="button" class="builder-del" onclick="builderRemove(' + i + ');">&#215;</button>';
+        h += '<button data-help="admin-prep-another-meeting#am#4" type="button" class="builder-del" onclick="builderRemove(' + i + ');">&#215;</button>';
         h += '</div>';
       }
 
@@ -2702,9 +2702,9 @@
         '<p class="step-ctx">' +
         ptEn("Foi s&#243; para hoje, ou &#233; uma reuni&#227;o que se repete?",
              "Was this just for today, or is it a meeting you run again?") + '</p>' +
-        '<button type="button" class="step-link" onclick="templateAnswer(false);">' +
+        '<button data-help="admin-prep-another-meeting#am#2" type="button" class="step-link" onclick="templateAnswer(false);">' +
         ptEn("S&#243; hoje", "Just today") + '</button>' +
-        '<button type="button" class="step-link primary" onclick="templateAnswer(true);">' +
+        '<button data-help="admin-prep-another-meeting#am#2" type="button" class="step-link primary" onclick="templateAnswer(true);">' +
         ptEn("Salvar como modelo", "Save as a template") + '</button>' +
         '</div>';
       wrap.hidden = false;
@@ -3007,7 +3007,7 @@
       h += '<p class="out-sub">' +
            ptEn("Como esta reuni&#227;o terminou?", "How did this meeting end?") + '</p>';
       h += '<div class="out-actions">';
-      h += '<button type="button" class="out-btn primary" onclick="openConvert()">' +
+      h += '<button data-help="admin-prep-xray-results#xr#9" type="button" class="out-btn primary" onclick="openConvert()">' +
            ptEn("Virou cliente", "Became a client") + '</button>';
       // NOT "lost": Rafa works this list to revive them, so it is worded as a
       // return-to later, not as a rejection.

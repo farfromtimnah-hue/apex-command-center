@@ -1070,11 +1070,12 @@
     if (inEditable(node) || node.closest(".aphelp-root") || node.closest("[data-no-help]")) { return null; }
     var dh = node.closest("[data-help]");
     var btn = node.closest("button,a,[role=button]");
+    var fb = node.closest("[data-help-default]");
     if (!dh && !btn) { return null; }
     var texts = [];
     if (btn) { texts.push(visibleText(btn)); texts.push(btn.getAttribute("aria-label")); }
     // Only the guides of the side this page starts on can be matched, so a client never lands on an admin guide.
-    var res = HC.resolveTarget({ dataHelp: dh ? dh.getAttribute("data-help") : null, texts: texts }, dataFor(defaultSide()));
+    var res = HC.resolveTarget({ dataHelp: dh ? dh.getAttribute("data-help") : null, texts: texts, fallbackHelp: fb ? fb.getAttribute("data-help-default") : null }, dataFor(defaultSide()));
     return res ? { res: res, el: btn || dh } : null;
   }
 

@@ -13847,7 +13847,7 @@ function gmRenderInvoiceSheet() {
     }
     if (p.state === "verified") {
       actions = '<div class="gm-est-actions" style="margin:6px 0 10px;">' +
-        (p.receipt_link ? '<a class="gm-btn-secondary" href="' + escHtml(p.receipt_link) + '" target="_blank" rel="noopener">' + gmT("Ver recibo", "View receipt") + '</a>' +
+        (p.receipt_link ? '<a class="gm-btn-secondary" data-help="receipt#send-receipt#3" href="' + escHtml(p.receipt_link) + '" target="_blank" rel="noopener">' + gmT("Ver recibo", "View receipt") + '</a>' +
           '<button type="button" class="gm-btn-secondary" id="gmRcptSend_' + escHtml(p.id) + '" onclick="gmInvReceiptSendOpen(\'' + escHtml(p.id) + '\')">' + gmT("Enviar recibo", "Send receipt") + '</button>' : "") +
         (!ro ? '<button type="button" class="gm-btn-secondary" onclick="gmInvPaymentAction(\'' + escHtml(p.id) + '\', \'reverse\')">' + gmT("Estornar", "Reverse") + '</button>' : "") + '</div>';
     }

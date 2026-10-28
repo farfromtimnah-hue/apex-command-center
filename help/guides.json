@@ -29392,6 +29392,205 @@
           "step": 6
         }
       ]
+    },
+    {
+      "id": "admin-client-record-forms",
+      "audience": "admin",
+      "title": {
+        "pt": "Ficha do cliente: formulários e correções",
+        "en": "Client record: forms and corrections"
+      },
+      "summary": {
+        "pt": "Os formulários e avisos da ficha do cliente: aviso do pipeline, chaves, novo login, aparelho do dono, plano de pagamento, contrato, registros e correção.",
+        "en": "The forms and notices on the client record: pipeline banner, switches, new login, owner device, payment plan, contract, entries and corrections."
+      },
+      "keywords": {
+        "pt": [
+          "aviso do pipeline",
+          "registro diário",
+          "metas",
+          "novo login",
+          "aparelho do dono",
+          "plano de pagamento",
+          "montar contrato",
+          "semana de registros",
+          "corrigir registro",
+          "lápis"
+        ],
+        "en": [
+          "pipeline gap banner",
+          "daily log",
+          "goals",
+          "new login",
+          "owner device",
+          "payment plan",
+          "build contract",
+          "entry week",
+          "correct entry",
+          "pencil"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "forms",
+          "title": {
+            "pt": "Formulários da ficha",
+            "en": "Record forms"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Leia o aviso de leads fora do pipeline. Na aba Visão geral, um aviso bege (1) pode aparecer no alto. O número grande é quantos leads o cliente relatou no registro diário que não chegaram ao pipeline nos últimos 30 dias. A linha embaixo mostra as duas contagens e a data do último lead no pipeline. Quando as contagens batem, o aviso fica escondido. O nome do cliente na figura é o negócio de teste.",
+                "en": "Read the pipeline gap banner. On the Overview tab, a beige banner (1) can appear at the top. The big number is how many leads the client reported in the daily log that never reached the pipeline in the last 30 days. The line under it shows the two counts and the date of the last lead entered. When the counts match, the banner is hidden. The client name in the picture is the test business."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record-forms/forms-01.pt.jpg",
+                "en": "help/img/guides/admin-client-record-forms/forms-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Ligue ou desligue o Registro diário e as Metas. No cartão Portal do Cliente, as duas chaves (1) são Registro diário e Metas. Quando uma está desligada, ela não aparece mais no login. Ela sai da barra e vai para o fim de Mais, e o cliente ainda consegue chegar nela. A nota (2) explica isso. Toque em uma chave só quando quiser mudar este cliente.",
+                "en": "Turn the Daily log and Goals on or off. In the Client Portal card, the two switches (1) are Daily log and Goals. When one is off, it is no longer shown at login. It leaves the bar and goes to the end of More, and the client can still reach it. The note (2) says this. Tap a switch only when you mean to change this client."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record-forms/forms-02.pt.jpg",
+                "en": "help/img/guides/admin-client-record-forms/forms-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Abra a janela Enviar novo login (link). No cartão Portal do Cliente, toque em Enviar novo login (link). A janela diz que o dono abre o link, recebe um código por SMS e cria uma passkey. A linha (1) mostra o telefone que recebe o código, com o número escondido. Usar outro número (2) deixa você digitar outro telefone. Criar link de login (3) faz o link e manda o código, então toque só quando quiser. Fechar (4) sai sem fazer nada. A figura mostra só a janela: nenhum link foi criado.",
+                "en": "Open the Send new login (link) window. In the Client Portal card, tap Send new login (link). The window says the owner opens the link, gets a code by text and creates a passkey. The line (1) shows the phone number that gets the code, with the number hidden. Use another number (2) lets you type a different phone. Create login link (3) makes the link and texts the code, so tap it only when you mean to. Close (4) leaves without doing anything. The picture shows the window only: no link was created."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record-forms/forms-03.pt.jpg",
+                "en": "help/img/guides/admin-client-record-forms/forms-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Abra as opções do aparelho do dono. Na parte de baixo da página do cliente, em Segurança do login, toque em Aparelho do dono: perdido, trocado ou saída. Uma caixa pergunta o que aconteceu. Comprou celular novo (1) e Perdido ou roubado (2) começam o fluxo de verdade, que muda o login do dono. A opção 3, Saiu da empresa, não tem botão aqui: use o botão de desativar na ficha. Esta caixa não tem botão de cancelar, e apertar Escape conta como uma escolha. Para sair sem escolher, recarregue a página. A figura mostra só a caixa.",
+                "en": "Open the owner's device choices. At the bottom of the client page, in Login security, tap Owner's device: lost, replaced or leaving. A box asks what happened. Got a new phone (1) and Lost or stolen (2) start the real flow, which changes the owner's login. Option 3, Left the company, has no button here: use the turn-off button on the profile. This box has no cancel button, and pressing Escape counts as a choice. To leave without choosing, reload the page. The picture shows the box only."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record-forms/forms-04.pt.jpg",
+                "en": "help/img/guides/admin-client-record-forms/forms-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Abra o formulário do plano de pagamento. Na aba Financeiro, no cartão Metodo de Pagamento, toque em Definir (diz Editar quando já existe um plano). O formulário Termos de Pagamento tem quatro partes. Opção de preço (1) escolhe à vista ou parcelado. Ajuste (2) coloca um desconto ou uma cobrança e mostra o total ajustado. Divisão ou cronograma de pagamento (3) escolhe Divisão Igual ou Personalizado ou Balão, e a caixa de cobrança contínua. Progresso e agendamento (4) guarda os pagamentos já feitos antes do sistema. Os valores na figura estão escondidos. Feche o formulário no x para sair sem salvar.",
+                "en": "Open the payment plan form. In the Money tab, in the Payment Method card, tap Set plan (it says Edit when a plan exists). The form Payment Terms has four parts. Pricing option (1) picks upfront or installments. Adjustment (2) adds a discount or a charge and shows the adjusted total. Split or payment schedule (3) picks Even Split or Custom or Balloon, and the box for an ongoing subscription. Progress and schedule (4) holds the payments already made before the system. The amounts in the picture are hidden. Close the form with the x to leave without saving."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record-forms/forms-05.pt.jpg",
+                "en": "help/img/guides/admin-client-record-forms/forms-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Escolha o que entra no contrato. Na aba Financeiro, toque em Montar contrato. O montador pede primeiro o pacote: START, GROWTH ou ADVANCED. Depois lista as entregas com uma caixa de marcar para cada uma (1). Desmarque o que o contrato não deve incluir. O montador fica em português nos dois idiomas. Feche sem terminar para não deixar contrato.",
+                "en": "Choose what goes in the contract. In the Money tab, tap Montar contrato. The builder asks for the package first: START, GROWTH or ADVANCED. Then it lists the deliverables with a check box for each one (1). Untick what the contract should not include. The builder is in Portuguese in both languages. Close it without finishing to leave no contract."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record-forms/forms-06.pt.jpg",
+                "en": "help/img/guides/admin-client-record-forms/forms-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Abra um dia na Semana de Registros. Na aba Resultados, a Semana de Registros mostra sete cartões de dia. Toque em um dia (1). O painel (2) abre embaixo dos cartões com os números daquele dia, em grupos: Financeiro, Clientes e mercado, Processos, Crescimento e Rotina. Toque no x para fechar. Os valores em dinheiro na figura estão escondidos.",
+                "en": "Open a day in Entry Week. In the Results tab, Entry Week shows seven day cards. Tap a day (1). The panel (2) opens under the cards with that day's numbers, grouped by Financial, Clients and market, Processes, Growth and Routine. Tap the x to close it. The money amounts in the picture are hidden."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record-forms/forms-07.pt.jpg",
+                "en": "help/img/guides/admin-client-record-forms/forms-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Escolha um mês de registros. Embaixo da Semana de Registros, a lista de mês (1) Ver registros do mês deixa você escolher um mês. Cada dia daquele mês aparece como um cartão (3). Cada parte de um dia tem um lápis pequeno (2). Ver a lista não muda nada. Os valores em dinheiro na figura estão escondidos.",
+                "en": "Pick a month of entries. Under Entry Week, the month list (1) See entries for month lets you choose a month. Each day of that month shows as a card (3). Every section of a day has a small pencil (2). Seeing the list changes nothing. The money amounts in the picture are hidden."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record-forms/forms-08.pt.jpg",
+                "en": "help/img/guides/admin-client-record-forms/forms-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Corrija um registro. Só a Rafa e o desenvolvedor podem fazer isso. Toque no lápis de uma parte. Os números viram caixas (1) onde você pode digitar. Salvar correção (2) guarda a mudança e o sistema registra cada campo mudado. Cancelar (3) volta sem mudar nada. A figura mostra só as caixas: nada foi salvo. Os valores estão escondidos.",
+                "en": "Correct an entry. Only Rafa and the developer can do this. Tap the pencil of one section. The numbers turn into boxes (1) you can type in. Save correction (2) saves your change and the system records each changed field. Cancel (3) goes back without changing anything. The picture shows the boxes only: nothing was saved. The amounts are hidden."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record-forms/forms-09.pt.jpg",
+                "en": "help/img/guides/admin-client-record-forms/forms-09.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Criar link de login"
+            ],
+            "en": [
+              "Create login link"
+            ]
+          },
+          "section": "forms",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Usar outro número"
+            ],
+            "en": [
+              "Use another number"
+            ]
+          },
+          "section": "forms",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Salvar correção"
+            ],
+            "en": [
+              "Save correction"
+            ]
+          },
+          "section": "forms",
+          "step": 9
+        },
+        {
+          "labels": {
+            "pt": [
+              "Cancelar"
+            ],
+            "en": [
+              "Cancel"
+            ]
+          },
+          "section": "forms",
+          "step": 9
+        }
+      ]
     }
   ],
   "pages": {

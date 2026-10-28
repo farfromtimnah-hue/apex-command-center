@@ -26644,157 +26644,6 @@
       ]
     },
     {
-      "id": "admin-prep-xray-results",
-      "audience": "admin",
-      "title": {
-        "pt": "Preparação da reunião: resultados do Raio-X",
-        "en": "Meeting prep: the X-Ray results meeting"
-      },
-      "summary": {
-        "pt": "Percorra a página de preparação da reunião de resultados do Raio-X: o gargalo na palavra do dono, a dependência do dono, as notas, as histórias, os pacotes e o depois da reunião.",
-        "en": "Walk through the prep page for the X-Ray results meeting: the bottleneck in the owner's words, owner dependency, the scores, the stories, the packages and the after-meeting list."
-      },
-      "keywords": {
-        "pt": [
-          "preparação da reunião",
-          "raio-x",
-          "resultados do raio-x",
-          "gargalo",
-          "dependência do dono",
-          "histórias",
-          "pacotes",
-          "fechou",
-          "montar contrato"
-        ],
-        "en": [
-          "meeting prep",
-          "x-ray",
-          "x-ray results",
-          "bottleneck",
-          "owner dependency",
-          "stories",
-          "packages",
-          "closed",
-          "build contract"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "xr",
-          "title": {
-            "pt": "Preparação: reunião de resultados do Raio-X",
-            "en": "Prep: the X-Ray results meeting"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Abra a página de preparação. Na ficha da sessão toque em Preparação da reunião, ou abra pela página do cliente. O cartão do alto mostra o cliente, o dono e o tipo da reunião, por exemplo Reunião de resultados do Raio-X. A página é só para o consultor: o que for mostrado ao cliente abre separado. Montar contrato (1) abre o construtor de contrato.",
-                "en": "Open the prep page. From the session sheet tap Meeting prep, or open it from the client page. The top card shows the client, the owner and the meeting type, for example X-Ray results meeting. The page is for the consultant only: anything shown to the client opens separately. Build contract (1) opens the contract builder."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-prep-xray-results/xr-01.pt.jpg",
-                "en": "help/img/guides/admin-prep-xray-results/xr-01.en.jpg"
-              }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "O gargalo na palavra do dono. Faça a pergunta mostrada: o que você mais percebe aqui, na sua empresa, de gargalo? Digite o que o dono disser na caixa (1). Ela salva enquanto você digita. Acima, Antes de começar mostra quem participa e o multiplicador do pipeline.",
-                "en": "The bottleneck in the owner's words. Ask the question shown: what do you notice most here in your company as a bottleneck? Type what the owner says in the box (1). It saves as you type. Above it, Before you start shows who attends and the pipeline multiplier."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-prep-xray-results/xr-02.pt.jpg",
-                "en": "help/img/guides/admin-prep-xray-results/xr-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "A dependência do dono. Este cartão (1) diz quantas das 12 atividades o dono faz pessoalmente e quantas horas por semana isso custa antes do trabalho em si, por exemplo 7 de 12 e 20,3 a 33,8 horas. A barra mostra a parte. Uma linha diz quantas atividades foram respondidas.",
-                "en": "Owner dependency. This card (1) says how many of the 12 activities the owner does personally and about how many hours a week that costs before the work itself, for example 7 of 12 and 20.3 to 33.8 hours. The bar shows the share. A line says how many activities were answered."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-prep-xray-results/xr-03.pt.jpg",
-                "en": "help/img/guides/admin-prep-xray-results/xr-03.en.jpg"
-              }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "As notas do Raio-X. Este cartão (1) mostra o total, por exemplo 100% e 62/62, e uma barra para cada área com a nota de 10. Embaixo de cada área, Ver o plano abre o plano daquela área.",
-                "en": "The X-Ray scores. This card (1) shows the total, for example 100% and 62/62, and one bar for each area with its score out of 10. Under each area, See the plan opens the plan for that area."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-prep-xray-results/xr-04.pt.jpg",
-                "en": "help/img/guides/admin-prep-xray-results/xr-04.en.jpg"
-              }
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "As histórias. Este cartão (1) lista histórias que combinam com o que o Raio-X achou. Cada uma tem uma etiqueta com o achado que combina, por exemplo dependência do dono, e Ver a história abre para você contar na reunião.",
-                "en": "The stories. This card (1) lists stories that match what the X-Ray found. Each one has a tag with the matching finding, for example owner dependency, and See the story opens it so you can tell it in the meeting."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-prep-xray-results/xr-05.pt.jpg",
-                "en": "help/img/guides/admin-prep-xray-results/xr-05.en.jpg"
-              }
-            },
-            {
-              "n": 6,
-              "text": {
-                "pt": "Os planos e o fechamento. Abrir a tela de pacotes (1) abre os três pacotes em outra aba, para mostrar ao cliente. Em Fechou? aparece o pacote atual. Toque em ADVANCED, GROWTH ou START (2) para registrar o pacote. O app pergunta antes de gravar.",
-                "en": "The plans and the close. Open the packages screen (1) opens the three packages in a new tab, to show the client. Under Closed? the current package shows. Tap ADVANCED, GROWTH or START (2) to record the package. It asks before saving."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-prep-xray-results/xr-06.pt.jpg",
-                "en": "help/img/guides/admin-prep-xray-results/xr-06.en.jpg"
-              }
-            },
-            {
-              "n": 7,
-              "text": {
-                "pt": "Depois da reunião. Uma lista curta fecha a preparação. Marque Gerar e aprovar o resumo da sessão e toque em Abrir a sessão (1). Depois de aprovado, o relatório fica arquivado na sessão e o cliente é avisado de que chega em 24 horas. Marque Combinar a próxima sessão e toque em Abrir a agenda (2).",
-                "en": "After the meeting. A short list closes the prep. Tick Generate and approve the session summary and tap Open the session (1). Once approved, the report is filed against the session and the client is told it arrives within 24 hours. Tick Agree the next session and tap Open the calendar (2)."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-prep-xray-results/xr-07.pt.jpg",
-                "en": "help/img/guides/admin-prep-xray-results/xr-07.en.jpg"
-              }
-            }
-          ]
-        }
-      ],
-      "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "Montar contrato na preparação"
-            ],
-            "en": [
-              "Build contract from the prep"
-            ]
-          },
-          "section": "xr",
-          "step": 1
-        },
-        {
-          "labels": {
-            "pt": [
-              "Abrir a tela de pacotes"
-            ],
-            "en": [
-              "Open the packages screen"
-            ]
-          },
-          "section": "xr",
-          "step": 6
-        }
-      ]
-    },
-    {
       "id": "admin-client-documents",
       "audience": "admin",
       "title": {
@@ -29688,6 +29537,179 @@
           },
           "section": "tr",
           "step": 1
+        }
+      ]
+    },
+    {
+      "id": "admin-prep-xray-results",
+      "audience": "admin",
+      "title": {
+        "pt": "Preparação da reunião: resultados do Raio-X",
+        "en": "Meeting prep: the X-Ray results meeting"
+      },
+      "summary": {
+        "pt": "Percorra a página de preparação da reunião de resultados do Raio-X: o gargalo na palavra do dono, a dependência do dono, as notas, as histórias, os pacotes e o depois da reunião.",
+        "en": "Walk through the prep page for the X-Ray results meeting: the bottleneck in the owner's words, owner dependency, the scores, the stories, the packages and the after-meeting list."
+      },
+      "keywords": {
+        "pt": [
+          "preparação da reunião",
+          "raio-x",
+          "resultados do raio-x",
+          "gargalo",
+          "dependência do dono",
+          "histórias",
+          "pacotes",
+          "fechou",
+          "montar contrato"
+        ],
+        "en": [
+          "meeting prep",
+          "x-ray",
+          "x-ray results",
+          "bottleneck",
+          "owner dependency",
+          "stories",
+          "packages",
+          "closed",
+          "build contract"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "xr",
+          "title": {
+            "pt": "Preparação: reunião de resultados do Raio-X",
+            "en": "Prep: the X-Ray results meeting"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra a página de preparação. Na ficha da sessão toque em Preparação da reunião, ou abra pela página do cliente. O cartão do alto mostra o cliente, o dono e o tipo da reunião, por exemplo Reunião de resultados do Raio-X. A página é só para o consultor: o que for mostrado ao cliente abre separado. Montar contrato (1) abre o construtor de contrato.",
+                "en": "Open the prep page. From the session sheet tap Meeting prep, or open it from the client page. The top card shows the client, the owner and the meeting type, for example X-Ray results meeting. The page is for the consultant only: anything shown to the client opens separately. Build contract (1) opens the contract builder."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-xray-results/xr-01.pt.jpg",
+                "en": "help/img/guides/admin-prep-xray-results/xr-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O gargalo na palavra do dono. Faça a pergunta mostrada: o que você mais percebe aqui, na sua empresa, de gargalo? Digite o que o dono disser na caixa (1). Ela salva enquanto você digita. Acima, Antes de começar mostra quem participa e o multiplicador do pipeline.",
+                "en": "The bottleneck in the owner's words. Ask the question shown: what do you notice most here in your company as a bottleneck? Type what the owner says in the box (1). It saves as you type. Above it, Before you start shows who attends and the pipeline multiplier."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-xray-results/xr-02.pt.jpg",
+                "en": "help/img/guides/admin-prep-xray-results/xr-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "A dependência do dono. Este cartão (1) diz quantas das 12 atividades o dono faz pessoalmente e quantas horas por semana isso custa antes do trabalho em si, por exemplo 7 de 12 e 20,3 a 33,8 horas. A barra mostra a parte. Uma linha diz quantas atividades foram respondidas.",
+                "en": "Owner dependency. This card (1) says how many of the 12 activities the owner does personally and about how many hours a week that costs before the work itself, for example 7 of 12 and 20.3 to 33.8 hours. The bar shows the share. A line says how many activities were answered."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-xray-results/xr-03.pt.jpg",
+                "en": "help/img/guides/admin-prep-xray-results/xr-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "As notas do Raio-X. Este cartão (1) mostra o total, por exemplo 100% e 62/62, e uma barra para cada área com a nota de 10. Embaixo de cada área, Ver o plano abre o plano daquela área.",
+                "en": "The X-Ray scores. This card (1) shows the total, for example 100% and 62/62, and one bar for each area with its score out of 10. Under each area, See the plan opens the plan for that area."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-xray-results/xr-04.pt.jpg",
+                "en": "help/img/guides/admin-prep-xray-results/xr-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "As histórias. Este cartão (1) lista histórias que combinam com o que o Raio-X achou. Cada uma tem uma etiqueta com o achado que combina, por exemplo dependência do dono, e Ver a história abre para você contar na reunião.",
+                "en": "The stories. This card (1) lists stories that match what the X-Ray found. Each one has a tag with the matching finding, for example owner dependency, and See the story opens it so you can tell it in the meeting."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-xray-results/xr-05.pt.jpg",
+                "en": "help/img/guides/admin-prep-xray-results/xr-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Os planos e o fechamento. Abrir a tela de pacotes (1) abre os três pacotes em outra aba, para mostrar ao cliente. Em Fechou? aparece o pacote atual. Toque em ADVANCED, GROWTH ou START (2) para registrar o pacote. O app pergunta antes de gravar.",
+                "en": "The plans and the close. Open the packages screen (1) opens the three packages in a new tab, to show the client. Under Closed? the current package shows. Tap ADVANCED, GROWTH or START (2) to record the package. It asks before saving."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-xray-results/xr-06.pt.jpg",
+                "en": "help/img/guides/admin-prep-xray-results/xr-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Depois da reunião. Uma lista curta fecha a preparação. Marque Gerar e aprovar o resumo da sessão e toque em Abrir a sessão (1). Depois de aprovado, o relatório fica arquivado na sessão e o cliente é avisado de que chega em 24 horas. Marque Combinar a próxima sessão e toque em Abrir a agenda (2).",
+                "en": "After the meeting. A short list closes the prep. Tick Generate and approve the session summary and tap Open the session (1). Once approved, the report is filed against the session and the client is told it arrives within 24 hours. Tick Agree the next session and tap Open the calendar (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-prep-xray-results/xr-07.pt.jpg",
+                "en": "help/img/guides/admin-prep-xray-results/xr-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "A ficha do contrato. Toque em Montar contrato no alto da preparação. Uma ficha abre com o contrato do cliente, por exemplo Contrato APEX-0008. Ela mostra o Status (1), por exemplo Assinado por todos, e o total. Ver contrato assinado (2) abre a cópia assinada. Salvar condições de pagamento no cliente (3) grava as condições na ficha do cliente, então toque só quando quiser mesmo. Baixar PDF (4) salva o arquivo. A ficha é só em português. Feche com o X.",
+                "en": "The contract sheet. Tap Build contract at the top of the prep. A sheet opens with the contract of the client, for example Contract APEX-0008. It shows the Status (1), for example Signed by all, and the total. View signed contract (2) opens the signed copy. Save payment terms on the client (3) writes the terms on the client record, so tap it only when you mean it. Download PDF (4) saves the file. The sheet is in Portuguese only. Close it with the X."
+              },
+              "image": {
+                "en": "help/img/guides/admin-prep-xray-results/xr-08.en.jpg",
+                "pt": "help/img/guides/admin-prep-xray-results/xr-08.pt.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "en": "Record the outcome. When the prep is for a prospect, a card called Outcome asks: How did this meeting end? Tap Became a client (1) when they signed on, or Not yet, come back to them (2) when they did not. The card does not show for a client who has already bought. The picture is from a prospect prep with the name out of frame, and neither button was tapped.",
+                "pt": "Registre o resultado. Quando a preparação é de um prospect, um cartão chamado Resultado pergunta: Como esta reunião terminou? Toque em Virou cliente (1) quando a pessoa fechou, ou em Ainda não, retomar depois (2) quando não fechou. O cartão não aparece para um cliente que já comprou. A imagem é de uma preparação de prospect, com o nome fora do quadro, e nenhum dos botões foi tocado."
+              },
+              "image": {
+                "en": "help/img/guides/admin-prep-xray-results/xr-09.en.jpg",
+                "pt": "help/img/guides/admin-prep-xray-results/xr-09.pt.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Montar contrato na preparação"
+            ],
+            "en": [
+              "Build contract from the prep"
+            ]
+          },
+          "section": "xr",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Abrir a tela de pacotes"
+            ],
+            "en": [
+              "Open the packages screen"
+            ]
+          },
+          "section": "xr",
+          "step": 6
         }
       ]
     }

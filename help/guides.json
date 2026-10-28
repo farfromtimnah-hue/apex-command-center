@@ -16297,6 +16297,25 @@
                 "pt": "help/img/guides/admin-add-user/users-03.pt.jpg",
                 "en": "help/img/guides/admin-add-user/users-03.en.jpg"
               }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Mais abaixo na página Adicionar Usuário está o cartão Google Drive. Ele vigia as planilhas de onde a Apex importou dados e avisa se alguém as editar depois. Só lê a data de alteração, nunca o conteúdo. Status (1) diz Connected quando está ligado. Connect Google Drive (2) liga a conta. Check Status (3) confere. Nada foi tocado. O texto deste cartão está só em inglês.",
+                "en": "Further down the Add User page is the Google Drive card. It watches the spreadsheets Apex imported data from and warns if anyone edits them later. It only reads the change time, never the content. Status (1) says Connected when it is on. Connect Google Drive (2) links the account. Check Status (3) checks it. Nothing was tapped."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-add-user/users-04.pt.jpg",
+                "en": "help/img/guides/admin-add-user/users-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Quando alguém edita uma planilha que a Apex importou, o painel do desenvolvedor mostra o cartão Planilhas importadas que mudaram. Ele diz que alguém editou a planilha e que pode ainda estar trabalhando nela em vez de no sistema. O cartão só aparece quando há uma mudança. Sem imagem: nenhuma planilha tinha mudado. Escrito a partir do código.",
+                "en": "When someone edits a spreadsheet Apex imported, the developer dashboard shows the card Imported spreadsheets that changed. It says someone edited the sheet and may still be working there instead of in the system. The card only shows when there is a change. No picture: no sheet had changed. Written from the code."
+              },
+              "image": null
             }
           ]
         }

@@ -941,7 +941,7 @@
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-01.jpg",
-                "en": "help/img/guides/estimate/create-send-01.jpg"
+                "en": "help/img/guides/estimate/create-send-01.en.jpg"
               }
             },
             {
@@ -1410,7 +1410,7 @@
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s1-01.jpg",
-                "en": "help/img/guides/send-by-email/section-s1-01.jpg"
+                "en": "help/img/guides/send-by-email/section-s1-01.en.jpg"
               }
             },
             {
@@ -1421,7 +1421,7 @@
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s1-02.jpg",
-                "en": "help/img/guides/send-by-email/section-s1-02.jpg"
+                "en": "help/img/guides/send-by-email/section-s1-02.en.jpg"
               }
             },
             {
@@ -1432,7 +1432,7 @@
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s1-03.jpg",
-                "en": "help/img/guides/send-by-email/section-s1-03.jpg"
+                "en": "help/img/guides/send-by-email/section-s1-03.en.jpg"
               }
             },
             {
@@ -1474,7 +1474,7 @@
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s2-01.jpg",
-                "en": "help/img/guides/send-by-email/section-s2-01.jpg"
+                "en": "help/img/guides/send-by-email/section-s2-01.en.jpg"
               }
             },
             {
@@ -1691,7 +1691,7 @@
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-01.jpg",
-                "en": "help/img/guides/receipt/send-receipt-01.jpg"
+                "en": "help/img/guides/receipt/send-receipt-01.en.jpg"
               }
             },
             {
@@ -1702,7 +1702,7 @@
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-02.jpg",
-                "en": "help/img/guides/receipt/send-receipt-02.jpg"
+                "en": "help/img/guides/receipt/send-receipt-02.en.jpg"
               }
             },
             {
@@ -1713,7 +1713,7 @@
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-03.jpg",
-                "en": "help/img/guides/receipt/send-receipt-03.jpg"
+                "en": "help/img/guides/receipt/send-receipt-03.en.jpg"
               }
             },
             {

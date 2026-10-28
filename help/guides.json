@@ -14202,10 +14202,35 @@
             {
               "n": 11,
               "text": {
-                "pt": "Quando um recurso foi anexado a um cliente e ainda não foi enviado, a faixa Recursos Pendentes de Envio aparece na página Clientes. Cada linha mostra o cliente, o recurso e a categoria. Enviar via WhatsApp abre o WhatsApp com a mensagem pronta. Com a lista vazia, a faixa não aparece. Sem imagem: nada esperava envio. Escrito a partir do código.",
-                "en": "When a resource was attached to a client and not sent yet, the strip Pending Resource Sends shows on the Clients page. Each line shows the client, the resource and the category. Send via WhatsApp opens WhatsApp with the message ready. When the list is empty, the strip is not on the page. No picture: nothing was waiting to be sent. Written from the code."
+                "pt": "Quando um recurso foi anexado a um cliente e ainda não foi enviado, a faixa Recursos Pendentes de Envio (1) aparece na página Clientes. Cada linha (2) mostra o cliente, o recurso e a categoria. Enviar via WhatsApp (3) abre o WhatsApp com a mensagem pronta. Com a lista vazia, a faixa não aparece. O cliente nas imagens é o cliente de teste.",
+                "en": "When a resource was attached to a client and not sent yet, the strip Pending Resource Sends (1) shows on the Clients page. Each line (2) shows the client, the resource and the category. Send via WhatsApp (3) opens WhatsApp with the message ready. When the list is empty, the strip is not on the page. The client in the pictures is the test client."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-clients-roster/roster-11.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "O WhatsApp abre uma página com o número do cliente e a mensagem pronta. Toque em Continuar para o WhatsApp Web, ou em Abrir app se usa o aplicativo. Nada foi enviado ainda. O número é o do cliente de teste.",
+                "en": "WhatsApp opens a page with the client's number and the message ready. Tap Continue to WhatsApp Web, or Open app if you use the app. Nothing has been sent yet. The number is the test client's."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-clients-roster/roster-12.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "No chat, confira o nome no alto e leia a mensagem pronta. A mensagem só sai quando você toca no botão verde de enviar. Aqui o chat era a conversa da Nicole consigo mesma, e a mensagem aparece depois de enviada. O aplicativo marca o recurso como enviado e a faixa some.",
+                "en": "In the chat, check the name at the top and read the ready message. The message only goes out when you tap the green send button. Here the chat was Nicole's conversation with herself, and the message shows after it was sent. The app marks the resource as sent and the strip goes away."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-clients-roster/roster-13.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-13.en.jpg"
+              }
             }
           ]
         }

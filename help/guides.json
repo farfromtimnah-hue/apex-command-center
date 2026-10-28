@@ -761,7 +761,9 @@
             "pt": [
               "Marcar como enviado sem abrir mensagem"
             ],
-            "en": []
+            "en": [
+              "Marcar como enviado sem abrir mensagem"
+            ]
           },
           "section": "send-change-order",
           "step": 7

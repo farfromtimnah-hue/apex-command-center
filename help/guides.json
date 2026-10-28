@@ -821,7 +821,7 @@
               },
               "image": {
                 "pt": "help/img/guides/invoice/send-invoice-01.jpg",
-                "en": "help/img/guides/invoice/send-invoice-01.jpg"
+                "en": "help/img/guides/invoice/send-invoice-01.en.jpg"
               }
             },
             {
@@ -832,7 +832,7 @@
               },
               "image": {
                 "pt": "help/img/guides/invoice/send-invoice-02.jpg",
-                "en": "help/img/guides/invoice/send-invoice-02.jpg"
+                "en": "help/img/guides/invoice/send-invoice-02.en.jpg"
               }
             },
             {

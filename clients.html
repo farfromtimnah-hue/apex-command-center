@@ -1427,7 +1427,7 @@
           signal(c.assessment_count > 0, 'Avaliações', 'Assessments') +
           '</div>' +
           '</div>' +
-          '<a class="review-row-link" href="client.html?id=' + encodeURIComponent(c.id) + '">' +
+          '<a data-help="admin-clients-roster#roster#2" class="review-row-link" href="client.html?id=' + encodeURIComponent(c.id) + '">' +
           '<span class="show-pt">Abrir</span><span class="show-en">Open</span>' +
           '</a>' +
           '</div>';
@@ -2285,6 +2285,7 @@
           tdName.className = "mc-head";
           var link   = document.createElement("a");
           link.className   = "client-name-link";
+          link.setAttribute("data-help", "admin-clients-roster#roster#1");
           link.href        = "client.html?id=" + encodeURIComponent(c.id);
           link.textContent = c.name || "--";
           tdName.appendChild(link);
@@ -2334,6 +2335,7 @@
             var btn = document.createElement("button");
             btn.type = "button";
             btn.className = "btn-archive";
+            btn.setAttribute("data-help", "admin-clients-roster#roster#10");
             btn.innerHTML = c.archived
               ? '<span class="show-pt">Restaurar</span><span class="show-en">Restore</span>'
               : '<span class="show-pt">Arquivar</span><span class="show-en">Archive</span>';

@@ -1129,7 +1129,7 @@
           <!-- Rendered by JS -->
         </div>
         <div style="margin-top:16px;">
-          <button class="btn-save" id="btnAddPackage" onclick="showAddPackageCard()">
+          <button data-help="admin-settings-packages-payment#pkg#1" class="btn-save" id="btnAddPackage" onclick="showAddPackageCard()">
             <span class="show-pt">+ Adicionar Pacote</span>
             <span class="show-en">+ Add Package</span>
           </button>
@@ -1605,6 +1605,7 @@
         b.type = "button";
         b.textContent = en ? AV_DAYS[i].en : AV_DAYS[i].pt;
         b.setAttribute("data-day", AV_DAYS[i].n);
+        b.setAttribute("data-help", "admin-settings-hours-alerts#hours#2");
         b.style.cssText = "font-family:inherit;font-size:13.5px;font-weight:600;padding:9px 14px;" +
           "border-radius:9px;cursor:pointer;border:1.5px solid " +
           (on ? "var(--gold)" : "var(--border)") + ";background:" +
@@ -1984,6 +1985,7 @@
       var uploadBtn = document.createElement("button");
       uploadBtn.className = "btn-save";
       uploadBtn.id = "profileUploadBtn";
+      uploadBtn.setAttribute("data-help", "admin-settings-pictures-message#pics#2");
       uploadBtn.innerHTML =
         '<span class="show-pt">Enviar Foto</span>' +
         '<span class="show-en">Upload Picture</span>';
@@ -2577,6 +2579,7 @@
       var addItemBtn = document.createElement("button");
       addItemBtn.type = "button";
       addItemBtn.className = "btn-add-item";
+      addItemBtn.setAttribute("data-help", "admin-settings-packages-payment#pkg#1");
       addItemBtn.innerHTML =
         '<span class="show-pt">+ Adicionar item</span>' +
         '<span class="show-en">+ Add item</span>';
@@ -2696,6 +2699,7 @@
       var toggleNewPricingBtn = document.createElement("button");
       toggleNewPricingBtn.type = "button";
       toggleNewPricingBtn.className = "btn-add-item";
+      toggleNewPricingBtn.setAttribute("data-help", "admin-settings-packages-payment#pkg#2");
       toggleNewPricingBtn.innerHTML =
         '<span class="show-pt">' + (hasNewPricing || isNew ? "Ocultar preços novos" : "+ Preços novos (à vista / parcelado)") + '</span>' +
         '<span class="show-en">' + (hasNewPricing || isNew ? "Hide new pricing" : "+ New pricing (upfront / installment)") + '</span>';

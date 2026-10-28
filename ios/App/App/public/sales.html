@@ -763,7 +763,7 @@ function escHtml(str) {
         html += '<tr>' +
           '<td style="padding:9px 10px;border-bottom:1px solid var(--border);font-weight:700;color:var(--gold);">' + (i + 1) + '</td>' +
           '<td style="padding:9px 10px;border-bottom:1px solid var(--border);">' +
-          '<a href="client.html?id=' + encodeURIComponent(r.client_id) + '" style="color:var(--text);text-decoration:none;font-weight:600;">' + escHtml(r.name) + '</a></td>' +
+          '<a data-help="admin-sales-growth#sales#4" href="client.html?id=' + encodeURIComponent(r.client_id) + '" style="color:var(--text);text-decoration:none;font-weight:600;">' + escHtml(r.name) + '</a></td>' +
           '<td style="padding:9px 10px;border-bottom:1px solid var(--border);text-align:right;">' + cell(r.composite) + '</td>' +
           '<td style="padding:9px 10px;border-bottom:1px solid var(--border);text-align:right;">' + cell(r.categories.financeiro) + '</td>' +
           '<td style="padding:9px 10px;border-bottom:1px solid var(--border);text-align:right;">' + cell(r.categories.clientes_mercado) + '</td>' +
@@ -853,7 +853,7 @@ function escHtml(str) {
           '<div class="' + rowCls + '">' +
           '<div class="rank-badge">' + (hasEntry ? rank : "&ndash;") + '</div>' +
           '<div class="rank-name-wrap"><div class="rank-name">' +
-          '<a href="client.html?id=' + encodeURIComponent(r.client_id) + '">' + escHtml(r.name) + '</a>' +
+          '<a data-help="admin-sales-growth#sales#3" href="client.html?id=' + encodeURIComponent(r.client_id) + '">' + escHtml(r.name) + '</a>' +
           '</div></div>' +
           '<div class="rank-bar-wrap">' + barHtml + '</div>' +
           pctHtml +

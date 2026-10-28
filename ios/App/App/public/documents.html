@@ -1034,12 +1034,12 @@ function escHtml(str) {
       }
       if (r.resource_type === "file") {
         if (!r.file_url) { return "--"; }
-        return '<a href="' + WORKER_URL + '/api/resources/' + encodeURIComponent(r.id) + '/file" target="_blank" rel="noopener">' +
+        return '<a data-help="admin-resources-documents#hub#9" href="' + WORKER_URL + '/api/resources/' + encodeURIComponent(r.id) + '/file" target="_blank" rel="noopener">' +
                escHtml(r.file_name || "arquivo") + '</a>';
       }
       if (r.resource_type === "link") {
         if (!r.url) { return "--"; }
-        return '<a href="' + escHtml(r.url) + '" target="_blank" rel="noopener">' + escHtml(r.url) + '</a>';
+        return '<a data-help="admin-resources-documents#hub#9" href="' + escHtml(r.url) + '" target="_blank" rel="noopener">' + escHtml(r.url) + '</a>';
       }
       return "--";
     }

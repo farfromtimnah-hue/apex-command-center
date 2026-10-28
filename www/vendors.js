@@ -135,7 +135,7 @@
       '<div class="glass-tile-value is-gold' + (OVERVIEW.tiles.total_due_cents ? "" : " is-zero") + '">' + fmtCents(OVERVIEW.tiles.total_due_cents) + '</div>' +
     '</div>';
     (OVERVIEW.tiles.vendors || []).forEach(function (v) {
-      html += '<button type="button" class="glass-tile glass-tile-btn" onclick="document.getElementById(\'vcard-' + v.id + '\') && document.getElementById(\'vcard-' + v.id + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' +
+      html += '<button data-help="admin-vendors#vendors#1" type="button" class="glass-tile glass-tile-btn" onclick="document.getElementById(\'vcard-' + v.id + '\') && document.getElementById(\'vcard-' + v.id + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' +
         '<div class="glass-tile-label">' + esc(vendorDisplayName(v)) + '</div>' +
         '<div class="glass-tile-value' + (v.due_cents ? "" : " is-zero") + '">' + fmtCents(v.due_cents) + '</div>';
       var subParts = [];

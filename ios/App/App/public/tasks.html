@@ -912,7 +912,7 @@
                 <span class="show-en">Speak my tasks</span>
               </span>
             </button>
-            <button type="button" class="btn-voice-mic btn-task-add" id="mtAddBtn" onclick="openAddTask()">
+            <button type="button" data-help="admin-tasks#tasks#3" class="btn-voice-mic btn-task-add" id="mtAddBtn" onclick="openAddTask()">
               <span aria-hidden="true">+</span>
               <span>
                 <span class="show-pt">Adicionar tarefa</span>
@@ -2513,6 +2513,7 @@
       var head = document.createElement("button");
       head.type = "button";
       head.className = "fold-head";
+      head.setAttribute("data-help", "admin-tasks-tabs-details#tabs#3");
       head.setAttribute("aria-controls", body.id);
       head.innerHTML =
         '<span class="fold-caret" aria-hidden="true">&#9656;</span>' +

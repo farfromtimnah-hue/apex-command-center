@@ -753,7 +753,7 @@
           '<span class="show-pt">Com registros:</span><span class="show-en">With entries:</span></div>';
         d.contributors.forEach(function (c) {
           html += '<div style="font-size:13px;padding:4px 0;">' +
-            '<a href="client-analytics.html?client=' + encodeURIComponent(c.client_id) + '" ' +
+            '<a data-help="admin-client-analytics#analytics#3" href="client-analytics.html?client=' + encodeURIComponent(c.client_id) + '" ' +
             'style="color:var(--text);font-weight:600;text-decoration:none;">' + escHtml(c.name) + '</a> ' +
             '<span class="muted">&middot; ' + c.completed_days +
             '<span class="show-pt"> dia(s)</span><span class="show-en"> day(s)</span></span></div>';

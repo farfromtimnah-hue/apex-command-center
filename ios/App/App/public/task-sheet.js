@@ -177,6 +177,7 @@ function taskSheetMakeOpener(el, taskId, onOpen) {
   taskSheetStyles();
   el.classList.add("task-sheet-open");
   el.setAttribute("role", "button");
+  el.setAttribute("data-help", "admin-tasks#tasks#9");
   el.setAttribute("tabindex", "0");
   el.setAttribute("data-task-open", String(taskId));
   el.addEventListener("click", function() { onOpen(); });
@@ -853,6 +854,7 @@ function taskSheetOpen(o) {
       b.type = "button";
       b.id = id;
       b.className = "task-sheet-pill";
+      b.setAttribute("data-help", "admin-tasks#tasks#10");
       b.innerHTML = taskSheetBoth(TASK_SHEET_PROGRESS[key].pt, TASK_SHEET_PROGRESS[key].en);
       b.addEventListener("click", function() { taskSheetPickProgress(key); });
       pills.appendChild(b);
@@ -1359,6 +1361,7 @@ function taskAddOpen(o) {
       b.type = "button";
       b.id = "taskAddFor_" + key;
       b.className = "task-sheet-pill";
+      b.setAttribute("data-help", "admin-tasks#tasks#4");
       b.innerHTML = taskAddForHtml(key, o.names);
       b.addEventListener("click", function() {
         if (s.saving) { return; }

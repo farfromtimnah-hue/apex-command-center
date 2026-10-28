@@ -1388,7 +1388,7 @@
       // /field-config without previewAs, so it is the only place he can
       // actually write the targets. The portal's goals screen is read-only
       // for staff and would fail on save.
-      h += '<a class="step-link" href="' + clientHref("&modal=fieldconfig") +
+      h += '<a data-help="admin-prep-kickoff#ko#3" class="step-link" href="' + clientHref("&modal=fieldconfig") +
            '" target="_blank" rel="noopener">' +
            ptEn("Definir as metas na ficha do cliente", "Set the targets on the client page") + '</a>';
       h += '<span class="step-note">' +
@@ -1405,7 +1405,7 @@
       h += '<p class="step-ctx">' +
            ptEn("O objetivo aqui &#233; ensinar a ferramenta, n&#227;o coletar o dado.",
                 "The point here is teaching the tool, not collecting the data.") + '</p>';
-      h += '<a class="step-link" href="' + clientHref("&day=" + encodeURIComponent(k.today)) +
+      h += '<a data-help="admin-prep-kickoff#ko#2" class="step-link" href="' + clientHref("&day=" + encodeURIComponent(k.today)) +
            '" target="_blank" rel="noopener">' +
            ptEn("Abrir o registro de hoje", "Open today's entry") + '</a>';
       // The staff view of a day is read-only: entries are only writable from
@@ -1430,10 +1430,10 @@
            ptEn(kp.total + " itens registrados &#183; " + kp.with_costs + " com custos preenchidos",
                 kp.total + " items recorded &#183; " + kp.with_costs + " with costs filled in") +
            '</div>';
-      h += '<a class="step-link" href="' + clientHref("&section=gmpricing") +
+      h += '<a data-help="admin-prep-kickoff#ko#3" class="step-link" href="' + clientHref("&section=gmpricing") +
            '" target="_blank" rel="noopener">' +
            ptEn("Abrir a tabela de pre&#231;os", "Open the pricing table") + '</a>';
-      h += '<a class="step-link" href="' + clientHref("&section=gmpricing") +
+      h += '<a data-help="admin-prep-kickoff#ko#3" class="step-link" href="' + clientHref("&section=gmpricing") +
            '&import=1" target="_blank" rel="noopener">' +
            ptEn("Importar CSV", "Import CSV") + '</a>';
       h += '</div></div>';
@@ -1444,7 +1444,7 @@
       h += '<p class="step-ctx">' +
            ptEn("O que a empresa j&#225; tem no ar, e o que falta.",
                 "What the business already has live, and what is missing.") + '</p>';
-      h += '<a class="step-link" href="' + clientHref("&section=dp") +
+      h += '<a data-help="admin-prep-kickoff#ko#2" class="step-link" href="' + clientHref("&section=dp") +
            '" target="_blank" rel="noopener">' +
            ptEn("Abrir a presen&#231;a digital", "Open digital presence") + '</a>';
       h += '</div></div>';
@@ -1805,9 +1805,9 @@
       h += '<p class="step-ctx">' +
            ptEn("Abre nas telas reais, para entrar lead a lead e projeto a projeto.",
                 "Opens the real screens, to go lead by lead and project by project.") + '</p>';
-      h += '<a class="step-link" href="' + clientHref("&section=gmcrm") + '" target="_blank" rel="noopener">' +
+      h += '<a data-help="admin-prep-weekly-rde#rde#3" class="step-link" href="' + clientHref("&section=gmcrm") + '" target="_blank" rel="noopener">' +
            ptEn("Abrir o pipeline", "Open the pipeline") + '</a>';
-      h += '<a class="step-link" href="' + clientHref("&section=gmjobs") + '" target="_blank" rel="noopener">' +
+      h += '<a data-help="admin-prep-weekly-rde#rde#3" class="step-link" href="' + clientHref("&section=gmjobs") + '" target="_blank" rel="noopener">' +
            ptEn("Abrir os projetos", "Open the projects") + '</a>';
       // There is no staff-side pipeline or jobs screen at all -- gm.js loads
       // only inside the portal -- so these links are read-only and say so.
@@ -1820,7 +1820,7 @@
       // 5 Financeiro, a fixed beat of his meeting.
       h += '<div class="card"><p class="sec-title">' +
            ptEn("Financeiro", "Finances") + '</p>';
-      h += '<a class="step-link" href="' + clientHref("&section=gmfinance") + '" target="_blank" rel="noopener">' +
+      h += '<a data-help="admin-prep-weekly-rde#rde#3" class="step-link" href="' + clientHref("&section=gmfinance") + '" target="_blank" rel="noopener">' +
            ptEn("Abrir o financeiro", "Open the finances") + '</a>';
       h += '<span class="step-note">' + linkNoteReadOnly() + '</span>';
       h += '</div>';
@@ -1853,7 +1853,7 @@
         h += '<p class="plan-label">' + ptEn("O resumo", "The summary") + '</p>';
         h += '<div class="story-narr">' + narrativeHtml(summ) + '</div>';
       }
-      h += '<a class="step-link" href="sessions.html?from=prep&prepClient=' + encodeURIComponent(CLIENT_ID) + '&prepType=' + encodeURIComponent(MEETING_TYPE) + '&open=' + encodeURIComponent(ls.session_id) +
+      h += '<a data-help="admin-prep-kickoff#ko#4" class="step-link" href="sessions.html?from=prep&prepClient=' + encodeURIComponent(CLIENT_ID) + '&prepType=' + encodeURIComponent(MEETING_TYPE) + '&open=' + encodeURIComponent(ls.session_id) +
            '" target="_blank" rel="noopener">' +
            ptEn("Abrir onde o resumo desta sess&#227;o ser&#225; escrito",
                 "Open where this session's summary gets written") + '</a>';
@@ -2025,7 +2025,7 @@
               ptEn("O pr&#243;ximo ciclo", "Next cycle") + '</p>';
       h += '<p class="step-ctx">' +
            ptEn("As metas do m&#234;s que vem.", "Next month's targets.") + '</p>';
-      h += '<a class="step-link" href="' + clientHref("&modal=fieldconfig") +
+      h += '<a data-help="admin-prep-kickoff#ko#3" class="step-link" href="' + clientHref("&modal=fieldconfig") +
            '" target="_blank" rel="noopener">' +
            ptEn("Definir as metas do pr&#243;ximo m&#234;s", "Set next month's targets") + '</a>';
       h += '<span class="step-note">' +
@@ -2141,7 +2141,7 @@
            ptEn("Ele pergunta o valor de hoje para cada um. Zero &#233; um valor: precisa ser digitado, n&#227;o pulado.",
                 "He asks today's value for each. Zero is a value: it gets typed, not skipped.") +
            '</p>';
-      h += '<a class="step-link" href="' + clientHref("&day=" + encodeURIComponent(k.today)) +
+      h += '<a data-help="admin-prep-kickoff#ko#2" class="step-link" href="' + clientHref("&day=" + encodeURIComponent(k.today)) +
            '" target="_blank" rel="noopener">' +
            ptEn("Abrir o registro de hoje", "Open today's entry") + '</a>';
       h += '<span class="step-note">' + linkNoteReadOnly() + '</span>';
@@ -2398,7 +2398,7 @@
              : ptEn("Os tr&#234;s pacotes, na tela que o cliente v&#234;.",
                     "The three packages, on the screen the client sees.")) +
            '</p>';
-      h += '<a class="step-link primary" href="packages.html" target="_blank" rel="noopener">' +
+      h += '<a data-help="admin-packages-screen#pk#1" class="step-link primary" href="packages.html" target="_blank" rel="noopener">' +
            ptEn("Abrir a tela de pacotes", "Open the packages screen") + '</a>';
       h += '<span class="step-note">' +
            ptEn("Abre em outra aba, para mostrar ao cliente.",
@@ -2425,7 +2425,7 @@
       for (var pi = 0; pi < PACKAGE_NAMES.length; pi++) {
         var nm = PACKAGE_NAMES[pi];
         var isCur = (cur === nm);
-        h += '<button type="button" class="step-link pkg-btn' + (isCur ? ' pkg-cur' : '') +
+        h += '<button data-help="admin-prep-xray-results#xr#8" type="button" class="step-link pkg-btn' + (isCur ? ' pkg-cur' : '') +
              '" data-pkg="' + escHtml(nm) + '" onclick="pkgPick(this);">' +
              escHtml(nm) + (isCur ? ' &#10003;' : '') + '</button>';
       }
@@ -2494,7 +2494,7 @@
         h += '<p class="sec-title" style="margin-top:14px;">' +
              ptEn("Modelos salvos", "Saved templates") + '</p>';
         for (var t = 0; t < prepTemplates.length; t++) {
-          h += '<button type="button" class="step-link agenda-tpl" onclick="agendaUseTemplate(' + t + ');">' +
+          h += '<button data-help="admin-prep-another-meeting#am#2" type="button" class="step-link agenda-tpl" onclick="agendaUseTemplate(' + t + ');">' +
                escHtml(prepTemplates[t].name || "-") + '</button>';
         }
       }
@@ -2611,9 +2611,9 @@
         h += '</div>';
       }
 
-      h += '<button type="button" class="step-link" onclick="builderAdd();">' +
+      h += '<button data-help="admin-prep-another-meeting#am#4" type="button" class="step-link" onclick="builderAdd();">' +
            ptEn("+ Campo", "+ Field") + '</button>';
-      h += '<button type="button" class="step-link primary" onclick="builderSave();">' +
+      h += '<button data-help="admin-prep-another-meeting#am#4" type="button" class="step-link primary" onclick="builderSave();">' +
            ptEn("Usar nesta reuni&#227;o", "Use in this meeting") + '</button>';
       h += '<span class="step-note" id="builderNote"></span>';
       h += '</div>';
@@ -2864,7 +2864,7 @@
           var href = ls && ls.session_id
             ? "sessions.html?from=prep&prepClient=" + encodeURIComponent(CLIENT_ID) + "&prepType=" + encodeURIComponent(MEETING_TYPE) + "&open=" + encodeURIComponent(ls.session_id)
             : "sessions.html?from=prep&prepClient=" + encodeURIComponent(CLIENT_ID) + "&prepType=" + encodeURIComponent(MEETING_TYPE);
-          h += '<a class="step-link" href="' + href +
+          h += '<a data-help="admin-prep-kickoff#ko#4" class="step-link" href="' + href +
                '" target="_blank" rel="noopener">' +
                ptEn("Abrir a sess&#227;o", "Open the session") + '</a>';
           h += '<span class="step-note">' +
@@ -2872,10 +2872,10 @@
                     "Once approved the report is filed against the session. He tells the client it arrives within 24 hours.") +
                '</span>';
         } else if (it.kind === "calendar") {
-          h += '<a class="step-link" href="calendar.html?from=prep&prepClient=' + encodeURIComponent(CLIENT_ID) + '&prepType=' + encodeURIComponent(MEETING_TYPE) + '"' +
+          h += '<a data-help="admin-prep-kickoff#ko#4" class="step-link" href="calendar.html?from=prep&prepClient=' + encodeURIComponent(CLIENT_ID) + '&prepType=' + encodeURIComponent(MEETING_TYPE) + '"' +
                ' target="_blank" rel="noopener">' + ptEn("Abrir a agenda", "Open the calendar") + '</a>';
         } else if (it.kind === "goals") {
-          h += '<a class="step-link" href="' +
+          h += '<a data-help="admin-prep-kickoff#ko#4" class="step-link" href="' +
                clientHref("&modal=fieldconfig") + '" target="_blank" rel="noopener">' +
                ptEn("Conferir as metas", "Check the goals") + '</a>';
         }
@@ -2972,7 +2972,7 @@
         var t = MEETING_TYPES[i];
         h += '<div class="pick-row">';
         if (t.built) {
-          h += '<a class="pick-go" href="meeting-prep.html?client=' +
+          h += '<a data-help="admin-meeting-prep#prep#2" class="pick-go" href="meeting-prep.html?client=' +
                encodeURIComponent(CLIENT_ID) + '&type=' + encodeURIComponent(t.type) + '">' +
                ptEn(t.pt, t.en) + '</a>';
           // The example belongs here, next to the type it is an example of --

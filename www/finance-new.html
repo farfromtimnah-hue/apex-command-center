@@ -1686,7 +1686,7 @@
         <span id="headerEmail"></span>
         <span class="role-badge" id="headerRole"></span>
       </div>
-      <button class="lang-btn" onclick="apexNavToggleLang()">
+      <button class="lang-btn" data-help="admin-menu-language-learn#menu#2" onclick="apexNavToggleLang()">
         <span class="show-pt">EN</span>
         <span class="show-en">PT</span>
       </button>
@@ -1743,7 +1743,7 @@
                The same report was previously a totals strip at the very
                bottom of the page, above the transactions table, where nobody
                could find it. -->
-          <button type="button" class="glass-tile glass-tile-btn" onclick="openLedger('in')"
+          <button data-help="admin-finance-overview#ov#2" type="button" class="glass-tile glass-tile-btn" onclick="openLedger('in')"
                   aria-label="Ver linha por linha o que entrou">
             <div class="glass-tile-label">
               <span class="show-pt">Entrou (m&ecirc;s)</span>
@@ -1755,7 +1755,7 @@
               <span class="show-en">See line by line</span>
             </div>
           </button>
-          <button type="button" class="glass-tile glass-tile-btn" onclick="openLedger('out')"
+          <button data-help="admin-finance-overview#ov#2" type="button" class="glass-tile glass-tile-btn" onclick="openLedger('out')"
                   aria-label="Ver linha por linha o que saiu">
             <div class="glass-tile-label">
               <span class="show-pt">Saiu (m&ecirc;s)</span>
@@ -1784,17 +1784,17 @@
              figures stay visible on every tab -- they are the page's
              headline, not one tab's content. -->
         <div class="fin-tab-bar m-scroll-tabs" id="finTabBar">
-          <button class="fin-tab-pill active" id="finTabBtnSaude" onclick="switchFinanceTab('saude')">
+          <button data-help="admin-finance-overview#ov#1" class="fin-tab-pill active" id="finTabBtnSaude" onclick="switchFinanceTab('saude')">
             <span class="show-pt">Sa&uacute;de Financeira</span>
             <span class="show-en">Financial Health</span>
             <span class="fin-tab-badge" id="finBadgeSaude" hidden>0</span>
           </button>
-          <button class="fin-tab-pill" id="finTabBtnFaturas" onclick="switchFinanceTab('faturas')">
+          <button data-help="admin-finance-overview#ov#1" class="fin-tab-pill" id="finTabBtnFaturas" onclick="switchFinanceTab('faturas')">
             <span class="show-pt">Faturas</span>
             <span class="show-en">Invoices</span>
             <span class="fin-tab-badge" id="finBadgeFaturas" hidden>0</span>
           </button>
-          <button class="fin-tab-pill" id="finTabBtnCategorias" onclick="switchFinanceTab('categorias')">
+          <button data-help="admin-finance-overview#ov#1" class="fin-tab-pill" id="finTabBtnCategorias" onclick="switchFinanceTab('categorias')">
             <span class="show-pt">Categorias</span>
             <span class="show-en">Categories</span>
             <span class="fin-tab-badge" id="finBadgeCategorias" hidden>0</span>
@@ -1804,7 +1804,7 @@
         <!-- Reorder control. Lives in the hero, same place as the client
              profile page, so the page it reorders stays fully visible. -->
         <div class="edit-sections-bar" id="editSectionsBar" hidden>
-          <button class="btn-edit-sections" id="btnEditSections" onclick="enterEditSectionsMode()">
+          <button data-help="admin-finance-overview#ov#3" class="btn-edit-sections" id="btnEditSections" onclick="enterEditSectionsMode()">
             <span class="show-pt">&#9776; Editar se&ccedil;&otilde;es</span>
             <span class="show-en">&#9776; Edit sections</span>
           </button>
@@ -1815,7 +1815,7 @@
           <!-- Only inside edit mode: this is a recovery control, not something
                to offer beside the everyday buttons where it could be hit by
                accident. It discards her arrangement, so it asks first. -->
-          <button class="btn-edit-sections" id="btnResetSections" onclick="confirmResetSections()" style="display:none;">
+          <button data-help="admin-finance-overview#ov#3" class="btn-edit-sections" id="btnResetSections" onclick="confirmResetSections()" style="display:none;">
             <span class="show-pt">Voltar ao padr&atilde;o</span>
             <span class="show-en">Reset to default</span>
           </button>
@@ -1875,7 +1875,7 @@
            exactly like the reconnect failed -- it sent us chasing a bug that
            did not exist, twice, on 2026-08-26. This button runs the same code
            path the cron runs, on demand. -->
-      <button class="btn btn-sm btn-outline" id="btnSyncNow" onclick="syncNow()">
+      <button data-help="admin-finance-accounts#acc#2" class="btn btn-sm btn-outline" id="btnSyncNow" onclick="syncNow()">
         <span class="show-pt">Atualizar agora</span>
         <span class="show-en">Sync now</span>
       </button>
@@ -1912,17 +1912,17 @@
             <label for="ctExtraText" style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px;" id="ctExtraLabel"></label>
             <textarea id="ctExtraText" class="field-input" rows="2" style="width:100%;resize:vertical;"></textarea>
             <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;">
-              <button class="btn btn-sm" onclick="toggleCtMic('ctExtraText')" id="ctExtraMicBtn">&#127908; <span class="show-pt">Ditar</span><span class="show-en">Dictate</span></button>
-              <button class="btn-secondary btn-sm" onclick="ctReadExtra()"><span class="show-pt">Entender</span><span class="show-en">Read it</span></button>
+              <button data-help="admin-finance-terms#terms#2" class="btn btn-sm" onclick="toggleCtMic('ctExtraText')" id="ctExtraMicBtn">&#127908; <span class="show-pt">Ditar</span><span class="show-en">Dictate</span></button>
+              <button data-help="admin-finance-terms#terms#2" class="btn-secondary btn-sm" onclick="ctReadExtra()"><span class="show-pt">Entender</span><span class="show-en">Read it</span></button>
               <span id="ctExtraStatus" style="font-size:12px;color:var(--muted);"></span>
             </div>
             <div id="ctExtraConfirm" hidden style="font-size:13px;margin-top:8px;padding:8px 10px;border:1px solid var(--gold);border-radius:8px;"></div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-gold btn-sm" onclick="confirmCtHistoryCard()">
+            <button data-help="admin-finance-terms#terms#2" class="btn btn-gold btn-sm" onclick="confirmCtHistoryCard()">
               <span class="show-pt">Sim, est&aacute; certo</span><span class="show-en">Yes, that's right</span>
             </button>
-            <button class="btn-secondary btn-sm" onclick="correctCtHistoryCard()">
+            <button data-help="admin-finance-terms#terms#2" class="btn-secondary btn-sm" onclick="correctCtHistoryCard()">
               <span class="show-pt">Corrigir</span><span class="show-en">Correct it</span>
             </button>
           </div>
@@ -1944,10 +1944,10 @@
             </div>
           </div>
           <div id="ctEndSuggestButtons" style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-gold btn-sm" onclick="confirmCtEndSuggestion()">
+            <button data-help="admin-finance-terms#terms#2" class="btn btn-gold btn-sm" onclick="confirmCtEndSuggestion()">
               <span class="show-pt">Sim, est&aacute; certo</span><span class="show-en">Yes, that's right</span>
             </button>
-            <button class="btn-secondary btn-sm" onclick="correctCtEndSuggestion()">
+            <button data-help="admin-finance-terms#terms#2" class="btn-secondary btn-sm" onclick="correctCtEndSuggestion()">
               <span class="show-pt">Corrigir</span><span class="show-en">Correct it</span>
             </button>
           </div>
@@ -1962,16 +1962,16 @@
           <ul id="ctIntakeList" style="margin:0 0 10px 18px;padding:0;font-size:13px;color:var(--muted);"></ul>
           <textarea id="ctIntakeText" class="field-input" rows="4" style="width:100%;resize:vertical;"></textarea>
           <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
-            <button class="btn btn-sm" onclick="toggleCtMic('ctIntakeText')" id="ctIntakeMicBtn">&#127908; <span class="show-pt">Ditar</span><span class="show-en">Dictate</span></button>
+            <button data-help="admin-finance-terms#terms#2" class="btn btn-sm" onclick="toggleCtMic('ctIntakeText')" id="ctIntakeMicBtn">&#127908; <span class="show-pt">Ditar</span><span class="show-en">Dictate</span></button>
             <span id="ctIntakeMicStatus" style="font-size:12px;color:var(--muted);"></span>
-            <button class="btn-secondary btn-sm" onclick="ctSkipIntake()" style="margin-left:auto;"><span class="show-pt">N&atilde;o sei</span><span class="show-en">I don't know</span></button>
+            <button data-help="admin-finance-terms#terms#1" class="btn-secondary btn-sm" onclick="ctSkipIntake()" style="margin-left:auto;"><span class="show-pt">N&atilde;o sei</span><span class="show-en">I don't know</span></button>
             <button class="btn btn-gold btn-sm" onclick="ctReadIntake()"><span class="show-pt">Enviar</span><span class="show-en">Send</span></button>
           </div>
           <div id="ctIntakeConfirm" hidden style="margin-top:10px;padding:10px 12px;border:1px solid var(--gold);border-radius:8px;">
             <div id="ctIntakeConfirmText" style="font-size:13.5px;line-height:1.5;margin-bottom:8px;"></div>
             <div style="display:flex;gap:8px;">
-              <button class="btn btn-gold btn-sm" onclick="ctSaveIntake()"><span class="show-pt">Sim, est&aacute; certo</span><span class="show-en">Yes, that's right</span></button>
-              <button class="btn-secondary btn-sm" onclick="ctFixIntake()"><span class="show-pt">Corrigir</span><span class="show-en">Correct it</span></button>
+              <button data-help="admin-finance-terms#terms#2" class="btn btn-gold btn-sm" onclick="ctSaveIntake()"><span class="show-pt">Sim, est&aacute; certo</span><span class="show-en">Yes, that's right</span></button>
+              <button data-help="admin-finance-terms#terms#2" class="btn-secondary btn-sm" onclick="ctFixIntake()"><span class="show-pt">Corrigir</span><span class="show-en">Correct it</span></button>
             </div>
           </div>
           <div class="sheet-status" id="ctIntakeStatus"></div>
@@ -1981,8 +1981,8 @@
         <div id="ctDiscountCard" hidden>
           <div id="ctDiscountText" style="font-size:14px;margin-bottom:12px;line-height:1.5;"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-gold btn-sm" onclick="ctAnswerDiscount(true)"><span class="show-pt">Sim, &eacute; gr&aacute;tis</span><span class="show-en">Yes, it is free</span></button>
-            <button class="btn-secondary btn-sm" onclick="ctAnswerDiscount(false)"><span class="show-pt">N&atilde;o, foi um erro</span><span class="show-en">No, that was a mistake</span></button>
+            <button data-help="admin-finance-terms#terms#1" class="btn btn-gold btn-sm" onclick="ctAnswerDiscount(true)"><span class="show-pt">Sim, &eacute; gr&aacute;tis</span><span class="show-en">Yes, it is free</span></button>
+            <button data-help="admin-finance-terms#terms#1" class="btn-secondary btn-sm" onclick="ctAnswerDiscount(false)"><span class="show-pt">N&atilde;o, foi um erro</span><span class="show-en">No, that was a mistake</span></button>
           </div>
           <div class="sheet-status" id="ctDiscountStatus"></div>
         </div>
@@ -1991,11 +1991,11 @@
           <div id="ctQText" style="font-size:14px;margin-bottom:12px;"></div>
           <textarea id="ctAnswer" class="field-input" rows="3" style="width:100%;resize:vertical;"></textarea>
           <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
-            <button class="btn btn-sm" id="ctMicBtn" onclick="toggleCtMic()">
+            <button data-help="admin-finance-terms#terms#2" class="btn btn-sm" id="ctMicBtn" onclick="toggleCtMic()">
               &#127908; <span class="show-pt">Ditar</span><span class="show-en">Dictate</span>
             </button>
             <span id="ctMicStatus" style="font-size:12px;color:var(--muted);"></span>
-            <button class="btn-secondary btn-sm" onclick="skipCtQuestion()">
+            <button data-help="admin-finance-terms#terms#1" class="btn-secondary btn-sm" onclick="skipCtQuestion()">
               <span class="show-pt">Pular</span><span class="show-en">Skip</span>
             </button>
             <button class="btn btn-gold btn-sm" style="margin-left:auto;" onclick="sendCtAnswer()">
@@ -2008,10 +2008,10 @@
           <div id="ctConfirmCard" hidden style="margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);">
             <div id="ctConfirmText" style="font-size:13.5px;margin-bottom:10px;"></div>
             <div style="display:flex;gap:8px;">
-              <button class="btn btn-gold btn-sm" onclick="confirmCtAnswer()">
+              <button data-help="admin-finance-terms#terms#2" class="btn btn-gold btn-sm" onclick="confirmCtAnswer()">
                 <span class="show-pt">Sim, est&aacute; certo</span><span class="show-en">Yes, that's right</span>
               </button>
-              <button class="btn btn-sm" onclick="correctCtAnswer()">
+              <button data-help="admin-finance-terms#terms#2" class="btn btn-sm" onclick="correctCtAnswer()">
                 <span class="show-pt">Corrigir</span><span class="show-en">Correct it</span>
               </button>
             </div>
@@ -2057,11 +2057,11 @@
         <span class="show-en">Pick the right button: it decides whether the account is filed as business or personal.</span>
       </div>
       <div class="btn-row">
-        <button class="btn btn-gold" onclick="startLink('business')">
+        <button data-help="admin-finance-accounts#acc#5" class="btn btn-gold" onclick="startLink('business')">
           <span class="show-pt">Conectar conta comercial</span>
           <span class="show-en">Connect business account</span>
         </button>
-        <button class="btn" onclick="startLink('personal')">
+        <button data-help="admin-finance-accounts#acc#5" class="btn" onclick="startLink('personal')">
           <span class="show-pt">Conectar conta pessoal</span>
           <span class="show-en">Connect personal account</span>
         </button>
@@ -2085,10 +2085,10 @@
           <span class="show-en">Overdue bills</span>
         </div>
         <span class="sec-move-btns">
-          <button class="rank-btn" onclick="moveSection('overdue',-1)" aria-label="Mover para cima">&#9650;</button>
-          <button class="rank-btn" onclick="moveSection('overdue',1)" aria-label="Mover para baixo">&#9660;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('overdue',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('overdue',1)" aria-label="Mover para baixo">&#9660;</button>
         </span>
-        <button class="collapse-btn" onclick="toggleSection('overdue')" id="collapse_overdue" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+        <button data-help="admin-finance-overview#ov#3" class="collapse-btn" onclick="toggleSection('overdue')" id="collapse_overdue" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
       <div class="sec-summary" id="summary_overdue" hidden></div>
       <div class="card-body-collapsible" id="body_overdue">
@@ -2126,10 +2126,10 @@
           <span class="show-en">Category budgets</span>
         </div>
         <span class="sec-move-btns">
-          <button class="rank-btn" onclick="moveSection('budgets',-1)" aria-label="Mover para cima">&#9650;</button>
-          <button class="rank-btn" onclick="moveSection('budgets',1)" aria-label="Mover para baixo">&#9660;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('budgets',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('budgets',1)" aria-label="Mover para baixo">&#9660;</button>
         </span>
-        <button class="collapse-btn" onclick="toggleSection('budgets')" id="collapse_budgets" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+        <button data-help="admin-finance-overview#ov#3" class="collapse-btn" onclick="toggleSection('budgets')" id="collapse_budgets" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
       <div class="sec-summary" id="summary_budgets" hidden></div>
       <div class="card-body-collapsible" id="body_budgets">
@@ -2173,10 +2173,10 @@
           <span class="show-en">Needs you</span>
         </div>
         <span class="sec-move-btns">
-          <button class="rank-btn" onclick="moveSection('attention',-1)" aria-label="Mover para cima">&#9650;</button>
-          <button class="rank-btn" onclick="moveSection('attention',1)" aria-label="Mover para baixo">&#9660;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('attention',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('attention',1)" aria-label="Mover para baixo">&#9660;</button>
         </span>
-        <button class="collapse-btn" onclick="toggleSection('attention')" id="collapse_attention" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+        <button data-help="admin-finance-overview#ov#3" class="collapse-btn" onclick="toggleSection('attention')" id="collapse_attention" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
       <div class="sec-summary" id="summary_attention" hidden></div>
       <div class="card-body-collapsible" id="body_attention">
@@ -2201,10 +2201,10 @@
           <span class="show-en">Next 90 days &mdash; business account</span>
         </div>
         <span class="sec-move-btns">
-          <button class="rank-btn" onclick="moveSection('forward',-1)" aria-label="Mover para cima">&#9650;</button>
-          <button class="rank-btn" onclick="moveSection('forward',1)" aria-label="Mover para baixo">&#9660;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('forward',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('forward',1)" aria-label="Mover para baixo">&#9660;</button>
         </span>
-        <button class="collapse-btn" onclick="toggleSection('forward')" id="collapse_forward" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+        <button data-help="admin-finance-overview#ov#3" class="collapse-btn" onclick="toggleSection('forward')" id="collapse_forward" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
       <div class="sec-summary" id="summary_forward" hidden></div>
       <div class="card-body-collapsible" id="body_forward">
@@ -2226,10 +2226,10 @@
           <span class="show-en">Fixed bills</span>
         </div>
         <span class="sec-move-btns">
-          <button class="rank-btn" onclick="moveSection('bills',-1)" aria-label="Mover para cima">&#9650;</button>
-          <button class="rank-btn" onclick="moveSection('bills',1)" aria-label="Mover para baixo">&#9660;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('bills',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('bills',1)" aria-label="Mover para baixo">&#9660;</button>
         </span>
-        <button class="collapse-btn" onclick="toggleSection('bills')" id="collapse_bills" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+        <button data-help="admin-finance-overview#ov#3" class="collapse-btn" onclick="toggleSection('bills')" id="collapse_bills" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
       <div class="sec-summary" id="summary_bills" hidden></div>
       <div class="card-body-collapsible" id="body_bills">
@@ -2267,7 +2267,7 @@
                tracked until she presses the button on that row. -->
           <div id="billSuggest" class="club-suggest" hidden></div>
           <div class="btn-row" style="margin-top:10px" id="billAddRow">
-            <button class="btn btn-sm btn-gold" onclick="showBillForm()">
+            <button data-help="admin-finance-bills#bills#6" class="btn btn-sm btn-gold" onclick="showBillForm()">
               <span class="show-pt">Adicionar conta</span>
               <span class="show-en">Add bill</span>
             </button>
@@ -2312,10 +2312,10 @@
           <span class="show-en">Owner pay</span>
         </div>
         <span class="sec-move-btns">
-          <button class="rank-btn" onclick="moveSection('ownerpay',-1)" aria-label="Mover para cima">&#9650;</button>
-          <button class="rank-btn" onclick="moveSection('ownerpay',1)" aria-label="Mover para baixo">&#9660;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('ownerpay',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('ownerpay',1)" aria-label="Mover para baixo">&#9660;</button>
         </span>
-        <button class="collapse-btn" onclick="toggleSection('ownerpay')" id="collapse_ownerpay" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+        <button data-help="admin-finance-overview#ov#3" class="collapse-btn" onclick="toggleSection('ownerpay')" id="collapse_ownerpay" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
       <div class="sec-summary" id="summary_ownerpay" hidden></div>
       <div class="card-body-collapsible" id="body_ownerpay">
@@ -2333,10 +2333,10 @@
           <span class="show-en">Linked accounts</span>
         </div>
         <span class="sec-move-btns">
-          <button class="rank-btn" onclick="moveSection('linked',-1)" aria-label="Mover para cima">&#9650;</button>
-          <button class="rank-btn" onclick="moveSection('linked',1)" aria-label="Mover para baixo">&#9660;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('linked',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('linked',1)" aria-label="Mover para baixo">&#9660;</button>
         </span>
-        <button class="collapse-btn" onclick="toggleSection('linked')" id="collapse_linked" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+        <button data-help="admin-finance-overview#ov#3" class="collapse-btn" onclick="toggleSection('linked')" id="collapse_linked" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
       <div class="sec-summary" id="summary_linked" hidden></div>
       <div class="card-body-collapsible" id="body_linked">
@@ -2376,10 +2376,10 @@
           <span class="show-en">Suspected transfers</span>
         </div>
         <span class="sec-move-btns">
-          <button class="rank-btn" onclick="moveSection('transfers',-1)" aria-label="Mover para cima">&#9650;</button>
-          <button class="rank-btn" onclick="moveSection('transfers',1)" aria-label="Mover para baixo">&#9660;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('transfers',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('transfers',1)" aria-label="Mover para baixo">&#9660;</button>
         </span>
-        <button class="collapse-btn" onclick="toggleSection('transfers')" id="collapse_transfers" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+        <button data-help="admin-finance-overview#ov#3" class="collapse-btn" onclick="toggleSection('transfers')" id="collapse_transfers" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
       <div class="sec-summary" id="summary_transfers" hidden></div>
       <div class="card-body-collapsible" id="body_transfers">
@@ -2416,8 +2416,8 @@
           <span class="show-en">Charts</span>
         </div>
         <span class="sec-move-btns">
-          <button class="rank-btn" onclick="moveSection('charts',-1)" aria-label="Mover para cima">&#9650;</button>
-          <button class="rank-btn" onclick="moveSection('charts',1)" aria-label="Mover para baixo">&#9660;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('charts',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('charts',1)" aria-label="Mover para baixo">&#9660;</button>
         </span>
         <!-- One month for the whole panel. Defaults to the current month:
              all-time was the old behaviour and it made "Para onde foi o
@@ -2426,7 +2426,7 @@
                 style="font-size:12px;padding:2px 6px;margin-left:8px"
                 data-title-attr-pt="M&ecirc;s dos gr&aacute;ficos" data-title-attr-en="Charts month"
                 aria-label="M&ecirc;s dos gr&aacute;ficos"></select>
-        <button class="collapse-btn" onclick="toggleSection('charts')" id="collapse_charts" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+        <button data-help="admin-finance-overview#ov#3" class="collapse-btn" onclick="toggleSection('charts')" id="collapse_charts" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
       <div class="sec-summary" id="summary_charts" hidden></div>
       <div class="card-body-collapsible" id="body_charts">
@@ -2544,10 +2544,10 @@
           <span class="show-en">Transactions</span>
         </div>
         <span class="sec-move-btns">
-          <button class="rank-btn" onclick="moveSection('transactions',-1)" aria-label="Mover para cima">&#9650;</button>
-          <button class="rank-btn" onclick="moveSection('transactions',1)" aria-label="Mover para baixo">&#9660;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('transactions',-1)" aria-label="Mover para cima">&#9650;</button>
+          <button data-help="admin-finance-overview#ov#3" class="rank-btn" onclick="moveSection('transactions',1)" aria-label="Mover para baixo">&#9660;</button>
         </span>
-        <button class="collapse-btn" onclick="toggleSection('transactions')" id="collapse_transactions" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+        <button data-help="admin-finance-overview#ov#3" class="collapse-btn" onclick="toggleSection('transactions')" id="collapse_transactions" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
       </div>
       <div class="sec-summary" id="summary_transactions" hidden></div>
       <div class="card-body-collapsible" id="body_transactions">
@@ -2784,17 +2784,17 @@
       </div>
 
       <div class="inv-subtab-bar m-scroll-tabs">
-        <button class="inv-subtab active" id="subtabDraft" onclick="switchInvoiceTab('draft')">
+        <button data-help="admin-invoices#invoices#11" class="inv-subtab active" id="subtabDraft" onclick="switchInvoiceTab('draft')">
           <span class="show-pt">Rascunho</span>
           <span class="show-en">Draft</span>
           <span class="inv-subtab-badge" id="badgeDraft" hidden>0</span>
         </button>
-        <button class="inv-subtab" id="subtabUnpaid" onclick="switchInvoiceTab('unpaid')">
+        <button data-help="admin-invoices#invoices#11" class="inv-subtab" id="subtabUnpaid" onclick="switchInvoiceTab('unpaid')">
           <span class="show-pt">N&atilde;o Pagas</span>
           <span class="show-en">Unpaid</span>
           <span class="inv-subtab-badge" id="badgeUnpaid" hidden>0</span>
         </button>
-        <button class="inv-subtab" id="subtabPaid" onclick="switchInvoiceTab('paid')">
+        <button data-help="admin-invoices#invoices#11" class="inv-subtab" id="subtabPaid" onclick="switchInvoiceTab('paid')">
           <span class="show-pt">Arquivo</span>
           <span class="show-en">Archive</span>
         </button>
@@ -2872,11 +2872,11 @@
           <span class="show-pt">Foi s&oacute; este m&ecirc;s ou vai passar a ser sempre no cart&atilde;o?</span>
           <span class="show-en">Just this month, or from now on?</span>
         </div>
-        <button type="button" class="btn btn-gold" onclick="confirmCardPay(false)" style="width:100%;margin-bottom:8px;">
+        <button data-help="admin-finance-bills#bills#3" type="button" class="btn btn-gold" onclick="confirmCardPay(false)" style="width:100%;margin-bottom:8px;">
           <span class="show-pt">S&oacute; este m&ecirc;s</span>
           <span class="show-en">Just this month</span>
         </button>
-        <button type="button" class="btn" onclick="confirmCardPay(true)" style="width:100%;">
+        <button data-help="admin-finance-bills#bills#3" type="button" class="btn" onclick="confirmCardPay(true)" style="width:100%;">
           <span class="show-pt">Sempre no cart&atilde;o</span>
           <span class="show-en">Always on the card</span>
         </button>
@@ -2957,7 +2957,7 @@
           <textarea id="promptFallbackText" readonly rows="8"
             style="width:100%;font-family:ui-monospace,monospace;font-size:12px;"></textarea>
         </div>
-        <button type="button" class="btn btn-gold" onclick="closePromptCopied()" style="width:100%;">
+        <button data-help="admin-finance-extras#extra#4" type="button" class="btn btn-gold" onclick="closePromptCopied()" style="width:100%;">
           <span class="show-pt">Entendi</span>
           <span class="show-en">Got it</span>
         </button>
@@ -3347,7 +3347,7 @@
       </div>
       <div class="modal-sub" id="scopeModalSub"></div>
 
-      <button class="scope-opt" onclick="applyCategoryScope('one')">
+      <button data-help="admin-finance-overview#ov#6" class="scope-opt" onclick="applyCategoryScope('one')">
         <div class="scope-opt-title">
           <span class="show-pt">S&oacute; esta</span>
           <span class="show-en">Just this one</span>
@@ -3358,7 +3358,7 @@
         </div>
       </button>
 
-      <button class="scope-opt" onclick="applyCategoryScope('future')">
+      <button data-help="admin-finance-overview#ov#6" class="scope-opt" onclick="applyCategoryScope('future')">
         <div class="scope-opt-title">
           <span class="show-pt">Esta e futuras</span>
           <span class="show-en">This and future</span>
@@ -3366,7 +3366,7 @@
         <div class="scope-opt-sub" id="scopeFutureSub"></div>
       </button>
 
-      <button class="scope-opt" onclick="applyCategoryScope('all')">
+      <button data-help="admin-finance-overview#ov#6" class="scope-opt" onclick="applyCategoryScope('all')">
         <div class="scope-opt-title">
           <span class="show-pt">Todo o hist&oacute;rico</span>
           <span class="show-en">All history</span>
@@ -4585,8 +4585,8 @@
           '<div class="tag-meta">' + esc(a.subtype || "") +
           (a.mask ? " &middot;&middot;&middot;&middot; " + esc(a.mask) : "") + '</div></div>' +
           '<div class="seg">' +
-            '<button type="button" data-i="' + idx + '" data-p="business">Comercial</button>' +
-            '<button type="button" data-i="' + idx + '" data-p="personal">Pessoal</button>' +
+            '<button data-help="admin-finance-accounts#acc#5" type="button" data-i="' + idx + '" data-p="business">Comercial</button>' +
+            '<button data-help="admin-finance-accounts#acc#5" type="button" data-i="' + idx + '" data-p="personal">Pessoal</button>' +
           '</div>';
         host.appendChild(row);
       });
@@ -4798,12 +4798,12 @@
                    '</div>' +
                  '</div>' +
                  (r.copy
-                   ? '<button class="btn btn-sm attn-copy-btn" ' +
+                   ? '<button data-help="admin-finance-extras#extra#2" class="btn btn-sm attn-copy-btn" ' +
                        'onclick="event.stopPropagation();copyQueuePrompt(\'' + r.copy + '\')">' +
                        '<span class="show-pt">Copiar prompt</span>' +
                        '<span class="show-en">Copy prompt</span>' +
                      '</button>' +
-                     '<button class="btn btn-sm attn-copy-btn" ' +
+                     '<button data-help="admin-finance-extras#extra#2" class="btn btn-sm attn-copy-btn" ' +
                        'onclick="event.stopPropagation();markInterviewDone(\'' + r.copy + '\')">' +
                        '<span class="show-pt">Entrevista conclu&iacute;da</span>' +
                        '<span class="show-en">Interview done</span>' +
@@ -5249,7 +5249,7 @@
                 (isEn() ? s.months_seen + " months" : s.months_seen + " meses") +
               "</span></span>" +
             "<b>" + fmtCents(s.amount_cents) + "</b>" +
-            '<button class="btn btn-sm btn-gold" onclick="acceptBillSuggestion(' + i + ')">' +
+            '<button data-help="admin-finance-extras#extra#3" class="btn btn-sm btn-gold" onclick="acceptBillSuggestion(' + i + ')">' +
               '<span class="show-pt">&Eacute; conta fixa</span>' +
               '<span class="show-en">Yes, track it</span></button>' +
           "</div>";
@@ -5810,9 +5810,9 @@
             'ontouchstart="onBillTouchStart(event,\'' + esc(b.id) + '\')" ' +
             'ontouchmove="onBillTouchMove(event)" ontouchend="onBillTouchEnd(event)">&#9776;</span>' +
           '<span class="rank-btns">' +
-            '<button class="rank-btn" onclick="moveBillPriority(\'' + esc(b.id) + '\',-1)" ' +
+            '<button data-help="admin-finance-bills#bills#6" class="rank-btn" onclick="moveBillPriority(\'' + esc(b.id) + '\',-1)" ' +
               (i === 0 ? "disabled" : "") + ' aria-label="' + t("Mover para cima", "Move up") + '">&#9650;</button>' +
-            '<button class="rank-btn" onclick="moveBillPriority(\'' + esc(b.id) + '\',1)" ' +
+            '<button data-help="admin-finance-bills#bills#6" class="rank-btn" onclick="moveBillPriority(\'' + esc(b.id) + '\',1)" ' +
               (i === bills.length - 1 ? "disabled" : "") + ' aria-label="' + t("Mover para baixo", "Move down") + '">&#9660;</button>' +
           "</span>" +
           '<span class="grow">' +
@@ -5847,7 +5847,7 @@
               '<span class="show-pt">Marcar pago</span><span class="show-en">Mark paid</span></button> ' +
             '<button class="btn btn-sm" onclick="payBillWithCard(\'' + esc(b.id) + '\',\'' + esc(b.name.replace(/'/g, "\\'")) + '\')">' +
               '<span class="show-pt">Paguei no cart&atilde;o</span><span class="show-en">Paid with card</span></button> ' +
-            '<button class="btn btn-sm" onclick="cancelBillService(\'' + esc(b.id) + '\',\'' + esc(b.name.replace(/'/g, "\\'")) + '\')">' +
+            '<button data-help="admin-finance-bills#bills#6" class="btn btn-sm" onclick="cancelBillService(\'' + esc(b.id) + '\',\'' + esc(b.name.replace(/'/g, "\\'")) + '\')">' +
               '<span class="show-pt">Cancelei</span><span class="show-en">Cancelled</span></button>' +
           "</div>" +
         "</div>";
@@ -6003,7 +6003,7 @@
           '<td>' + fmtDate(txn.date) + '</td>' +
           '<td>' + esc(txn.description || "") + '</td>' +
           '<td class="num">' + fmtCents(Math.abs(txn.amount_cents)) + '</td>' +
-          '<td><button class="btn btn-sm btn-gold" onclick="confirmBillMatch(\'' + esc(txn.id) + '\')">' +
+          '<td><button data-help="admin-finance-bills#bills#3" class="btn btn-sm btn-gold" onclick="confirmBillMatch(\'' + esc(txn.id) + '\')">' +
             t("Esta &eacute;", "This one") + '</button></td>' +
         '</tr>';
       }).join('') + '</tbody></table>';
@@ -6337,11 +6337,11 @@
           "<td>" + esc(t.description || "") + "</td>" +
           '<td class="num">' + fmtCents(t.amount_cents) + "</td>" +
           '<td class="num">' +
-            '<button class="btn btn-sm btn-gold" onclick="confirmTransfer(\'' + t.transfer_pair_id + '\', false)">' +
+            '<button data-help="admin-finance-accounts#acc#4" class="btn btn-sm btn-gold" onclick="confirmTransfer(\'' + t.transfer_pair_id + '\', false)">' +
               '<span class="show-pt">&Eacute; transfer&ecirc;ncia</span><span class="show-en">Is a transfer</span></button> ' +
-            '<button class="btn btn-sm" onclick="confirmTransfer(\'' + t.transfer_pair_id + '\', true)">' +
+            '<button data-help="admin-finance-accounts#acc#4" class="btn btn-sm" onclick="confirmTransfer(\'' + t.transfer_pair_id + '\', true)">' +
               '<span class="show-pt">Sempre</span><span class="show-en">Always</span></button> ' +
-            '<button class="btn btn-sm" onclick="rejectTransfer(\'' + t.transfer_pair_id + '\')">' +
+            '<button data-help="admin-finance-accounts#acc#4" class="btn btn-sm" onclick="rejectTransfer(\'' + t.transfer_pair_id + '\')">' +
               '<span class="show-pt">N&atilde;o &eacute;</span><span class="show-en">Not one</span></button>' +
           "</td>" +
         "</tr>";
@@ -7241,7 +7241,7 @@
       // looking for. Showing 37 rows under a chart that exists to summarise
       // them recreates the clutter the chart was meant to solve.
       host.innerHTML =
-        '<button type="button" class="catlist-toggle" onclick="toggleCatBreakdown()">' +
+        '<button data-help="admin-finance-overview#ov#4" type="button" class="catlist-toggle" onclick="toggleCatBreakdown()">' +
           '<span id="catBreakdownChev">&#9656;</span> ' +
           t("Ver detalhamento", "See breakdown") +
         '</button>' +
@@ -8224,7 +8224,7 @@
           "<td>" + sel + "</td>" +
           '<td><span class="rule-src rule-src-' + esc(r.source) + '">' + srcLabel + "</span></td>" +
           '<td class="num">' + (r.match_count || 0) + "</td>" +
-          '<td><button class="btn btn-sm" onclick="deleteRule(\'' + esc(r.id) + '\')">' +
+          '<td><button data-help="admin-finance-categories#cat#5" class="btn btn-sm" onclick="deleteRule(\'' + esc(r.id) + '\')">' +
             (isEn() ? "Delete" : "Excluir") + "</button></td>" +
         "</tr>";
       }).join("");
@@ -8363,7 +8363,7 @@
         }
         if (inv.status === "sent") {
           actions +=
-            '<button class="btn btn-sm btn-gold" id="waBtn' + inv.id + '" onclick="sendInvoiceWhatsApp(\'' + inv.id + '\')">' +
+            '<button data-help="admin-record-payment#record#16" class="btn btn-sm btn-gold" id="waBtn' + inv.id + '" onclick="sendInvoiceWhatsApp(\'' + inv.id + '\')">' +
               "WhatsApp</button> ";
         }
         // Wording is editable while it is still a draft, and only then.
@@ -8388,7 +8388,7 @@
           actions += inv.claimed_paid_at
             ? '<button class="btn btn-sm" onclick="unclaimPaid(\'' + inv.id + '\')">' +
                 '<span class="show-pt">Remover etiqueta</span><span class="show-en">Remove tag</span></button> '
-            : '<button class="btn btn-sm" onclick="openMarkPaid(\'' + inv.id + '\')">' +
+            : '<button data-help="admin-invoices#invoices#25" class="btn btn-sm" onclick="openMarkPaid(\'' + inv.id + '\')">' +
                 '<span class="show-pt">Marcar como pago</span><span class="show-en">Mark as paid</span></button> ';
           // A real accounting event, next to (never instead of) the sticky
           // note above: records who paid how, closes the invoice when it's
@@ -8816,11 +8816,11 @@
             btns += '<button class="btn btn-sm" onclick="window.open(\'' + p.pdf_link + '\', \'_blank\')">' +
               '<span class="show-pt">Baixar PDF</span><span class="show-en">Download PDF</span></button> ';
             if (hasPhone) {
-              btns += '<button class="btn btn-sm btn-gold" onclick="sendReceiptWhatsApp(\'' + invoiceId + '\', \'' + p.id + '\')">' +
+              btns += '<button data-help="admin-record-payment#record#16" class="btn btn-sm btn-gold" onclick="sendReceiptWhatsApp(\'' + invoiceId + '\', \'' + p.id + '\')">' +
                 '<span class="show-pt">Enviar por WhatsApp</span><span class="show-en">Send on WhatsApp</span></button> ';
             }
           } else if (p.needs_receipt) {
-            btns += '<button class="btn btn-sm" onclick="issueOldReceipt(\'' + invoiceId + '\', \'' + p.id + '\')">' +
+            btns += '<button data-help="admin-record-payment#record#10" class="btn btn-sm" onclick="issueOldReceipt(\'' + invoiceId + '\', \'' + p.id + '\')">' +
               '<span class="show-pt">Emitir recibo</span><span class="show-en">Issue receipt</span></button> ';
           }
           btns += '<button class="btn btn-sm" onclick="undoPayment(\'' + p.id + '\')">' +
@@ -9290,7 +9290,7 @@
           "<td>" + esc(m.invoice.number) + "<br><span class='tag-meta'>" +
             esc(m.invoice.client_name || "") + "</span>" + note + "</td>" +
           '<td class="num">' + amountCell + "</td>" +
-          '<td class="num"><button class="btn btn-sm" onclick="approveMatch(' + i + ')">' +
+          '<td class="num"><button data-help='admin-finance-deposits#dep#2' class="btn btn-sm" onclick="approveMatch(' + i + ')">' +
             '<span class="show-pt">Conciliar</span><span class="show-en">Match</span></button></td>' +
         "</tr>";
       }).join("");

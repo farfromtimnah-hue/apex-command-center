@@ -28359,16 +28359,16 @@
             {
               "n": 4,
               "text": {
-                "pt": "Ao criar uma nova fatura, se o cliente já tem uma fatura agendada para o período, aparece o aviso Este cliente já tem fatura agendada, com a data e o valor. Gerar a agendada agora cria o rascunho da agendada. Continuar manualmente segue com a sua fatura e anota que o período está resolvido, para não nascer uma duplicata. Cancelar fecha tudo. Escrito a partir do código; nada foi criado.",
-                "en": "When you create a new invoice and the client already has an invoice scheduled for the period, the warning This client already has a scheduled invoice appears, with the date and the amount. Generate the scheduled one now creates the draft of the scheduled one. Continue manually goes on with your invoice and notes that the period is handled, so no duplicate is born. Cancel closes everything. Written from the code; nothing was created."
+                "pt": "Ao criar uma nova fatura, se o cliente já tem uma fatura agendada para o período, aparece o aviso Este cliente já tem fatura agendada, com a data e o valor. Gerar a agendada agora cria o rascunho da agendada. Continuar manualmente segue com a sua fatura e anota que o período está resolvido, para não nascer uma duplicata. Cancelar fecha tudo.",
+                "en": "When you create a new invoice and the client already has an invoice scheduled for the period, the warning This client already has a scheduled invoice appears, with the date and the amount. Generate the scheduled one now creates the draft of the scheduled one. Continue manually goes on with your invoice and notes that the period is handled, so no duplicate is born. Cancel closes everything."
               },
               "image": null
             },
             {
               "n": 5,
               "text": {
-                "pt": "Na lista de faturas, o botão Copiar link do cliente abre a janela Link da fatura para o cliente. Copiar link copia o endereço. O botão de desativar o link pergunta primeiro: com o link desativado, quem abrir vê que ele não vale e não paga. Ativar de novo gera um endereço novo, e você envia outra vez. A caixa Mostrar pagamento por cartão neste cliente liga o cartão; a Apex paga a taxa. ACH e Zelle aparecem sempre. Escrito a partir do código; nada foi mudado.",
-                "en": "On the invoice list, the button Copy client link opens the window Invoice link for the client. Copy link copies the address. The button that disables the link asks first: with the link disabled, anyone who opens it sees it is not valid and cannot pay. Enabling it again makes a new address, and you send it again. The box Show card payment for this client turns the card on; Apex pays the fee. ACH and Zelle always show. Written from the code; nothing was changed."
+                "pt": "Na lista de faturas, o botão Copiar link do cliente abre a janela Link da fatura para o cliente. Copiar link copia o endereço. O botão de desativar o link pergunta primeiro: com o link desativado, quem abrir vê que ele não vale e não paga. Ativar de novo gera um endereço novo, e você envia outra vez. A caixa Mostrar pagamento por cartão neste cliente liga o cartão; a Apex paga a taxa. ACH e Zelle aparecem sempre.",
+                "en": "On the invoice list, the button Copy client link opens the window Invoice link for the client. Copy link copies the address. The button that disables the link asks first: with the link disabled, anyone who opens it sees it is not valid and cannot pay. Enabling it again makes a new address, and you send it again. The box Show card payment for this client turns the card on; Apex pays the fee. ACH and Zelle always show."
               },
               "image": null
             },
@@ -28422,32 +28422,32 @@
             {
               "n": 1,
               "text": {
-                "pt": "Para mudar um fornecedor, abra o cartão dele e toque em Editar fornecedor. Você muda o nome, o nome em inglês (opcional), o tipo, o nome e o telefone do contato, a forma de pagamento (Zelle, cheque, ACH ou outra) e o identificador do pagamento. Toque em Salvar. Escrito a partir do código; nada foi aberto nem salvo.",
-                "en": "To change a vendor, open its card and tap Edit vendor. You change the name, the English name (optional), the type, the contact name and phone, the payment method (Zelle, check, ACH or other) and the payment identifier. Tap Save. Written from the code; nothing was opened or saved."
+                "pt": "Para mudar um fornecedor, abra o cartão dele e toque em Editar fornecedor. Você muda o nome, o nome em inglês (opcional), o tipo, o nome e o telefone do contato, a forma de pagamento (Zelle, cheque, ACH ou outra) e o identificador do pagamento. Toque em Salvar.",
+                "en": "To change a vendor, open its card and tap Edit vendor. You change the name, the English name (optional), the type, the contact name and phone, the payment method (Zelle, check, ACH or other) and the payment identifier. Tap Save."
               },
               "image": null
             },
             {
               "n": 2,
               "text": {
-                "pt": "No cartão do fornecedor, toque em + Adicionar serviço. Escolha o cliente e escreva o nome do serviço. O Tipo pode ser Mensal, Uma vez ou Duas metades. Escreva o valor planejado, o primeiro mês e a data de início. Em Mensal, escreva também o número de meses. A nota é opcional. Toque em Salvar. Escrito a partir do código; nada foi criado.",
-                "en": "On the vendor card, tap + Add service. Choose the client and write the service name. The Type can be Monthly, Once or Split in two halves. Write the planned amount, the first month and the start date. For Monthly, also write the number of months. The note is optional. Tap Save. Written from the code; nothing was created."
+                "pt": "No cartão do fornecedor, toque em + Adicionar serviço. Escolha o cliente e escreva o nome do serviço. O Tipo pode ser Mensal, Uma vez ou Duas metades. Escreva o valor planejado, o primeiro mês e a data de início. Em Mensal, escreva também o número de meses. A nota é opcional. Toque em Salvar.",
+                "en": "On the vendor card, tap + Add service. Choose the client and write the service name. The Type can be Monthly, Once or Split in two halves. Write the planned amount, the first month and the start date. For Monthly, also write the number of months. The note is optional. Tap Save."
               },
               "image": null
             },
             {
               "n": 3,
               "text": {
-                "pt": "Quando um pagamento está a pagar ou atrasado, a linha tem os botões Pular este mês e Adiar início. Pular este mês abre uma janela com o campo Motivo; escreva o motivo e toque em Confirmar. O pagamento deste mês não será cobrado. Escrito a partir do código; nenhum botão foi tocado, porque nada estava a pagar.",
-                "en": "When a payment is due or late, its line has the buttons Skip this month and Delay start. Skip this month opens a window with the field Reason; write the reason and tap Confirm. This month's payment will not be charged. Written from the code; no button was tapped, because nothing was due."
+                "pt": "Quando um pagamento está a pagar ou atrasado, a linha tem os botões Pular este mês e Adiar início. Pular este mês abre uma janela com o campo Motivo; escreva o motivo e toque em Confirmar. O pagamento deste mês não será cobrado.",
+                "en": "When a payment is due or late, its line has the buttons Skip this month and Delay start. Skip this month opens a window with the field Reason; write the reason and tap Confirm. This month's payment will not be charged."
               },
               "image": null
             },
             {
               "n": 4,
               "text": {
-                "pt": "Adiar início abre uma janela com a Nota (opcional). Escreva uma nota se quiser e toque em Confirmar. O início do serviço fica para depois. Escrito a partir do código; nada foi tocado.",
-                "en": "Delay start opens a window with a Note (optional). Write a note if you want and tap Confirm. The start of the service moves to later. Written from the code; nothing was tapped."
+                "pt": "Adiar início abre uma janela com a Nota (opcional). Escreva uma nota se quiser e toque em Confirmar. O início do serviço fica para depois.",
+                "en": "Delay start opens a window with a Note (optional). Write a note if you want and tap Confirm. The start of the service moves to later."
               },
               "image": null
             }

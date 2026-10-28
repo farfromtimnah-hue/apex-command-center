@@ -77,7 +77,7 @@
               "n": 1,
               "text": {
                 "pt": "Abra Negócio e toque em Contratos. A lista \"Sem contrato assinado\" mostra os projetos que ainda não têm contrato assinado.",
-                "en": "Open Negócio and tap Contratos. The list \"Sem contrato assinado\" shows the projects that have no signed contract yet."
+                "en": "Open Business and tap Contracts. The list \"No signed contract\" shows the projects that have no signed contract yet."
               },
               "image": {
                 "pt": "help/img/guides/contract/send-contract-01.jpg",
@@ -99,7 +99,7 @@
               "n": 3,
               "text": {
                 "pt": "Toque em Criar contrato a partir do orçamento aceito. Role até a seção Contrato. O contrato é montado a partir do orçamento aceito.",
-                "en": "Tap Criar contrato a partir do orçamento aceito. Scroll to the Contrato section. The contract is built from the accepted estimate."
+                "en": "Tap Create contract from the accepted estimate. Scroll to the Contract section. The contract is built from the accepted estimate."
               },
               "image": {
                 "pt": "help/img/guides/contract/send-contract-03.jpg",
@@ -110,7 +110,7 @@
               "n": 4,
               "text": {
                 "pt": "O contrato aparece como rascunho. Toque em Assinar pela empresa.",
-                "en": "The contract appears as a draft. Tap Assinar pela empresa."
+                "en": "The contract appears as a draft. Tap Sign as company."
               },
               "image": {
                 "pt": "help/img/guides/contract/send-contract-04.jpg",
@@ -121,7 +121,7 @@
               "n": 5,
               "text": {
                 "pt": "Veja o que falta e toque em Preencher agora. Se faltar alguma informação, o sistema mostra a lista. O botão Preencher agora leva você direto ao formulário.",
-                "en": "See what is missing and tap Preencher agora. If information is missing, the system shows the list. The Preencher agora button takes you straight to the form."
+                "en": "See what is missing and tap Fill in now. If information is missing, the system shows the list. The Fill in now button takes you straight to the form."
               },
               "image": {
                 "pt": "help/img/guides/contract/send-contract-05.jpg",
@@ -131,8 +131,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "O formulário abre no primeiro item que falta. Aqui é a escolha do recurso de segurança da piscina. Escolha uma opção da lista.",
-                "en": "The form opens at the first missing item. Here it is the pool safety feature. Choose one option from the list."
+                "pt": "O formulário abre no primeiro item que falta. Em uma obra de piscina, é a escolha do recurso de segurança da piscina. Escolha uma opção da lista.",
+                "en": "The form opens at the first missing item. For a pool job, it is the pool safety feature. Choose one option from the list."
               },
               "image": {
                 "pt": "help/img/guides/contract/send-contract-06.jpg",
@@ -165,7 +165,7 @@
               "n": 9,
               "text": {
                 "pt": "Preencha o resto e toque em Salvar dados. Os campos só são salvos quando você toca em Salvar dados.",
-                "en": "Fill in the rest and tap Salvar dados. The fields are only saved when you tap Salvar dados."
+                "en": "Fill in the rest and tap Save. The fields are only saved when you tap Save."
               },
               "image": {
                 "pt": "help/img/guides/contract/send-contract-09.jpg",
@@ -176,7 +176,7 @@
               "n": 10,
               "text": {
                 "pt": "Pronto: a lista vermelha sumiu. Toque em Assinar pela empresa.",
-                "en": "Done: the red list is gone. Tap Assinar pela empresa."
+                "en": "Done: the red list is gone. Tap Sign as company."
               },
               "image": {
                 "pt": "help/img/guides/contract/send-contract-10.jpg",
@@ -187,7 +187,7 @@
               "n": 11,
               "text": {
                 "pt": "Marque a caixa e assine pela empresa. Marque a caixa de assinatura eletrônica e toque em Assinar pela empresa.",
-                "en": "Tick the box and sign for the company. Tick the electronic signature box and tap Assinar pela empresa."
+                "en": "Tick the box and sign for the company. Tick the electronic signature box and tap Sign as company."
               },
               "image": {
                 "pt": "help/img/guides/contract/send-contract-11.jpg",
@@ -198,7 +198,7 @@
               "n": 12,
               "text": {
                 "pt": "Assinado pela empresa: toque em Enviar ao cliente. O status muda para Assinado pela empresa.",
-                "en": "Signed by the company: tap Enviar ao cliente. The status changes to Assinado pela empresa."
+                "en": "Signed by the company: tap Send to the homeowner. The status changes to show that the company signed."
               },
               "image": {
                 "pt": "help/img/guides/contract/send-contract-12.jpg",
@@ -209,7 +209,7 @@
               "n": 13,
               "text": {
                 "pt": "Toque em WhatsApp. Você também pode enviar por Mensagem de texto.",
-                "en": "Tap WhatsApp. You can also send by Mensagem de texto."
+                "en": "Tap WhatsApp. You can also send by Text message."
               },
               "image": {
                 "pt": "help/img/guides/contract/send-contract-13.jpg",
@@ -286,7 +286,7 @@
               "n": 20,
               "text": {
                 "pt": "Você vê o contrato em Assinados. Em Negócio, Contratos, abra a seção Assinados.",
-                "en": "You see the contract under Assinados. In Negócio, Contratos, open the Assinados section."
+                "en": "You see the contract under Signed. In Business, Contracts, open the Signed group."
               },
               "image": {
                 "pt": "help/img/guides/contract/send-contract-20.jpg",
@@ -297,7 +297,7 @@
               "n": 21,
               "text": {
                 "pt": "O registro mostra quem assinou e quando. Abra o contrato e role até Assinaturas e registro.",
-                "en": "The record shows who signed and when. Open the contract and scroll to Assinaturas e registro."
+                "en": "The record shows who signed and when. Open the contract and scroll to Signatures and audit."
               },
               "image": {
                 "pt": "help/img/guides/contract/send-contract-21.jpg",
@@ -530,8 +530,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "O cliente assina. Na tela do cliente (em inglês), ele confere o aditivo e preenche Your full name (1), marca a caixa de consentimento eletrônico (2) e toca em Sign change order (3). O nome do negócio e o e-mail estão cobertos na imagem.",
-                "en": "The customer signs. On the customer's screen (in English), they check the change order, fill in Your full name (1), tick the electronic consent box (2) and tap Sign change order (3). The business email is covered in the picture."
+                "pt": "O cliente assina. Na tela do cliente (em inglês), ele confere o aditivo e preenche Your full name (1), marca a caixa de consentimento eletrônico (2) e toca em Sign change order (3).",
+                "en": "The customer signs. On the customer's screen (in English), they check the change order, fill in Your full name (1), tick the electronic consent box (2) and tap Sign change order (3)."
               },
               "image": {
                 "pt": "help/img/guides/change-order/send-change-order-08.pt.jpg",
@@ -574,8 +574,8 @@
             {
               "n": 12,
               "text": {
-                "pt": "O projeto lista o aditivo e a fatura. Na janela do projeto, a parte Aditivos mostra o aditivo assinado (3), com o preço de antes e de depois e os dias. A parte Contrato mostra o contrato com o novo valor (2). Como escolhemos Nova parcela só para o aditivo, a parte Faturas mostra uma fatura nova em rascunho (1) para o aditivo.",
-                "en": "The project lists the change order and the invoice. In the project window, the part Change orders shows the signed change order (3), with the price before and after and the days. The part Contract shows the contract with the new amount (2). Because we chose New invoice step for the change, the part Invoices shows a new draft invoice (1) for the change order."
+                "pt": "O projeto lista o aditivo e a fatura. Na janela do projeto, a parte Aditivos mostra o aditivo assinado (3), com o preço de antes e de depois e os dias. A parte Contrato mostra o contrato com o novo valor (2). Se você escolheu Nova parcela só para o aditivo, a parte Faturas mostra uma fatura nova em rascunho (1) para o aditivo.",
+                "en": "The project lists the change order and the invoice. In the project window, the part Change orders shows the signed change order (3), with the price before and after and the days. The part Contract shows the contract with the new amount (2). If you chose New invoice step for the change, the part Invoices shows a new draft invoice (1) for the change order."
               },
               "image": {
                 "pt": "help/img/guides/change-order/send-change-order-12.pt.jpg",
@@ -771,8 +771,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Negócio, depois Faturas, e toque na fatura. Neste exemplo é a fatura do aditivo, em rascunho.",
-                "en": "Open Negócio, then Faturas, and tap the invoice. In this example it is the aditivo invoice, as a draft."
+                "pt": "Abra Negócio, depois Faturas, e toque na fatura. Por exemplo, a fatura de um aditivo, ainda em rascunho.",
+                "en": "Open Business, then Invoices, and tap the invoice. For example, the invoice of a change order, still a draft."
               },
               "image": {
                 "pt": "help/img/guides/invoice/send-invoice-01.jpg",
@@ -783,7 +783,7 @@
               "n": 2,
               "text": {
                 "pt": "Toque em Enviar fatura. Confira o saldo e o total do contrato antes de enviar.",
-                "en": "Tap Enviar fatura. Check the balance and the contract total before sending."
+                "en": "Tap Send invoice. Check the balance and the contract total before sending."
               },
               "image": {
                 "pt": "help/img/guides/invoice/send-invoice-02.jpg",
@@ -794,7 +794,7 @@
               "n": 3,
               "text": {
                 "pt": "Toque em WhatsApp. Você também pode enviar por Mensagem de texto.",
-                "en": "Tap WhatsApp. You can also send by Mensagem de texto."
+                "en": "Tap WhatsApp. You can also send by Text message."
               },
               "image": {
                 "pt": "help/img/guides/invoice/send-invoice-03.jpg",
@@ -815,8 +815,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "O cliente vê a fatura. Ele vê o saldo a pagar, como pagar e pode baixar a fatura em PDF. Receba pagamentos por cartão. Você já recebe pagamentos por cartão no Jobber ou em um app parecido? No Apex você faz o mesmo. Quando a sua conta está conectada para cartão, a fatura do seu cliente mostra um botão para pagar com cartão. O cliente toca e paga, o pagamento é registrado na fatura sozinho, e o dinheiro vai direto para a sua própria conta de pagamentos. Por trás, apps como o Jobber usam uma empresa de pagamentos chamada Stripe para cuidar dos cartões, e o Apex usa a mesma empresa. Você conecta a sua própria conta ao Apex uma vez, e o Stripe cobra a taxa dele de você. Neste exemplo, a conta de teste não está conectada, por isso o botão de cartão não aparece. (Tela do cliente · inglês)",
-                "en": "The customer sees the invoice. They see the balance due, how to pay, and can download the invoice as a PDF. Take card payments. Already take card payments in Jobber or a similar app? You can do the same in Apex. When your account is connected for card payments, your client's invoice shows a button to pay by card. Your client taps it and pays, the payment is recorded on the invoice by itself, and the money goes straight to your own payment account. Behind the scenes, apps like Jobber use a payment company called Stripe to handle the cards, and Apex uses the same company. You connect your own account to Apex once, and Stripe charges its fee to you. In this example, the test account is not connected, so the card button does not appear. (Customer's screen · English)"
+                "pt": "O cliente vê a fatura. Ele vê o saldo a pagar, como pagar e pode baixar a fatura em PDF. Receba pagamentos por cartão. Você já recebe pagamentos por cartão no Jobber ou em um app parecido? No Apex você faz o mesmo. Quando a sua conta está conectada para cartão, a fatura do seu cliente mostra um botão para pagar com cartão. O cliente toca e paga, o pagamento é registrado na fatura sozinho, e o dinheiro vai direto para a sua própria conta de pagamentos. Por trás, apps como o Jobber usam uma empresa de pagamentos chamada Stripe para cuidar dos cartões, e o Apex usa a mesma empresa. Você conecta a sua própria conta ao Apex uma vez, e o Stripe cobra a taxa dele de você. Se a sua conta não está conectada, o botão de cartão não aparece. (Tela do cliente · inglês)",
+                "en": "The customer sees the invoice. They see the balance due, how to pay, and can download the invoice as a PDF. Take card payments. Already take card payments in Jobber or a similar app? You can do the same in Apex. When your account is connected for card payments, your client's invoice shows a button to pay by card. Your client taps it and pays, the payment is recorded on the invoice by itself, and the money goes straight to your own payment account. Behind the scenes, apps like Jobber use a payment company called Stripe to handle the cards, and Apex uses the same company. You connect your own account to Apex once, and Stripe charges its fee to you. If your account is not connected, the card button does not appear. (Customer's screen · English)"
               },
               "image": {
                 "pt": "help/img/guides/invoice/send-invoice-05.jpg",
@@ -915,7 +915,7 @@
               "n": 3,
               "text": {
                 "pt": "A ficha do lead abre. Role a tela para baixo até a seção Orçamentos.",
-                "en": "The lead sheet opens. Scroll down to the Orçamentos section."
+                "en": "The lead sheet opens. Scroll down to the Estimates section."
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-03.jpg",
@@ -926,7 +926,7 @@
               "n": 4,
               "text": {
                 "pt": "Toque em + Criar orçamento. O botão fica logo abaixo da lista de orçamentos do lead.",
-                "en": "Tap + Criar orçamento. The button sits right below the lead's list of estimates."
+                "en": "Tap + Create estimate. The button sits right below the lead's list of estimates."
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-04.jpg",
@@ -937,7 +937,7 @@
               "n": 5,
               "text": {
                 "pt": "Passo 1 de 8: Cliente. Escreva o nome do trabalho. O nome e o telefone do cliente já vêm do lead. Toque em Continuar.",
-                "en": "Step 1 of 8: Cliente. Write the job name. The customer's name and phone already come from the lead. Tap Continuar."
+                "en": "Step 1 of 8: Customer. Write the job name. The customer's name and phone already come from the lead. Tap Continue."
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-05.jpg",
@@ -948,7 +948,7 @@
               "n": 6,
               "text": {
                 "pt": "Passo 2 de 8: Único ou em opções. Escolha Único para um preço só, ou Em opções para Best, Better e Good.",
-                "en": "Step 2 of 8: Único or em opções. Choose Único for one price, or Em opções for Best, Better and Good."
+                "en": "Step 2 of 8: Single or Tiered. Choose Single for one price, or Tiered for Best, Better and Good."
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-06.jpg",
@@ -959,7 +959,7 @@
               "n": 7,
               "text": {
                 "pt": "Passo 3 de 8: Produtos. Digite a quantidade de cada item da sua lista de preços.",
-                "en": "Step 3 of 8: Produtos. Type the quantity of each item from your price list."
+                "en": "Step 3 of 8: Products. Type the quantity of each item from your price list."
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-07.jpg",
@@ -970,7 +970,7 @@
               "n": 8,
               "text": {
                 "pt": "Passo 4 de 8: Adicionais. Itens extras são opcionais. Toque em Continuar para pular.",
-                "en": "Step 4 of 8: Adicionais. Extra items are optional. Tap Continuar to skip."
+                "en": "Step 4 of 8: Add-ons. Extra items are optional. Tap Continue to skip."
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-08.jpg",
@@ -981,7 +981,7 @@
               "n": 9,
               "text": {
                 "pt": "Passo 5 de 8: Números. Veja o total e escolha um desconto, se quiser. A parte Interno só você vê e não é impressa.",
-                "en": "Step 5 of 8: Números. See the total and choose a discount if you want one. The Interno part is only for you and is never printed."
+                "en": "Step 5 of 8: Numbers. See the total and choose a discount if you want one. The Internal part is only for you and is never printed."
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-09.jpg",
@@ -992,7 +992,7 @@
               "n": 10,
               "text": {
                 "pt": "Passo 6 de 8: Parcelas. Escolha o modelo de pagamento, por exemplo sinal de 50% e 50% na conclusão.",
-                "en": "Step 6 of 8: Parcelas. Choose the payment model, for example a 50% deposit and 50% on completion."
+                "en": "Step 6 of 8: Payment schedule. Choose the payment model, for example a 50% deposit and 50% on completion."
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-10.jpg",
@@ -1003,7 +1003,7 @@
               "n": 11,
               "text": {
                 "pt": "Passo 7 de 8: Termos. Escreva o que está incluído e o que não está incluído. Você também define até quando o orçamento vale.",
-                "en": "Step 7 of 8: Termos. Write what is included and what is not included. You also set how long the estimate is valid."
+                "en": "Step 7 of 8: Terms. Write what is included and what is not included. You also set how long the estimate is valid."
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-11.jpg",
@@ -1014,7 +1014,7 @@
               "n": 12,
               "text": {
                 "pt": "Passo 8 de 8: Revisar e enviar. Esta é a prévia exata do que o cliente vai ver. Role até o fim da página.",
-                "en": "Step 8 of 8: Revisar e enviar. This is the exact preview of what the customer will see. Scroll to the bottom of the page."
+                "en": "Step 8 of 8: Review and send. This is the exact preview of what the customer will see. Scroll to the bottom of the page."
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-12.jpg",
@@ -1025,7 +1025,7 @@
               "n": 13,
               "text": {
                 "pt": "Toque em Salvar e enviar. Se preferir terminar depois, toque em Salvar rascunho.",
-                "en": "Tap Salvar e enviar. If you prefer to finish later, tap Salvar rascunho."
+                "en": "Tap Save and send. If you prefer to finish later, tap Save draft."
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-13.jpg",
@@ -1036,7 +1036,7 @@
               "n": 14,
               "text": {
                 "pt": "Toque em WhatsApp. Você também pode enviar por Mensagem de texto. O orçamento fica como enviado.",
-                "en": "Tap WhatsApp. You can also send by Mensagem de texto. The estimate is marked as sent."
+                "en": "Tap WhatsApp. You can also send by Text message. The estimate is marked as sent."
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-14.jpg",
@@ -1111,7 +1111,7 @@
               "n": 6,
               "text": {
                 "pt": "Você vê a assinatura na tela inicial. Em Assinados online pelo cliente aparece o orçamento assinado.",
-                "en": "You see the signature on the home page. Under Assinados online pelo cliente you see the signed estimate."
+                "en": "You see the signature on the home page. Under Signed online by the customer you see the signed estimate."
               },
               "image": {
                 "pt": "help/img/guides/estimate/customer-signs-06.jpg",
@@ -1122,7 +1122,7 @@
               "n": 7,
               "text": {
                 "pt": "O registro mostra quem assinou e quando. Abra o orçamento e role até Documento assinado.",
-                "en": "The record shows who signed and when. Open the estimate and scroll to Documento assinado."
+                "en": "The record shows who signed and when. Open the estimate and scroll to Signed document."
               },
               "image": {
                 "pt": "help/img/guides/estimate/customer-signs-07.jpg",
@@ -1133,7 +1133,7 @@
               "n": 8,
               "text": {
                 "pt": "O projeto é criado sozinho. Em Negócio, Projetos, o projeto do cliente já está lá.",
-                "en": "The project is created on its own. In Negócio, Projetos, the customer's project is already there."
+                "en": "The project is created on its own. In Business, Projects, the customer's project is already there."
               },
               "image": {
                 "pt": "help/img/guides/estimate/customer-signs-08.jpg",
@@ -1144,7 +1144,7 @@
               "n": 9,
               "text": {
                 "pt": "Agora você pode criar o contrato. Toque em Criar contrato a partir do orçamento aceito. Veja o guia do contrato.",
-                "en": "Now you can create the contract. Tap Criar contrato a partir do orçamento aceito. See the contract guide."
+                "en": "Now you can create the contract. Tap Create contract from the accepted estimate. See the contract guide."
               },
               "image": {
                 "pt": "help/img/guides/estimate/customer-signs-09.jpg",
@@ -1163,8 +1163,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra o orçamento e toque em Marcar como aceito. Use quando o cliente concorda pessoalmente ou por telefone. Neste exemplo, o orçamento foi copiado com Criar revisão.",
-                "en": "Open the estimate and tap Marcar como aceito. Use it when the customer agrees in person or by phone. In this example, the estimate was copied with Criar revisão."
+                "pt": "Abra o orçamento e toque em Marcar como aceito. Use quando o cliente concorda pessoalmente ou por telefone.",
+                "en": "Open the estimate and tap Mark accepted. Use it when the customer agrees in person or by phone."
               },
               "image": {
                 "pt": "help/img/guides/estimate/mark-accepted-01.jpg",
@@ -1175,7 +1175,7 @@
               "n": 2,
               "text": {
                 "pt": "Confirme quem aceitou. Fica gravado com o seu nome e a hora. Toque em Confirmar aceite.",
-                "en": "Confirm who accepted. It is recorded with your name and the time. Tap Confirmar aceite."
+                "en": "Confirm who accepted. It is recorded with your name and the time. Tap Confirm acceptance."
               },
               "image": {
                 "pt": "help/img/guides/estimate/mark-accepted-02.jpg",
@@ -1186,7 +1186,7 @@
               "n": 3,
               "text": {
                 "pt": "Escolha se quer criar o projeto. O app pergunta se move o lead para Fechado e cria o projeto.",
-                "en": "Choose whether to create the project. The app asks whether to move the lead to Fechado and create the project."
+                "en": "Choose whether to create the project. The app asks whether to move the lead to the closed stage and create the project."
               },
               "image": {
                 "pt": "help/img/guides/estimate/mark-accepted-03.jpg",
@@ -1341,7 +1341,7 @@
               "n": 1,
               "text": {
                 "pt": "Abra o orçamento. Em Negócio, toque em Orçamentos. Toque no orçamento que quer enviar.",
-                "en": "Open the estimate. Under Business, tap Estimates. Tap the estimate you want to send."
+                "en": "Open the estimate. Under Negócio, tap Orçamentos. Tap the estimate you want to send."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s1-01.jpg",
@@ -1352,7 +1352,7 @@
               "n": 2,
               "text": {
                 "pt": "Toque em Enviar. O botão azul escuro, perto do topo, abre a tela de envio.",
-                "en": "Tap Send. The dark blue button near the top opens the send screen."
+                "en": "Tap Enviar. The dark blue button near the top opens the send screen."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s1-02.jpg",
@@ -1363,7 +1363,7 @@
               "n": 3,
               "text": {
                 "pt": "Toque em Abrir meu email. Fica na segunda linha de botões, à esquerda. Se o botão estiver cinza, veja a seção 3.",
-                "en": "Tap Open my email app. It is on the second row of buttons, on the left. If the button is grey, see section 3."
+                "en": "Tap Abrir meu email. It is on the second row of buttons, on the left. If the button is grey, see section 3."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s1-03.jpg",
@@ -1405,7 +1405,7 @@
               "n": 1,
               "text": {
                 "pt": "Toque em Copiar para enviar pelo navegador. Fica na segunda linha de botões, à direita. O texto pronto é copiado.",
-                "en": "Tap Copy to send from a web email. It is on the second row of buttons, on the right. The ready text is copied."
+                "en": "Tap Copiar para enviar pelo navegador. It is on the second row of buttons, on the right. The ready text is copied."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s2-01.jpg",
@@ -1426,8 +1426,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Abra um email novo e cole o texto. Toque no corpo do email e cole (Command V no Mac, Ctrl V no Windows). Aparecem o endereço, o assunto, uma linha de iguais e a mensagem.",
-                "en": "Open a new email and paste the text. Tap the body of the email and paste (Command V on a Mac, Ctrl V on Windows). You see the address, the subject, a line of equals signs and the message."
+                "pt": "Abra um email novo e cole o texto. Toque no corpo do email e cole (Command V no Mac, Ctrl V no Windows). Aparecem 3 passos, o endereço, o assunto, uma linha de iguais e a mensagem.",
+                "en": "Open a new email and paste the text. Tap the body of the email and paste (Command V on a Mac, Ctrl V on Windows). You see 3 steps, the address, the subject, a line of equals signs and the message."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s2-03.jpg",
@@ -1438,7 +1438,7 @@
               "n": 4,
               "text": {
                 "pt": "Copie o endereço e o assunto para as caixas. Copie o endereço da linha To e cole na caixa Para. Copie o assunto da linha Subject e cole na caixa Assunto.",
-                "en": "Copy the address and the subject into the boxes. Copy the address from the To line and paste it into the To box. Copy the subject from the Subject line and paste it into the Subject box."
+                "en": "Copy the address and the subject into the boxes. Copy the address from the To line and paste it into the Para (To) box. Copy the subject from the Subject line and paste it into the Assunto (Subject) box."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s2-04.jpg",
@@ -1449,7 +1449,7 @@
               "n": 5,
               "text": {
                 "pt": "Selecione o texto do topo até a linha de iguais. Comece no começo do corpo do email e vá até o fim da linha que diz APAGUE TUDO ACIMA DESTA LINHA, inclusive ela.",
-                "en": "Select the text from the top down to the line of equals signs. Start at the beginning of the email body and go to the end of the line that says DELETE EVERYTHING ABOVE THIS LINE, including that line."
+                "en": "Select the text from the top down to the line of equals signs. Start at the beginning of the email body and go to the end of the line that says APAGUE TUDO ACIMA DESTA LINHA, including that line."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s2-05.jpg",
@@ -1491,7 +1491,7 @@
               "n": 1,
               "text": {
                 "pt": "Os botões de email ficam cinza. Abaixo deles aparece: Sem email cadastrado. Toque para adicionar. Mensagem de texto e WhatsApp continuam funcionando.",
-                "en": "The email buttons are grey. Below them it says: No email on file. Tap to add. Text message and WhatsApp still work."
+                "en": "The email buttons are grey. Below them it says: Sem email cadastrado. Toque para adicionar (No email on file. Tap to add). Text message and WhatsApp still work."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s3-01.jpg",
@@ -1513,7 +1513,7 @@
               "n": 3,
               "text": {
                 "pt": "Digite o email e toque em Salvar. Se o formato estiver errado, aparece um aviso em vermelho: Email inválido. Use o formato nome@exemplo.com.",
-                "en": "Type the email and tap Save. If the format is wrong, a red warning shows: Invalid email. Use the form name@example.com."
+                "en": "Type the email and tap Salvar. If the format is wrong, a red warning shows: Email inválido. Use o formato nome@exemplo.com (Invalid email)."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s3-03.jpg",
@@ -1524,7 +1524,7 @@
               "n": 4,
               "text": {
                 "pt": "Corrija o email e toque em Salvar. Use o formato nome@exemplo.com.",
-                "en": "Fix the email and tap Save. Use the format name@example.com."
+                "en": "Fix the email and tap Salvar. Use the format name@example.com."
               },
               "image": {
                 "pt": "help/img/guides/send-by-email/section-s3-04.jpg",
@@ -1624,7 +1624,7 @@
               "n": 1,
               "text": {
                 "pt": "Abra Faturas e toque em Paga. Em Negócio, toque em Faturas. Toque no filtro Paga para ver só as faturas pagas.",
-                "en": "Open Invoices and tap Paid. Under Business, tap Invoices. Tap the Paid filter to see only paid invoices."
+                "en": "Open Faturas and tap Paga. Under Negócio, tap Faturas. Tap the Paga filter to see only paid invoices."
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-01.jpg",
@@ -1635,7 +1635,7 @@
               "n": 2,
               "text": {
                 "pt": "Toque na fatura paga. A fatura abre. Role a tela para baixo até a seção Pagamentos.",
-                "en": "Tap the paid invoice. The invoice opens. Scroll down to the Payments section."
+                "en": "Tap the paid invoice. The invoice opens. Scroll down to the Pagamentos section."
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-02.jpg",
@@ -1646,7 +1646,7 @@
               "n": 3,
               "text": {
                 "pt": "Em Pagamentos, toque em Enviar recibo. Ver recibo mostra o recibo para você. Enviar recibo abre a tela de envio.",
-                "en": "Under Payments, tap Send receipt. View receipt shows you the receipt. Send receipt opens the send screen."
+                "en": "Under Pagamentos, tap Enviar recibo. Ver recibo shows you the receipt. Enviar recibo opens the send screen."
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-03.jpg",
@@ -1678,8 +1678,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Depois que você envia, o cliente recebe a mensagem com o link do recibo.",
-                "en": "After you send it, the customer gets the message with the receipt link."
+                "pt": "A mensagem foi enviada. O cliente recebe a mensagem com o link do recibo.",
+                "en": "The message was sent. The customer gets the message with the receipt link."
               },
               "image": {
                 "pt": "help/img/guides/receipt/send-receipt-06.jpg",
@@ -2345,8 +2345,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Antes de começar. Este guia é para quem ainda não recebe pagamentos por cartão e nunca teve uma conta Stripe. A Stripe é a empresa de pagamentos que cuida dos cartões. No Apex você cria a sua própria conta Stripe uma vez, e os próximos passos mostram onde. Depois, seu cliente abre a fatura, toca em pagar com cartão, e o pagamento é registrado na fatura sozinho. Antes de começar, deixe isto à mão: o nome legal da empresa e o número fiscal (EIN), a data de nascimento e o número de identificação do dono, e a conta bancária onde você quer receber. As imagens deste guia usam uma empresa de teste, então os nomes, números e o banco que aparecem digitados não são para você copiar. Você sempre digita as suas próprias informações reais. Já recebe cartão pelo Jobber ou por outro app? Então não use este guia. Abra o guia Conectar a conta Stripe que você já tem.",
-                "en": "Before you start. This guide is for owners who do not take card payments yet and have never had a Stripe account. Stripe is the payment company that handles the cards. In Apex you create your own Stripe account once, and the next steps show where. After that, your client opens the invoice, taps pay by card, and the payment is recorded on the invoice by itself. Before you start, have these ready: your legal business name and tax ID (EIN), the business owner's date of birth and ID number, and the bank account where you want to be paid. The pictures in this guide use a pretend test business, so the names, numbers and bank you see typed in are not for you to copy. You always enter your own real information. Already take card payments in Jobber or another app? Then do not use this guide. Open the guide Connect the Stripe account you already have."
+                "pt": "Antes de começar. Este guia é para quem ainda não recebe pagamentos por cartão e nunca teve uma conta Stripe. A Stripe é a empresa de pagamentos que cuida dos cartões. No Apex você cria a sua própria conta Stripe uma vez, e os próximos passos mostram onde. Depois, seu cliente abre a fatura, toca em pagar com cartão, e o pagamento é registrado na fatura sozinho. Antes de começar, deixe isto à mão: o nome legal da empresa e o número fiscal (EIN), a data de nascimento e o número de identificação do dono, e a conta bancária onde você quer receber. Os nomes, números e o banco que aparecem digitados nas imagens são só exemplos. Você sempre digita as suas próprias informações reais. Já recebe cartão pelo Jobber ou por outro app? Então não use este guia. Abra o guia Conectar a conta Stripe que você já tem.",
+                "en": "Before you start. This guide is for owners who do not take card payments yet and have never had a Stripe account. Stripe is the payment company that handles the cards. In Apex you create your own Stripe account once, and the next steps show where. After that, your client opens the invoice, taps pay by card, and the payment is recorded on the invoice by itself. Before you start, have these ready: your legal business name and tax ID (EIN), the business owner's date of birth and ID number, and the bank account where you want to be paid. The names, numbers and bank you see typed in the pictures are only examples. You always enter your own real information. Already take card payments in Jobber or another app? Then do not use this guide. Open the guide Connect the Stripe account you already have."
               },
               "image": null
             },
@@ -2543,8 +2543,8 @@
             {
               "n": 12,
               "text": {
-                "pt": "Adicione a conta bancária onde você recebe. O Stripe envia os pagamentos por cartão para esta conta. Informe a conta bancária da sua empresa, com o routing number e o número da conta, e escolha quando quer receber os repasses. As nossas imagens usam um banco de teste do Stripe, então não copie. Toque em Continue.",
-                "en": "Add the bank account where you get paid. Stripe sends your card payments to this account. Enter your own business bank account, with the routing number and the account number, and choose when you want payouts. Our pictures use a Stripe test bank, so do not copy it. Tap Continue."
+                "pt": "Adicione a conta bancária onde você recebe. O Stripe envia os pagamentos por cartão para esta conta. Informe a conta bancária da sua empresa, com o routing number e o número da conta, e escolha quando quer receber os repasses. O banco nas imagens é só um exemplo, então não copie. Toque em Continue.",
+                "en": "Add the bank account where you get paid. Stripe sends your card payments to this account. Enter your own business bank account, with the routing number and the account number, and choose when you want payouts. The bank in the pictures is only an example, so do not copy it. Tap Continue."
               },
               "image": {
                 "pt": "help/img/guides/card-payments-setup/stripe-12.pt.jpg",
@@ -2565,8 +2565,8 @@
             {
               "n": 14,
               "text": {
-                "pt": "Confira o plano de proteção contra fraude. O Stripe pode mostrar planos pagos. Escolha a opção simples e incluída, Use baseline protection with Lite (included). Na página de revisão da nossa conta de teste a lista ainda mostrava Radar Pro, US$ 0,09 por transação analisada. Por isso olhe essa linha antes de confirmar e mude se não for o que você quer. Não conseguimos confirmar como isso funciona numa conta real.",
-                "en": "Check the fraud protection plan. Stripe may show paid plans. Choose the plain, included choice, Use baseline protection with Lite (included). On the review page of our test account the list still showed Radar Pro, $0.09 per screened transaction. So look at that line before you confirm and change it if it is not what you want. We could not verify how this works on a live account."
+                "pt": "Confira o plano de proteção contra fraude. O Stripe pode mostrar planos pagos. Escolha a opção simples e incluída, Use baseline protection with Lite (included). Antes de confirmar, olhe a lista de revisão: se ela ainda mostra um plano pago, como o Radar Pro, mude se não for o que você quer.",
+                "en": "Check the fraud protection plan. Stripe may show paid plans. Choose the plain, included choice, Use baseline protection with Lite (included). Before you confirm, look at the review list: if it still shows a paid plan, such as Radar Pro, change it if it is not what you want."
               },
               "image": {
                 "pt": "help/img/guides/card-payments-setup/stripe-14.pt.jpg",
@@ -3191,8 +3191,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Em Licenciamento, digite o(s) Número(s) de licença (1). A tela explica que a lei da Flórida (§489.119) exige o número da sua licença em toda proposta e contrato. O número está coberto na figura.",
-                "en": "Under Licensing, type your License number(s) (1). The screen explains that Florida law (§489.119) requires your license number on every bid and contract. The number is covered in the picture."
+                "pt": "Em Licenciamento, digite o(s) Número(s) de licença (1). A tela explica que a lei da Flórida (§489.119) exige o número da sua licença em toda proposta e contrato.",
+                "en": "Under Licensing, type your License number(s) (1). The screen explains that Florida law (§489.119) requires your license number on every bid and contract."
               },
               "image": {
                 "pt": "help/img/guides/business-setup/setup-09.pt.jpg",
@@ -3581,8 +3581,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Cada linha (1) mostra o nome do item, depois a categoria, a unidade, o custo e a venda, depois o detalhamento do custo. À direita (2) está a margem em dólares e em percentual.",
-                "en": "Each row (1) shows the item name, then its category, unit, cost and price, then the cost breakdown. On the right (2) is the margin in dollars and percent."
+                "pt": "Cada linha (1) mostra o nome do item, depois a categoria, a unidade, o custo e a venda, depois o detalhamento do custo. À direita (2) está a margem em dólares e em percentual. Os valores em dinheiro estão cobertos na figura.",
+                "en": "Each row (1) shows the item name, then its category, unit, cost and price, then the cost breakdown. On the right (2) is the margin in dollars and percent. The money amounts are covered in the picture."
               },
               "image": {
                 "pt": "help/img/guides/pricing-setup/pricing-03.pt.jpg",
@@ -3907,8 +3907,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Toque no Acesso que você quer (1). O que você escolher fica dourado. Por exemplo, Equipe sem acesso ao financeiro.",
-                "en": "Tap the Access you want (1). The one you pick turns gold. For example, Staff without finance access."
+                "pt": "Toque no Acesso que você quer (1). O que você escolher fica dourado. Aqui a escolha é Equipe sem acesso ao financeiro.",
+                "en": "Tap the Access you want (1). The one you pick turns gold. Here the choice is Staff without finance access."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-05.pt.jpg",
@@ -3918,8 +3918,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Escolha o país (1) do número do celular.",
-                "en": "Pick the country (1) of the mobile number."
+                "pt": "Escolha o país (1) do número do celular. A imagem mostra uma pessoa de teste com um número inventado.",
+                "en": "Pick the country (1) of the mobile number. The picture shows a test person with a made-up number."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-06.pt.jpg",
@@ -3951,8 +3951,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Um cartão mostra o link da pessoa (1). Ele vale por 72 horas (2). Quando você cria o link, a Apex não manda nada para a pessoa.",
-                "en": "A card shows the link for the person (1). It is valid for 72 hours (2). When you create the link, Apex does not send anything to the person."
+                "pt": "Um cartão mostra o link da pessoa (1). Ele vale por 72 horas (2). Quando você cria o link, a Apex não manda nada para a pessoa. Na imagem o link está coberto de cinza.",
+                "en": "A card shows the link for the person (1). It is valid for 72 hours (2). When you create the link, Apex does not send anything to the person. In the picture the link is covered with grey."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-09.pt.jpg",
@@ -4783,8 +4783,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "A visão do mês mostra o nome do mês no alto (1). Os nomes de clientes e projetos na agenda estão cobertos de cinza nestas imagens.",
-                "en": "The month view shows the month name at the top (1). Names of customers and projects on the calendar are covered in grey in these pictures."
+                "pt": "A visão do mês mostra o nome do mês no alto (1).",
+                "en": "The month view shows the month name at the top (1)."
               },
               "image": {
                 "pt": "help/img/guides/calendar/view-s02.pt.jpg",
@@ -4838,8 +4838,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Toque em Semana (1) para ver sete dias com os horários. Os nomes dos itens estão cobertos de cinza nestas imagens.",
-                "en": "Tap Week (1) to see seven days with the hours. The names of the entries are covered in grey in these pictures."
+                "pt": "Toque em Semana (1) para ver sete dias com os horários.",
+                "en": "Tap Week (1) to see seven days with the hours."
               },
               "image": {
                 "pt": "help/img/guides/calendar/view-s07.pt.jpg",
@@ -4860,8 +4860,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Na visão do dia, um cartão chamado Chuva por obra hoje (1) fica acima dos horários. Ele lista os projetos do dia com uma nota sobre chuva para cada um. Os nomes dos projetos estão cobertos de cinza aqui.",
-                "en": "In Day view, a card called Rain by site today (1) sits above the hours. It lists the day's projects with a rain note for each. Project names are covered in grey here."
+                "pt": "Na visão do dia, um cartão chamado Chuva por obra hoje (1) fica acima dos horários. Ele lista os projetos do dia com uma nota sobre chuva para cada um.",
+                "en": "In Day view, a card called Rain by site today (1) sits above the hours. It lists the day's projects with a rain note for each."
               },
               "image": {
                 "pt": "help/img/guides/calendar/view-s09.pt.jpg",
@@ -4913,8 +4913,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Escolha o Tipo de evento * (1): Visita, Reunião, Serviço, Entrega ou Outro. Nós tocamos em Visita.",
-                "en": "Pick the Event type * (1): Visit, Meeting, Service, Delivery or Other. We tapped Visit."
+                "pt": "Escolha o Tipo de evento * (1): Visita, Reunião, Serviço, Entrega ou Outro.",
+                "en": "Pick the Event type * (1): Visit, Meeting, Service, Delivery or Other."
               },
               "image": {
                 "pt": "help/img/guides/calendar/new-event-s03.pt.jpg",
@@ -4924,8 +4924,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Projeto (1) é um menu que mostra a palavra nenhum até você escolher. Escolha um projeto se o evento for de um projeto. Aqui escolhemos um projeto de teste.",
-                "en": "Project (1) is a menu that shows the word none until you choose. Pick a project if the event belongs to one. We picked a test project here."
+                "pt": "Projeto (1) é um menu que mostra a palavra nenhum até você escolher. Escolha um projeto se o evento for de um projeto.",
+                "en": "Project (1) is a menu that shows the word none until you choose. Pick a project if the event belongs to one."
               },
               "image": {
                 "pt": "help/img/guides/calendar/new-event-s04.pt.jpg",
@@ -4935,8 +4935,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Lead / cliente (1) é um menu que mostra nenhum até você escolher. Escolhemos um lead de teste. Isso preencheu o Local e o Título e voltou o Projeto para nenhum.",
-                "en": "Lead / customer (1) is a menu that shows none until you choose. We picked a test lead. This filled in the Location and the Title, and put Project back to none."
+                "pt": "Lead / cliente (1) é um menu que mostra nenhum até você escolher. Quando você escolhe um lead, o Apex preenche o Local e o Título e volta o Projeto para nenhum.",
+                "en": "Lead / customer (1) is a menu that shows none until you choose. When you pick a lead, Apex fills in the Location and the Title, and puts Project back to none."
               },
               "image": {
                 "pt": "help/img/guides/calendar/new-event-s05.pt.jpg",
@@ -4957,8 +4957,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Defina a Data * (1). Ela começa com a data de hoje. Nós mudamos para 29 de outubro de 2026.",
-                "en": "Set the Date * (1). It starts on today's date. We changed it to Oct 29, 2026."
+                "pt": "Defina a Data * (1). Ela começa com a data de hoje.",
+                "en": "Set the Date * (1). It starts on today's date."
               },
               "image": {
                 "pt": "help/img/guides/calendar/new-event-s07.pt.jpg",
@@ -4979,8 +4979,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Defina o Início (1), a hora em que o evento começa. Usamos 9:30 AM.",
-                "en": "Set the Start (1), the hour the event begins. We used 9:30 AM."
+                "pt": "Defina o Início (1), a hora em que o evento começa.",
+                "en": "Set the Start (1), the hour the event begins."
               },
               "image": {
                 "pt": "help/img/guides/calendar/new-event-s09.pt.jpg",
@@ -4990,8 +4990,8 @@
             {
               "n": 10,
               "text": {
-                "pt": "Defina o Fim (1), a hora em que o evento termina. Usamos 10:30 AM.",
-                "en": "Set the End (1), the hour the event ends. We used 10:30 AM."
+                "pt": "Defina o Fim (1), a hora em que o evento termina.",
+                "en": "Set the End (1), the hour the event ends."
               },
               "image": {
                 "pt": "help/img/guides/calendar/new-event-s10.pt.jpg",
@@ -5001,8 +5001,8 @@
             {
               "n": 11,
               "text": {
-                "pt": "O Local (1) foi preenchido a partir do lead (aqui uma rua de teste). Você pode mudar.",
-                "en": "Location (1) was filled in from the lead (here a test street). You can change it."
+                "pt": "O Local (1) é preenchido a partir do lead. Você pode mudar.",
+                "en": "Location (1) is filled in from the lead. You can change it."
               },
               "image": {
                 "pt": "help/img/guides/calendar/new-event-s11.pt.jpg",
@@ -5012,8 +5012,8 @@
             {
               "n": 12,
               "text": {
-                "pt": "Título (gerado) (1) é montado a partir das escolhas acima (aqui Visita e o nome do lead). Uma linha embaixo diz isso, e você pode editar.",
-                "en": "Title (generated) (1) is built from the choices above (here Visit, then the lead name). A line under it says so, and you can edit it."
+                "pt": "Título (gerado) (1) é montado a partir das escolhas acima (por exemplo Visita e o nome do lead). Uma linha embaixo diz isso, e você pode editar.",
+                "en": "Title (generated) (1) is built from the choices above (for example Visit, then the lead name). A line under it says so, and you can edit it."
               },
               "image": {
                 "pt": "help/img/guides/calendar/new-event-s12.pt.jpg",
@@ -5023,8 +5023,8 @@
             {
               "n": 13,
               "text": {
-                "pt": "Escreva o que quiser lembrar em Notas (1). Digitamos uma nota curta de teste.",
-                "en": "Write anything you want to remember in Notes (1). We typed a short test note."
+                "pt": "Escreva o que quiser lembrar em Notas (1).",
+                "en": "Write anything you want to remember in Notes (1)."
               },
               "image": {
                 "pt": "help/img/guides/calendar/new-event-s13.pt.jpg",
@@ -5078,8 +5078,8 @@
             {
               "n": 18,
               "text": {
-                "pt": "O evento abre no mesmo formulário, já preenchido. Você pode mudar o tipo, os vínculos, a data ou os detalhes. Aqui mudamos a Data (1).",
-                "en": "The event opens in the same form, already filled in. You can change the type, the links, the date or the details. Here we changed the Date (1)."
+                "pt": "O evento abre no mesmo formulário, já preenchido. Você pode mudar o tipo, os vínculos, a data ou os detalhes. Toque na Data (1) para escolher outro dia.",
+                "en": "The event opens in the same form, already filled in. You can change the type, the links, the date or the details. Tap the Date (1) to pick another day."
               },
               "image": {
                 "pt": "help/img/guides/calendar/new-event-s18.pt.jpg",
@@ -5089,8 +5089,8 @@
             {
               "n": 19,
               "text": {
-                "pt": "Também acrescentamos algumas palavras às Notas (1).",
-                "en": "We also added a few words to the Notes (1)."
+                "pt": "Você também pode acrescentar palavras às Notas (1).",
+                "en": "You can also add words to the Notes (1)."
               },
               "image": {
                 "pt": "help/img/guides/calendar/new-event-s19.pt.jpg",
@@ -5230,8 +5230,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Veja uma visita marcada por um cliente. Quando um cliente marca na sua página de agendamento, uma entrada aparece na sua agenda na hora. Aqui, na visão Semana, ela está no domingo às 10:00 AM (1), com o título Visita e o nome do cliente.",
-                "en": "See a visit booked by a customer. When a customer books on your booking page, an entry appears on your calendar at once. Here, in Week view, it sits on Sunday at 10:00 AM (1), with the title Visit and the customer's name."
+                "pt": "Veja uma visita marcada por um cliente. Quando um cliente marca na sua página de agendamento, uma entrada aparece na sua agenda na hora. Por exemplo, na visão Semana ela aparece no domingo às 10:00 AM (1), com o título Visita e o nome do cliente.",
+                "en": "See a visit booked by a customer. When a customer books on your booking page, an entry appears on your calendar at once. For example, in Week view it shows on Sunday at 10:00 AM (1), with the title Visit and the customer's name."
               },
               "image": {
                 "pt": "help/img/guides/calendar/more-05.pt.jpg",
@@ -5723,8 +5723,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Veja como um lead vira projeto. Em um lead, toque na linha Estágio e escolha Fechado. Uma mensagem diz Lead ganho virou projeto, com o link Ver projeto (1). Isso funciona até para um lead sem orçamento.",
-                "en": "See how a lead becomes a project. In a lead, tap the Stage row and choose Closed. A message says Won lead is now a project, with the link View project (1). This works even for a lead with no estimate."
+                "pt": "Veja como um lead vira projeto. Em um lead, toque na linha Estágio e escolha Fechado. Uma mensagem diz Lead ganho virou projeto, com o link Ver projeto (1). Isso funcionou até para um lead sem orçamento.",
+                "en": "See how a lead becomes a project. In a lead, tap the Stage row and choose Closed. A message says Won lead is now a project, with the link View project (1). This worked even for a lead with no estimate."
               },
               "image": {
                 "pt": "help/img/guides/projects/more-03.pt.jpg",
@@ -6564,8 +6564,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Abaixo, o cartão Suas metas mensais (1) mostra o mês no meio. Uma seta de cada lado (2 e 3) muda o mês. Ele abre no mês atual, por exemplo outubro de 2026.",
-                "en": "Under it, the card Your monthly goals (1) shows the month in the middle. An arrow on each side (2 and 3) changes the month. It opens on the current month, for example October 2026."
+                "pt": "Abaixo, o cartão Suas metas mensais (1) mostra o mês no meio. Uma seta de cada lado (2 e 3) muda o mês. Ele abre no mês atual, aqui Outubro 2026.",
+                "en": "Under it, the card Your monthly goals (1) shows the month in the middle. An arrow on each side (2 and 3) changes the month. It opens on the current month, here October 2026."
               },
               "image": {
                 "pt": "help/img/guides/monthly-goals/goals-04.pt.jpg",
@@ -6694,8 +6694,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Saiba quais mudanças são salvas na hora. Na primeira vez que você define as metas de um mês, elas são salvas e a lista diz que o mês já tem metas. Nada espera aprovação neste caso.",
-                "en": "Know which changes are saved at once. The first time you set the goals of a month, they are saved and the list says that month already has goals. Nothing waits for approval in this case."
+                "pt": "Saiba quais mudanças são salvas na hora. Na primeira vez que você define as metas de um mês, elas são salvas e a lista diz que o mês já tem metas. Nada espera aprovação neste caso. Salvamos as metas de novembro assim.",
+                "en": "Know which changes are saved at once. The first time you set the goals of a month, they are saved and the list says that month already has goals. Nothing waits for approval in this case. We saved the goals of November like this."
               },
               "image": null
             },
@@ -7010,8 +7010,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Veja o que seus clientes assinaram. Em Assinados online pelo cliente (1), cada linha diz quem assinou qual orçamento, o valor, a data e a hora, e uma etiqueta verde de aceito. Os nomes dos clientes estão cobertos nesta imagem.",
-                "en": "Check what your customers signed. Under Signed online by the customer (1), each row says who signed which estimate, the amount, the date and time, and a green accepted tag. The customers' names are covered in this picture."
+                "pt": "Veja o que seus clientes assinaram. Em Assinados online pelo cliente (1), cada linha diz quem assinou qual orçamento, o valor, a data e a hora, e uma etiqueta verde de aceito.",
+                "en": "Check what your customers signed. Under Signed online by the customer (1), each row says who signed which estimate, the amount, the date and time, and a green accepted tag."
               },
               "image": {
                 "pt": "help/img/guides/home-alerts/home-06.pt.jpg",
@@ -7533,8 +7533,8 @@
             {
               "n": 16,
               "text": {
-                "pt": "Toque em Salvar pagamento (1). Neste guia o pagamento não foi salvo, porque ele registra dinheiro de verdade.",
-                "en": "Tap Save payment (1). In this guide the payment was not saved, because it records real money."
+                "pt": "Toque em Salvar pagamento (1).",
+                "en": "Tap Save payment (1)."
               },
               "image": {
                 "pt": "help/img/guides/invoices-and-payments/invoices-16.pt.jpg",
@@ -7544,8 +7544,8 @@
             {
               "n": 17,
               "text": {
-                "pt": "Depois de salvar. O pagamento entra na fatura (1), o saldo diminui e um número de recibo é criado. A imagem mostra uma fatura já paga, com o pagamento e o recibo. Um pagamento parcial deixa a fatura aberta para o resto. Quando o saldo chega a zero, a fatura fica Paga. Para enviar o recibo ao seu cliente, veja o guia Enviar um recibo.",
-                "en": "After you save. The payment is added to the invoice (1), the balance goes down, and a receipt number is created. The picture shows an invoice that is already paid, with its payment and receipt. A part payment leaves the invoice open for the rest. When the balance reaches zero the invoice becomes Paid. To send the receipt to your customer, see the Send a receipt guide."
+                "pt": "Depois de salvar. O pagamento entra na fatura (1), o saldo diminui e um número de recibo é criado. Um pagamento parcial deixa a fatura aberta para o resto. Quando o saldo chega a zero, a fatura fica Paga. Para enviar o recibo ao seu cliente, veja o guia Enviar um recibo.",
+                "en": "After you save. The payment is added to the invoice (1), the balance goes down, and a receipt number is created. A part payment leaves the invoice open for the rest. When the balance reaches zero the invoice becomes Paid. To send the receipt to your customer, see the Send a receipt guide."
               },
               "image": {
                 "pt": "help/img/guides/invoices-and-payments/invoices-17.pt.jpg",
@@ -7790,8 +7790,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Cada tipo de documento tem a sua própria mensagem: orçamento, fatura, recibo e contrato. Para mudar uma delas, repita estes passos na tela de envio daquele documento. A imagem mostra a tela de envio de um orçamento, com a sua própria Mensagem (1).",
-                "en": "Each kind of document has its own message: estimate, invoice, receipt and contract. The picture shows the send screen of an estimate, with its own Message (1). To change one, repeat these steps on the send screen of that document."
+                "pt": "Cada tipo de documento tem a sua própria mensagem: orçamento, fatura, recibo e contrato. Para mudar uma delas, repita estes passos na tela de envio daquele documento.",
+                "en": "Each kind of document has its own message: estimate, invoice, receipt and contract. To change one, repeat these steps on the send screen of that document."
               },
               "image": {
                 "pt": "help/img/guides/edit-send-messages/messages-09.pt.jpg",
@@ -8178,8 +8178,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Abre o mesmo formulário do registro diário. Uma linha vermelha no topo diz Editando um dia já registrado e a data. As seções são as do registro diário (aqui 5). Mude um número e toque em Continuar (1). Cada vez que você toca em Continuar, aquela seção é salva.",
-                "en": "The same form as the daily log opens. A red line at the top says Editing a past day and the date. The sections are the ones of the daily log (here 5). Change a number, then tap Continue (1). Each time you tap Continue, that section is saved."
+                "pt": "Abre o mesmo formulário do registro diário. Uma linha vermelha no topo diz Editando um dia já registrado e a data. As seções são as do registro diário (5 no total). Mude um número e toque em Continuar (1). Cada vez que você toca em Continuar, aquela seção é salva.",
+                "en": "The same form as the daily log opens. A red line at the top says Editing a past day and the date. The sections are the ones of the daily log (5 in all). Change a number, then tap Continue (1). Each time you tap Continue, that section is saved."
               },
               "image": {
                 "pt": "help/img/guides/daily-log/history-08.pt.jpg",
@@ -8211,8 +8211,8 @@
             {
               "n": 11,
               "text": {
-                "pt": "Toque em Continuar editando (1) para voltar, ou em Descartar alterações (2) para jogar fora os números novos. Aqui os números foram descartados, nada foi salvo.",
-                "en": "Tap Keep editing (1) to go back, or Discard changes (2) to throw the new numbers away. Here the numbers were discarded, nothing was saved."
+                "pt": "Toque em Continuar editando (1) para voltar, ou em Descartar alterações (2) para jogar fora os números novos. Se você descartar, nada é salvo.",
+                "en": "Tap Keep editing (1) to go back, or Discard changes (2) to throw the new numbers away. If you discard, nothing is saved."
               },
               "image": {
                 "pt": "help/img/guides/daily-log/history-11.pt.jpg",
@@ -10159,8 +10159,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Cada linha (2) mostra o nome, o telefone, o status e o último contato.",
-                "en": "Each row (2) shows the name, the phone, the status and the last contact."
+                "pt": "Cada linha (2) mostra o nome, o telefone, o status e o último contato. Os nomes e telefones na imagem estão cobertos.",
+                "en": "Each row (2) shows the name, the phone, the status and the last contact. The names and phones in the picture are covered."
               },
               "image": {
                 "pt": "help/img/guides/win-back-past-customers/winback-05.pt.jpg",
@@ -10808,8 +10808,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Role até Marketing. A caixa Link da sua página (link na bio) (1) guarda o link da sua página pública.",
-                "en": "Scroll down to Marketing. The box Your page link (link in bio) (1) holds the link of your public page."
+                "pt": "Role até Marketing. A caixa Link da sua página (link na bio) (1) guarda o link da sua página pública. Uma parte do link está coberta na figura.",
+                "en": "Scroll down to Marketing. The box Your page link (link in bio) (1) holds the link of your public page. Part of the link is covered in the picture."
               },
               "image": {
                 "pt": "help/img/guides/link-in-bio-page/page-03.pt.jpg",
@@ -11009,8 +11009,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Toque em Enviar pelo WhatsApp (1). O botão só liga depois que você escolhe o tipo e escreve a mensagem. Na figura nada foi enviado.",
-                "en": "Tap Send via WhatsApp (1). The button only turns on after you choose a type and write your message. In the picture nothing was sent."
+                "pt": "Toque em Enviar pelo WhatsApp (1). O botão só liga depois que você escolhe o tipo e escreve a mensagem.",
+                "en": "Tap Send via WhatsApp (1). The button only turns on after you choose a type and write your message."
               },
               "image": {
                 "pt": "help/img/guides/get-help/help-05.pt.jpg",
@@ -11321,8 +11321,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Cada linha é uma ação do seu plano com o Apex (1). Ela mostra a ação, a área e a pessoa responsável. A etiqueta à direita (2) é o status: Pendente, Em andamento, Realizado, Atrasado ou Cancelado. Os nomes estão cobertos.",
-                "en": "Each line is one action of your plan with Apex (1). It shows the action, the area and the person in charge. The tag on the right (2) is the status: Pending, In progress, Done, Late or Cancelled. Names are covered."
+                "pt": "Cada linha é uma ação do seu plano com o Apex (1). Ela mostra a ação, a área e a pessoa responsável. A etiqueta à direita (2) é o status: Pendente, Em andamento, Realizado, Atrasado ou Cancelado.",
+                "en": "Each line is one action of your plan with Apex (1). It shows the action, the area and the person in charge. The tag on the right (2) is the status: Pending, In progress, Done, Late or Cancelled."
               },
               "image": {
                 "pt": "help/img/guides/execution-and-tasks/plan-03.pt.jpg",
@@ -11332,8 +11332,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Você pode atualizar o status das suas ações. Toque em uma linha para abrir. A folha lista Ação, Frente, Responsável, Status (1) e Observações. Os nomes da figura estão cobertos.",
-                "en": "You can update the status of your own actions. Tap a row to open it. The sheet lists Action, Front, Owner, Status (1) and Notes. The names in the picture are covered."
+                "pt": "Você pode atualizar o status das suas ações. Toque em uma linha para abrir. A folha lista Ação, Frente, Responsável, Status (1) e Observações.",
+                "en": "You can update the status of your own actions. Tap a row to open it. The sheet lists Action, Front, Owner, Status (1) and Notes."
               },
               "image": {
                 "pt": "help/img/guides/execution-and-tasks/plan-04.pt.jpg",
@@ -11926,8 +11926,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Role até o cartão Contrato. A marca, o logo, a licença, o nome legal e as formas de pagamento vêm das configurações dos documentos acima, então nada é pedido duas vezes. A biblioteca de cláusulas é um rascunho que um advogado ainda não revisou, e todo contrato diz isso até a revisão ser registrada.",
-                "en": "Scroll down to the card Contract. The brand, logo, license, legal name and payment methods come from the document settings above, so nothing is asked twice. The clause library is a draft that an attorney has not reviewed yet, and every contract says so until a review is recorded."
+                "pt": "Role até o cartão Contrato. A marca, o logo, a licença, o nome legal e as formas de pagamento vêm das configurações dos documentos acima, então nada é pedido duas vezes. A biblioteca de cláusulas é um rascunho para o seu advogado revisar, e todo contrato diz isso até a revisão ser registrada.",
+                "en": "Scroll down to the card Contract. The brand, logo, license, legal name and payment methods come from the document settings above, so nothing is asked twice. The clause library is a draft for your attorney to review, and every contract says so until a review is recorded."
               },
               "image": {
                 "pt": "help/img/guides/contract-settings/csettings-04.pt.jpg",
@@ -11970,8 +11970,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Em Quem assina pela empresa, digite o Dono, que assina por padrão (1), e o telefone (2). O telefone está coberto na figura.",
-                "en": "Under Authorized signers, type the Owner, the default signer (1), and the phone (2). The phone is covered in the picture."
+                "pt": "Em Quem assina pela empresa, digite o Dono, que assina por padrão (1), e o telefone (2).",
+                "en": "Under Authorized signers, type the Owner, the default signer (1), and the phone (2)."
               },
               "image": {
                 "pt": "help/img/guides/contract-settings/csettings-08.pt.jpg",
@@ -12047,8 +12047,8 @@
             {
               "n": 15,
               "text": {
-                "pt": "Se você responde Sim para a responsabilidade civil, aparecem três campos: a seguradora (1), o telefone dela (2) e o número da apólice (3). O telefone está coberto na figura.",
-                "en": "If you answer Yes for general liability, three fields appear: the insurance company (1), its phone (2) and the policy number (3). The phone is covered in the picture."
+                "pt": "Se você responde Sim para a responsabilidade civil, aparecem três campos: a seguradora (1), o telefone dela (2) e o número da apólice (3).",
+                "en": "If you answer Yes for general liability, three fields appear: the insurance company (1), its phone (2) and the policy number (3)."
               },
               "image": {
                 "pt": "help/img/guides/contract-settings/csettings-15.pt.jpg",
@@ -12692,8 +12692,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Role até Notices to Owner e liberações (1). Pague cada subempreiteiro ou fornecedor logo depois que você receber pelo trabalho dele, salvo disputa real.",
-                "en": "Scroll to Notices to Owner and lien releases (1). Pay each subcontractor or supplier promptly after you are paid for their work, unless there is a genuine dispute."
+                "pt": "Role até Notices to Owner e liberações (1). Na Flórida, em geral, o subempreiteiro ou fornecedor precisa ser pago em até 45 dias depois que você recebe pelo trabalho dele, salvo disputa real.",
+                "en": "Scroll to Notices to Owner and lien releases (1). Florida generally requires paying a subcontractor or supplier within 45 days after you are paid for their work, unless there is a genuine dispute."
               },
               "image": {
                 "pt": "help/img/guides/liens-and-final-affidavit/liens-02.pt.jpg",
@@ -18184,8 +18184,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "A página do Google. Ela mostra Sign in with Google e pede Email or phone (1). Digite o e-mail da sua conta Google e toque em Next (2). A figura mostra a página sem nada digitado.",
-                "en": "Google's own page. It shows Sign in with Google and asks for Email or phone (1). Type the email of your Google account and tap Next (2). The picture shows the page with nothing typed."
+                "pt": "A página do Google. Abre a página do próprio Google, Sign in with Google, que pede Email or phone (1). Digite o e-mail da sua conta Google e toque em Next (2). A figura mostra a página sem nada digitado.",
+                "en": "Google's own page. Google's own page opens, Sign in with Google, asking for Email or phone (1). Type the email of your Google account and tap Next (2). The picture shows the page with nothing typed."
               },
               "image": {
                 "pt": "help/img/guides/sign-in-screens/signin-05.pt.jpg",
@@ -18406,8 +18406,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Leia e depois decida. A janela (1) diz que a sua conta e os dados da sua empresa serão excluídos em até 30 dias, e que a Apex confirma por escrito quando terminar. Diz também que o pedido é confirmado primeiro, para que ninguém apague sozinho os registros de uma empresa. Toque em Enviar pedido de exclusão (2) só se você quer mesmo sair. Toque em Cancelar (3) para parar. Na figura o pedido não foi enviado.",
-                "en": "Read it, then decide. The window (1) says your account and your company's data will be deleted within 30 days, and that Apex confirms in writing when it is done. It also says the request is confirmed first, so that no single person can erase a company's records alone. Tap Send deletion request (2) only if you really want to leave. Tap Cancel (3) to stop. In the picture the request was not sent."
+                "pt": "Leia e depois decida. A janela (1) diz que a sua conta e os dados da sua empresa serão excluídos em até 30 dias, e que a Apex confirma por escrito quando terminar. Diz também que o pedido é confirmado primeiro, para que ninguém apague sozinho os registros de uma empresa. Toque em Enviar pedido de exclusão (2) só se você quer mesmo sair. Toque em Cancelar (3) para parar.",
+                "en": "Read it, then decide. The window (1) says your account and your company's data will be deleted within 30 days, and that Apex confirms in writing when it is done. It also says the request is confirmed first, so that no single person can erase a company's records alone. Tap Send deletion request (2) only if you really want to leave. Tap Cancel (3) to stop."
               },
               "image": {
                 "pt": "help/img/guides/delete-my-account/delete-02.pt.jpg",
@@ -18670,8 +18670,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Entenda os avisos de margem. Um sinal de aviso vermelho aparece ao lado da Margem (1) quando o total é $0.00 ou quando a margem está abaixo da margem mínima que você definiu. Aqui um desconto de 25% deixa abaixo da margem mínima de 30%. A linha embaixo do número diz qual é o caso. O aviso nunca impede: você ainda pode salvar e enviar.",
-                "en": "Understand the margin warnings. A red warning sign shows next to the Margin (1) when the total is $0.00 or when the margin is lower than the minimum margin you set. Here a 25% discount puts it below the minimum margin of 30%. The line under the number says which one it is. The warning never stops you: you can still save and send."
+                "pt": "Entenda os avisos de margem. Um sinal de aviso vermelho aparece ao lado da Margem (1) quando o total é $0.00 ou quando a margem está abaixo da margem mínima que você definiu. Por exemplo, um desconto de 25% pode deixar abaixo de uma margem mínima de 30%. A linha embaixo do número diz qual é o caso. O aviso nunca impede: você ainda pode salvar e enviar.",
+                "en": "Understand the margin warnings. A red warning sign shows next to the Margin (1) when the total is $0.00 or when the margin is lower than the minimum margin you set. For example, a 25% discount can put it below a minimum margin of 30%. The line under the number says which one it is. The warning never stops you: you can still save and send."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/numbers-03.pt.jpg",
@@ -19325,8 +19325,8 @@
             {
               "n": 13,
               "text": {
-                "pt": "O orçamento abre em uma nova aba, do jeito que o seu cliente vê. O número da licença está coberto na imagem.",
-                "en": "The estimate opens in a new tab, the way your customer sees it. The license number is covered in the picture."
+                "pt": "O orçamento abre em uma nova aba, do jeito que o seu cliente vê.",
+                "en": "The estimate opens in a new tab, the way your customer sees it."
               },
               "image": {
                 "pt": "help/img/guides/customer-answers-to-estimates/colors-s13.pt.jpg",
@@ -19908,7 +19908,7 @@
               "n": 10,
               "text": {
                 "pt": "Cada menu mostra o nome da sua coluna e um exemplo da primeira linha. O Apex só preenche um menu sozinho quando o nome da coluna é exatamente igual. Confira todos os menus (1 a 6).",
-                "en": "Each menu shows the name of your column and an example from your first row. Apex fills in a menu by itself only when the column name is exactly the same. Check every menu (1 to 6)."
+                "en": "Each menu shows the name of your column and a sample from your first row. Apex fills in a menu by itself only when the column name is exactly the same. Check every menu (1 to 6)."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/import-10.pt.jpg",
@@ -20100,8 +20100,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Toque em um projeto para abrir. Depois toque em Status (1) para mudar, por exemplo para Em andamento. O nome do projeto e os valores estão cobertos.",
-                "en": "Tap a project to open it. Then tap Status (1) to change it, for example to In progress. The project name and the money amounts are covered."
+                "pt": "Toque em um projeto para abrir. Depois toque em Status (1) para mudar, por exemplo para Em andamento.",
+                "en": "Tap a project to open it. Then tap Status (1) to change it, for example to In progress."
               },
               "image": {
                 "pt": "help/img/guides/contracts-that-need-you/cards-02.pt.jpg",
@@ -20122,8 +20122,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Se o projeto não tem contrato assinado, o Apex abre uma janela chamada Sem contrato assinado antes da mudança. Na Flórida, para um serviço acima de $2,500, o texto vermelho (1) diz que o contrato precisa do aviso de lien (gravame) de construção e do aviso do Recovery Fund. Para outro estado o texto vermelho cita o estado: a figura mostra o Texas.",
-                "en": "If the project has no signed contract, Apex opens a window called No signed contract before the change. In Florida, for a job over $2,500, the red text (1) says the contract needs the construction lien notice and the Recovery Fund notice. For another state the red text names that state: the picture shows Texas."
+                "pt": "Se o projeto não tem contrato assinado, o Apex abre uma janela chamada Sem contrato assinado antes da mudança. Na Flórida, para um serviço acima de $2,500, o texto vermelho (1) diz que o contrato precisa do aviso de lien (gravame) de construção e do aviso do Recovery Fund. Para outro estado o texto vermelho cita o estado, por exemplo o Texas.",
+                "en": "If the project has no signed contract, Apex opens a window called No signed contract before the change. In Florida, for a job over $2,500, the red text (1) says the contract needs the construction lien notice and the Recovery Fund notice. For another state the red text names that state, for example Texas."
               },
               "image": {
                 "pt": "help/img/guides/contracts-that-need-you/cards-04.pt.jpg",
@@ -20166,8 +20166,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Cada linha tem o nome do projeto e o valor (1), e depois quando a pendência foi aberta (2). O nome e o valor estão cobertos na figura.",
-                "en": "Each row has the project name and the value (1), and then when the notice was opened (2). The name and the value are covered in the picture."
+                "pt": "Cada linha tem o nome do projeto e o valor (1), e depois quando a pendência foi aberta (2).",
+                "en": "Each row has the project name and the value (1), and then when the notice was opened (2)."
               },
               "image": {
                 "pt": "help/img/guides/contracts-that-need-you/cards-08.pt.jpg",
@@ -20431,8 +20431,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "A parte chamada Dados deste contrato (toque para mudar só neste contrato) (1) lista cada valor que entra no contrato. O número da licença está coberto na imagem.",
-                "en": "The part called This contract's details (tap to change for this contract only) (1) lists every value that goes into the contract. The license number is covered in the picture."
+                "pt": "A parte chamada Dados deste contrato (toque para mudar só neste contrato) (1) lista cada valor que entra no contrato.",
+                "en": "The part called This contract's details (tap to change for this contract only) (1) lists every value that goes into the contract."
               },
               "image": {
                 "pt": "help/img/guides/contract-price-values-and-clauses/values-s01.pt.jpg",
@@ -20898,8 +20898,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Quando o estado não é a Flórida, o contrato muda: as perguntas são as que esse estado precisa (a imagem mostra o Texas) e a nota do prazo de cancelamento (1) cita o estado.",
-                "en": "When the state is not Florida, the contract changes: the questions are the ones that state needs (the picture shows Texas) and the cancellation deadline note (1) names the state."
+                "pt": "Quando o estado não é a Flórida, o contrato muda: as perguntas são as que esse estado precisa e a nota do prazo de cancelamento (1) cita o estado.",
+                "en": "When the state is not Florida, the contract changes: the questions are the ones that state needs and the cancellation deadline note (1) names the state."
               },
               "image": {
                 "pt": "help/img/guides/contract-other-states/state-03.pt.jpg",
@@ -20964,8 +20964,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Cada linha é algo a fazer ou a conferir, com uma caixa e a lei de onde vem, em azul. Quando você fez aquilo, marque a caixa (1). O Apex guarda o nome de quem marcou e quando. O nome de quem marcou está coberto na imagem.",
-                "en": "Each line is something to do or to check, with a box and the law it comes from, in blue. When you did the thing, tick the box (1). Apex saves who ticked it and when. The name of the person who ticked is covered in the picture."
+                "pt": "Cada linha é algo a fazer ou a conferir, com uma caixa e a lei de onde vem, em azul. Quando você fez aquilo, marque a caixa (1). O Apex guarda o nome de quem marcou e quando.",
+                "en": "Each line is something to do or to check, with a box and the law it comes from, in blue. When you did the thing, tick the box (1). Apex saves who ticked it and when."
               },
               "image": {
                 "pt": "help/img/guides/contract-other-states/state-09.pt.jpg",
@@ -21008,8 +21008,8 @@
             {
               "n": 13,
               "text": {
-                "pt": "Ela mostra a licença do estado, a regra de cancelamento, os avisos que entram no contrato e o prazo que o Apex calcula. Um texto em vermelho (1) diz quando o Texas exige um aviso cujo texto exato ainda não foi carregado: pegue com a fonte oficial ou com o seu advogado e anexe antes de o cliente assinar. Os fatos legais vêm de pesquisa guardada e nenhum advogado revisou. O número da licença está coberto na imagem.",
-                "en": "It shows the state license, the cancellation rule, the notices that go in the contract and the deadline Apex calculates. A red text (1) says when Texas requires a notice whose exact wording is not loaded yet: get it from the official source or your attorney and attach it before the customer signs. The legal facts come from research on file and no lawyer has reviewed them. The license number is covered in the picture."
+                "pt": "Ela mostra a licença do estado, a regra de cancelamento, os avisos que entram no contrato e o prazo que o Apex calcula. Um texto em vermelho (1) diz quando o Texas exige um aviso cujo texto exato ainda não foi carregado: pegue com a fonte oficial ou com o seu advogado e anexe antes de o cliente assinar. Os fatos legais vêm de pesquisa guardada, então confira com o seu advogado.",
+                "en": "It shows the state license, the cancellation rule, the notices that go in the contract and the deadline Apex calculates. A red text (1) says when Texas requires a notice whose exact wording is not loaded yet: get it from the official source or your attorney and attach it before the customer signs. The legal facts come from research on file, so check them with your attorney."
               },
               "image": {
                 "pt": "help/img/guides/contract-other-states/state-13.pt.jpg",
@@ -21030,8 +21030,8 @@
             {
               "n": 15,
               "text": {
-                "pt": "Digite os dados, por exemplo o Telefone do cliente (1), o E-mail do cliente (2) e o Condado do imóvel (3). Nesta imagem os valores são de teste.",
-                "en": "Type the details, for example the Owner phone (1), the Owner email (2) and the Property county (3). In this picture the values are test ones."
+                "pt": "Digite os dados, por exemplo o Telefone do cliente (1), o E-mail do cliente (2) e o Condado do imóvel (3).",
+                "en": "Type the details, for example the Owner phone (1), the Owner email (2) and the Property county (3)."
               },
               "image": {
                 "pt": "help/img/guides/contract-other-states/state-15.pt.jpg",
@@ -21199,8 +21199,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Leia a linha do quadro (1): um sistema de inteligência artificial lê o arquivo para organizar as cláusulas. Você revisa o resultado e confirma que ele corresponde ao seu contrato original.",
-                "en": "Read the line with the box (1): an artificial intelligence system reads the file to organize the clauses. You review the result and confirm it matches your original contract."
+                "pt": "Leia a linha do quadro (1): um sistema de inteligência artificial (Claude, da Anthropic) lê o arquivo para organizar as cláusulas. Você revisa o resultado e confirma que ele corresponde ao seu contrato original.",
+                "en": "Read the line with the box (1): an artificial intelligence system (Claude, by Anthropic) reads the file to organize the clauses. You review the result and confirm it matches your original contract."
               },
               "image": {
                 "pt": "help/img/guides/own-contract-upload/upload-s06.pt.jpg",
@@ -22565,8 +22565,8 @@
             {
               "n": 10,
               "text": {
-                "pt": "Uma caixa pergunta Desconectar o Thumbtack? (1). Ela diz que os novos leads do Thumbtack param de chegar, e que os leads que você já recebeu continuam no seu funil, mas os detalhes do Thumbtack são apagados.",
-                "en": "A box asks Disconnect Thumbtack? (1). It says that new Thumbtack leads stop arriving, and that the leads you already received stay in your pipeline, but Thumbtack's extra details are erased."
+                "pt": "Uma caixa pergunta Desconectar o Thumbtack? (1). Ela diz que os novos leads do Thumbtack param de chegar, e que os leads que você já recebeu continuam no seu funil, mas os detalhes do Thumbtack são apagados. A imagem é do portal em inglês.",
+                "en": "A box asks Disconnect Thumbtack? (1). It says that new Thumbtack leads stop arriving, and that the leads you already received stay in your pipeline, but Thumbtack's extra details are erased. The picture is from the English portal."
               },
               "image": {
                 "pt": "help/img/guides/thumbtack-connect/connect-10.pt.jpg",
@@ -22745,8 +22745,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Digite o telefone dos EUA em Telefone (EUA) (2), dez dígitos, sem espaços. O Thumbtack confere o número e recusa um que não seja válido.",
-                "en": "Type the US phone number in Phone (US) (2), ten digits, with no spaces. Thumbtack checks the number and refuses one that is not valid."
+                "pt": "Digite o telefone dos EUA em Telefone (EUA) (1), dez dígitos, sem espaços. O Thumbtack confere o número e recusa um que não seja válido. A imagem usa um número inventado.",
+                "en": "Type the US phone number in Phone (US) (2), ten digits, with no spaces. Thumbtack checks the number and refuses one that is not valid. The picture uses a made-up number."
               },
               "image": {
                 "pt": "help/img/guides/thumbtack-phone-numbers/phones-04.pt.jpg",
@@ -22858,8 +22858,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Abra Negócio, depois Pipeline. Um lead do Thumbtack é uma linha comum (1) no estágio Novo Lead, com o nome do cliente, o serviço e uma etiqueta se ninguém foi escolhido ainda. Digite o nome na caixa de busca para achar.",
-                "en": "Open Business, then Pipeline. A Thumbtack lead is a normal row (1) in the New Lead stage, with the customer's name, the service and a tag if nobody is assigned yet. Type the name in the search box to find it."
+                "pt": "Abra Negócio, depois Pipeline. Um lead do Thumbtack é uma linha comum (1) no estágio Novo Lead, com o nome do cliente, o serviço e uma etiqueta se ninguém foi escolhido ainda. Digite o nome na caixa de busca para achar. A imagem usa o cliente de teste do ambiente de testes.",
+                "en": "Open Business, then Pipeline. A Thumbtack lead is a normal row (1) in the New Lead stage, with the customer's name, the service and a tag if nobody is assigned yet. Type the name in the search box to find it. The picture uses the test customer of the testing environment."
               },
               "image": {
                 "pt": "help/img/guides/thumbtack-leads/leads-02.pt.jpg",
@@ -23856,7 +23856,7 @@
               "n": 4,
               "text": {
                 "pt": "Toque em Entrar (1) para entrar. Veja o guia Entrar no Apex.",
-                "en": "Tap Entrar (1) to sign in. See the guide Sign in to Apex."
+                "en": "Tap Entrar (1), which means Sign in. See the guide Sign in to Apex."
               },
               "image": {
                 "pt": "help/img/guides/install-the-app/install-s04.pt.jpg",
@@ -23867,7 +23867,7 @@
               "n": 5,
               "text": {
                 "pt": "Ou entre com a sua passkey, ou toque em Entrar com Google (1).",
-                "en": "Or sign in with your passkey, or tap Entrar com Google (1)."
+                "en": "Or sign in with your passkey, or tap Entrar com Google (1), which means Sign in with Google."
               },
               "image": {
                 "pt": "help/img/guides/install-the-app/install-s05.pt.jpg",
@@ -27599,8 +27599,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Toque em um estágio (1) para ver só os leads dele (2). Por exemplo, Orçamento Enviado mostra 4 leads.",
-                "en": "Tap a stage (1) to see only the leads in it (2). For example, Estimate Sent shows 4 leads."
+                "pt": "Toque em um estágio (1) para ver só os leads dele (2). Aqui Orçamento Enviado mostra seus 4 leads.",
+                "en": "Tap a stage (1) to see only the leads in it (2). Here Estimate Sent shows its 4 leads."
               },
               "image": {
                 "pt": "help/img/guides/pipeline/see-leads-07.pt.jpg",
@@ -28084,8 +28084,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Pague com Zelle. Em Formas de pagamento você vê só as formas que a Apex ligou. Toque em Copiar valor (1) e cole na tela do Zelle do seu banco. Envie para o contato mostrado e escreva o número da fatura na mensagem. Você também pode tocar em Copiar contato do Zelle (2). O contato do Zelle na figura é um valor de teste.",
-                "en": "Pay with Zelle. Under Ways to pay you see only the ways Apex turned on. Tap Copy amount (1), then paste it in your bank's Zelle screen. Send it to the contact shown and write the invoice number in the message. You can also tap Copy Zelle contact (2). The Zelle contact in the picture is a test value."
+                "pt": "Pague com Zelle. Em Formas de pagamento você vê só as formas que a Apex ligou. Toque em Copiar valor (1) e cole na tela do Zelle do seu banco. Envie para o contato mostrado e escreva o número da fatura na mensagem. Você também pode tocar em Copiar contato do Zelle (2).",
+                "en": "Pay with Zelle. Under Ways to pay you see only the ways Apex turned on. Tap Copy amount (1), then paste it in your bank's Zelle screen. Send it to the contact shown and write the invoice number in the message. You can also tap Copy Zelle contact (2)."
               },
               "image": {
                 "pt": "help/img/guides/apex-invoice-and-receipt/apexbill-03.pt.jpg",
@@ -28106,8 +28106,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Pague com cartão. O botão Pagar com cartão só aparece quando a Apex ligou o cartão para esta fatura, e ele está desligado na fatura de teste. Depois de pagar com cartão você volta para a página. Ela diz Pagamento recebido. Obrigado! ou Pagamento em processamento.",
-                "en": "Pay by card. A Pay by card button shows only when Apex turned card payments on for this invoice, and it is off on the test invoice. After a card payment you come back to the page. It says Payment received. Thank you! or Payment processing."
+                "pt": "Pague com cartão. O botão Pagar com cartão só aparece quando a Apex ligou o cartão para esta fatura. Depois de pagar com cartão você volta para a página. Ela diz Pagamento recebido. Obrigado! ou Pagamento em processamento.",
+                "en": "Pay by card. A Pay by card button shows only when Apex turned card payments on for this invoice. After a card payment you come back to the page. It says Payment received. Thank you! or Payment processing."
               },
               "image": null
             },
@@ -28125,8 +28125,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Abra o seu recibo. Depois de um pagamento, a Apex pode enviar um link de recibo com a mesma cara. Ele mostra Recebido de, o Número do recibo, a Fatura, a Data do recebimento, o Valor recebido, a Forma de pagamento, e o saldo da fatura antes e depois deste pagamento. Toque em Baixar o recibo (PDF) para guardar. Se um pagamento foi desfeito, o recibo diz ANULADO e deixa de ser prova de pagamento. Não havia fatura paga para mostrar em figura.",
-                "en": "Open your receipt. After a payment, Apex can send you a receipt link with the same look. It shows Received from, the Receipt number, the Invoice, the Date received, the Amount received, the Payment method, and the invoice balance before and after this payment. Tap Download the receipt (PDF) to save it. If a payment was undone, the receipt says VOIDED and is no longer proof of payment. There was no paid invoice to picture."
+                "pt": "Abra o seu recibo. Depois de um pagamento, a Apex pode enviar um link de recibo com a mesma cara. Ele mostra Recebido de, o Número do recibo, a Fatura, a Data do recebimento, o Valor recebido, a Forma de pagamento, e o saldo da fatura antes e depois deste pagamento. Toque em Baixar o recibo (PDF) para guardar. Se um pagamento foi desfeito, o recibo diz que foi anulado e deixa de ser prova de pagamento.",
+                "en": "Open your receipt. After a payment, Apex can send you a receipt link with the same look. It shows Received from, the Receipt number, the Invoice, the Date received, the Amount received, the Payment method, and the invoice balance before and after this payment. Tap Download the receipt (PDF) to save it. If a payment was undone, the receipt says it was voided and is no longer proof of payment."
               },
               "image": null
             }

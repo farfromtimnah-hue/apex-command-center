@@ -1439,7 +1439,7 @@
         <span id="headerEmail"></span>
         <span class="role-badge" id="headerRole"></span>
       </div>
-      <button class="lang-btn" onclick="apexNavToggleLang()">
+      <button class="lang-btn" data-help="admin-menu-language-learn#menu#2" onclick="apexNavToggleLang()">
         <span class="show-pt">EN</span>
         <span class="show-en">PT</span>
       </button>
@@ -1471,7 +1471,7 @@
         </span>
       </div>
       <div class="pricing-modal-actions">
-        <a class="btn-pricing-go" href="settings.html#packagesSection">
+        <a data-help="admin-settings-packages-payment#pkg#1" class="btn-pricing-go" href="settings.html#packagesSection">
           <span class="show-pt">Adicionar Pre&#231;o</span>
           <span class="show-en">Add Price</span>
         </a>
@@ -1498,13 +1498,13 @@
         </span>
       </div>
       <div class="pricing-modal-actions">
-        <a class="btn-primary" href="settings.html#paymentDetailsSection" style="text-decoration:none;">
+        <a data-help="admin-invoices#invoices#12" class="btn-primary" href="settings.html#paymentDetailsSection" style="text-decoration:none;">
           <span class="show-pt">Ir para Configura&#231;&#245;es</span>
           <span class="show-en">Go to Settings</span>
         </a>
       </div>
       <div style="text-align:center;">
-        <button type="button" class="payment-warn-link" onclick="openPaymentWarnConfirm()">
+        <button data-help="admin-invoices#invoices#12" type="button" class="payment-warn-link" onclick="openPaymentWarnConfirm()">
           <span class="show-pt">Enviar Assim Mesmo</span>
           <span class="show-en">Send Anyway</span>
         </button>
@@ -1528,7 +1528,7 @@
           <span class="show-pt">Voltar</span>
           <span class="show-en">Go Back</span>
         </button>
-        <button type="button" class="btn-pricing-go" onclick="confirmSendAnyway()">
+        <button data-help="admin-invoices#invoices#12" type="button" class="btn-pricing-go" onclick="confirmSendAnyway()">
           <span class="show-pt">Sim, Enviar</span>
           <span class="show-en">Yes, Send</span>
         </button>
@@ -1567,7 +1567,7 @@
           <span class="show-pt">Cancelar</span>
           <span class="show-en">Cancel</span>
         </button>
-        <button type="button" class="btn-pricing-go" id="reconMatchConfirmBtn" onclick="confirmReconMatch()" disabled>
+        <button data-help="admin-finance-deposits#dep#2" type="button" class="btn-pricing-go" id="reconMatchConfirmBtn" onclick="confirmReconMatch()" disabled>
           <span class="show-pt">Vincular</span>
           <span class="show-en">Match</span>
         </button>
@@ -1623,7 +1623,7 @@
           <span class="show-pt">Cancelar</span>
           <span class="show-en">Cancel</span>
         </button>
-        <button type="button" class="btn-pricing-go" id="reconNewCategorySaveBtn" onclick="saveReconNewCategory()">
+        <button data-help="admin-invoices#invoices#10" type="button" class="btn-pricing-go" id="reconNewCategorySaveBtn" onclick="saveReconNewCategory()">
           <span class="show-pt">Criar</span>
           <span class="show-en">Create</span>
         </button>
@@ -1698,7 +1698,7 @@
         <span class="show-pt">Ir para o sistema novo &rarr;</span>
         <span class="show-en">Go to the new system &rarr;</span>
       </a>
-      <button type="button" class="switch-new-secondary" onclick="continueOnOldSystem()">
+      <button data-help="admin-invoices#invoices#1" type="button" class="switch-new-secondary" onclick="continueOnOldSystem()">
         <span class="show-pt">Continuar aqui no sistema antigo</span>
         <span class="show-en">Stay here and use the old system</span>
       </button>
@@ -1803,7 +1803,7 @@
           <span class="show-pt">Cancelar</span>
           <span class="show-en">Cancel</span>
         </button>
-        <button type="button" class="btn-pricing-go" id="newInvoiceSaveBtn" onclick="saveNewInvoice()">
+        <button data-help="admin-invoices#invoices#10" type="button" class="btn-pricing-go" id="newInvoiceSaveBtn" onclick="saveNewInvoice()">
           <span class="show-pt">Salvar Rascunho</span>
           <span class="show-en">Save as Draft</span>
         </button>
@@ -1867,32 +1867,32 @@
 
         <!-- Pill tabs -->
         <div class="fin-tab-bar m-scroll-tabs" id="finTabBar">
-          <button class="fin-tab-pill active" id="finTabBtnSaude" onclick="switchFinanceTab('saude')">
+          <button data-help="admin-finance-overview#ov#1" class="fin-tab-pill active" id="finTabBtnSaude" onclick="switchFinanceTab('saude')">
             <span class="show-pt">Saude Financeira</span>
             <span class="show-en">Financial Health</span>
             <span class="fin-tab-badge" id="finBadgeSaude" hidden>0</span>
           </button>
-          <button class="fin-tab-pill" id="finTabBtnFaturas" onclick="switchFinanceTab('faturas')">
+          <button data-help="admin-finance-overview#ov#1" class="fin-tab-pill" id="finTabBtnFaturas" onclick="switchFinanceTab('faturas')">
             <span class="show-pt">Faturas</span>
             <span class="show-en">Invoices</span>
             <span class="fin-tab-badge" id="finBadgeFaturas" hidden>0</span>
           </button>
-          <button class="fin-tab-pill" id="finTabBtnConciliacao" onclick="switchFinanceTab('conciliacao')">
+          <button data-help="admin-finance-overview#ov#1" class="fin-tab-pill" id="finTabBtnConciliacao" onclick="switchFinanceTab('conciliacao')">
             <span class="show-pt">Conciliacao</span>
             <span class="show-en">Reconciliation</span>
             <span class="fin-tab-badge" id="finBadgeConciliacao" hidden>0</span>
           </button>
-          <button class="fin-tab-pill" id="finTabBtnAging" onclick="switchFinanceTab('aging')">
+          <button data-help="admin-finance-overview#ov#1" class="fin-tab-pill" id="finTabBtnAging" onclick="switchFinanceTab('aging')">
             <span class="show-pt">Contas a Receber</span>
             <span class="show-en">AR Aging</span>
             <span class="fin-tab-badge" id="finBadgeAging" hidden>0</span>
           </button>
-          <button class="fin-tab-pill" id="finTabBtnFiscal" onclick="switchFinanceTab('fiscal')">
+          <button data-help="admin-finance-overview#ov#1" class="fin-tab-pill" id="finTabBtnFiscal" onclick="switchFinanceTab('fiscal')">
             <span class="show-pt">Resumo Fiscal</span>
             <span class="show-en">Tax Summary</span>
             <span class="fin-tab-badge" id="finBadgeFiscal" hidden>0</span>
           </button>
-          <button class="fin-tab-pill" id="finTabBtnFerramentas" onclick="switchFinanceTab('ferramentas')">
+          <button data-help="admin-finance-overview#ov#1" class="fin-tab-pill" id="finTabBtnFerramentas" onclick="switchFinanceTab('ferramentas')">
             <span class="show-pt">Ferramentas Financeiras</span>
             <span class="show-en">Financial Tools</span>
             <span class="fin-tab-badge" id="finBadgeFerramentas" hidden>0</span>
@@ -1915,7 +1915,7 @@
         <span class="show-pt">As faturas agora ficam em "Financeiro (Novo)". Esta pagina fica disponivel apenas como reserva.</span>
         <span class="show-en">Invoicing now lives in "Financial (New)". This page stays available only as a fallback.</span>
       </div>
-      <a class="legacy-banner-btn" href="finance-new.html?highlight=invoice">
+      <a data-help="admin-record-payment#record#3" class="legacy-banner-btn" href="finance-new.html?highlight=invoice">
         <span class="show-pt">Ir para as faturas &rarr;</span>
         <span class="show-en">Go to invoices &rarr;</span>
       </a>
@@ -2094,15 +2094,15 @@
         </div>
         <!-- Sub-tab bar -->
         <div class="inv-subtab-bar m-scroll-tabs">
-          <button class="inv-subtab active" id="subtabDraft" onclick="switchInvoiceTab('draft')">
+          <button data-help="admin-invoices#invoices#11" class="inv-subtab active" id="subtabDraft" onclick="switchInvoiceTab('draft')">
             <span class="show-pt">Rascunho</span>
             <span class="show-en">Draft</span>
           </button>
-          <button class="inv-subtab" id="subtabUnpaid" onclick="switchInvoiceTab('unpaid')">
+          <button data-help="admin-invoices#invoices#11" class="inv-subtab" id="subtabUnpaid" onclick="switchInvoiceTab('unpaid')">
             <span class="show-pt">Nao Pagas</span>
             <span class="show-en">Unpaid</span>
           </button>
-          <button class="inv-subtab" id="subtabPaid" onclick="switchInvoiceTab('paid')">
+          <button data-help="admin-invoices#invoices#11" class="inv-subtab" id="subtabPaid" onclick="switchInvoiceTab('paid')">
             <span class="show-pt">Arquivo</span>
             <span class="show-en">Archive</span>
           </button>
@@ -2135,11 +2135,11 @@
         <!-- Sub-tab bar: switches which status feeds the Uncategorized/Excluded lists.
              "Categorized" is now shown via the folder rail totals instead of a separate tab. -->
         <div class="inv-subtab-bar m-scroll-tabs">
-          <button class="inv-subtab active" id="reconSubtabUncategorized" onclick="switchReconTab('uncategorized')">
+          <button data-help="admin-finance-categories#cat#2" class="inv-subtab active" id="reconSubtabUncategorized" onclick="switchReconTab('uncategorized')">
             <span class="show-pt">Nao Categorizadas</span>
             <span class="show-en">Uncategorized</span>
           </button>
-          <button class="inv-subtab" id="reconSubtabExcluded" onclick="switchReconTab('excluded')">
+          <button data-help="admin-finance-categories#cat#2" class="inv-subtab" id="reconSubtabExcluded" onclick="switchReconTab('excluded')">
             <span class="show-pt">Excluidas</span>
             <span class="show-en">Excluded</span>
           </button>
@@ -2151,7 +2151,7 @@
           </div>
           <div class="recon-folder-col">
             <div class="recon-folder-col-header">
-              <button type="button" class="recon-manage-categories-btn" onclick="openReconManageCategoriesModal()" title="Manage Categories">
+              <button data-help="admin-finance-categories#cat#4" type="button" class="recon-manage-categories-btn" onclick="openReconManageCategoriesModal()" title="Manage Categories">
                 &#9881; <span class="show-pt">Gerenciar Categorias</span><span class="show-en">Manage Categories</span>
               </button>
             </div>
@@ -2200,7 +2200,7 @@
           </h2>
           <div style="display:flex;gap:8px;align-items:center;">
             <select id="fiscalYearSelect" class="form-input" style="width:auto;padding:6px 10px;" onchange="loadTaxSummary()"></select>
-            <button class="btn-secondary btn-sm" id="fiscalPrintBtn" onclick="printFiscalReport()" disabled>
+            <button data-help="admin-finance-extras#extra#6" class="btn-secondary btn-sm" id="fiscalPrintBtn" onclick="printFiscalReport()" disabled>
               <span class="show-pt">Imprimir</span>
               <span class="show-en">Print</span>
             </button>
@@ -2396,7 +2396,7 @@
           <div id="resyncStatusBody" style="font-size:13px;color:var(--muted);margin-bottom:12px;">
             <div class="spinner" style="width:16px;height:16px;border-width:2px;"></div>
           </div>
-          <button class="btn-primary btn-sm" id="resyncBtn" onclick="runZohoContactsResync()" disabled>
+          <button data-help="admin-finance-accounts#acc#2" class="btn-primary btn-sm" id="resyncBtn" onclick="runZohoContactsResync()" disabled>
             <span class="show-pt">Sincronizar Agora</span>
             <span class="show-en">Re-sync Now</span>
           </button>
@@ -2935,7 +2935,7 @@
         }
         var subManageUrl = safeUrl(s.manage_url);
         if (subManageUrl) {
-          html += '<a href="' + escHtml(subManageUrl) + '" target="_blank" rel="noopener" class="btn-ghost btn-sm" style="color:var(--gold);text-decoration:none;">';
+          html += '<a data-help="admin-invoices#invoices#20" href="' + escHtml(subManageUrl) + '" target="_blank" rel="noopener" class="btn-ghost btn-sm" style="color:var(--gold);text-decoration:none;">';
           html += '<span class="show-pt">Gerenciar</span><span class="show-en">Manage</span>';
           html += '</a>';
         }
@@ -3233,22 +3233,22 @@
         html += '<td class="mc-field" data-label-pt="Total" data-label-en="Total" style="font-weight:600;">$ ' + (parseFloat(inv.total) || 0).toFixed(2) + '</td>';
         html += '<td class="mc-field" data-label-pt="Vencimento" data-label-en="Due Date">' + escHtml(formatDate(inv.due_date)) + '</td>';
         html += '<td class="mc-field" data-label-pt="Status" data-label-en="Status"><span class="' + statusClass + '">' + escHtml(statusLabel) + '</span></td>';
-        html += '<td class="mc-action"><a class="btn-inv-view" href="' + escHtml(invPathLocal) + '" target="_blank" rel="noopener">';
+        html += '<td class="mc-action"><a data-help='admin-invoices#invoices#20' class="btn-inv-view" href="' + escHtml(invPathLocal) + '" target="_blank" rel="noopener">';
         html += mcIcon("view");
         html += '<span class="show-pt">Ver Fatura</span><span class="show-en">View Invoice</span>';
         html += '</a></td>';
         if (isDraft) {
-          html += '<td class="mc-action"><button class="btn-inv-view" onclick="openInvoiceEditor(\'' + escHtml(inv.invoice_id) + '\')">';
+          html += '<td class="mc-action"><button data-help='admin-invoices#invoices#13' class="btn-inv-view" onclick="openInvoiceEditor(\'' + escHtml(inv.invoice_id) + '\')">';
           html += mcIcon("edit");
           html += '<span class="show-pt">Editar</span><span class="show-en">Edit</span>';
           html += '</button></td>';
-          html += '<td class="mc-action"><button class="btn-inv-whatsapp" id="finalizeBtn' + escHtml(inv.invoice_id) + '" onclick="finalizeInvoice(\'' + escHtml(inv.invoice_id) + '\')">';
+          html += '<td class="mc-action"><button data-help='admin-invoices#invoices#12' class="btn-inv-whatsapp" id="finalizeBtn' + escHtml(inv.invoice_id) + '" onclick="finalizeInvoice(\'' + escHtml(inv.invoice_id) + '\')">';
           html += mcIcon("check");
           html += '<span class="show-pt">Finalizar</span><span class="show-en">Finalize</span>';
           html += '</button></td>';
         }
         if (isUnpaid) {
-          html += '<td class="mc-action"><button class="btn-inv-whatsapp" id="waBtn' + escHtml(inv.invoice_id) + '" onclick="sendInvoiceWhatsApp(\'' + escHtml(inv.invoice_id) + '\',\'' + escHtml(invPath) + '\')">';
+          html += '<td class="mc-action"><button data-help='admin-record-payment#record#16' class="btn-inv-whatsapp" id="waBtn' + escHtml(inv.invoice_id) + '" onclick="sendInvoiceWhatsApp(\'' + escHtml(inv.invoice_id) + '\',\'' + escHtml(invPath) + '\')">';
           html += mcIcon("send");
           html += '<span class="show-pt">Enviar via WhatsApp</span><span class="show-en">Send via WhatsApp</span>';
           html += '</button></td>';
@@ -4223,12 +4223,12 @@
         html += '<div class="recon-tx-amount ' + amtClass + '">' + sign + fmtCurrency(t.amount) + '</div>';
         if (tab === "uncategorized") {
           html += '<div class="recon-tx-actions">';
-          html += '<button class="btn-ghost btn-sm" onclick="event.stopPropagation(); reconExclude(\'' + escHtml(t.transaction_id) + '\')" title="Ignore">';
+          html += '<button data-help="admin-invoices#invoices#18" class="btn-ghost btn-sm" onclick="event.stopPropagation(); reconExclude(\'' + escHtml(t.transaction_id) + '\')" title="Ignore">';
           html += mcIcon("x");
           html += '</button></div>';
         } else if (tab === "excluded") {
           html += '<div class="recon-tx-actions">';
-          html += '<button class="btn-secondary btn-sm" onclick="reconRestore(\'' + escHtml(t.transaction_id) + '\')">';
+          html += '<button data-help="admin-invoices#invoices#23" class="btn-secondary btn-sm" onclick="reconRestore(\'' + escHtml(t.transaction_id) + '\')">';
           html += mcIcon("restore");
           html += '<span class="show-pt">Restaurar</span><span class="show-en">Restore</span>';
           html += '</button></div>';

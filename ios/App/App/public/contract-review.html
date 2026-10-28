@@ -389,7 +389,7 @@
                 <label><span class="show-pt">Bloco de contato do Recovery Fund (L2): endere&ccedil;o e telefone do board</span><span class="show-en">Recovery Fund contact block (L2): board address and phone</span></label>
                 <textarea id="crRecovery" rows="4" placeholder="Construction Industry Licensing Board, 2601 Blair Stone Road, Tallahassee, FL 32399-____  (850) ___-____"></textarea>
                 <p class="cr-meta"><span class="show-pt">A biblioteca registra tr&ecirc;s CEPs conflitantes (32399-1039, -2215, -0791) e dois telefones; a pergunta 4 ao advogado decide. Fica vazio at&eacute; l&aacute;.</span><span class="show-en">The library records three conflicting ZIP codes (32399-1039, -2215, -0791) and two phones; attorney question 4 decides. Stays empty until then.</span></p>
-                <div class="cr-actions"><button type="button" class="cr-btn gold" onclick="crSaveRecovery()"><span class="show-pt">Salvar bloco</span><span class="show-en">Save block</span></button><span id="crRecoveryMsg" class="cr-saved"></span></div>
+                <div class="cr-actions"><button data-help="admin-contract-review#review#2" type="button" class="cr-btn gold" onclick="crSaveRecovery()"><span class="show-pt">Salvar bloco</span><span class="show-en">Save block</span></button><span id="crRecoveryMsg" class="cr-saved"></span></div>
               </div>
               <div class="cr-field">
                 <label><span class="show-pt">Documentos de piscina (L6)</span><span class="show-en">Pool documents (L6)</span></label>
@@ -397,11 +397,11 @@
                 <div style="margin-top:8px;"><span class="show-pt">Documento com os requisitos do Cap&iacute;tulo 515 (PDF)</span><span class="show-en">Chapter 515 requirements document (PDF)</span></div>
                 <input type="text" id="crCh515Ver" placeholder="Vers&atilde;o / version (ex.: 2026 Florida Statutes)">
                 <input type="file" id="crCh515File" accept="application/pdf" style="margin-top:6px;">
-                <div class="cr-actions"><button type="button" class="cr-btn" onclick="crUploadDoc('ch515')"><span class="show-pt">Enviar PDF</span><span class="show-en">Upload PDF</span></button><span id="crDocMsg_ch515" class="cr-saved"></span></div>
+                <div class="cr-actions"><button data-help="admin-contract-review#review#1" type="button" class="cr-btn" onclick="crUploadDoc('ch515')"><span class="show-pt">Enviar PDF</span><span class="show-en">Upload PDF</span></button><span id="crDocMsg_ch515" class="cr-saved"></span></div>
                 <div style="margin-top:12px;"><span class="show-pt">Publica&ccedil;&atilde;o estadual de preven&ccedil;&atilde;o de afogamento (PDF)</span><span class="show-en">State drowning-prevention publication (PDF)</span></div>
                 <input type="text" id="crDrownVer" placeholder="Vers&atilde;o / version">
                 <input type="file" id="crDrownFile" accept="application/pdf" style="margin-top:6px;">
-                <div class="cr-actions"><button type="button" class="cr-btn" onclick="crUploadDoc('drowning')"><span class="show-pt">Enviar PDF</span><span class="show-en">Upload PDF</span></button><span id="crDocMsg_drowning" class="cr-saved"></span></div>
+                <div class="cr-actions"><button data-help="admin-contract-review#review#1" type="button" class="cr-btn" onclick="crUploadDoc('drowning')"><span class="show-pt">Enviar PDF</span><span class="show-en">Upload PDF</span></button><span id="crDocMsg_drowning" class="cr-saved"></span></div>
                 <!-- RES-36: the agency documents a state wants handed over unaltered with the contract -->
                 <div style="margin-top:16px;"><label><span class="show-pt">Documentos oficiais dos estados (entregues com o contrato, sem altera&ccedil;&atilde;o)</span><span class="show-en">State agency documents (handed over with the contract, unaltered)</span></label></div>
                 <div id="crStateDocs"></div>
@@ -414,8 +414,8 @@
         <div class="cr-progress">
           <strong id="crProgressText">0 de 0 revisados</strong>
           <div class="cr-bar"><div id="crProgressBar"></div></div>
-          <button type="button" class="cr-btn gold" id="crSubmitBtn" disabled onclick="crSubmit()"><span class="show-pt">Enviar revis&atilde;o</span><span class="show-en">Send review</span></button>
-          <button type="button" class="cr-btn" id="crAttorneyPdfBtn" hidden onclick="crOpenPrint()"><span class="show-pt">Enviar para o seu advogado (PDF)</span><span class="show-en">Send to your attorney (PDF)</span></button>
+          <button data-help="admin-contract-review#review#3" type="button" class="cr-btn gold" id="crSubmitBtn" disabled onclick="crSubmit()"><span class="show-pt">Enviar revis&atilde;o</span><span class="show-en">Send review</span></button>
+          <button data-help="admin-contract-review#review#3" type="button" class="cr-btn" id="crAttorneyPdfBtn" hidden onclick="crOpenPrint()"><span class="show-pt">Enviar para o seu advogado (PDF)</span><span class="show-en">Send to your attorney (PDF)</span></button>
         </div>
         <div id="crList"><div class="table-empty"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div></div>
         </div>
@@ -429,6 +429,9 @@
        not defined") because these three includes were missing. Copied exactly
        from add-user.html, its model page. -->
   <script src="nav.js"></script>
+  <script src="help-config.js"></script>
+  <script src="help-core.js"></script>
+  <script src="help-widget.js"></script>
   <script
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
     integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
@@ -587,14 +590,14 @@
         '</div><div><div class="cr-pt-label">' + (it.kind === "locked" ? t("Regras do bloco", "Block rules") : t("Resumo em português (só para a revisão)", "Portuguese summary (review only)")) + '</div><div class="cr-pt">' + escHtml(it.pt || "") + '</div></div></div>';
       var open = crOpenComment[it.id] || (rv && rv.decision === "changes");
       h += '<div class="cr-actions">' +
-        '<button type="button" class="cr-btn ok' + (rv && rv.decision === "ok" ? " sel" : "") + '" onclick="crDecide(\'' + it.id + '\', \'ok\')">' + t("OK como está", "OK as is") + '</button>' +
-        '<button type="button" class="cr-btn ch' + (rv && rv.decision === "changes" ? " sel" : "") + '" onclick="crOpenChanges(\'' + it.id + '\')">' + t("Sugerir mudanças", "Suggest changes") + '</button>' +
+        '<button data-help="admin-contract-review#review#2" type="button" class="cr-btn ok' + (rv && rv.decision === "ok" ? " sel" : "") + '" onclick="crDecide(\'' + it.id + '\', \'ok\')">' + t("OK como está", "OK as is") + '</button>' +
+        '<button data-help="admin-contract-review#review#2" type="button" class="cr-btn ch' + (rv && rv.decision === "changes" ? " sel" : "") + '" onclick="crOpenChanges(\'' + it.id + '\')">' + t("Sugerir mudanças", "Suggest changes") + '</button>' +
         '<span id="crMsg_' + it.id + '"></span></div>';
       h += '<div class="cr-comment" id="crComment_' + it.id + '"' + (open ? "" : " hidden") + '>' +
         '<textarea id="crText_' + it.id + '" placeholder="' + t("Escreva ou dite a mudança sugerida", "Type or dictate the suggested change") + '">' + escHtml(rv && rv.comment ? rv.comment : "") + '</textarea>' +
-        '<div class="cr-actions"><button type="button" class="cr-btn cr-mic" id="crMic_' + it.id + '" onclick="crToggleMic(\'' + it.id + '\')">&#127908; ' + t("Ditar", "Dictate") + '</button>' +
+        '<div class="cr-actions"><button data-help="admin-contract-review#review#2" type="button" class="cr-btn cr-mic" id="crMic_' + it.id + '" onclick="crToggleMic(\'' + it.id + '\')">&#127908; ' + t("Ditar", "Dictate") + '</button>' +
         '<span class="cr-meta" id="crMicStatus_' + it.id + '"></span>' +
-        '<button type="button" class="cr-btn gold" onclick="crSaveChanges(\'' + it.id + '\')">' + t("Salvar mudanças", "Save changes") + '</button></div></div>';
+        '<button data-help="admin-contract-review#review#2" type="button" class="cr-btn gold" onclick="crSaveChanges(\'' + it.id + '\')">' + t("Salvar mudanças", "Save changes") + '</button></div></div>';
       return h + '</div>';
     }
 
@@ -832,7 +835,7 @@
           (sl.ack ? ' &middot; ' + t("o cliente assina o recibo", "the customer signs an acknowledgment") : "") + '</div>' +
           '<input type="text" id="crStateVer_' + i + '" placeholder="' + t("Vers\u00e3o (ex.: data da publica\u00e7\u00e3o)", "Version (e.g. publication date)") + '">' +
           '<input type="file" id="crStateFile_' + i + '" accept="application/pdf" style="margin-top:6px;">' +
-          '<div class="cr-actions"><button type="button" class="cr-btn" onclick="crUploadStateDoc(' + i + ')">' + t("Enviar PDF", "Upload PDF") + '</button><span id="crStateMsg_' + i + '" class="cr-saved"></span></div></div>';
+          '<div class="cr-actions"><button data-help="admin-contract-review#review#1" type="button" class="cr-btn" onclick="crUploadStateDoc(' + i + ')">' + t("Enviar PDF", "Upload PDF") + '</button><span id="crStateMsg_' + i + '" class="cr-saved"></span></div></div>';
       }).join("");
     }
     function crUploadStateDoc(i) {

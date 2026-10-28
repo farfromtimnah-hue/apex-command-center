@@ -549,9 +549,9 @@
       <textarea id="cmText" class="field-input" rows="9" style="font-size:16px;line-height:1.4;resize:vertical"></textarea>
       <div class="ev-err" id="cmErr" hidden style="margin-top:12px"></div>
       <div class="modal-actions">
-        <button class="btn" onclick="resetClubMsgEdit()"><span class="show-pt">Restaurar padrão</span><span class="show-en">Reset to default</span></button>
+        <button data-help="admin-settings-pictures-message#pics#3" class="btn" onclick="resetClubMsgEdit()"><span class="show-pt">Restaurar padrão</span><span class="show-en">Reset to default</span></button>
         <button class="btn" onclick="closeClubMsgEdit()"><span class="show-pt">Cancelar</span><span class="show-en">Cancel</span></button>
-        <button class="btn btn-gold" id="cmOpenBtn" onclick="openClubMsgWhatsApp()"><span class="show-pt">Abrir WhatsApp</span><span class="show-en">Open WhatsApp</span></button>
+        <button data-help="admin-apex-club#club#4" class="btn btn-gold" id="cmOpenBtn" onclick="openClubMsgWhatsApp()"><span class="show-pt">Abrir WhatsApp</span><span class="show-en">Open WhatsApp</span></button>
       </div>
     </div>
   </div>
@@ -564,6 +564,9 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="nav.js"></script>
   <script src="apex-club.js?v=6"></script>
+  <script src="help-config.js"></script>
+  <script src="help-core.js"></script>
+  <script src="help-widget.js"></script>
   <script>
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
     var PUBLIC_BASE = (location.protocol === "http:" || location.protocol === "https:")

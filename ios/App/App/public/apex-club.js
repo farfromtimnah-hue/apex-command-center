@@ -217,14 +217,14 @@
                     esc((s.memo || s.description || "").slice(0, 40)) +
                     ' <span class="tag-meta">(' + why + ")</span></span>" +
                   "<b>" + fmtCents(s.amount_cents) + "</b>" +
-                  '<button class="btn btn-sm btn-gold" onclick="confirmClubTxn(\'' + e.event.id +
+                  '<button data-help="admin-apex-club#club#4" class="btn btn-sm btn-gold" onclick="confirmClubTxn(\'' + e.event.id +
                     "','" + s.transaction_id + "','" + s.side + "'," + s.people + ')">' +
                     '<span class="show-pt">&Eacute; deste evento</span>' +
                     '<span class="show-en">Belongs here</span></button>' +
                   // The other half of the question. Without it the only move
                   // is "yes", so anything that merely looks like a ticket sits
                   // here through every refresh with no way to clear it.
-                  '<button class="btn btn-sm" onclick="dismissClubTxn(\'' + e.event.id +
+                  '<button data-help="admin-apex-club#club#4" class="btn btn-sm" onclick="dismissClubTxn(\'' + e.event.id +
                     "','" + s.transaction_id + '\')">' +
                     '<span class="show-pt">N&atilde;o &eacute;</span>' +
                     '<span class="show-en">Not this one</span></button>' +
@@ -243,7 +243,7 @@
           var open = CLUB_SHOW_DISMISSED[e.event.id];
           dis =
             '<div class="club-dismissed">' +
-              '<button class="club-dismissed-toggle" onclick="toggleClubDismissed(\'' + e.event.id + '\')">' +
+              '<button data-help="admin-apex-club#club#4" class="club-dismissed-toggle" onclick="toggleClubDismissed(\'' + e.event.id + '\')">' +
                 '<span class="show-pt">' + dl.length + " marcado(s) como n&atilde;o sendo deste evento &mdash; " +
                   (open ? "ocultar" : "mostrar") + "</span>" +
                 '<span class="show-en">' + dl.length + " marked as not this event &mdash; " +
@@ -255,7 +255,7 @@
                       '<span class="grow">' + fmtDate(s.date) + " &middot; " +
                         esc((s.memo || s.description || "").slice(0, 40)) + "</span>" +
                       "<b>" + fmtCents(s.amount_cents) + "</b>" +
-                      '<button class="btn btn-sm" onclick="undismissClubTxn(\'' + e.event.id +
+                      '<button data-help="admin-apex-club#club#4" class="btn btn-sm" onclick="undismissClubTxn(\'' + e.event.id +
                         "','" + s.transaction_id + '\')">' +
                         '<span class="show-pt">Desfazer</span>' +
                         '<span class="show-en">Undo</span></button>' +
@@ -330,7 +330,7 @@
               (isEn() ? (r.going === 1 ? "person coming" : "people coming")
                       : (r.going === 1 ? "pessoa confirmada" : "pessoas confirmadas")) +
               (regs.length
-                ? ' <button class="club-guests-toggle" onclick="toggleClubGuests(\'' + ev.id + '\')">' +
+                ? ' <button data-help="admin-apex-club#club#3" class="club-guests-toggle" onclick="toggleClubGuests(\'' + ev.id + '\')">' +
                     (guestsOpen ? t("ocultar lista", "hide list") : t("ver lista", "show list")) +
                   "</button>"
                 : "") +
@@ -354,8 +354,8 @@
                 "</div>") +
             (regs.length
               ? '<div class="club-people-bar">' +
-                  '<button class="btn btn-sm" onclick="toggleClubPeople(\'' + ev.id + '\')">' + t("Pessoas", "People") + "</button>" +
-                  '<button class="btn btn-sm" onclick="copyClubPeopleList(\'' + ev.id + '\')">' + t("Copiar lista", "Copy list") + "</button>" +
+                  '<button data-help="admin-apex-club#club#3" class="btn btn-sm" onclick="toggleClubPeople(\'' + ev.id + '\')">' + t("Pessoas", "People") + "</button>" +
+                  '<button data-help="admin-apex-club#club#6" class="btn btn-sm" onclick="copyClubPeopleList(\'' + ev.id + '\')">' + t("Copiar lista", "Copy list") + "</button>" +
                 "</div>" +
                 '<div class="club-people" id="clubPeople-' + ev.id + '" hidden>' + clubPeopleRows(ev, regs) + "</div>"
               : "") +
@@ -365,7 +365,7 @@
               "<code>" + esc(regUrl) + "</code>" +
               '<button class="btn btn-sm" onclick="copyClubLink(\'' + ev.id + '\')">' +
                 '<span class="show-pt">Copiar</span><span class="show-en">Copy</span></button>' +
-              '<button class="btn btn-sm btn-gold" onclick="shareClubLink(\'' + ev.id + '\')">' +
+              '<button data-help="admin-apex-club#club#6" class="btn btn-sm btn-gold" onclick="shareClubLink(\'' + ev.id + '\')">' +
                 '<span class="show-pt">Compartilhar</span><span class="show-en">Share</span></button>' +
             "</div>" +
           "</div>";
@@ -587,7 +587,7 @@
               '<span class="show-en">On the calendar, but has no registration page yet.</span>' +
             "</div>" +
           "</div>" +
-          '<button class="btn btn-sm btn-gold" onclick="setUpClubFromSession(\'' + s.id + '\')">' +
+          '<button data-help="admin-apex-club#club#8" class="btn btn-sm btn-gold" onclick="setUpClubFromSession(\'' + s.id + '\')">' +
             '<span class="show-pt">Configurar</span>' +
             '<span class="show-en">Set up</span>' +
           "</button>" +
@@ -1122,7 +1122,7 @@
         : "Conf# " + esc(g.zelle_conf || "");
       return '<span class="zelle-review">' + info + " " +
         '<button class="gbtn" onclick="clubZelleDecide(\'' + g.id + '\', \'confirm-zelle\')">' + t("Confirmar", "Confirm") + "</button>" +
-        '<button class="gbtn" onclick="clubZelleDecide(\'' + g.id + '\', \'reject-zelle\')">' + t("Não é este", "Not this one") + "</button>" +
+        '<button data-help="admin-apex-club#club#4" class="gbtn" onclick="clubZelleDecide(\'' + g.id + '\', \'reject-zelle\')">' + t("Não é este", "Not this one") + "</button>" +
         "</span>";
     }
     function clubZelleDecide(regId, action) {
@@ -1143,12 +1143,12 @@
     }
     function clubPayTools(g) {
       if (!clubPayVisible()) { return ""; }
-      var h = '<button class="gbtn" onclick="copyClubPayLink(\'' + g.id + '\')" ' + clubTip("Copiar o link da p&aacute;gina de pagamento deste convidado", "Copy the link to this guest&#39;s payment page") + '>' + t("Copiar link de pagamento", "Copy payment link") + "</button>";
+      var h = '<button data-help="admin-apex-club#club#4" class="gbtn" onclick="copyClubPayLink(\'' + g.id + '\')" ' + clubTip("Copiar o link da p&aacute;gina de pagamento deste convidado", "Copy the link to this guest&#39;s payment page") + '>' + t("Copiar link de pagamento", "Copy payment link") + "</button>";
       if (!g.paid_at) {
-        h += '<button class="gbtn" onclick="markClubPaid(\'' + g.id + '\', true)" ' + clubTip("Marcar como pago &agrave; m&atilde;o (dinheiro ou outro meio)", "Mark as paid by hand (cash or another way)") + '>' + t("Marcar como pago", "Mark as paid") + "</button>";
+        h += '<button data-help="admin-apex-club#club#4" class="gbtn" onclick="markClubPaid(\'' + g.id + '\', true)" ' + clubTip("Marcar como pago &agrave; m&atilde;o (dinheiro ou outro meio)", "Mark as paid by hand (cash or another way)") + '>' + t("Marcar como pago", "Mark as paid") + "</button>";
       } else if (g.paid_method === "manual") {
         // The same button, lit: tapping it again takes the manual mark back.
-        h += '<button class="gbtn on" onclick="markClubPaid(\'' + g.id + '\', false)" ' + clubTip("Marcado como pago &agrave; m&atilde;o. Toque para desfazer", "Marked as paid by hand. Tap to undo") + '>' + t("Marcar como pago", "Mark as paid") + "</button>";
+        h += '<button data-help="admin-apex-club#club#4" class="gbtn on" onclick="markClubPaid(\'' + g.id + '\', false)" ' + clubTip("Marcado como pago &agrave; m&atilde;o. Toque para desfazer", "Marked as paid by hand. Tap to undo") + '>' + t("Marcar como pago", "Mark as paid") + "</button>";
       }
       return h;
     }

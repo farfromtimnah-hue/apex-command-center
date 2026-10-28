@@ -2816,6 +2816,7 @@
         var clientLink = document.createElement("a");
         clientLink.className = "task-client";
         clientLink.href = "client.html?id=" + encodeURIComponent(task.clientId);
+        clientLink.setAttribute("data-help", "admin-tasks-tabs-details#tabs#2");
         clientLink.textContent = task.clientName;
         meta.appendChild(clientLink);
       } else if (task.clientName) {

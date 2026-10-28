@@ -93,10 +93,10 @@
   <link rel="stylesheet" href="doc-hero.css?v=1790541646">
   <script src="doc-hero.js?v=1790547506"></script>
   <script src="gm-labels.js?v=1793111976"></script>
-  <script src="gm.js?v=1793154471"></script>
+  <script src="gm.js?v=1793155252"></script>
   <script src="data/us-br-states.js?v=1791950001"></script>
   <script src="client-places.js?v=1791950001"></script>
-  <script src="apex-contract.js?v=1793153892"></script>
+  <script src="apex-contract.js?v=1793155252"></script>
   <title data-title-pt="Apex — Cliente" data-title-en="Apex — Client">Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2163,7 +2163,7 @@
               <span class="show-en">Client Tasks</span>
             </h2>
             <div style="display:flex;gap:8px;align-items:center;">
-              <button class="btn-add" id="btnAddClientTask" onclick="openAddTaskForm('client')">
+              <button data-help="admin-client-record#tabs#2" class="btn-add" id="btnAddClientTask" onclick="openAddTaskForm('client')">
                 + <span class="show-pt">Adicionar</span><span class="show-en">Add</span>
               </button>
               <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('clientTasks')" id="collapseClientTasks" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
@@ -2193,7 +2193,7 @@
               <span class="show-en">Consultant Tasks</span>
             </h2>
             <div style="display:flex;gap:8px;align-items:center;">
-              <button class="btn-add" id="btnAddConsultantTask" onclick="openAddTaskForm('consultant')">
+              <button data-help="admin-client-record#tabs#2" class="btn-add" id="btnAddConsultantTask" onclick="openAddTaskForm('consultant')">
                 + <span class="show-pt">Adicionar</span><span class="show-en">Add</span>
               </button>
               <button data-help="admin-client-record#open#3" class="collapse-btn" onclick="toggleSection('consultantTasks')" id="collapseConsultantTasks" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
@@ -2442,7 +2442,7 @@
         <!-- Growth Management: staff-side writable views. Same gm.js the
              portal uses, hosted here so writes go through the normal admin
              endpoints instead of the read-only previewAs preview. -->
-        <div class="content-card" id="sec-gmcrm" data-section-id="gmcrm">
+        <div class="content-card" id="sec-gmcrm" data-section-id="gmcrm" data-help-default="pipeline#see-leads#1">
           <div class="content-card-header">
             <h2 class="content-card-title">
               <span class="show-pt">Pipeline</span>
@@ -2459,7 +2459,7 @@
           </div>
         </div>
 
-        <div class="content-card" id="sec-gmjobs" data-section-id="gmjobs">
+        <div class="content-card" id="sec-gmjobs" data-section-id="gmjobs" data-help-default="projects#overview#1">
           <div class="content-card-header">
             <h2 class="content-card-title">
               <span class="show-pt">Projetos</span>
@@ -2476,7 +2476,7 @@
           </div>
         </div>
 
-        <div class="content-card" id="sec-gmfinance" data-section-id="gmfinance">
+        <div class="content-card" id="sec-gmfinance" data-section-id="gmfinance" data-help-default="finances#finances#1">
           <div class="content-card-header">
             <h2 class="content-card-title">
               <span class="show-pt">Financeiro</span>
@@ -2493,7 +2493,7 @@
           </div>
         </div>
 
-        <div class="content-card" id="sec-gmpricing" data-section-id="gmpricing">
+        <div class="content-card" id="sec-gmpricing" data-section-id="gmpricing" data-help-default="pricing-setup#pricing#1">
           <div class="content-card-header">
             <h2 class="content-card-title">
               <span class="show-pt">Pre&ccedil;os</span>
@@ -2514,7 +2514,7 @@
              (logo, hero, legal name, licenses, payment methods, terms,
              schedule presets). Same gm.js screen the owner sees in the
              portal's Estimates tab; here an admin edits it for any client. -->
-        <div class="content-card" id="sec-gmestimates" data-section-id="gmestimates">
+        <div class="content-card" id="sec-gmestimates" data-section-id="gmestimates" data-help-default="estimate#create-send#1">
           <div class="content-card-header">
             <h2 class="content-card-title">
               <span class="show-pt">Estimates</span>
@@ -2586,7 +2586,7 @@
                     <span class="show-pt">Plano de Pagamento</span>
                     <span class="show-en">Payment Plan</span>
                   </span>
-                  <button class="btn-sm" id="payPlanEditBtn" onclick="openPaymentTermsFromCard()">
+                  <button data-help="admin-client-record-forms#forms#5" class="btn-sm" id="payPlanEditBtn" onclick="openPaymentTermsFromCard()">
                     <span class="show-pt">Editar</span>
                     <span class="show-en">Edit</span>
                   </button>
@@ -2622,7 +2622,7 @@
               <div style="color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
             </div>
             <div style="padding:0 20px 14px;">
-              <a href="vendors.html" style="font-size:13px;">
+              <a data-help="admin-client-record#tabs#1" href="vendors.html" style="font-size:13px;">
                 <span class="show-pt">Ver em Fornecedores</span>
                 <span class="show-en">See in Vendors</span>
               </a>
@@ -5486,9 +5486,9 @@
           var html =
             '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
               '<div style="display:flex;align-items:center;gap:6px;">' +
-                '<button type="button" class="btn btn-sm" onclick="shiftWeek(-7)" aria-label="' +
+                '<button data-help="admin-client-results#results#3" type="button" class="btn btn-sm" onclick="shiftWeek(-7)" aria-label="' +
                   (isEnLang ? "Previous week" : "Semana anterior") + '">&#8249;</button>' +
-                '<button type="button" class="btn btn-sm" onclick="shiftWeek(7)" aria-label="' +
+                '<button data-help="admin-client-results#results#3" type="button" class="btn btn-sm" onclick="shiftWeek(7)" aria-label="' +
                   (isEnLang ? "Next week" : "Próxima semana") + '">&#8250;</button>' +
                 (isCurrentWeek ? "" :
                   '<button type="button" class="btn btn-sm" data-help="admin-client-results#results#3" onclick="thisWeek()">' +
@@ -5526,7 +5526,7 @@
                 (isToday ? "var(--gold,#C9A227)" : "var(--border)") + ';' +
                 'border-radius:8px;padding:8px 2px;background:' + m.bg + ';' +
                 'font-family:inherit;' + (clickable ? "cursor:pointer;" : "") + '"' +
-              (clickable ? ' onclick="openDayEntry(\'' + d.date + '\')"' : '') +
+              (clickable ? ' data-help="admin-client-record-forms#forms#7" onclick="openDayEntry(\'' + d.date + '\')"' : '') +
               (d.reason ? ' title="' + escHtml(d.reason) + '"' : '') + '>' +
               '<div style="font-size:10px;color:var(--muted);font-weight:700;">' + dayNames[i] + '</div>' +
               '<div style="font-size:14px;font-weight:700;margin:2px 0;">' + dayNum + '</div>' +
@@ -6092,7 +6092,7 @@
           '</div></div>' +
           '<div style="font-size:15px;font-weight:700;' + (neg ? 'color:#b44040;' : 'color:#C9A43A;') + '">' +
           formatGrowthPct(en.growth_percent) + '</div>' +
-          '<button class="btn-add" style="flex:none;" onclick="editGrowthEntry(\'' + escHtml(en.month_label) + '\')" data-title-attr-pt="Editar" data-title-attr-en="Edit" title="Editar">&#9998;</button>' +
+          '<button data-help="admin-client-results#results#2" class="btn-add" style="flex:none;" onclick="editGrowthEntry(\'' + escHtml(en.month_label) + '\')" data-title-attr-pt="Editar" data-title-attr-en="Edit" title="Editar">&#9998;</button>' +
           '</div>';
       }
       container.innerHTML = html;
@@ -9581,6 +9581,7 @@
               if (!doc.file_requested_at && (myRole === "alice" || myRole === "developer")) {
                 var reqBtn = document.createElement("button");
                 reqBtn.className = "btn-sm";
+                reqBtn.setAttribute("data-help", "admin-client-documents#docs#2");
                 reqBtn.innerHTML =
                   '<span class="show-pt">Solicitar arquivo</span>' +
                   '<span class="show-en">Request file</span>';
@@ -10861,6 +10862,9 @@
     }
 
     // What a group shows, and what its menu lists, right now.
+    function cgHelpFor(key) {
+      return key === "money" ? "admin-client-record#tabs#1" : key === "apexwork" ? "admin-client-record#tabs#2" : key === "results" ? "admin-client-record#tabs#3" : "admin-client-record#tabs#4";
+    }
     function cgGroupSections(g) {
       var names = cgGroupNames(g);
       var out = [];
@@ -11145,14 +11149,14 @@
       var names = cgGroupSections(g);
       var html = '<div class="cg-title">' + cgLabelHtml(g.pt, g.en) + '</div>';
       for (var i = 0; i < names.length; i++) {
-        html += '<button type="button" class="cg-item" role="menuitem" onclick="cgSheetGo(\'' + names[i] + '\')"><span>' +
+        html += '<button type="button" class="cg-item" role="menuitem" data-help="' + cgHelpFor(key) + '" onclick="cgSheetGo(\'' + names[i] + '\')"><span>' +
           cgSectionLabelHtml(names[i]) + '</span></button>';
       }
       // Not a section: this client's analytics live on their own page.
       if (g.analyticsLink) {
         // Straight into THIS client's analytics, pre-selected (it was the
         // hero's View Analytics button).
-        html += '<a class="cg-item" role="menuitem" id="btnClientAnalytics" href="client-analytics.html?client=' +
+        html += '<a data-help="admin-client-analytics#analytics#4" class="cg-item" role="menuitem" id="btnClientAnalytics" href="client-analytics.html?client=' +
           encodeURIComponent(CLIENT_ID || "") + '" onclick="cgSheetClose()"><span>' +
           cgLabelHtml("An\u00e1lise do cliente", "Client Analytics") + '</span></a>';
       }
@@ -11992,6 +11996,7 @@
       var head = document.createElement("button");
       head.type = "button";
       head.className = "tsg-head";
+      head.setAttribute("data-help", "admin-client-record#tabs#2");
 
       var chev = document.createElement("span");
       chev.className = "tsg-chev";

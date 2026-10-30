@@ -114,7 +114,14 @@
     .typed-sig { font-family: "Snell Roundhand", "Brush Script MT", cursive; font-size: 24px; padding: 6px 0; }
     .hidden { display: none !important; }
     @media (max-width: 400px) { .option-head { flex-wrap: wrap; } }
-  </style>
+      .noc-fold { margin-top: 22px; }
+    .noc-fold > summary { cursor: pointer; list-style: none; }
+    .noc-fold > summary::-webkit-details-marker { display: none; }
+    .noc-copy { border: 1px solid var(--ink); border-radius: 8px; padding: 12px; margin-top: 12px; }
+    .noc-copy .copy-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+    .noc-copy p { font-weight: 700; font-size: 13.5px; margin: 0 0 8px; }
+    .sigline { display: inline-block; min-width: 150px; max-width: 100%; height: 1.2em; border-bottom: 1.5px solid var(--ink); vertical-align: bottom; }
+</style>
 </head>
 <body>
   <div class="hero-band doc-screen" id="hero" role="banner">
@@ -409,6 +416,21 @@
         (est.content_hash ? '<p class="hash" style="margin-top:10px;">Document hash (SHA-256): ' + escHtml(est.content_hash) + '</p>' : "") + '</div>';
     }
 
+    // The Notice of Cancellation a job without a contract still owes the customer: the same two copies the contract page shows, open.
+    function noticeRich(text) {
+      return String(text || "").split(/\n\s*\n/).map(function(p) {
+        var h = escHtml(p).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>").replace(/\{[A-Za-z0-9_]+\}/g, '<span class="sigline"></span>');
+        return h.trim() ? "<p>" + h + "</p>" : "";
+      }).join("");
+    }
+    function noticeHtml() {
+      if (!skipNotice && est && est.cancellation_notice) { skipNotice = est.cancellation_notice; }
+      if (!skipNotice) { return ""; }
+      var copy = function(n) { return '<div class="noc-copy"><div class="copy-label">Notice of cancellation - copy ' + n + ' of 2</div>' + noticeRich(skipNotice.text) + '</div>'; };
+      return '<details class="noc-fold" open><summary><h2>Notice of Cancellation (2 copies)</h2></summary>' + copy(1) + copy(2) + '</details>' +
+        (continueLink ? '<button type="button" class="btn" id="btnPay">Pay</button>' : "");
+    }
+
     function renderActions() {
       var card = byId("cardActions");
       var banner = byId("cardStateBanner");
@@ -417,7 +439,9 @@
       if (est.status === "accepted") {
         banner.innerHTML = signedHtml();
         banner.classList.remove("hidden");
-        card.innerHTML = '<p class="muted">You can download a copy of this signed estimate at any time.</p>';
+        card.innerHTML = '<p class="muted">You can download a copy of this signed estimate at any time.</p>' + noticeHtml() +
+          (flowStopped ? '<p class="muted" id="flowStopped">Your estimate is accepted. ' + escHtml((est.business && est.business.name) || "The business") + ' will contact you with the next step.</p>' : "");
+        var pb = byId("btnPay"); if (pb) { pb.onclick = function() { if (continueLink) { window.location.href = continueLink; } }; }
         return;
       }
       if (est.status === "expired") {
@@ -527,6 +551,8 @@
       if (b && !b.hasAttribute("data-busy")) { b.disabled = !(c && c.checked); }
     }
     var continueLink = null;
+    var flowStopped = false;
+    var skipNotice = null;
     function accept() {
       var err = byId("acceptErr"); if (!err) { return; }
       err.textContent = "";
@@ -550,12 +576,15 @@
           // Sent with the contract as one link: the contract is already waiting, signed by the company.
           var next = r.data.contract_link || r.data.invoice_link;
           continueLink = (typeof next === "string" && /^https:\/\//.test(next)) ? next : null;
+          flowStopped = r.data.flow_stopped === true;
+          skipNotice = (r.data.notice && typeof r.data.notice.text === "string") ? r.data.notice : null;
           return load();
         })
         .then(function() {
           window.scrollTo(0, 0);
           // The flow carries on by itself: the contract (or, when the job needs none, the first invoice) opens right away.
-          if (continueLink) { window.location.href = continueLink; }
+          // With a cancellation notice to show (no contract on this job) the page stays so the customer sees it, then taps Pay.
+          if (continueLink && !skipNotice) { window.location.href = continueLink; }
         })
         .catch(function(e) { if (btn) { btn.disabled = false; } err.textContent = e.message; console.error(e); });
     }

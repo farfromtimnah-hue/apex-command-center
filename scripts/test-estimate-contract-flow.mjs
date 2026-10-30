@@ -394,7 +394,7 @@ function readyLead(w, o) {
 {
   const est = readFileSync(new URL("estimate-view.html", root), "utf8");
   const con = readFileSync(new URL("contract-view.html", root), "utf8");
-  ok(/var next = r\.data\.contract_link \|\| r\.data\.invoice_link;/.test(est) && /continueLink = \(typeof next === "string"/.test(est) && /if \(continueLink\) \{ window\.location\.href = continueLink; \}/.test(est), "estimate-view.html carries the customer straight on (contract, or the first invoice when no contract is needed) only when the accept answer carried a link");
+  ok(/var next = r\.data\.contract_link \|\| r\.data\.invoice_link;/.test(est) && /continueLink = \(typeof next === "string"/.test(est) && /if \(continueLink && !skipNotice\) \{ window\.location\.href = continueLink; \}/.test(est), "estimate-view.html carries the customer straight on (contract, or the first invoice when no contract is needed) only when the accept answer carried a link");
   ok(/id="btnPay">Pay<\/button>/.test(con) && /con\.status === "completed" && typeof con\.pay_link === "string"/.test(con) && /Download your signed contract \(PDF\)/.test(con), "contract-view.html offers the existing download and a Pay button, only for a completed contract with a pay link");
   ok(/window\.location\.href = con\.pay_link/.test(con) && /window\.location\.href = continueLink/.test(est), "both buttons open the next page in the same tab");
   const gm = readFileSync(new URL("gm.js", root), "utf8");

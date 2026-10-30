@@ -92,6 +92,11 @@ function fill(qs) { const a = {}; qs.forEach((q) => { const k = q.field; a[k] = 
   const acc = await w.pub("POST", "/estimates/" + e.token + "/accept", ACCEPT());
   ok(acc.status === 200 && /^https:\/\//.test(acc.json.invoice_link) && !acc.json.contract_link, "accepting opens the first invoice, not a contract");
   ok(count(w, "SELECT COUNT(*) n FROM gm_contracts") === 0, "no contract is created");
+  ok(acc.json.notice && /cancel/i.test(acc.json.notice.text) && /^\d{4}-\d{2}-\d{2}$/.test(acc.json.notice.deadline_date), "the customer is shown the Notice of Cancellation the contract would have carried, with its deadline");
+  ok(!/\{[a-z_]+\}/.test(acc.json.notice.text.replace(/\{[a-z_]*(signature|initials)[a-z_]*\}/g, "")), "the notice carries no unfilled field");
+  const reopened = await w.pub("GET", "/estimates/" + e.token);
+  const rp = reopened.json.estimate || reopened.json; ok(rp.cancellation_notice && rp.cancellation_notice.text === acc.json.notice.text, "reopening the estimate shows the same notice again");
+  ok(count(w, "SELECT COUNT(*) n FROM gm_lead_events WHERE action = 'cancellation_notice_shown'") === 1, "an event records that the notice was shown");
   const invs = w.d.q("SELECT * FROM gm_invoices ORDER BY rowid");
   ok(invs.length === 3 && invs[0].status === "sent" && invs[1].status === "draft" && invs[0].amount_cents === 60000, "the invoices follow the estimate's schedule: only the 30 percent deposit ($600.00 of $2,000.00) is sent");
   const inv = await w.pub("GET", "/invoices/" + invs[0].public_token);

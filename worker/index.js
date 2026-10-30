@@ -30671,6 +30671,11 @@ function gmEstDerivedStatus(est) {
 // The customer-facing payload. THE ONLY place a public route reads from.
 // Nothing internal: no cost, margin, commission, override, reason, internal
 // notes, lead id, seller, actor names.
+// The cancellation notice shown to the customer in place of a contract, kept so the page can show it again.
+function gmEstSavedNotice(est) {
+    var pre = est && est.company_presign_json ? gmDocParseJsonObject(est.company_presign_json, null) : null;
+    return pre && pre.notice && typeof pre.notice.text === "string" ? { text: pre.notice.text, deadline_date: pre.notice.deadline_date || null } : null;
+}
 function gmEstimatePublicPayload(est, settings, client, origin) {
     var pm = settings.payment_methods || {};
     var methods = [];
@@ -32057,6 +32062,8 @@ async function handleGetPublicEstimate(token, request, env) {
                 // the header; the signed terms stay exactly as frozen, and a
                 // stored PDF is never re-rendered.
                 if (snap.business) { var ch = gmDocHero(origin, est.client_id, settings); snap.business.hero_url = ch.url; snap.business.hero = ch.hero; gmEstApplyBrandOverride(est, snap.business); }
+                var savedNotice = gmEstSavedNotice(est);
+                if (savedNotice) { snap.cancellation_notice = savedNotice; }
                 return jsonOk({ estimate: snap });
             }
         }
@@ -32131,12 +32138,22 @@ async function handlePostPublicEstimateAccept(token, request, env) {
         // Send with contract (one link): only when the owner pre-authorized the
         // company signature at sending. Anything that cannot finish stops the
         // chain; the acceptance above stands exactly as it would have.
-        var contractLink = null, invoiceLink = null, chainWanted = false;
+        var contractLink = null, invoiceLink = null, chainWanted = false, skipNotice = null;
         var presignAcc = full && full.company_presign_json ? gmDocParseJsonObject(full.company_presign_json, null) : null;
         if (presignAcc && presignAcc.pending !== true) {
             chainWanted = true;
             try {
-                if (presignAcc.no_contract === true) { invoiceLink = await gmEstChainInvoiceOnly(env, request, full, signer, presignAcc); }
+                if (presignAcc.no_contract === true) {
+                    invoiceLink = await gmEstChainInvoiceOnly(env, request, full, signer, presignAcc);
+                    try {
+                        skipNotice = await gmEstSkipNotice(env, est.client_id, full);
+                        if (skipNotice) {
+                            presignAcc.notice = { text: skipNotice.text, deadline_date: skipNotice.deadline_date, at: new Date().toISOString().slice(0, 19).replace("T", " ") };
+                            await env.DB.prepare("UPDATE gm_estimates SET company_presign_json = ? WHERE id = ? AND client_id = ?").bind(JSON.stringify(presignAcc), est.id, est.client_id).run();
+                            await gmLogLeadEvents(env, est.client_id, est.lead_id, signer, [{ action: "cancellation_notice_shown", field: "estimate", old_value: null, new_value: est.number, reason: "shown on the estimate page in place of a contract; may cancel until " + skipNotice.deadline_date }]);
+                        }
+                    } catch (eNotice) { console.error("skip notice failed", eNotice && eNotice.message); await gmEstChainStopped(env, full, null, "the cancellation notice could not be built: " + (eNotice && eNotice.message)); }
+                }
                 else { contractLink = await gmEstChainContract(env, request, full, signer); }
             }
             catch (eChain) { console.error("one-link flow: next step failed", eChain && eChain.message); await gmEstChainStopped(env, full, null, "unexpected error: " + (eChain && eChain.message)); }
@@ -32144,7 +32161,7 @@ async function handlePostPublicEstimateAccept(token, request, env) {
         docPdfAfterFinal(request, env, "estimate", token);
         var accOut = { accepted: true, content_hash: snap.hash };
         if (contractLink) { accOut.contract_link = contractLink; }
-        else if (invoiceLink) { accOut.invoice_link = invoiceLink; }
+        else if (invoiceLink) { accOut.invoice_link = invoiceLink; if (skipNotice) { accOut.notice = { text: skipNotice.text, deadline_date: skipNotice.deadline_date }; } }
         else if (chainWanted) { accOut.flow_stopped = true; }
         return jsonOk(accOut);
     } catch (e) {
@@ -32186,6 +32203,32 @@ async function gmEstChainContract(env, request, est, customerName) {
     if (sent instanceof Response) { await gmEstChainStopped(env, est, cid, await gmChainReason(sent), job.id); return null; }
     await gmContractEvent(env, est.client_id, cid, presign.signer_name, "flow_sent", { link_for: customerName });
     return sent.link;
+}
+
+// A job that skips the contract still owes the customer the Notice of
+// Cancellation the contract would have carried (a sale made at the home). It is
+// built from the same library blocks and the same composer as the contract's
+// own notice, dated today, and shown on the estimate page right after accepting.
+// Returns { text, deadline_date } or null when the job needs no such notice.
+async function gmEstSkipNotice(env, id, est) {
+    var today = gmEasternToday();
+    var nowStamp = new Date().toISOString().slice(0, 19).replace("T", " ");
+    var asIf = Object.assign({}, est, { accepted_option_id: est.accepted_option_id || (est.options[0] ? est.options[0].id : null), accepted_at: nowStamp, sent_at: est.sent_at || nowStamp });
+    var made = await gmContractCreateCore(env, id, { id: null, lead_id: est.lead_id }, {}, "notice", { estimates: [asIf], plan_only: true, presign: { answers: {}, flags: {} } });
+    if (made instanceof Response) { return null; }
+    var plan = made.plan;
+    var c = { id: "notice", client_id: id, job_id: null, lead_id: est.lead_id, estimate_ids: [est.id], number: "CON-NOTICE", revision: 1, status: "draft", library_version: 1,
+        selections: plan.selections, answers: plan.answers, flags: plan.flags, custom_clauses: [], contract_date: today, offer_expiry_date: today,
+        company_signed_at: nowStamp, company_signature_voided_at: null, contract_price_cents: null };
+    var ctx = await contractContext(env, id, c);
+    ctx.estimates = [asIf];
+    var probe = contractCompose(ctx, c, today, "template");
+    if (!probe.requires || !probe.requires.cancellation) { return null; }
+    var deadline = contractCancellationDeadline(today, probe.state.florida ? null : probe.state.cancellation);
+    c.transaction_date = today; c.cancellation_deadline = deadline;
+    var comp = contractCompose(ctx, c, today, "signed");
+    if (!comp.notice_form_text) { return null; }
+    return { text: comp.notice_form_text, deadline_date: deadline };
 }
 
 // One-link flow when the job needs no written contract: the estimate was

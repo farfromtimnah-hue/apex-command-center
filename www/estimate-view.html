@@ -418,8 +418,7 @@
         banner.innerHTML = signedHtml();
         banner.classList.remove("hidden");
         card.innerHTML = '<p class="muted">You can download a copy of this signed estimate at any time.</p>' +
-          (continueLink ? '<button type="button" class="btn" id="btnContract" onclick="openContract()">Continue</button>' : "") +
-          (flowStopped ? '<p class="muted" id="flowStopped">Your estimate is accepted. The next step will be sent to you shortly.</p>' : "");
+          (continueLink ? '<button type="button" class="btn" id="btnContract" onclick="openContract()">Contract</button>' : "");
         return;
       }
       if (est.status === "expired") {
@@ -529,7 +528,6 @@
       if (b && !b.hasAttribute("data-busy")) { b.disabled = !(c && c.checked); }
     }
     var continueLink = null;
-    var flowStopped = false;
     function openContract() { if (continueLink) { window.location.href = continueLink; } }
     function accept() {
       var err = byId("acceptErr"); if (!err) { return; }
@@ -554,7 +552,6 @@
           // Sent with the contract as one link: the contract is already waiting, signed by the company.
           var next = r.data.contract_link || r.data.invoice_link;
           continueLink = (typeof next === "string" && /^https:\/\//.test(next)) ? next : null;
-          flowStopped = r.data.flow_stopped === true;
           return load();
         })
         .then(function() {

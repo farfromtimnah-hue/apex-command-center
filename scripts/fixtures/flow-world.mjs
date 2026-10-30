@@ -108,7 +108,7 @@ export function newWorld(opts) {
   opts = opts || {};
   const d = makeDb(opts);
   const W = loadWorker();
-  const env = { DB: d.DB, ASSETS: makeAssets(), FIREBASE_PROJECT_ID: "test" };
+  const env = Object.assign({ DB: d.DB, ASSETS: makeAssets(), FIREBASE_PROJECT_ID: "test" }, opts.env || {});
   const CID = "client-1";
   d.x("INSERT INTO clients (id, name, owners, status, language, phone, email) VALUES (?, 'Sunrise Builders', 'Pat Owner', 'active', 'en', '8135550100', 'office@sunrise.test')", CID);
   const logins = [["owner1", "client", null, "tok-owner"], ["seller-sam", "seller", "Sam Seller", "tok-sam"], ["seller-nina", "seller", "Nina NoSign", "tok-nina"]];

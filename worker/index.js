@@ -31692,9 +31692,9 @@ async function gmEstContractPlan(env, id, est, extra) {
     if (out.kind === "construction" && jobStateCode && maxAmount > 0 && !out.need_kind && !out.need_template) {
         out.contract_needed = jobStateCode === "FL" ? maxAmount > 250000 : contractStateWrittenThreshold(contractStateRider(jobStateCode) || {}, maxAmount).crosses;
     }
-    // Skipping the contract stays OFF until Nicole (or a lawyer) rules on it: a sale made at the customer's home carries a cancellation notice that lives inside the contract. Turn on with the variable FLOW_SKIP_CONTRACT = "on".
+    // The contract is skipped only where the job's state record says a written contract is not required at this amount. The variable FLOW_SKIP_CONTRACT = "off" switches the skip off everywhere (every job then keeps its contract).
     out.skip_possible = !out.contract_needed;
-    if (!out.contract_needed && !(env && env.FLOW_SKIP_CONTRACT === "on")) { out.contract_needed = true; }
+    if (!out.contract_needed && env && env.FLOW_SKIP_CONTRACT === "off") { out.contract_needed = true; }
     if (!out.contract_needed) { out.questions = []; out.blockers = []; out.need_property_type = false; out.need_pool_safety = false; out.need_oral_notice = false; }
     out.ready = !out.blockers.length && !out.questions.length && !out.need_kind && !out.need_template && !out.need_property_type && !out.need_pool_safety && !out.need_oral_notice;
     return out;

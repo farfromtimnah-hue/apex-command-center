@@ -69,21 +69,21 @@ function fill(qs) { const a = {}; qs.forEach((q) => { const k = q.field; a[k] = 
   ok(c3.json.prefill && c3.json.prefill.answers && c3.json.prefill.answers.access_route === answers.access_route, "a revised estimate starts from the answers already given");
 }
 
-// ── 3a. By default the contract is never skipped (legal review pending) ──
+// ── 3a. With the skip switched off (FLOW_SKIP_CONTRACT = off) the contract is never skipped ──
 {
-  const w = newWorld();
+  const w = newWorld({ env: { FLOW_SKIP_CONTRACT: "off" } });
   const e = w.estimate(lead(w), { price: 200000, jobName: "Small repair" });
   const c1 = await w.gm("POST", "estimates/" + e.id + "/send", CHECK());
-  ok(c1.json.contract_needed === true && c1.json.ready === false && c1.json.questions.length > 0, "$2,000 in Florida with the switch off: the contract is still needed and its questions are asked");
+  ok(c1.json.contract_needed === true && c1.json.ready === false && c1.json.questions.length > 0, "$2,000 in Florida with the skip switched off: the contract is still needed and its questions are asked");
   const answers = fill(c1.json.questions);
   const sent = await w.gm("POST", "estimates/" + e.id + "/send", SEND({ answers }));
   const acc = await w.pub("POST", "/estimates/" + e.token + "/accept", ACCEPT());
   ok(sent.status === 200 && /^https:\/\//.test(acc.json.contract_link) && !acc.json.invoice_link && count(w, "SELECT COUNT(*) n FROM gm_contracts") === 1, "a small job gets its contract, like every other job");
 }
 
-// ── 3. With the switch on (FLOW_SKIP_CONTRACT = on): a small job in a state that needs no contract at that amount skips it ──
+// ── 3. By default a small job in a state that needs no contract at that amount skips it ──
 {
-  const w = newWorld({ env: { FLOW_SKIP_CONTRACT: "on" } });
+  const w = newWorld();
   const e = w.estimate(lead(w), { price: 200000, jobName: "Small repair" });
   const c1 = await w.gm("POST", "estimates/" + e.id + "/send", CHECK());
   ok(c1.json.contract_needed === false && c1.json.ready === true && c1.json.questions.length === 0, "$2,000 in Florida: no contract is needed, no questions are asked");

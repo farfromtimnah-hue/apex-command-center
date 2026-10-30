@@ -325,6 +325,29 @@
               }
             }
           ]
+        },
+        {
+          "id": "one-link",
+          "title": {
+            "pt": "Quando o orçamento leva o contrato",
+            "en": "When the estimate carries the contract"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Quando você envia o orçamento com o Enviar normal, o contrato é feito, assinado por você e enviado ao cliente sozinho assim que o cliente aceita o orçamento. Você não abre Criar contrato.",
+                "en": "When you send the estimate with the normal Send, the contract is made, signed by you and sent to the customer by itself as soon as the customer accepts the estimate. You do not open Create contract."
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O cliente assina o contrato e a primeira fatura, o primeiro pagamento da sua tabela, é enviada sozinha. As outras ficam como rascunho até você enviar. Para ver o que o cliente vê, abra o guia Criar e enviar um orçamento, seção O cliente assina.",
+                "en": "The customer signs the contract and the first invoice, the first payment on your schedule, is sent by itself. The others stay drafts until you send them. To see what the customer sees, open the guide Create and send an estimate, section The customer signs."
+              }
+            }
+          ]
         }
       ],
       "buttons": [
@@ -1079,12 +1102,67 @@
             {
               "n": 14,
               "text": {
-                "pt": "Toque em WhatsApp. Você também pode enviar por Mensagem de texto. O orçamento fica como enviado.",
-                "en": "Tap WhatsApp. You can also send by Text message. The estimate is marked as sent."
+                "pt": "A folha de envio abre. Se o contrato ainda precisa de alguma informação, ela pergunta aqui mesmo. Responda só o que aparece. Perguntas que não servem para este trabalho não aparecem: se não é obra de piscina, nenhuma pergunta de piscina aparece.",
+                "en": "The send sheet opens. If the contract still needs anything, it asks right here. Answer only what shows. Questions that do not apply to this job do not show: if it is not a pool job, no pool question appears."
               },
               "image": {
-                "pt": "help/img/guides/estimate/create-send-14.jpg",
-                "en": "help/img/guides/estimate/create-send-14.en.jpg"
+                "pt": "help/img/guides/estimate/send-flow-01.jpg",
+                "en": "help/img/guides/estimate/send-flow-01.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Toque em uma resposta para preencher o campo sem digitar. As respostas antigas aparecem como botões. Marque Lembrar para a próxima vez para guardar a resposta e não ser perguntado de novo.",
+                "en": "Tap an answer to fill the field without typing. Past answers show as buttons. Tick Remember for next time to keep the answer so you are not asked again."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate/send-flow-02.jpg",
+                "en": "help/img/guides/estimate/send-flow-02.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Confira o seu nome e marque a caixa de consentimento. Esta é a sua assinatura pela empresa. Ela entra no contrato quando o cliente aceita o orçamento. O botão Enviar fica sempre visível embaixo. Se faltar algo, ele mostra o que é, embaixo do campo.",
+                "en": "Check your name and tick the consent box. This is your signature for the company. It goes on the contract when the customer accepts the estimate. The Send button always stays visible at the bottom. If something is missing, it shows what, under the field."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate/send-flow-03.jpg",
+                "en": "help/img/guides/estimate/send-flow-03.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Toque em WhatsApp. Você também pode enviar por Mensagem de texto. O orçamento e o contrato vão em um só link. O orçamento fica como enviado.",
+                "en": "Tap WhatsApp. You can also send by Text message. The estimate and the contract go in one link. The estimate is marked as sent."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate/send-flow-04.jpg",
+                "en": "help/img/guides/estimate/send-flow-04.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Se você não pode assinar pela empresa, toque em Pedir assinatura. Todas as pessoas que podem assinar recebem um aviso, e a primeira que assinar resolve. Você recebe um aviso e envia do mesmo jeito. Se preferir, toque em Enviar só o orçamento, contrato depois.",
+                "en": "If you cannot sign for the company, tap Ask to sign. Every person who can sign gets a notice, and the first one to sign settles it. You get a notice and send the same way. If you prefer, tap Send the estimate only, contract later."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate/send-flow-05.jpg",
+                "en": "help/img/guides/estimate/send-flow-05.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "Se o trabalho está abaixo do valor em que o seu estado exige contrato por escrito, a folha não pergunta nada e não há contrato. O cliente vai do orçamento direto para a fatura.",
+                "en": "If the job is below the amount where your state needs a written contract, the sheet asks nothing and there is no contract. The customer goes from the estimate straight to the invoice."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate/send-flow-06.jpg",
+                "en": "help/img/guides/estimate/send-flow-06.en.jpg"
               }
             }
           ]
@@ -1154,6 +1232,72 @@
             {
               "n": 6,
               "text": {
+                "pt": "O contrato abre sozinho. O cliente não precisa tocar em nada. Ele já vem assinado por você. (Tela do cliente · inglês)",
+                "en": "The contract opens by itself. The customer does not have to tap anything. It already comes signed by you. (Customer's screen · English)"
+              },
+              "image": {
+                "pt": "help/img/guides/estimate/customer-flow-01.jpg",
+                "en": "help/img/guides/estimate/customer-flow-01.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "O cliente assina o aviso de gravame (lien) quando ele se aplica: digita o nome e toca em Assinar o aviso de gravame. Depois toca em Próximo. (Tela do cliente · inglês)",
+                "en": "The customer signs the lien notice when it applies: they type their name and tap Sign the lien notice. Then they tap Next. (Customer's screen · English)"
+              },
+              "image": {
+                "pt": "help/img/guides/estimate/customer-flow-02.jpg",
+                "en": "help/img/guides/estimate/customer-flow-02.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Em trabalho de piscina, o cliente confirma os documentos de piscina. Depois digita o nome, marca o consentimento e toca em Assinar contrato. (Tela do cliente · inglês)",
+                "en": "On a pool job, the customer confirms the pool documents. Then they type their name, tick the consent and tap Sign contract. (Customer's screen · English)"
+              },
+              "image": {
+                "pt": "help/img/guides/estimate/customer-flow-03.jpg",
+                "en": "help/img/guides/estimate/customer-flow-03.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Depois de assinar, o cliente vê Baixar o contrato assinado (PDF) e Pagar. (Tela do cliente · inglês)",
+                "en": "After signing, the customer sees Download your signed contract (PDF) and Pay. (Customer's screen · English)"
+              },
+              "image": {
+                "pt": "help/img/guides/estimate/customer-flow-04.jpg",
+                "en": "help/img/guides/estimate/customer-flow-04.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Pagar abre a fatura do primeiro pagamento, como manda a sua tabela de pagamentos (por exemplo 50 por cento de sinal), com as formas de pagar. A fatura é a mesma de sempre. As outras faturas ficam como rascunho até você enviar. (Tela do cliente · inglês)",
+                "en": "Pay opens the invoice for the first payment, as your payment schedule says (for example a 50 percent deposit), with the ways to pay. It is the same invoice as always. The other invoices stay drafts until you send them. (Customer's screen · English)"
+              },
+              "image": {
+                "pt": "help/img/guides/estimate/customer-flow-05.jpg",
+                "en": "help/img/guides/estimate/customer-flow-05.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Quando o trabalho não precisa de contrato, o cliente vai direto do aceite para a fatura do primeiro pagamento. Não há contrato no meio. (Tela do cliente · inglês)",
+                "en": "When the job needs no contract, the customer goes straight from accepting to the invoice for the first payment. There is no contract in between. (Customer's screen · English)"
+              },
+              "image": {
+                "pt": "help/img/guides/estimate/customer-flow-06.jpg",
+                "en": "help/img/guides/estimate/customer-flow-06.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
                 "pt": "Você vê a assinatura na tela inicial. Em Assinados online pelo cliente aparece o orçamento assinado.",
                 "en": "You see the signature on the home page. Under Signed online by the customer you see the signed estimate."
               },
@@ -1163,7 +1307,7 @@
               }
             },
             {
-              "n": 7,
+              "n": 13,
               "text": {
                 "pt": "O registro mostra quem assinou e quando. Abra o orçamento e role até Documento assinado.",
                 "en": "The record shows who signed and when. Open the estimate and scroll to Signed document."
@@ -1174,7 +1318,7 @@
               }
             },
             {
-              "n": 8,
+              "n": 14,
               "text": {
                 "pt": "O projeto é criado sozinho. Em Negócio, Projetos, o projeto do cliente já está lá.",
                 "en": "The project is created on its own. In Business, Projects, the customer's project is already there."
@@ -1185,10 +1329,10 @@
               }
             },
             {
-              "n": 9,
+              "n": 15,
               "text": {
-                "pt": "Agora você pode criar o contrato. Toque em Criar contrato a partir do orçamento aceito. Veja o guia do contrato.",
-                "en": "Now you can create the contract. Tap Create contract from the accepted estimate. See the contract guide."
+                "pt": "O contrato já foi feito, assinado por você e depois pelo cliente. Se você enviou só o orçamento, toque em Criar contrato a partir do orçamento aceito. Veja o guia do contrato.",
+                "en": "The contract is already made, signed by you and then by the customer. If you sent the estimate only, tap Create contract from the accepted estimate. See the contract guide."
               },
               "image": {
                 "pt": "help/img/guides/estimate/customer-signs-09.jpg",
@@ -1359,6 +1503,42 @@
           },
           "section": "mark-accepted",
           "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Pedir assinatura"
+            ],
+            "en": [
+              "Ask to sign"
+            ]
+          },
+          "section": "create-send",
+          "step": 18
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar só o orçamento, contrato depois"
+            ],
+            "en": [
+              "Send the estimate only, contract later"
+            ]
+          },
+          "section": "create-send",
+          "step": 18
+        },
+        {
+          "labels": {
+            "pt": [
+              "Lembrar para a próxima vez"
+            ],
+            "en": [
+              "Remember for next time"
+            ]
+          },
+          "section": "create-send",
+          "step": 15
         }
       ]
     },

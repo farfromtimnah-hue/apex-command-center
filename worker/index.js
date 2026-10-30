@@ -38061,7 +38061,7 @@ async function handleGetGmContractsAwaiting(id, request, env) {
             var cl0 = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
             if (contractSignerAllowed(user, settings, cl0).ok) {
                 var pr = (await env.DB.prepare("SELECT id, number, revision, customer_name, job_name, company_presign_json p FROM gm_estimates WHERE client_id = ? AND status = 'draft' AND company_presign_json LIKE '%\"pending\":true%' ORDER BY updated_at DESC LIMIT 20").bind(id).all()).results || [];
-                pr.forEach(function(r) { var pj = gmDocParseJsonObject(r.p, {}) || {}; signReqs.push({ id: r.id, number: r.number, customer_name: r.customer_name, job_name: r.job_name, requested_by: pj.requested_by || "", can_grant: !seller && !!pj.requested_by_seller, seller: pj.requested_by_seller || null }); });
+                pr.forEach(function(r) { var pj = gmDocParseJsonObject(r.p, {}) || {}; signReqs.push({ id: r.id, number: r.number + (r.revision > 1 ? "-R" + r.revision : ""), customer_name: r.customer_name, job_name: r.job_name, requested_by: pj.requested_by || "", can_grant: !seller && !!pj.requested_by_seller, seller: pj.requested_by_seller || null }); });
             }
         } catch (eSR) { console.error("sign requests list", eSR && eSR.message); }
         return jsonOk({ awaiting: out, me: me, sign_requests: signReqs });

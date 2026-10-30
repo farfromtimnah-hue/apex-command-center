@@ -266,7 +266,7 @@ var GM_SHEET_HELP = [
   ["Revisão do advogado", "Attorney review", "contract-price-values-and-clauses#clauses#12"],
   ["Resultado do contato", "Contact outcome", "contact-a-lead#contact#6"],
   ["Notice to Owner", "Notice to Owner", "liens-and-final-affidavit#liens#1"],
-  ["Enviar orçamento", "Send estimate", "estimate#create-send#14"],
+  ["Enviar orçamento", "Send estimate", "estimate#create-send#17"],
   ["Marcar como aceito", "Mark accepted", "estimate#mark-accepted#1"],
   ["Enviar contrato", "Send contract", "contract#send-contract#12"],
   ["Cláusula própria", "Custom clause", "contract-price-values-and-clauses#clauses#6"],
@@ -13129,7 +13129,7 @@ function gmEstRenderSendSheet() {
   var body;
   if (flow) {
     body = '<div class="gm-sheet-section"><div id="gmEstFlowForm">' + gmEstFlowFormHtml() + '</div>' + gmEstSendMessageHtml(est) +
-      '<button data-help="estimate#create-send#14" type="button" class="gm-btn-secondary" onclick="gmEstFlowMarkTap()">' + gmT("Marcar como enviado sem abrir mensagem", "Mark as sent without opening a message") + '</button>' +
+      '<button data-help="estimate#create-send#17" type="button" class="gm-btn-secondary" onclick="gmEstFlowMarkTap()">' + gmT("Marcar como enviado sem abrir mensagem", "Mark as sent without opening a message") + '</button>' +
       '<button type="button" class="gm-btn-secondary" onclick="gmRenderEstimateSheet()">' + gmT("Voltar", "Back") + '</button></div>' +
       '<div id="gmEstFlowBar" style="position:sticky;bottom:0;z-index:3;background:var(--card-bg,var(--bg,#fff));padding:10px 0 4px;border-top:1px solid var(--border,rgba(128,128,128,.3));"></div>';
   } else {
@@ -13137,7 +13137,7 @@ function gmEstRenderSendSheet() {
       '<p class="muted">' + gmT("Abre o app de mensagens do seu telefone com o texto e o link prontos. O orçamento fica como enviado.",
         "Opens your phone's messaging app with the text and link ready. The estimate is marked as sent.") + '</p>' +
       gmEstSendChannelsHtml(est) + gmEstSendMessageHtml(est) +
-      '<button data-help="estimate#create-send#14" type="button" class="gm-btn-secondary" onclick="gmEstSendMark(true)">' + gmT("Marcar como enviado sem abrir mensagem", "Mark as sent without opening a message") + '</button>' +
+      '<button data-help="estimate#create-send#17" type="button" class="gm-btn-secondary" onclick="gmEstSendMark(true)">' + gmT("Marcar como enviado sem abrir mensagem", "Mark as sent without opening a message") + '</button>' +
       '<button type="button" class="gm-btn-secondary" onclick="gmRenderEstimateSheet()">' + gmT("Voltar", "Back") + '</button>' +
       '</div>';
   }

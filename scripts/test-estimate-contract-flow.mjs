@@ -25,8 +25,8 @@ async function readyUp(w, estId) {
   const vals = {};
   for (let i = 0; i < 5; i++) {
     const r = await w.gm("POST", "estimates/" + estId + "/send", { full_flow: true, check_only: true });
-    if (r.status === 200) { return true; }
-    ((r.json && r.json.missing_fields) || []).forEach((k) => { vals[k] = /_days$|_hours$/.test(k) ? "5" : (/date/.test(k) ? "11/16/2026" : "sample " + k); });
+    if (r.status === 200 && r.json.ready) { return true; }
+    ((r.json && r.json.questions) || []).forEach((q) => { const k = q.field; vals[k] = /_days$|_hours$/.test(k) ? "5" : (/date/.test(k) ? "11/16/2026" : "sample " + k); });
     w.d.x("UPDATE contract_client_settings SET values_json = ? WHERE client_id = ?", JSON.stringify(vals), w.CID);
   }
   return false;

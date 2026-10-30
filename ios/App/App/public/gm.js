@@ -7378,12 +7378,44 @@ function gmSignedCopyOpen(kind, id, number) {
 
 // Awaiting-my-signature alerts (in-app), merged into the Home attention card.
 var gmConAwaiting = [];
+var gmConSignReqs = [];   // estimates a seller asked a signer to sign
 function gmConLoadAwaiting() {
   if (!gmContractsEnabled()) { return Promise.resolve([]); }
-  return gmApi("contracts/awaiting").then(function(d) { gmConAwaiting = d.awaiting || []; return gmConAwaiting; }).catch(function(e) { console.error(e); return []; });
+  return gmApi("contracts/awaiting").then(function(d) { gmConAwaiting = d.awaiting || []; gmConSignReqs = d.sign_requests || []; return gmConAwaiting; }).catch(function(e) { console.error(e); return []; });
+}
+function gmConSignReqCardHtml() {
+  if (!gmConSignReqs.length) { return ""; }
+  return '<div class="card-title" style="margin-top:12px;">' + gmT("Contrato aguardando a sua assinatura", "Contract waiting for your signature") + ' <span class="goal-pending-badge">' + gmConSignReqs.length + '</span></div>' +
+    gmConSignReqs.map(function(r, ix) {
+      return '<button type="button" class="gm-row" onclick="gmSignReqOpen(' + ix + ')"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(r.number) + ' · ' + escHtml(r.customer_name || r.job_name || "") + '</span>' +
+        '<div class="gm-lead-sub">' + escHtml(r.requested_by || "") + '</div></span></button>';
+    }).join("");
+}
+function gmSignReqOpen(ix) {
+  var r = gmConSignReqs[ix]; if (!r) { return; }
+  var name = gmEstFlowSigner();
+  var body = '<div class="gm-sheet-section"><p><strong>' + escHtml(r.number) + '</strong> · ' + escHtml(r.customer_name || r.job_name || "") + '</p><p class="muted">' + escHtml(r.requested_by || "") + '</p>' +
+    '<label class="gm-field-label" for="gmSrName">' + gmT("Seu nome completo", "Your full name") + '</label><input type="text" class="gm-input" id="gmSrName" autocomplete="name" value="' + escHtml(name) + '">' +
+    '<label style="display:flex;gap:10px;align-items:flex-start;min-height:44px;margin-top:8px;"><input type="checkbox" id="gmSrConsent" style="width:22px;height:22px;"> <span>' + gmEstFlowConsentText() + '</span></label>' +
+    '<p class="gm-warn" id="gmSrMsg" hidden></p>' +
+    '<button type="button" class="gm-btn-primary" style="width:100%;margin-bottom:8px;" onclick="gmSignReqDo(' + ix + ', false)">' + gmT("Assinar", "Sign") + '</button>' +
+    (r.can_grant && r.seller ? '<button type="button" class="gm-btn-secondary" style="width:100%;" onclick="gmSignReqDo(' + ix + ', true)">' + gmT("Assinar e permitir que " + escHtml(r.seller) + " assine por conta própria daqui para frente", "Sign and let " + escHtml(r.seller) + " sign on their own from now on") + '</button>' : "") + '</div>';
+  gmSheetOpen(gmT("Contrato aguardando a sua assinatura", "Contract waiting for your signature"), body);
+}
+function gmSignReqDo(ix, grant) {
+  var r = gmConSignReqs[ix]; if (!r) { return; }
+  var nameEl = document.getElementById("gmSrName"), cEl = document.getElementById("gmSrConsent"), msg = document.getElementById("gmSrMsg");
+  function say(t) { if (msg) { msg.textContent = t; msg.hidden = false; } }
+  var name = nameEl ? nameEl.value.trim() : "";
+  if (!name) { say(gmT("Digite o seu nome.", "Type your name.")); return; }
+  if (!cEl || !cEl.checked) { say(gmT("Marque a caixa de consentimento.", "Tick the consent box.")); return; }
+  gmApi("estimates/" + encodeURIComponent(r.id) + "/sign-approve", { method: "POST", body: { signer_name: name, consent: true, consent_text: gmEstFlowConsentText(), grant_seller: !!grant } })
+    .then(function() { gmSheetClose(); gmToast(gmT("Assinado", "Signed")); return gmConLoadAwaiting(); })
+    .then(function() { gmAttentionRecompute(); if (typeof gmAttentionChanged === "function") { try { gmAttentionChanged(); } catch (e) { console.error(e); } } gmSellerAwaitingRender(); })
+    .catch(function(e) { say(e.message); console.error(e); gmConLoadAwaiting(); });
 }
 function gmConAwaitingCardHtml() {
-  if (!gmConAwaiting.length) { return ""; }
+  if (!gmConAwaiting.length) { return gmConSignReqCardHtml(); }
   // F36: "awaiting YOUR signature" only for contracts routed to the person
   // logged in; the owner sees the others as "awaiting <name>".
   var mine = gmConAwaiting.filter(function(c) { return c.mine; });
@@ -7392,7 +7424,7 @@ function gmConAwaitingCardHtml() {
     return '<button type="button" class="gm-row" onclick="switchTab(\'gmjobs\'); gmOpenContract(\'' + escHtml(c.id) + '\')"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(c.display_number) + ' · ' + escHtml(c.job_name || "") + '</span>' +
       '<div class="gm-lead-sub">' + (c.mine ? "" : gmT("Aguardando assinatura de ", "Awaiting the signature of ") + escHtml(c.routed_to_name || "") + " · ") + gmT("encaminhado ", "routed ") + escHtml(formatDateTimeUTC(c.routed_at)) + '</div></span><span class="gm-lead-side"><span class="gm-pill gm-gold">● ' + escHtml(pill) + '</span></span></button>';
   }
-  var h = "";
+  var h = gmConSignReqCardHtml();
   if (mine.length) { h += '<div class="card-title" style="margin-top:12px;">' + gmT("Contratos aguardando a sua assinatura", "Contracts awaiting your signature") + ' <span class="goal-pending-badge">' + mine.length + '</span></div>' + mine.map(function(c) { return row(c, gmT("assinar", "sign")); }).join(""); }
   if (others.length) { h += '<div class="card-title" style="margin-top:12px;">' + gmT("Contratos aguardando assinatura de outra pessoa", "Contracts awaiting someone else's signature") + ' <span class="goal-pending-badge">' + others.length + '</span></div>' + others.map(function(c) { return row(c, gmT("aguardando", "waiting")); }).join(""); }
   return h;
@@ -12825,96 +12857,281 @@ function gmEstMessageVars(est) {
   };
 }
 
-// Send with contract (one link): off by default, shown only to a person who may sign
-// for the company. The person signs now; the contract reaches the customer already
-// signed by the company when the customer accepts the estimate.
-var gmEstFlow = { on: false, checked: false, name: "", consent: false, problems: "" };
+// Send (one link) is the default send. A person who may sign for the company
+// signs on this form; anyone else asks a signer. The form asks only what the
+// contract for THIS job still needs (the Worker reads the clause library), so
+// the questions change as the answers change. Everything the system already
+// knows is filled in. The old estimate-only send stays for people and
+// businesses the flow does not apply to.
+function gmEstFlowFresh() { return { mode: "", loaded: false, plan: null, answers: {}, flags: {}, kind: null, tpl: null, remember: {}, name: "", consent: false, errs: {}, busy: false, poolTouched: false, show: false }; }
+var gmEstFlow = gmEstFlowFresh();
+function gmEstFlowMode() {
+  if (!gmContractsEnabled()) { return ""; }
+  var lite = (gmDocMessages && gmDocMessages.settings_lite) || {};
+  return lite.full_flow_signer ? "sign" : (lite.full_flow_requestable ? "ask" : "");
+}
 function gmEstFlowSigner() {
   var lite = (gmDocMessages && gmDocMessages.settings_lite) || {};
-  return (gmContractsEnabled() && lite.full_flow_signer) ? String(lite.full_flow_signer) : "";
+  return lite.full_flow_signer ? String(lite.full_flow_signer) : "";
 }
 function gmEstFlowConsentText() {
   return gmT("Concordo em assinar eletronicamente este contrato em nome da empresa.", "I agree to sign this contract electronically on behalf of the company.");
 }
-function gmEstFlowToggle(on) {
-  gmEstFlow.on = !!on; gmEstFlow.checked = false; gmEstFlow.problems = "";
-  gmEstRenderSendSheet();
+function gmEstFlowIsPool() {
+  var f = gmEstFlow, p = f.plan;
+  if (f.flags.is_pool !== undefined) { return f.flags.is_pool === true; }
+  return !!(p && p.is_pool);
 }
-function gmEstFlowEdit() { gmEstFlow.checked = false; gmEstRenderSendSheet(); }
-function gmEstFlowCheck() {
-  var est = gmEstDetail;
-  var nameEl = document.getElementById("gmEstFlowName"), cEl = document.getElementById("gmEstFlowConsent");
-  var msg = document.getElementById("gmEstFlowMsg"), btn = document.getElementById("gmEstFlowBtn");
-  var name = nameEl ? nameEl.value.trim() : "";
-  gmEstFlow.name = name; gmEstFlow.consent = !!(cEl && cEl.checked);
-  function say(t) { if (msg) { msg.textContent = t; msg.hidden = false; } }
+// The body the Worker reads: only the answers this job's questions ask for.
+function gmEstFlowBody(extra) {
+  var f = gmEstFlow, p = f.plan, b = { full_flow: true }, answers = {}, flags = {}, k;
+  if (p && p.questions) { p.questions.forEach(function(q) { var v = String(f.answers[q.field] || "").trim(); if (v) { answers[q.field] = v; } }); }
+  b.answers = answers;
+  if (f.flags.property_type) { flags.property_type = f.flags.property_type; }
+  if (f.poolTouched) { flags.is_pool = f.flags.is_pool === true; }
+  if (f.flags.pool_safety_feature) { flags.pool_safety_feature = f.flags.pool_safety_feature; }
+  if (f.flags.oral_notice_done) { flags.oral_notice_done = true; }
+  b.flags = flags;
+  if (f.kind) { b.kind = f.kind; }
+  if (f.tpl) { b.cleaning_template = f.tpl; }
+  var rem = [];
+  for (k in f.remember) { if (f.remember[k] && answers[k]) { rem.push(k); } }
+  b.remember = rem;
+  if (extra) { for (k in extra) { b[k] = extra[k]; } }
+  return b;
+}
+function gmEstFlowRefresh(done) {
+  var est = gmEstDetail, f = gmEstFlow;
   if (!est) { return; }
-  if (!name) { say(gmT("Digite o seu nome.", "Type your name.")); return; }
-  if (!gmEstFlow.consent) { say(gmT("Marque a caixa de consentimento.", "Tick the consent box.")); return; }
-  if (btn) { btn.disabled = true; }
-  gmApi("estimates/" + encodeURIComponent(est.id) + "/send", { method: "POST", body: { full_flow: true, check_only: true } })
-    .then(function() { gmEstFlow.checked = true; gmEstFlow.problems = ""; gmEstRenderSendSheet(); })
-    .catch(function(e) {
-      if (btn) { btn.disabled = false; }
-      var d = e.data || {};
-      if (d.code === "contract_incomplete") { gmEstFlow.problems = gmConProblemsHtml(d.blockers, d.missing_fields); gmEstRenderSendSheet(); return; }
-      say(e.message); console.error(e);
-    });
+  f.busy = true;
+  gmApi("estimates/" + encodeURIComponent(est.id) + "/send", { method: "POST", body: gmEstFlowBody({ check_only: true }) })
+    .then(function(d) {
+      f.busy = false; f.plan = d;
+      if (!f.loaded) {
+        f.loaded = true;
+        var pre = d.prefill || {};
+        Object.keys(pre.answers || {}).forEach(function(k) { if (f.answers[k] === undefined) { f.answers[k] = pre.answers[k]; } });
+        var pf = pre.flags || {};
+        if (pf.property_type && !f.flags.property_type) { f.flags.property_type = pf.property_type; }
+        if (pf.pool_safety_feature && !f.flags.pool_safety_feature) { f.flags.pool_safety_feature = pf.pool_safety_feature; }
+        if (pre.kind && !f.kind) { f.kind = pre.kind; }
+        if (pre.cleaning_template && !f.tpl) { f.tpl = pre.cleaning_template; }
+        f.name = f.name || gmEstFlowSigner();
+      }
+      if (done) { done(); }
+    })
+    .catch(function(e) { f.busy = false; console.error(e); var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
 }
-function gmEstFlowHtml() {
-  var signer = gmEstFlowSigner();
-  if (!signer) { return ""; }
+function gmEstFlowChips(label, items, onclickName) {
+  return '<div class="gm-chip-set"><span class="gm-field-label" style="flex-basis:100%;">' + label + '</span>' +
+    items.map(function(it) { return '<button type="button" class="gm-choice-chip' + (it.sel ? " gm-chip-sel" : "") + '" onclick="' + onclickName + '(' + it.arg + ')">' + escHtml(it.text) + '</button>'; }).join("") + '</div>';
+}
+function gmEstFlowErr(key) {
+  return gmEstFlow.errs[key] ? '<p class="gm-warn" style="margin:2px 0 8px;font-size:13px;">' + gmT("Preencha este campo.", "Fill in this field.") + '</p>' : "";
+}
+function gmEstFlowFormHtml() {
+  var f = gmEstFlow, p = f.plan;
+  if (!p) { return '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>'; }
+  if (p.signature === "approved") { return ""; }
+  if (p.signature === "pending") { return '<p class="gm-derived-note">' + gmT("Aguardando a assinatura de quem assina.", "Waiting for a signer.") + '</p>'; }
+  var h = "";
+  if (p.contract_needed !== false) {
+    if (p.need_kind && p.need_kind.length) {
+      h += gmEstFlowChips(gmT("Tipo de contrato", "Kind of contract"), p.need_kind.map(function(k) { return { sel: f.kind === k, text: gmConKindLabel(k), arg: "'kind','" + k + "'" }; }), "gmEstFlowPick") + (f.errs.kind ? gmEstFlowErr("kind") : "");
+    }
+    if (p.need_template && p.need_template.length) {
+      h += gmEstFlowChips(gmT("Modelo do contrato de limpeza *", "Cleaning agreement template *"), p.need_template.map(function(t) { return { sel: f.tpl === t.key, text: gmConTemplateLabel(t.key), arg: "'tpl','" + t.key + "'" }; }), "gmEstFlowPick") + (f.errs.tpl ? gmEstFlowErr("tpl") : "");
+    }
+    if (p.builds_pools && p.kind !== "cleaning") {
+      var isP = gmEstFlowIsPool();
+      h += gmEstFlowChips(gmT("Obra de piscina", "Pool job"), [{ sel: isP, text: gmT("Sim", "Yes"), arg: "'pool','1'" }, { sel: !isP, text: gmT("Não", "No"), arg: "'pool','0'" }], "gmEstFlowPick");
+    }
+    if (p.need_property_type) {
+      h += gmEstFlowChips(gmT("Tipo do imóvel", "Property type"), GM_CON_PROPERTY_TYPES.map(function(t) { return { sel: f.flags.property_type === t[0], text: gmT(t[1], t[2]), arg: "'ptype','" + t[0] + "'" }; }), "gmEstFlowPick") + (f.errs.ptype ? gmEstFlowErr("ptype") : "");
+    }
+    if (p.need_pool_safety && gmEstFlowIsPool()) {
+      h += gmEstFlowChips(gmT("Recurso de segurança da piscina (s. 515.27) *", "Pool safety feature (s. 515.27) *"), p.need_pool_safety.map(function(t, ix) { return { sel: f.flags.pool_safety_feature === t, text: t, arg: "'safety'," + ix }; }), "gmEstFlowPick") + (f.errs.safety ? gmEstFlowErr("safety") : "");
+    }
+    (p.questions || []).forEach(function(q) {
+      var k = q.field, t = gmConFieldType(k), val = f.answers[k] || "";
+      var hist = (p.history && p.history[k]) || [];
+      var multi = t === "textarea";
+      var chosen = multi ? val.split(/\s*,\s*/) : [val];
+      h += '<label class="gm-field-label" for="gmEstFlowIn_' + k + '">' + escHtml(gmConFieldLabel(k)) + '</label>';
+      if (hist.length) {
+        h += '<div class="gm-chip-set">' + hist.map(function(v, ix) {
+          return '<button type="button" class="gm-choice-chip' + (chosen.indexOf(v) !== -1 ? " gm-chip-sel" : "") + '" onclick="gmEstFlowHist(\'' + k + '\',' + ix + ')">' + escHtml(v) + '</button>';
+        }).join("") + '</div>';
+      }
+      if (t === "date") { h += '<input type="date" id="gmEstFlowIn_' + k + '" class="gm-input" value="' + escHtml(gmConUsToIso(val)) + '" oninput="gmEstFlowType(\'' + k + '\', this.value, true)">'; }
+      else if (t === "textarea") { h += '<textarea id="gmEstFlowIn_' + k + '" class="gm-input" rows="2" oninput="gmEstFlowType(\'' + k + '\', this.value)">' + escHtml(val) + '</textarea>'; }
+      else { h += '<input type="text"' + (t === "number" ? ' inputmode="numeric"' : "") + ' id="gmEstFlowIn_' + k + '" class="gm-input" value="' + escHtml(val) + '" oninput="gmEstFlowType(\'' + k + '\', this.value)">'; }
+      h += gmEstFlowErr(k);
+      if (q.remember && t !== "date") {
+        h += '<label style="display:flex;gap:10px;align-items:center;min-height:36px;font-size:14px;"><input type="checkbox" style="width:20px;height:20px;"' + (f.remember[k] ? " checked" : "") + ' onchange="gmEstFlowRemember(\'' + k + '\', this.checked)"> ' + gmT("Lembrar para a próxima vez", "Remember for next time") + '</label>';
+      }
+    });
+    if (p.need_oral_notice) {
+      h += '<label style="display:flex;gap:10px;align-items:center;min-height:44px;"><input type="checkbox" style="width:22px;height:22px;"' + (f.flags.oral_notice_done ? " checked" : "") + ' onchange="gmEstFlow.flags.oral_notice_done = this.checked; gmEstFlowBarRender();"> ' + gmT("Eu disse ao cliente em voz alta que ele pode cancelar em até três dias úteis.", "I told the customer out loud that they may cancel within three business days.") + '</label>' + (f.errs.oral ? gmEstFlowErr("oral") : "");
+    }
+    (p.blockers || []).forEach(function(b) { h += '<p class="gm-warn">' + escHtml(gmT(b.pt, b.en)) + '</p>'; });
+    if (f.mode === "sign") {
+      h += '<label class="gm-field-label" for="gmEstFlowName">' + gmT("Seu nome completo", "Your full name") + '</label>' +
+        '<input type="text" class="gm-input" id="gmEstFlowName" autocomplete="name" value="' + escHtml(f.name) + '" oninput="gmEstFlow.name = this.value; gmEstFlowBarRender();">' + gmEstFlowErr("name") +
+        '<label style="display:flex;gap:10px;align-items:flex-start;min-height:44px;margin-top:8px;"><input type="checkbox" id="gmEstFlowConsent" style="width:22px;height:22px;"' + (f.consent ? " checked" : "") + ' onchange="gmEstFlow.consent = this.checked; gmEstFlowBarRender();"> <span>' + gmEstFlowConsentText() + '</span></label>' + gmEstFlowErr("consent");
+    }
+  }
+  return h;
+}
+// The one local check behind the Send button: every question answered, the
+// choices made, the name and the consent given, nothing blocking.
+function gmEstFlowCheckLocal() {
+  var f = gmEstFlow, p = f.plan, errs = {}, ok = true;
+  if (!p || f.busy) { return { ok: false, errs: errs }; }
+  if (p.signature === "approved") { return { ok: true, errs: errs }; }
+  if (p.signature === "pending") { return { ok: false, errs: errs }; }
+  if (p.contract_needed !== false) {
+    if (p.need_kind && p.need_kind.length && !f.kind) { errs.kind = 1; }
+    if (p.need_template && p.need_template.length && !f.tpl) { errs.tpl = 1; }
+    if (p.need_property_type && !f.flags.property_type) { errs.ptype = 1; }
+    if (p.need_pool_safety && gmEstFlowIsPool() && !f.flags.pool_safety_feature) { errs.safety = 1; }
+    if (p.need_oral_notice && !f.flags.oral_notice_done) { errs.oral = 1; }
+    (p.questions || []).forEach(function(q) { if (!String(f.answers[q.field] || "").trim()) { errs[q.field] = 1; } });
+    if (f.mode === "sign") { if (!String(f.name || "").trim()) { errs.name = 1; } if (!f.consent) { errs.consent = 1; } }
+    if (p.blockers && p.blockers.length) { ok = false; }
+  }
+  if (Object.keys(errs).length) { ok = false; }
+  return { ok: ok, errs: errs };
+}
+function gmEstFlowType(field, val, isDate) {
+  gmEstFlow.answers[field] = isDate ? gmConIsoToUs(val) : val;
+  gmEstFlowBarRender();
+}
+function gmEstFlowRemember(field, on) { gmEstFlow.remember[field] = !!on; }
+function gmEstFlowHist(field, ix) {
+  var f = gmEstFlow, v = ((f.plan.history || {})[field] || [])[ix];
+  if (v === undefined) { return; }
+  if (gmConFieldType(field) === "textarea") {
+    var cur = String(f.answers[field] || "").split(/\s*,\s*/).filter(Boolean), at = cur.indexOf(v);
+    if (at === -1) { cur.push(v); } else { cur.splice(at, 1); }
+    f.answers[field] = cur.join(", ");
+  } else { f.answers[field] = v; }
+  gmEstFlowFormRender();
+}
+function gmEstFlowPick(key, val) {
   var f = gmEstFlow;
-  var h = '<label style="display:flex;gap:10px;align-items:flex-start;min-height:44px;margin-bottom:8px;"><input type="checkbox" id="gmEstFlowOn" style="width:22px;height:22px;"' + (f.on ? " checked" : "") + ' onchange="gmEstFlowToggle(this.checked)"> <span><strong>' + gmT("Enviar com contrato (um só link)", "Send with contract (one link)") + '</strong></span></label>';
-  if (!f.on) { return '<div class="gm-sheet-section">' + h + '</div>'; }
-  h += '<p class="muted">' + gmT("O cliente aceita o orçamento e já recebe o contrato assinado por você. Você assina agora.", "The customer accepts the estimate and gets the contract already signed by you. You sign now.") + '</p>';
-  if (f.problems) { h += f.problems; }
-  h += '<input type="text" class="gm-input" id="gmEstFlowName" autocomplete="name" placeholder="' + gmT("Seu nome completo", "Your full name") + '" value="' + escHtml(f.name || signer) + '"' + (f.checked ? " disabled" : "") + '>' +
-    '<label style="display:flex;gap:10px;align-items:flex-start;min-height:44px;margin-top:8px;"><input type="checkbox" id="gmEstFlowConsent" style="width:22px;height:22px;"' + (f.consent ? " checked" : "") + (f.checked ? " disabled" : "") + '> <span>' + gmEstFlowConsentText() + '</span></label>' +
-    '<p class="gm-warn" id="gmEstFlowMsg" hidden></p>';
-  h += f.checked
-    ? '<p class="gm-derived-note">' + gmT("Pronto. Envie o link abaixo.", "Ready. Send the link below.") + '</p><button type="button" class="gm-btn-secondary" onclick="gmEstFlowEdit()">' + gmT("Mudar", "Change") + '</button>'
-    : '<button type="button" class="gm-btn-primary" id="gmEstFlowBtn" onclick="gmEstFlowCheck()">' + gmT("Verificar", "Check") + '</button>';
-  return '<div class="gm-sheet-section">' + h + '</div>';
+  if (key === "kind") { f.kind = val; f.tpl = null; }
+  else if (key === "tpl") { f.tpl = val; }
+  else if (key === "pool") { f.flags.is_pool = val === "1"; f.poolTouched = true; }
+  else if (key === "ptype") { f.flags.property_type = val; }
+  else if (key === "safety") { f.flags.pool_safety_feature = f.plan.need_pool_safety[val]; }
+  delete f.errs[key];
+  gmEstFlowRefresh(function() { gmEstFlowFormRender(); });
+}
+function gmEstFlowFormRender() {
+  var el = document.getElementById("gmEstFlowForm");
+  if (el) { el.innerHTML = gmEstFlowFormHtml(); }
+  gmEstFlowBarRender();
+}
+// Tapping Send before the form is ready shows what is missing, under each field.
+function gmEstFlowSendTap() {
+  var r = gmEstFlowCheckLocal();
+  gmEstFlow.errs = r.errs;
+  var el = document.getElementById("gmEstFlowForm");
+  if (el) { el.innerHTML = gmEstFlowFormHtml(); }
+  var first = document.querySelector("#gmEstFlowForm .gm-warn");
+  if (first && first.scrollIntoView) { try { first.scrollIntoView({ block: "center" }); } catch (e) { first.scrollIntoView(); } }
+}
+function gmEstFlowAskTap() {
+  var est = gmEstDetail, f = gmEstFlow;
+  var r = gmEstFlowCheckLocal();
+  if (!r.ok) { gmEstFlowSendTap(); return; }
+  if (f.busy) { return; }
+  f.busy = true; gmEstFlowBarRender();
+  gmApi("estimates/" + encodeURIComponent(est.id) + "/sign-request", { method: "POST", body: gmEstFlowBody() })
+    .then(function() { f.busy = false; gmToast(gmT("Pedido enviado a quem assina", "Request sent to a signer")); gmEstFlowRefresh(function() { gmEstFlowFormRender(); }); })
+    .catch(function(e) { f.busy = false; gmEstFlowBarRender(); gmToast(e.message); console.error(e); });
+}
+// The sticky bottom bar: one Send button until the form is complete, then the
+// usual ways to send (text, WhatsApp, email).
+function gmEstFlowBarRender() {
+  var el = document.getElementById("gmEstFlowBar");
+  if (!el) { return; }
+  var f = gmEstFlow, est = gmEstDetail;
+  var r = gmEstFlowCheckLocal();
+  if (f.plan && f.plan.signature === "pending") { el.innerHTML = ""; return; }
+  if (!r.ok || (f.mode === "ask" && !(f.plan && f.plan.signature === "approved"))) {
+    var label = f.mode === "ask" ? gmT("Pedir assinatura", "Ask to sign") : gmT("Enviar", "Send");
+    el.innerHTML = '<button type="button" class="gm-btn-primary" style="width:100%;"' + (f.busy ? " disabled" : "") + ' onclick="' + (f.mode === "ask" ? "gmEstFlowAskTap()" : "gmEstFlowSendTap()") + '">' + label + '</button>';
+    return;
+  }
+  el.innerHTML = gmEstSendChannelsHtml(est);
 }
 
 function gmEstSendOpen() {
   var est = gmEstDetail;
   if (!est) { return; }
-  gmEstFlow = { on: false, checked: false, name: "", consent: false, problems: "" };
+  gmEstFlow = gmEstFlowFresh();
   gmSheetOpen(gmT("Enviar orçamento", "Send estimate"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
   // The readable doc.resonateai.online link, minted before the sheet renders
   // so the WhatsApp / SMS tap stays synchronous. On failure the old link stays.
   var linkReq = gmApi("estimates/" + encodeURIComponent(est.id) + "/send-link", { method: "POST" })
     .then(function(d) { if (d && d.link) { est.link = d.link; } }).catch(function(e) { console.error("send-link", e); });
-  Promise.all([gmDocMsgLoad(), linkReq]).then(function() { gmEstRenderSendSheet(); }).catch(function(e) {
+  Promise.all([gmDocMsgLoad(), linkReq]).then(function() {
+    gmEstFlow.mode = gmEstFlowMode();
+    if (!gmEstFlow.mode) { gmEstRenderSendSheet(); return; }
+    gmEstFlowRefresh(function() { gmEstRenderSendSheet(); });
+  }).catch(function(e) {
     var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; }
   });
 }
 
-function gmEstRenderSendSheet() {
-  var est = gmEstDetail;
+function gmEstSendText(est) {
   var tpl = (gmDocMessages && gmDocMessages.messages && gmDocMessages.messages.estimate_message) || "";
-  var text = gmDocFillMessage(tpl, gmEstMessageVars(est));
-  // The lead's CURRENT phone first (A4); the estimate's frozen one as fallback.
+  return gmDocFillMessage(tpl, gmEstMessageVars(est));
+}
+// The ways to send: text, WhatsApp, email. The lead's CURRENT phone first (A4);
+// the estimate's frozen one as fallback.
+function gmEstSendChannelsHtml(est) {
+  var text = gmEstSendText(est);
   var phone = est.send_phone || est.customer_phone || "";
   var digits = gmWaDigits(phone);
-  var flowHold = gmEstFlow.on && !gmEstFlow.checked;
-  var body = gmEstFlowHtml() + (flowHold ? '<div class="gm-sheet-section"><button type="button" class="gm-btn-secondary" onclick="gmRenderEstimateSheet()">' + gmT("Voltar", "Back") + '</button></div>' : '<div class="gm-sheet-section">') +
-    (flowHold ? '' : '<p class="muted">' + gmT("Abre o app de mensagens do seu telefone com o texto e o link prontos. O orçamento fica como enviado.",
-        "Opens your phone's messaging app with the text and link ready. The estimate is marked as sent.") + '</p>' +
-    '<div class="gm-contact-row">' +
+  return '<div class="gm-contact-row">' +
       '<a class="gm-contact-btn gm-sms" href="sms:' + escHtml(phone.replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(text) + '" onclick="gmEstSendMark()">' + gmIcon("sms") + gmT("Mensagem de texto", "Text message") + '</a>' +
       '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(text) + '" target="_blank" rel="noopener" onclick="gmEstSendMark()">' + gmIcon("wa") + 'WhatsApp</a>' +
     '</div>' +
     gmEmailButtonsHtml({ to: gmEmailResolve(est.send_email || est.customer_email || "", est.lead_id || ""), subject: gmEmailSubject("estimate", est.display_number, est.send_business_name), text: text, leadId: est.lead_id || "", mark: function() { gmEstSendMark(); }, redraw: function() { gmEstRenderSendSheet(); } }) +
-    (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead nem no orçamento; edite o lead para adicionar.", "No customer phone on the lead or the estimate; edit the lead to add one.") + '</p>' : gmDocSendPhoneNote(phone)) +
-    '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + ' <button type="button" class="tpl-pencil" id="gmEstMsgPencil" aria-label="' + gmT("Editar esta mensagem", "Edit this message") + '">&#9998;</button></div>' +
-    '<p class="gm-derived-note" id="gmEstMsgPreview" style="white-space:pre-wrap;">' + escHtml(text) + '</p>' +
-    '<button data-help="estimate#create-send#14" type="button" class="gm-btn-secondary" onclick="gmEstSendMark(true)">' + gmT("Marcar como enviado sem abrir mensagem", "Mark as sent without opening a message") + '</button>' +
-    '<button type="button" class="gm-btn-secondary" onclick="gmRenderEstimateSheet()">' + gmT("Voltar", "Back") + '</button>' +
-    '</div>');
+    (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead nem no orçamento; edite o lead para adicionar.", "No customer phone on the lead or the estimate; edit the lead to add one.") + '</p>' : gmDocSendPhoneNote(phone));
+}
+function gmEstSendMessageHtml(est) {
+  return '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + ' <button type="button" class="tpl-pencil" id="gmEstMsgPencil" aria-label="' + gmT("Editar esta mensagem", "Edit this message") + '">&#9998;</button></div>' +
+    '<p class="gm-derived-note" id="gmEstMsgPreview" style="white-space:pre-wrap;">' + escHtml(gmEstSendText(est)) + '</p>';
+}
+function gmEstFlowMarkTap() {
+  if (gmEstFlowCheckLocal().ok && !(gmEstFlow.mode === "ask" && !(gmEstFlow.plan && gmEstFlow.plan.signature === "approved"))) { gmEstSendMark(true); }
+  else { gmEstFlowSendTap(); }
+}
+
+function gmEstRenderSendSheet() {
+  var est = gmEstDetail;
+  var flow = !!gmEstFlow.mode;
+  var body;
+  if (flow) {
+    body = '<div class="gm-sheet-section"><div id="gmEstFlowForm">' + gmEstFlowFormHtml() + '</div>' + gmEstSendMessageHtml(est) +
+      '<button data-help="estimate#create-send#14" type="button" class="gm-btn-secondary" onclick="gmEstFlowMarkTap()">' + gmT("Marcar como enviado sem abrir mensagem", "Mark as sent without opening a message") + '</button>' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmRenderEstimateSheet()">' + gmT("Voltar", "Back") + '</button></div>' +
+      '<div id="gmEstFlowBar" style="position:sticky;bottom:0;z-index:3;background:var(--card-bg,var(--bg,#fff));padding:10px 0 4px;border-top:1px solid var(--border,rgba(128,128,128,.3));"></div>';
+  } else {
+    body = '<div class="gm-sheet-section">' +
+      '<p class="muted">' + gmT("Abre o app de mensagens do seu telefone com o texto e o link prontos. O orçamento fica como enviado.",
+        "Opens your phone's messaging app with the text and link ready. The estimate is marked as sent.") + '</p>' +
+      gmEstSendChannelsHtml(est) + gmEstSendMessageHtml(est) +
+      '<button data-help="estimate#create-send#14" type="button" class="gm-btn-secondary" onclick="gmEstSendMark(true)">' + gmT("Marcar como enviado sem abrir mensagem", "Mark as sent without opening a message") + '</button>' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmRenderEstimateSheet()">' + gmT("Voltar", "Back") + '</button>' +
+      '</div>';
+  }
   gmSheetOpen(gmT("Enviar orçamento", "Send estimate") + " · " + escHtml(est.display_number), body);
+  if (flow) { gmEstFlowBarRender(); }
   var pencil = document.getElementById("gmEstMsgPencil");
   if (pencil) { pencil.onclick = function(ev) { ev.preventDefault(); gmDocMsgEditorOpen("estimate_message", function() { gmEstRenderSendSheet(); }); }; }
   var preview = document.getElementById("gmEstMsgPreview");
@@ -12927,7 +13144,7 @@ function gmEstSendMark(silent) {
   if (!est || gmEstSendInFlight) { return; }
   gmEstSendInFlight = true;
   var sendOpts = { method: "POST" };
-  if (gmEstFlow.on && gmEstFlow.checked) { sendOpts.body = { full_flow: true, consent: true, signer_name: gmEstFlow.name, consent_text: gmEstFlowConsentText() }; }
+  if (gmEstFlow.mode && gmEstFlow.plan) { sendOpts.body = gmEstFlowBody({ consent: true, signer_name: gmEstFlow.name, consent_text: gmEstFlowConsentText() }); }
   gmApi("estimates/" + encodeURIComponent(est.id) + "/send", sendOpts)
     .then(function() {
       gmEstSendInFlight = false;
@@ -14185,7 +14402,7 @@ function gmAttentionCardHtml() {
   var a = gmAttention;
   var subsCard = gmDSubsCardHtml();
   var respCard = gmConResponsesCardHtml();
-  if (!a.pending_alerts.length && !a.online_acceptances.length && !gmConAwaiting.length && !gmConNotices.length && !subsCard && !respCard) { return ""; }
+  if (!a.pending_alerts.length && !a.online_acceptances.length && !gmConAwaiting.length && !gmConSignReqs.length && !gmConNotices.length && !subsCard && !respCard) { return ""; }
   var h = respCard + gmConNoticesCardHtml() + gmConAwaitingCardHtml() + subsCard;
   if (a.pending_alerts.length) {
     h += '<div class="card-title">' + gmT("Pagamentos aguardando verificação", "Payments awaiting verification") + ' <span class="goal-pending-badge">' + a.pending_alerts.length + '</span></div>';

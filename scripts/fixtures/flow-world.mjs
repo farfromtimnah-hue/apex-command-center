@@ -46,13 +46,14 @@ function clean(v) {
   if (v === false) { return 0; }
   return v;
 }
-function makeDb() {
+function makeDb(opts) {
   const db = new DatabaseSync(":memory:");
   db.exec(readFileSync(new URL("scripts/fixtures/live-schema-2026-10-30.sql", root), "utf8"));
   // The migration of this build (the live database gets it once, before the Worker deploy).
   db.exec(readFileSync(new URL("migrations/2026-10-30_estimate_company_presign.sql", root), "utf8"));
   // The clause library the live database holds.
   db.exec(readFileSync(new URL("migrations/contracts_a_library.sql", root), "utf8"));
+  ((opts && opts.migrations) || []).forEach(function (m) { db.exec(readFileSync(new URL(m, root), "utf8")); });
   function prepared(sql, args) {
     return {
       bind: function () { return prepared(sql, Array.prototype.slice.call(arguments).map(clean)); },
@@ -105,7 +106,7 @@ export function ymd(offsetDays) {
 // ── A client with an owner, an authorized seller and a seller who may not sign ──
 export function newWorld(opts) {
   opts = opts || {};
-  const d = makeDb();
+  const d = makeDb(opts);
   const W = loadWorker();
   const env = { DB: d.DB, ASSETS: makeAssets(), FIREBASE_PROJECT_ID: "test" };
   const CID = "client-1";
@@ -115,7 +116,7 @@ export function newWorld(opts) {
     d.x("INSERT INTO client_logins (username, client_id, password_hash, must_change_password, role, seller_name) VALUES (?, ?, 'x', 0, ?, ?)", l[0], CID, l[1], l[2]);
   });
   d.x("INSERT INTO contract_client_settings (client_id, trades_json, builds_pools, defaults_json, signers_json, owner_signer_name, owner_signer_phone, source, values_json) VALUES (?, ?, 0, '{}', ?, 'Pat Owner', '8135550100', 'apex', ?)",
-    CID, JSON.stringify(["general"]), JSON.stringify([{ name: "Sam Seller", username: "seller-sam", phone: "8135550123" }]), JSON.stringify(opts.settingsValues || {}));
+    CID, JSON.stringify(opts.trades || ["general"]), JSON.stringify([{ name: "Sam Seller", username: "seller-sam", phone: "8135550123" }]), JSON.stringify(opts.settingsValues || {}));
   d.x("INSERT INTO gm_doc_settings (client_id, legal_name, address, phone, email, license_numbers, payment_methods_json, estimate_valid_days, default_terms_days, late_fee_annual_pct, late_fee_grace_days, setup_completed_at) VALUES (?, 'Sunrise Builders LLC', '100 Bay St, Tampa, FL 33602', '8135550100', 'office@sunrise.test', ?, ?, 30, 0, 18, 5, datetime('now'))",
     CID, JSON.stringify(["CBC1259999"]), JSON.stringify({ zelle: "pay@sunrise.test", check: "Sunrise Builders LLC" }));
 

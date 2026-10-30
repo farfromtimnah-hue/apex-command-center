@@ -14,7 +14,7 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) { fai
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 const WANT = {
-  overview: ["leadPipeline", "overview", "contacts", "notes", "portalAccess", "sellerLogins"],
+  overview: ["leadPipeline", "overview", "contacts", "notes", "bsPlan", "portalAccess", "sellerLogins"],
   apexwork: ["sessions", "clientTasks", "consultantTasks", "assessments", "resources", "docs"],
   results:  ["growth", "weeklySummary", "dp"],
   business: ["gmcrm", "gmestimates", "gmjobs", "gmpricing", "gmfinance"],
@@ -153,8 +153,8 @@ function checkCopy(label, path) {
   const homeBefore = page.home();
   page.run("cgInit()");
   const menu = (p, key) => Array.from(p.run("cgGroupSections(cgGroupByKey('" + key + "'))"));
-  ok(same(page.onScreen(), ["overview", "contacts", "notes", "portalAccess", "sellerLogins"]) && page.strays().length === 0, label + ": the page opens on Overview: overview, contacts, notes, Client Portal and Salesperson Logins together, nothing else (" + page.onScreen().join(", ") + ")");
-  ok(same(page.layout(), [[["overview", "contacts", "notes"], ["portalAccess", "sellerLogins"]]]), label + ": Overview is two columns, read down the left one first");
+  ok(same(page.onScreen(), ["overview", "contacts", "notes", "bsPlan", "portalAccess", "sellerLogins"]) && page.strays().length === 0, label + ": the page opens on Overview: overview, contacts, notes, Plan, Client Portal and Salesperson Logins together, nothing else (" + page.onScreen().join(", ") + ")");
+  ok(same(page.layout(), [[["overview", "contacts", "notes"], ["bsPlan", "portalAccess", "sellerLogins"]]]), label + ": Overview is two columns, read down the left one first");
   ok(page.els.cgBar.hidden === false && count(page.els.cgBar.innerHTML, "cg-tab-long") === 5, label + ": five group buttons are drawn");
   ok(/class="cg-tab active" onclick="cgGroupTap\('overview'/.test(page.els.cgBar.innerHTML) && count(page.els.cgBar.innerHTML, "cg-tab active") === 1, label + ": the group on screen is the one active button");
   ok(same(menu(page, "overview"), WANT.overview.slice(1)), label + ": a client's Overview has no Lead Pipeline");
@@ -234,17 +234,17 @@ function checkCopy(label, path) {
   ok(/function scrollToSection\(elId\) \{[\s\S]{0,400}cgShowForElement\(el\);\s*cgScrollFlash\(el\);/.test(src) && count(src, "function cgScrollFlash(") === 1, label + ": ?section= uses the same scroll and flash as the menu");
 
   // ── A lead ───────────────────────────────────────────────────────────────
-  const LEAD = ["leadPipeline", "apexContract", "overview", "contacts", "notes", "portalAccess", "sellerLogins"];
+  const LEAD = ["leadPipeline", "apexContract", "overview", "contacts", "notes", "bsPlan", "portalAccess", "sellerLogins"];
   const lead = makePage(src, { session: { apex_role: "rafa" } });
   lead.run("cgInit()");
   lead.els["sec-leadPipeline"].hidden = false;
   lead.els["sec-apexContract"].hidden = false;
   lead.run("cgInit()");
-  ok(lead.run("cgGroup") === "overview" && same(lead.onScreen(), LEAD) && lead.strays().length === 0, label + ": a lead's Overview is Lead Pipeline, APEX Contract, then overview, contacts, notes, Client Portal, Salesperson Logins (" + lead.onScreen().join(", ") + ")");
-  ok(same(lead.layout(), ["leadPipeline", [LEAD.slice(1, 4), LEAD.slice(4)]]), label + ": the Lead Pipeline spans the full width; the rest is two columns");
-  ok(same(menu(lead, "overview"), LEAD), label + ": a lead's Overview menu lists the same seven, in that order");
+  ok(lead.run("cgGroup") === "overview" && same(lead.onScreen(), LEAD) && lead.strays().length === 0, label + ": a lead's Overview is Lead Pipeline, APEX Contract, then overview, contacts, notes, Plan, Client Portal, Salesperson Logins (" + lead.onScreen().join(", ") + ")");
+  ok(same(lead.layout(), ["leadPipeline", [LEAD.slice(1, 5), LEAD.slice(5)]]), label + ": the Lead Pipeline spans the full width; the rest is two columns");
+  ok(same(menu(lead, "overview"), LEAD), label + ": a lead's Overview menu lists the same eight, in that order");
   lead.run("cgGroupTap('overview', null)");
-  ok(count(lead.els.cgPanel.innerHTML, "cgSheetGo('leadPipeline')") === 1 && count(lead.els.cgPanel.innerHTML, "cgSheetGo('apexContract')") === 1 && count(lead.els.cgPanel.innerHTML, "cgSheetGo(") === 7, label + ": Lead Pipeline and APEX Contract are two separate menu items");
+  ok(count(lead.els.cgPanel.innerHTML, "cgSheetGo('leadPipeline')") === 1 && count(lead.els.cgPanel.innerHTML, "cgSheetGo('apexContract')") === 1 && count(lead.els.cgPanel.innerHTML, "cgSheetGo(") === 8, label + ": Lead Pipeline and APEX Contract are two separate menu items");
   ok(menu(lead, "money").indexOf("apexContract") === -1 && same(menu(lead, "money"), ["invoices", "payment", "vendors"]), label + ": a lead's APEX Contract is not in Money");
   lead.run("cgShowGroup('money', true)");
   ok(lead.onScreen().indexOf("apexContract") === -1 && lead.strays().length === 0, label + ": nor on the Money screen");

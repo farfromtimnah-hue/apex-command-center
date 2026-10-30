@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js?v=1788495974, so it is installed before anything that can throw.
+
+       WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
+       with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
+       no replay block, hasListeners=false forever) is consistent with a script
+       dying early. Capacitor only prints that generic string, so the actual
+       message, file, line and stack have to be captured here.
+
+       Buffers into a cookie as well as the console, because the native log is
+       only reachable once the Capacitor plugin exists -- which is exactly what
+       may not have happened yet when the error fires. native-bridge.js?v=1788495974 replays
+       this buffer into the native log once the plugin appears. -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1792442281"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
+  <title data-title-pt="Apex — Materiais de divulgação" data-title-en="Apex &#8212; Promo materials">Apex — Materiais de divulgação</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+<style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --surface:  #f9f7f4;
+      --header:   #1a1a1d;
+      --gold:     #C9A43A;
+      --gold-dim: rgba(201,164,58,0.14);
+      --brown:    #7a5c2e;
+      --text:     #1a1a1d;
+      --muted:    #6b6660;
+      --border:   #e8e2d9;
+      --card:     #ffffff;
+      --radius:   10px;
+      --shadow:   0 2px 16px rgba(26,26,29,0.08);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Bilingual ───────────────────────────────────────────────────────── */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    #appHeader {
+      background: var(--header);
+      height: 64px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+    .header-right { display: flex; align-items: center; gap: 14px; }
+    .user-pill { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.7); font-size: 13px; }
+    .role-badge {
+      background: var(--gold-dim); border: 1px solid rgba(201,164,58,0.4); color: var(--gold);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 10px;
+    }
+    .btn-header {
+      background: transparent; border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75); font-family: 'Inter', sans-serif; font-size: 12px;
+      font-weight: 500; padding: 5px 13px; border-radius: 20px; cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+    .lang-btn {
+      background: transparent; border: 1.5px solid var(--gold); color: var(--gold);
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+      padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: background 0.15s;
+    }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    /* ── Loading screen ──────────────────────────────────────────────────── */
+    #loadingScreen {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px; color: var(--muted); font-size: 14px;
+    }
+    #loadingScreen[hidden] { display: none !important; }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--gold); border-radius: 50%; animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── App main ────────────────────────────────────────────────────────── */
+    #appMain {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page-wrap { padding: 28px 32px; display: flex; flex-direction: column; gap: 18px; max-width: 920px; }
+    .page-title { font-size: 22px; font-weight: 700; }
+    .section-note { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    /* Tabs styled like browser tabs: the active tab joins the panel below it. */
+    .tab-strip { display: flex; gap: 4px; align-items: flex-end; border-bottom: 1px solid var(--border); padding: 0 6px; margin-bottom: -18px; position: relative; z-index: 1; }
+    .tab-btn { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; color: var(--muted); background: #ece7de; border: 1px solid var(--border); border-bottom: none; border-radius: 10px 10px 0 0; padding: 10px 22px 9px; cursor: pointer; min-height: 42px; position: relative; top: 1px; }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.is-active { background: var(--card); color: var(--text); padding-bottom: 11px; box-shadow: 0 -2px 0 var(--gold) inset; }
+    .tab-panel { background: var(--card); border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius); box-shadow: var(--shadow); padding: 24px 22px; display: flex; flex-direction: column; gap: 16px; }
+    .field-label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; display: block; }
+    .field-input, .field-area { font-family: 'Inter', sans-serif; font-size: 15px; color: var(--text); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; width: 100%; }
+    .field-area { min-height: 160px; line-height: 1.5; resize: vertical; }
+    .field-input:focus, .field-area:focus { outline: none; border-color: var(--gold); }
+    .video-box { background: #111; border-radius: 12px; overflow: hidden; display: flex; justify-content: center; }
+    .video-box video { width: 100%; max-width: 340px; max-height: 60vh; background: #000; display: block; }
+    .video-empty { background: var(--surface); border: 1px dashed var(--border); border-radius: 12px; padding: 34px 20px; text-align: center; color: var(--muted); font-size: 14px; }
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .btn-gold { background: var(--gold); color: #fff; border: none; border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; padding: 10px 18px; cursor: pointer; min-height: 42px; text-decoration: none; display: inline-flex; align-items: center; }
+    .btn-gold:disabled { opacity: 0.55; cursor: default; }
+    .btn-line { background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; padding: 10px 16px; cursor: pointer; min-height: 42px; text-decoration: none; display: inline-flex; align-items: center; }
+    .btn-line:hover { border-color: var(--gold); color: var(--brown); }
+    .inline-msg { font-size: 13px; color: #3f7d4e; min-height: 18px; }
+    .inline-msg.is-error { color: #b44040; }
+    .share-title { font-size: 13px; font-weight: 700; margin-top: 4px; }
+    .error-msg { padding: 20px; color: #b44040; font-size: 13px; }
+    @media (max-width: 720px) {
+      .page-wrap { padding: 16px; }
+      .tab-btn { padding: 10px 16px 9px; }
+      .tab-panel { padding: 18px 14px; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <header id="appHeader">
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" data-help="admin-menu-language-learn#menu#2" onclick="apexNavToggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
+      <div id="loadingScreen">
+        <div class="spinner"></div>
+        <span class="show-pt">Carregando...</span>
+        <span class="show-en">Loading...</span>
+      </div>
+      
+      <main id="appMain" hidden>
+        <div class="page-wrap">
+          <h1 class="page-title">
+            <span class="show-pt">Materiais de divulga&ccedil;&atilde;o</span>
+            <span class="show-en">Promo materials</span>
+          </h1>
+          <div class="tab-strip" role="tablist">
+            <button type="button" class="tab-btn is-active" id="tabPt" role="tab" aria-selected="true" onclick="selectTab('pt')">Portugu&ecirc;s</button>
+            <button type="button" class="tab-btn" id="tabEn" role="tab" aria-selected="false" onclick="selectTab('en')">English</button>
+          </div>
+          <div class="tab-panel" id="promoPanel" role="tabpanel">
+            <div class="empty-state" style="color:var(--muted);font-size:14px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+  <script src="nav.js"></script>
+  <script src="help-config.js"></script>
+  <script src="help-core.js"></script>
+  <script src="help-widget.js"></script>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    var auth        = null;
+    var currentUser = null;
+
+    function handleSignOut() {
+      auth.signOut().then(function () {
+        sessionStorage.removeItem("apex_role");
+        sessionStorage.removeItem("apex_email");
+        sessionStorage.removeItem("apex_display_name");
+        sessionStorage.removeItem("apex_avatar_url");
+        window.location.href = "index.html";
+      });
+    }
+
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    function apiFetch(path, opts) {
+      path = window.apexSidePath ? window.apexSidePath(path, opts) : path;
+      return getToken().then(function (token) {
+        var method = (opts && opts.method) || "GET";
+        var headers = { "Authorization": "Bearer " + token };
+        var fetchOpts = { method: method, headers: headers };
+        if (opts && opts.body) {
+          headers["Content-Type"] = "application/json";
+          fetchOpts.body = JSON.stringify(opts.body);
+        }
+        return fetch(WORKER_URL + path, fetchOpts);
+      });
+    }
+
+        function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+function escHtml(str) {
+      return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function populateHeaderUser(email, displayName, avatarUrl) {
+      var emailEl = document.getElementById("headerEmail");
+      if (!emailEl) { return; }
+      var firstName;
+      if (displayName && displayName.trim()) {
+        var dn = displayName.trim();
+        firstName = dn.indexOf(" ") > -1 ? dn.split(" ")[0] : dn;
+      } else {
+        var atIdx = email ? email.indexOf("@") : -1;
+        firstName = atIdx > -1 ? email.slice(0, atIdx) : (email || "");
+      }
+      var label = firstName || email;
+      var imgHtml = "";
+      if (avatarUrl) {
+        var src = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+        imgHtml = "<img src=\"" + src + "\" alt=\"\" style=\"width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;\">";
+      } else {
+        var initial = (label.charAt(0) || "?").toUpperCase();
+        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + escHtml(initial) + "</span>";
+      }
+      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
+    }
+
+    var promo = { items: { pt: null, en: null }, lang: "pt", msg: "", msgErr: false, shareNote: "" };
+
+    // Keep what was typed (not yet saved) when the tab or the language changes.
+    function stashDraft() {
+      var it = promo.items[promo.lang];
+      var titleEl = document.getElementById("promoTitle"), postEl = document.getElementById("promoPost");
+      if (it && titleEl && postEl) { it.title = titleEl.value; it.post_text = postEl.value; }
+    }
+
+    function selectTab(lang) {
+      stashDraft();
+      promo.lang = lang === "en" ? "en" : "pt";
+      promo.msg = ""; promo.shareNote = "";
+      var tp = document.getElementById("tabPt"), te = document.getElementById("tabEn");
+      if (tp) { tp.className = "tab-btn" + (promo.lang === "pt" ? " is-active" : ""); tp.setAttribute("aria-selected", promo.lang === "pt" ? "true" : "false"); }
+      if (te) { te.className = "tab-btn" + (promo.lang === "en" ? " is-active" : ""); te.setAttribute("aria-selected", promo.lang === "en" ? "true" : "false"); }
+      renderPanel();
+    }
+
+    function curItem() { return promo.items[promo.lang] || { lang: promo.lang, title: "", post_text: "", video_src: "", poster_src: "" }; }
+
+    function downloadHref(src) { return src + (src.indexOf("?") === -1 ? "?" : "&") + "download=1"; }
+
+    function renderPanel() {
+      var box = document.getElementById("promoPanel");
+      if (!box) { return; }
+      var it = curItem();
+      var hasVideo = !!it.video_src;
+      var h = "";
+      h += '<div><label class="field-label" for="promoTitle">' + t("Título", "Title") + '</label>' +
+        '<input type="text" class="field-input" id="promoTitle" maxlength="200" value="' + escHtml(it.title || "") + '"></div>';
+      if (hasVideo) {
+        h += '<div class="video-box"><video id="promoVideo" controls playsinline preload="metadata" src="' + escHtml(it.video_src) + '"' +
+          (it.poster_src ? ' poster="' + escHtml(it.poster_src) + '"' : '') + '></video></div>';
+      } else {
+        h += '<div class="video-empty">' + (promo.lang === "en"
+          ? t("Ainda não há vídeo em inglês. Você já pode preparar o título e o texto.", "No English video yet. You can already prepare the title and the text.")
+          : t("O vídeo em português ainda não foi enviado.", "The Portuguese video has not been uploaded yet.")) + '</div>';
+      }
+      h += '<div><label class="field-label" for="promoPost">' + t("Texto do post (modelo)", "Post text (template)") + '</label>' +
+        '<textarea class="field-area" id="promoPost" maxlength="5000">' + escHtml(it.post_text || "") + '</textarea></div>';
+      h += '<div class="btn-row">' +
+        '<button type="button" class="btn-gold" id="btnPromoSave" onclick="savePromo()">' + t("Salvar", "Save") + '</button>' +
+        '<button type="button" class="btn-line" onclick="copyPromoText()">' + t("Copiar texto", "Copy text") + '</button>' +
+        '<span class="inline-msg' + (promo.msgErr ? " is-error" : "") + '" id="promoMsg">' + escHtml(promo.msg) + '</span></div>';
+      if (hasVideo) {
+        h += '<div class="btn-row">' +
+          '<a class="btn-line" id="lnkDownload" href="' + escHtml(downloadHref(it.video_src)) + '" download>' + t("Baixar vídeo", "Download video") + '</a>' +
+          '<a class="btn-line" id="lnkOpen" href="' + escHtml(it.video_src) + '" target="_blank" rel="noopener">' + t("Abrir vídeo", "Open video") + '</a>' +
+          '<button type="button" class="btn-line" id="btnShareVideo" onclick="shareVideo()" hidden>' + t("Compartilhar vídeo", "Share video") + '</button></div>';
+      }
+      h += '<div class="share-title">' + t("Compartilhar o texto", "Share the text") + '</div>' +
+        '<div class="btn-row">' +
+        '<a class="btn-line" id="lnkFb" href="#" target="_blank" rel="noopener" onclick="return openShare(\'fb\', this)">Facebook</a>' +
+        '<a class="btn-line" id="lnkLi" href="#" target="_blank" rel="noopener" onclick="return openShare(\'li\', this)">LinkedIn</a>' +
+        '<a class="btn-line" id="lnkX" href="#" target="_blank" rel="noopener" onclick="return openShare(\'x\', this)">X</a></div>' +
+        '<p class="section-note">' + t("O Instagram não tem link de compartilhamento: copie o texto, baixe o vídeo e publique no Instagram.",
+          "Instagram has no share link: copy the text, download the video, post it in Instagram.") + '</p>' +
+        '<p class="section-note">' + t("Facebook, LinkedIn e X abrem com o texto quando a rede permite. O vídeo é sempre enviado por você.",
+          "Facebook, LinkedIn and X open with the text where the network allows it. You always upload the video yourself.") + '</p>';
+      box.innerHTML = h;
+      var sb = document.getElementById("btnShareVideo");
+      if (sb && navigator.share && navigator.canShare) { sb.hidden = false; }
+    }
+
+    function currentText() { var el = document.getElementById("promoPost"); return el ? el.value : ""; }
+    function setMsg(text, isErr) {
+      promo.msg = text; promo.msgErr = !!isErr;
+      var m = document.getElementById("promoMsg");
+      if (m) { m.textContent = text; m.className = "inline-msg" + (isErr ? " is-error" : ""); }
+    }
+
+    function savePromo() {
+      var titleEl = document.getElementById("promoTitle");
+      var btn = document.getElementById("btnPromoSave");
+      if (btn) { btn.disabled = true; }
+      var lang = promo.lang;
+      apiFetch("/api/bs/promo/" + lang, { method: "PUT", body: { title: titleEl ? titleEl.value : "", post_text: currentText() } })
+        .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+        .then(function (r) {
+          if (btn) { btn.disabled = false; }
+          if (!r.ok) { setMsg(r.data.error_pt ? t(r.data.error_pt, r.data.error_en) : (r.data.error || "Error"), true); return; }
+          var it = promo.items[lang];
+          if (it) { it.title = titleEl ? titleEl.value : it.title; it.post_text = currentText(); }
+          setMsg(t("Salvo.", "Saved."), false);
+        })
+        .catch(function (e) { if (btn) { btn.disabled = false; } setMsg(e.message, true); });
+    }
+
+    function copyPromoText() {
+      var text = currentText();
+      function fallback() {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed"; ta.style.top = "0"; ta.style.left = "0"; ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        var ok = false;
+        try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+        document.body.removeChild(ta);
+        setMsg(ok ? t("Copiado.", "Copied.") : t("Não foi possível copiar. Selecione o texto e copie.", "Could not copy. Select the text and copy it."), !ok);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { setMsg(t("Copiado.", "Copied."), false); }, fallback);
+      } else { fallback(); }
+    }
+
+    var SHARE_SITE = "https://apex.resonateai.online";
+    function openShare(net, a) {
+      var text = encodeURIComponent(currentText());
+      var url;
+      if (net === "fb") { url = "https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(SHARE_SITE) + "&quote=" + text; }
+      else if (net === "li") { url = "https://www.linkedin.com/feed/?shareActive=true&text=" + text; }
+      else { url = "https://x.com/intent/post?text=" + text; }
+      a.href = url;
+      return true;
+    }
+
+    // The download attribute does nothing in the iPhone app web view, so the
+    // share sheet gets the real file when the device can take it.
+    function shareVideo() {
+      var it = curItem();
+      if (!it.video_src) { return; }
+      setMsg(t("Preparando o vídeo...", "Preparing the video..."), false);
+      fetch(it.video_src).then(function (res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.blob();
+      }).then(function (blob) {
+        var file = new File([blob], "aprenda-promo-" + promo.lang + ".mp4", { type: "video/mp4" });
+        if (!navigator.canShare || !navigator.canShare({ files: [file] })) {
+          setMsg(t("Este aparelho não aceita compartilhar o arquivo. Use Abrir vídeo.", "This device cannot share the file. Use Open video."), true);
+          return null;
+        }
+        return navigator.share({ files: [file], text: currentText() }).then(function () { setMsg("", false); });
+      }).catch(function (e) {
+        if (e && e.name === "AbortError") { setMsg("", false); return; }
+        setMsg(t("Não foi possível compartilhar: ", "Could not share: ") + (e && e.message ? e.message : ""), true);
+      });
+    }
+
+    function loadPromo() {
+      return apiFetch("/api/bs/promo")
+        .then(function (res) {
+          if (!res.ok) { return res.json().then(function (d) { throw new Error(d.error || ("HTTP " + res.status)); }); }
+          return res.json();
+        })
+        .then(function (data) {
+          var list = data.items || [];
+          for (var i = 0; i < list.length; i++) { promo.items[list[i].lang] = list[i]; }
+          renderPanel();
+        })
+        .catch(function (e) {
+          var box = document.getElementById("promoPanel");
+          if (box) { box.innerHTML = '<div class="error-msg">' + t("Erro ao carregar: ", "Could not load: ") + escHtml(e.message) + '</div>'; }
+        });
+    }
+
+    function pageReady() {
+      document.addEventListener("apex:langchange", function () { stashDraft(); renderPanel(); });
+      loadPromo();
+    }
+
+    function setupPage(role) {
+      var roleEl  = document.getElementById("headerRole");
+      var email = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      var displayName = sessionStorage.getItem("apex_display_name") || null;
+      var avatarUrl = sessionStorage.getItem("apex_avatar_url") || null;
+      populateHeaderUser(email, displayName, avatarUrl);
+      if (roleEl)  { roleEl.textContent  = role; }
+
+      document.getElementById("loadingScreen").hidden = true;
+      document.getElementById("appMain").hidden       = false;
+
+      window.initNav && window.initNav();
+      pageReady();
+    }
+
+    function fetchAndApplyRole() {
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/role", {
+          headers: { "Authorization": "Bearer " + token },
+          cache: "no-store"
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        sessionStorage.setItem("apex_role",         data.role);
+        sessionStorage.setItem("apex_email",        data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        if (window.apexApplyRoleLanguage) { window.apexApplyRoleLanguage(data); }
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        return data;
+      });
+    }
+
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+      auth.onAuthStateChanged(function (user) {
+        if (!user) {
+          var hadCachedRole = sessionStorage.getItem("apex_role");
+          if (hadCachedRole) {
+            // WAIT, THEN EITHER BOOT OR BAIL -- never neither.
+            //
+            // Firebase reports a momentary null user during a token refresh
+            // and then restores the session. The old code only handled the bad
+            // outcome: if the user came back within the second it did NOTHING,
+            // and because this branch returns, setupPage() had already been
+            // skipped. The page sat on "Carregando..." with no navigation,
+            // forever, and a refresh replayed the same race -- only retyping
+            // the URL and logging in again cleared it.
+            //
+            // Seen live 2026-08-30, on every page at once, right after a
+            // worker deploy forced exactly that token refresh.
+            setTimeout(function () {
+              if (!auth.currentUser) { window.location.href = "index.html"; return; }
+              // Session came back. Boot the page the callback skipped.
+              currentUser = auth.currentUser;
+              try { setupPage(hadCachedRole); } catch (e) {}
+              if (typeof fetchAndApplyRole === "function") {
+                fetchAndApplyRole().catch(function () {});
+              }
+            }, 1000);
+            return;
+          }
+          window.location.href = "index.html";
+          return;
+        }
+        currentUser = user;
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) {
+          setupPage(cached);
+        }
+
+        fetchAndApplyRole().then(function(data) {
+          if (!cached) {
+            setupPage(data.role);
+          }
+        }).catch(function () {
+          if (!cached) { window.location.href = "index.html"; }
+        });
+      });
+
+      window.addEventListener("pageshow", function(evt) {
+        if (evt.persisted && currentUser) {
+          fetchAndApplyRole().catch(function() {});
+        }
+      });
+    }
+
+    window.onload = function () { init(); };
+  </script>
+  <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
+       injected fixed-position nav broke the desktop flex layout, so these
+       must exist in the markup from page load. nav.js only fills them in;
+       mobile.css alone controls their visibility and positioning. -->
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
+</body>
+</html>

@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js?v=1788495974, so it is installed before anything that can throw.
+
+       WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
+       with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
+       no replay block, hasListeners=false forever) is consistent with a script
+       dying early. Capacitor only prints that generic string, so the actual
+       message, file, line and stack have to be captured here.
+
+       Buffers into a cookie as well as the console, because the native log is
+       only reachable once the Capacitor plugin exists -- which is exactly what
+       may not have happened yet when the error fires. native-bridge.js?v=1788495974 replays
+       this buffer into the native log once the plugin appears. -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1792442281"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
+  <title data-title-pt="Apex — Financeiro" data-title-en="Apex &#8212; Financials">Apex — Financeiro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+<style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --surface:  #f9f7f4;
+      --header:   #1a1a1d;
+      --gold:     #C9A43A;
+      --gold-dim: rgba(201,164,58,0.14);
+      --brown:    #7a5c2e;
+      --text:     #1a1a1d;
+      --muted:    #6b6660;
+      --border:   #e8e2d9;
+      --card:     #ffffff;
+      --radius:   10px;
+      --shadow:   0 2px 16px rgba(26,26,29,0.08);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Bilingual ───────────────────────────────────────────────────────── */
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    #appHeader {
+      background: var(--header);
+      height: 64px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+    .header-right { display: flex; align-items: center; gap: 14px; }
+    .user-pill { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.7); font-size: 13px; }
+    .role-badge {
+      background: var(--gold-dim); border: 1px solid rgba(201,164,58,0.4); color: var(--gold);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 10px;
+    }
+    .btn-header {
+      background: transparent; border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75); font-family: 'Inter', sans-serif; font-size: 12px;
+      font-weight: 500; padding: 5px 13px; border-radius: 20px; cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+    .lang-btn {
+      background: transparent; border: 1.5px solid var(--gold); color: var(--gold);
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+      padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: background 0.15s;
+    }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    /* ── Loading screen ──────────────────────────────────────────────────── */
+    #loadingScreen {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px; color: var(--muted); font-size: 14px;
+    }
+    #loadingScreen[hidden] { display: none !important; }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--gold); border-radius: 50%; animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── App main ────────────────────────────────────────────────────────── */
+    #appMain {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page-wrap { padding: 28px 32px; display: flex; flex-direction: column; gap: 22px; max-width: 1100px; }
+    .page-title { font-size: 22px; font-weight: 700; }
+    .section-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .section-note { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .content-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .card-pad { padding: 18px 20px; }
+    table.bs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.bs-table th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    table.bs-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    table.bs-table tr:last-child td { border-bottom: none; }
+    table.bs-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    table.bs-table th.num { text-align: right; }
+    table.bs-table tr.total td { font-weight: 700; background: var(--surface); }
+    table.bs-table a { color: inherit; text-decoration: none; font-weight: 600; }
+    table.bs-table a:hover { color: var(--brown); }
+    .muted { color: var(--muted); }
+    .empty-state { padding: 28px 20px; text-align: center; color: var(--muted); font-size: 14px; }
+    .error-msg { padding: 14px 20px; color: #b44040; font-size: 13px; }
+    .ok-msg { color: #3f7d4e; font-size: 13px; }
+    .btn-gold { background: var(--gold); color: #fff; border: none; border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; padding: 10px 18px; cursor: pointer; min-height: 40px; }
+    .btn-gold:disabled { opacity: 0.55; cursor: default; }
+    .btn-line { background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; padding: 7px 12px; cursor: pointer; min-height: 34px; }
+    .btn-line:hover { border-color: var(--gold); color: var(--brown); }
+    .btn-line.danger:hover { border-color: #b44040; color: #b44040; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+    .form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+    .form-grid input, .form-grid select, .form-grid textarea { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--text); background: var(--card); border: 1px solid var(--border); border-radius: 7px; padding: 9px 10px; width: 100%; }
+    .form-grid input:focus, .form-grid select:focus, .form-grid textarea:focus { outline: none; border-color: var(--gold); }
+    .form-wide { grid-column: 1 / -1; }
+    .kind-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 14px 20px 8px; }
+    .kind-head h3 { font-size: 14px; font-weight: 700; }
+    .entry-row { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+    .entry-main { flex: 1; min-width: 180px; }
+    .entry-desc { font-size: 14px; font-weight: 600; }
+    .entry-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .entry-amt { font-size: 14px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .entry-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .confirm-row { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 13px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .fig-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+    .fig { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+    .fig-label { font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+    .fig-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .fig-value.neg { color: #b44040; }
+    .fig-value.pos { color: #3f7d4e; }
+    .fig-sub { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+    @media (max-width: 720px) {
+      .page-wrap { padding: 16px; }
+      .table-scroll { overflow-x: auto; }
+      table.bs-table { min-width: 620px; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <header id="appHeader">
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" data-help="admin-menu-language-learn#menu#2" onclick="apexNavToggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
+      <div id="loadingScreen">
+        <div class="spinner"></div>
+        <span class="show-pt">Carregando...</span>
+        <span class="show-en">Loading...</span>
+      </div>
+      
+      <main id="appMain" hidden>
+        <div class="page-wrap">
+          <h1 class="page-title">
+            <span class="show-pt">Financeiro do Business System</span>
+            <span class="show-en">Business System Financials</span>
+          </h1>
+
+          <!-- 1. Clients and shares -->
+          <section>
+            <div class="section-title"><span class="show-pt">Clientes do Business System</span><span class="show-en">Business System clients</span></div>
+            <p class="section-note">
+              <span class="show-pt">Conta clientes ativos e pausados, n&atilde;o arquivados. Leads e clientes encerrados n&atilde;o entram. Cliente sem valor mensal aparece como &ldquo;N&atilde;o definido&rdquo; e conta como zero. Se o valor tem centavo &iacute;mpar no 50-50, o centavo a mais fica com a Resonate.</span>
+              <span class="show-en">Counts active and paused clients that are not archived. Leads and closed clients are left out. A client with no monthly amount shows as &ldquo;Not set&rdquo; and counts as zero. On an odd cent in a 50-50 split, the extra cent goes to Resonate.</span>
+            </p>
+            <div class="content-card" style="margin-top:10px;">
+              <div id="clientsBox" class="table-scroll"><div class="empty-state"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div></div>
+            </div>
+          </section>
+
+          <!-- 2. Summary -->
+          <section>
+            <div class="section-title"><span class="show-pt">Resumo</span><span class="show-en">Summary</span></div>
+            <p class="section-note">
+              <span class="show-pt">O lucro aparece como um total s&oacute; para os dois lados. Ainda n&atilde;o foi decidido entre os donos se o 50-50 vale para o lucro ou s&oacute; para a receita antes dos custos.</span>
+              <span class="show-en">Profit is shown as one total for both sides. The owners have not settled whether the 50-50 applies to profit or only to revenue before costs.</span>
+            </p>
+            <div class="content-card" style="margin-top:10px;"><div class="card-pad"><div id="summaryBox" class="fig-grid"></div></div></div>
+          </section>
+
+          <!-- 3. Ledger form -->
+          <section>
+            <div class="section-title"><span class="show-pt">Lan&ccedil;amentos de custos</span><span class="show-en">Costs ledger</span></div>
+            <div class="content-card" style="margin-top:10px;">
+              <div class="card-pad">
+                <div class="section-title" id="formTitle" style="font-size:14px;margin-bottom:10px;"></div>
+                <div class="form-grid">
+                  <label><span><span class="show-pt">Tipo</span><span class="show-en">Kind</span></span>
+                    <select id="fKind">
+                      <option value="investment"></option><option value="recurring_cost"></option><option value="planned_cost"></option><option value="income"></option>
+                    </select></label>
+                  <label class="form-wide"><span><span class="show-pt">Descri&ccedil;&atilde;o</span><span class="show-en">Description</span></span>
+                    <input type="text" id="fDesc" maxlength="300"></label>
+                  <label><span><span class="show-pt">Categoria</span><span class="show-en">Category</span></span>
+                    <input type="text" id="fCategory" list="categoryList" maxlength="80">
+                    <datalist id="categoryList"></datalist></label>
+                  <label><span><span class="show-pt">Valor (US$)</span><span class="show-en">Amount (US$)</span></span>
+                    <input type="text" id="fAmount" inputmode="decimal" placeholder="1,850.00"></label>
+                  <label><span><span class="show-pt">Frequ&ecirc;ncia</span><span class="show-en">Frequency</span></span>
+                    <select id="fFreq"><option value="one_time"></option><option value="monthly"></option><option value="yearly"></option></select></label>
+                  <label><span><span class="show-pt">Data de in&iacute;cio</span><span class="show-en">Start date</span></span>
+                    <input type="date" id="fStart"></label>
+                  <label><span><span class="show-pt">Data final (opcional)</span><span class="show-en">End date (optional)</span></span>
+                    <input type="date" id="fEnd"></label>
+                  <label><span><span class="show-pt">Quem pagou (opcional)</span><span class="show-en">Paid by (optional)</span></span>
+                    <select id="fPaidBy"><option value=""></option><option value="resonate"></option><option value="rafa"></option><option value="joint"></option></select></label>
+                  <label class="form-wide"><span><span class="show-pt">Observa&ccedil;&atilde;o (opcional)</span><span class="show-en">Note (optional)</span></span>
+                    <textarea id="fNote" rows="2" maxlength="1000"></textarea></label>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap;">
+                  <button type="button" class="btn-gold" id="fSave" onclick="saveEntry()"></button>
+                  <button type="button" class="btn-line" id="fCancel" onclick="cancelEdit()" hidden><span class="show-pt">Cancelar edi&ccedil;&atilde;o</span><span class="show-en">Cancel edit</span></button>
+                  <span id="fMsg" class="ok-msg"></span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 4. Ledger lists, grouped by kind -->
+          <section id="ledgerBox"></section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+  <script src="nav.js"></script>
+  <script src="help-config.js"></script>
+  <script src="help-core.js"></script>
+  <script src="help-widget.js"></script>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    var auth        = null;
+    var currentUser = null;
+
+    function handleSignOut() {
+      auth.signOut().then(function () {
+        sessionStorage.removeItem("apex_role");
+        sessionStorage.removeItem("apex_email");
+        sessionStorage.removeItem("apex_display_name");
+        sessionStorage.removeItem("apex_avatar_url");
+        window.location.href = "index.html";
+      });
+    }
+
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    function apiFetch(path, opts) {
+      path = window.apexSidePath ? window.apexSidePath(path, opts) : path;
+      return getToken().then(function (token) {
+        var method = (opts && opts.method) || "GET";
+        var headers = { "Authorization": "Bearer " + token };
+        var fetchOpts = { method: method, headers: headers };
+        if (opts && opts.body) {
+          headers["Content-Type"] = "application/json";
+          fetchOpts.body = JSON.stringify(opts.body);
+        }
+        return fetch(WORKER_URL + path, fetchOpts);
+      });
+    }
+
+        function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+function escHtml(str) {
+      return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function populateHeaderUser(email, displayName, avatarUrl) {
+      var emailEl = document.getElementById("headerEmail");
+      if (!emailEl) { return; }
+      var firstName;
+      if (displayName && displayName.trim()) {
+        var dn = displayName.trim();
+        firstName = dn.indexOf(" ") > -1 ? dn.split(" ")[0] : dn;
+      } else {
+        var atIdx = email ? email.indexOf("@") : -1;
+        firstName = atIdx > -1 ? email.slice(0, atIdx) : (email || "");
+      }
+      var label = firstName || email;
+      var imgHtml = "";
+      if (avatarUrl) {
+        var src = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+        imgHtml = "<img src=\"" + src + "\" alt=\"\" style=\"width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;\">";
+      } else {
+        var initial = (label.charAt(0) || "?").toUpperCase();
+        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + escHtml(initial) + "</span>";
+      }
+      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
+    }
+
+    /* ── Money, dates, labels ─────────────────────────────────────────────── */
+    function fmtMoney(cents) {
+      var neg = cents < 0;
+      var abs = Math.abs(cents);
+      var dollars = Math.floor(abs / 100);
+      var rest = abs % 100;
+      var d = String(dollars).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return (neg ? "-$" : "$") + d + "." + (rest < 10 ? "0" : "") + rest;
+    }
+    function fmtDate(iso) {
+      if (!iso || iso.length < 10) { return ""; }
+      return iso.slice(5, 7) + "/" + iso.slice(8, 10) + "/" + iso.slice(0, 4);
+    }
+    // "1,850.50" -> 185050. Empty -> null. Bad text -> NaN.
+    function dollarsToCents(txt) {
+      var raw = String(txt || "").replace(/[$,\s]/g, "");
+      if (raw === "") { return null; }
+      if (!/^\d+(\.\d{1,2})?$/.test(raw)) { return NaN; }
+      var parts = raw.split(".");
+      var cents = parts[1] ? parseInt((parts[1] + "0").slice(0, 2), 10) : 0;
+      return parseInt(parts[0], 10) * 100 + cents;
+    }
+    function centsToInput(c) {
+      var d = Math.floor(c / 100), r = c % 100;
+      return d + "." + (r < 10 ? "0" : "") + r;
+    }
+
+    var KIND_LABELS = {
+      investment:     { pt: "Investimento", en: "Investment" },
+      recurring_cost: { pt: "Cobrança recorrente", en: "Ongoing charge" },
+      planned_cost:   { pt: "Cobrança planejada", en: "Planned charge" },
+      income:         { pt: "Receita recebida", en: "Income received" }
+    };
+    var KIND_GROUPS = [
+      { kind: "investment",     pt: "Investimentos",        en: "Investments" },
+      { kind: "recurring_cost", pt: "Cobranças contínuas",  en: "Ongoing charges" },
+      { kind: "planned_cost",   pt: "Cobranças planejadas", en: "Planned charges" },
+      { kind: "income",         pt: "Receita recebida",     en: "Income received" }
+    ];
+    var FREQ_LABELS = {
+      one_time: { pt: "Uma vez", en: "One time" },
+      monthly:  { pt: "Mensal", en: "Monthly" },
+      yearly:   { pt: "Anual", en: "Yearly" }
+    };
+    var PAID_LABELS = {
+      resonate: { pt: "Resonate", en: "Resonate" },
+      rafa:     { pt: "Pr Rafa", en: "Pr Rafa" },
+      joint:    { pt: "Os dois", en: "Both" }
+    };
+    var SPLIT_LABELS = {
+      split_50_50:  { pt: "50-50", en: "50-50" },
+      resonate_100: { pt: "100% Resonate", en: "100% Resonate" },
+      rafa_100:     { pt: "100% Pr Rafa", en: "100% Pr Rafa" }
+    };
+    var CATEGORY_SUGGESTIONS = [
+      { pt: "Plano Claude", en: "Claude plan" }, { pt: "Crédito de API", en: "API credit" },
+      { pt: "Cloudflare", en: "Cloudflare" }, { pt: "Stytch", en: "Stytch" }, { pt: "Twilio", en: "Twilio" },
+      { pt: "Programa de desenvolvedor Apple", en: "Apple developer program" },
+      { pt: "Taxas do Stripe", en: "Stripe fees" }, { pt: "Domínios", en: "Domains" },
+      { pt: "Equipamento", en: "Hardware" }, { pt: "Segurança", en: "Security" },
+      { pt: "Jurídico", en: "Legal" }, { pt: "Outro", en: "Other" }
+    ];
+    function lab(map, key) { var o = map[key]; return o ? t(o.pt, o.en) : key; }
+
+    var state = { data: null, editId: "", confirmId: "", err: "" };
+
+    function amountWord(e) {
+      return fmtMoney(e.amount_cents) + (e.frequency === "monthly" ? t(" por mês", " per month") : (e.frequency === "yearly" ? t(" por ano", " per year") : ""));
+    }
+
+    /* ── Rendering ────────────────────────────────────────────────────────── */
+    function renderClients() {
+      var box = document.getElementById("clientsBox");
+      if (!box || !state.data) { return; }
+      var rows = state.data.clients || [];
+      if (!rows.length) {
+        box.innerHTML = '<div class="empty-state">' + t("Nenhum cliente do Business System ainda.", "No Business System clients yet.") + '</div>';
+        return;
+      }
+      var h = '<table class="bs-table"><thead><tr>' +
+        '<th>' + t("Cliente", "Client") + '</th><th class="num">' + t("Valor mensal", "Monthly amount") + '</th>' +
+        '<th>' + t("Divisão", "Split") + '</th><th class="num">Resonate</th><th class="num">Pr Rafa</th></tr></thead><tbody>';
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var set = r.monthly_amount_cents !== null && r.monthly_amount_cents !== undefined;
+        h += '<tr><td><a href="client.html?id=' + encodeURIComponent(r.id) + '">' + escHtml(r.name) + '</a></td>' +
+          '<td class="num">' + (set ? fmtMoney(r.monthly_amount_cents) : '<span class="muted">' + t("Não definido", "Not set") + '</span>') + '</td>' +
+          '<td>' + escHtml(lab(SPLIT_LABELS, r.split_mode)) + '</td>' +
+          '<td class="num">' + fmtMoney(r.resonate_cents) + '</td><td class="num">' + fmtMoney(r.rafa_cents) + '</td></tr>';
+      }
+      var tt = state.data.totals;
+      h += '<tr class="total"><td>' + t("Total", "Total") + '</td><td class="num">' + fmtMoney(tt.monthly_revenue_cents) + '</td><td></td>' +
+        '<td class="num">' + fmtMoney(tt.resonate_cents) + '</td><td class="num">' + fmtMoney(tt.rafa_cents) + '</td></tr>';
+      h += '</tbody></table>';
+      box.innerHTML = h;
+    }
+
+    function figHtml(label, valueHtml, sub, cls) {
+      return '<div class="fig"><div class="fig-label">' + label + '</div><div class="fig-value ' + (cls || "") + '">' + valueHtml + '</div>' +
+        (sub ? '<div class="fig-sub">' + sub + '</div>' : '') + '</div>';
+    }
+
+    function renderSummary() {
+      var box = document.getElementById("summaryBox");
+      if (!box || !state.data) { return; }
+      var f = state.data.figures;
+      var un = f.unrecovered_cents;
+      var h = "";
+      h += figHtml(t("Receita mensal hoje", "Monthly revenue today"), fmtMoney(f.monthly_revenue_cents), t("Soma dos valores mensais dos clientes.", "Sum of the clients' monthly amounts."));
+      h += figHtml(t("Custo mensal hoje", "Monthly cost today"), fmtMoney(f.monthly_cost_cents), t("Cobranças contínuas já iniciadas e não encerradas. Anual dividido por 12.", "Ongoing charges that have started and not ended. Yearly divided by 12."));
+      h += figHtml(t("Lucro mensal hoje", "Monthly profit today"), fmtMoney(f.monthly_profit_cents), t("Receita menos custo.", "Revenue minus cost."), f.monthly_profit_cents < 0 ? "neg" : "");
+      h += figHtml(t("Custo mensal com as cobranças planejadas", "Monthly cost after planned charges"), fmtMoney(f.monthly_cost_after_planned_cents), t("O mesmo custo mais as cobranças planejadas mensais e anuais.", "The same cost plus the monthly and yearly planned charges."));
+      h += figHtml(t("Lucro mensal com as cobranças planejadas", "Monthly profit after planned charges"), fmtMoney(f.monthly_profit_after_planned_cents), "", f.monthly_profit_after_planned_cents < 0 ? "neg" : "");
+      h += figHtml(t("Gasto único até hoje", "One-time spend to date"), fmtMoney(f.one_time_spend_to_date_cents), t("Investimentos mais custos de uma vez já iniciados.", "Investments plus one-time costs already started."));
+      h += figHtml(t("Gasto único planejado à frente", "Planned one-time spend still ahead"), fmtMoney(f.planned_one_time_ahead_cents), f.planned_overdue_count ? t(f.planned_overdue_count + " lançamento(s) planejado(s) com data já passada não entram. Mude o tipo deles.", f.planned_overdue_count + " planned entry(ies) with a past date are not counted. Change their kind.") : "");
+      h += figHtml(t("Receita recebida até hoje", "Income received to date"), fmtMoney(f.income_received_to_date_cents), t("Cada data de recebimento desde o início conta uma vez.", "Each payment date since the start counts once."));
+      var label = t("Posição inicial", "Starting position");
+      var val, sub, cls;
+      if (un > 0) { val = t("Ainda em dívida: ", "Still in debt: ") + fmtMoney(un); cls = "neg"; }
+      else if (un < 0) { val = t("Recuperado: ", "Recovered: ") + fmtMoney(-un); cls = "pos"; }
+      else { val = t("Empatado: $0.00", "Even: $0.00"); cls = ""; }
+      sub = t("Gasto único mais cobranças contínuas acumuladas (" + fmtMoney(f.recurring_accrued_cents) + ", uma por data de cobrança desde o início), menos a receita recebida.",
+              "One-time spend plus ongoing charges accrued (" + fmtMoney(f.recurring_accrued_cents) + ", one per charge date since the start), minus income received.");
+      h += figHtml(label, val, sub, cls);
+      box.innerHTML = h;
+    }
+
+    function entryMeta(e) {
+      var bits = [lab(FREQ_LABELS, e.frequency), t("início ", "from ") + fmtDate(e.start_date)];
+      if (e.end_date) { bits.push(t("fim ", "to ") + fmtDate(e.end_date)); }
+      if (e.category) { bits.push(e.category); }
+      if (e.paid_by) { bits.push(t("pago por ", "paid by ") + lab(PAID_LABELS, e.paid_by)); }
+      return bits.join(" · ") + (e.note ? '<br>' + escHtml(e.note) : '');
+    }
+
+    function renderLedger() {
+      var box = document.getElementById("ledgerBox");
+      if (!box || !state.data) { return; }
+      var entries = state.data.entries || [];
+      var h = "";
+      for (var g = 0; g < KIND_GROUPS.length; g++) {
+        var grp = KIND_GROUPS[g];
+        var list = [];
+        for (var i = 0; i < entries.length; i++) { if (entries[i].kind === grp.kind) { list.push(entries[i]); } }
+        h += '<div class="content-card" style="margin-bottom:14px;"><div class="kind-head"><h3>' + t(grp.pt, grp.en) + '</h3><span class="muted" style="font-size:12px;">' + list.length + '</span></div>';
+        if (!list.length) { h += '<div class="entry-row muted" style="font-size:13px;">' + t("Nada lançado.", "Nothing entered.") + '</div>'; }
+        for (var j = 0; j < list.length; j++) {
+          var e = list[j];
+          h += '<div class="entry-row"><div class="entry-main"><div class="entry-desc">' + escHtml(e.description) + '</div><div class="entry-meta">' + entryMeta(e) + '</div></div>' +
+            '<div class="entry-amt">' + amountWord(e) + '</div>' +
+            '<div class="entry-actions"><button type="button" class="btn-line" onclick="startEdit(\'' + e.id + '\')">' + t("Editar", "Edit") + '</button>' +
+            '<button type="button" class="btn-line danger" onclick="askDelete(\'' + e.id + '\')">' + t("Excluir", "Delete") + '</button></div>';
+          if (state.confirmId === e.id) {
+            h += '<div class="confirm-row"><span>' + t("Excluir este lançamento? Ele sai das contas.", "Delete this entry? It leaves the figures.") + '</span>' +
+              '<button type="button" class="btn-gold" onclick="doDelete(\'' + e.id + '\')">' + t("Sim, excluir", "Yes, delete") + '</button>' +
+              '<button type="button" class="btn-line" onclick="state.confirmId=\'\';renderLedger();">' + t("Cancelar", "Cancel") + '</button></div>';
+          }
+          h += '</div>';
+        }
+        h += '</div>';
+      }
+      if (state.err) { h += '<div class="error-msg">' + escHtml(state.err) + '</div>'; }
+      box.innerHTML = h;
+    }
+
+    function fillFormLabels() {
+      var kindEl = document.getElementById("fKind"), freqEl = document.getElementById("fFreq"), paidEl = document.getElementById("fPaidBy");
+      if (!kindEl || !freqEl || !paidEl) { return; }
+      var i;
+      for (i = 0; i < kindEl.options.length; i++) { kindEl.options[i].textContent = lab(KIND_LABELS, kindEl.options[i].value); }
+      for (i = 0; i < freqEl.options.length; i++) { freqEl.options[i].textContent = lab(FREQ_LABELS, freqEl.options[i].value); }
+      for (i = 0; i < paidEl.options.length; i++) {
+        var v = paidEl.options[i].value;
+        paidEl.options[i].textContent = v ? lab(PAID_LABELS, v) : t("—", "—");
+      }
+      var dl = document.getElementById("categoryList");
+      if (dl) {
+        var o = "";
+        for (i = 0; i < CATEGORY_SUGGESTIONS.length; i++) { o += '<option value="' + escHtml(t(CATEGORY_SUGGESTIONS[i].pt, CATEGORY_SUGGESTIONS[i].en)) + '"></option>'; }
+        dl.innerHTML = o;
+      }
+      var title = document.getElementById("formTitle");
+      if (title) { title.textContent = state.editId ? t("Editar lançamento", "Edit entry") : t("Novo lançamento", "New entry"); }
+      var saveBtn = document.getElementById("fSave");
+      if (saveBtn) { saveBtn.textContent = state.editId ? t("Salvar alterações", "Save changes") : t("Adicionar", "Add entry"); }
+    }
+
+    function renderAll() { fillFormLabels(); renderClients(); renderSummary(); renderLedger(); }
+
+    /* ── Form ─────────────────────────────────────────────────────────────── */
+    function formValue(id) { var el = document.getElementById(id); return el ? el.value : ""; }
+    function todayIso() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+    function setForm(e) {
+      var map = { fKind: e ? e.kind : "recurring_cost", fDesc: e ? e.description : "", fCategory: e && e.category ? e.category : "",
+        fAmount: e ? centsToInput(e.amount_cents) : "", fFreq: e ? e.frequency : "monthly", fStart: e ? e.start_date : todayIso(),
+        fEnd: e && e.end_date ? e.end_date : "", fPaidBy: e && e.paid_by ? e.paid_by : "", fNote: e && e.note ? e.note : "" };
+      for (var k in map) { if (Object.prototype.hasOwnProperty.call(map, k)) { var el = document.getElementById(k); if (el) { el.value = map[k]; } } }
+    }
+    function startEdit(id) {
+      var list = state.data ? state.data.entries : [];
+      for (var i = 0; i < list.length; i++) { if (list[i].id === id) { state.editId = id; setForm(list[i]); } }
+      var c = document.getElementById("fCancel"); if (c) { c.hidden = false; }
+      var m = document.getElementById("fMsg"); if (m) { m.textContent = ""; }
+      fillFormLabels();
+      var title = document.getElementById("formTitle");
+      if (title && title.scrollIntoView) { title.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    }
+    function cancelEdit() {
+      state.editId = "";
+      setForm(null);
+      var c = document.getElementById("fCancel"); if (c) { c.hidden = true; }
+      fillFormLabels();
+    }
+    function saveEntry() {
+      var msg = document.getElementById("fMsg");
+      var btn = document.getElementById("fSave");
+      if (msg) { msg.className = "error-msg"; msg.textContent = ""; }
+      var cents = dollarsToCents(formValue("fAmount"));
+      if (cents === null || isNaN(cents) || cents <= 0) {
+        if (msg) { msg.textContent = t("Digite um valor em dólares maior que zero, como 1,850.00.", "Type a dollar amount above zero, like 1,850.00."); }
+        return;
+      }
+      if (!formValue("fStart")) { if (msg) { msg.textContent = t("Escolha a data de início.", "Choose the start date."); } return; }
+      var body = { kind: formValue("fKind"), description: formValue("fDesc"), category: formValue("fCategory"), amount_cents: cents,
+        frequency: formValue("fFreq"), start_date: formValue("fStart"), end_date: formValue("fEnd") || null,
+        paid_by: formValue("fPaidBy") || null, note: formValue("fNote") };
+      var editing = state.editId;
+      if (btn) { btn.disabled = true; }
+      apiFetch(editing ? "/api/bs/costs/" + encodeURIComponent(editing) : "/api/bs/costs", { method: editing ? "PUT" : "POST", body: body })
+        .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+        .then(function (r) {
+          if (btn) { btn.disabled = false; }
+          if (!r.ok) {
+            if (msg) { msg.textContent = r.data.error_pt ? t(r.data.error_pt, r.data.error_en) : (r.data.error || "Error"); }
+            return;
+          }
+          cancelEdit();
+          if (msg) { msg.className = "ok-msg"; msg.textContent = t("Salvo.", "Saved."); }
+          loadFinancials();
+        })
+        .catch(function (e) { if (btn) { btn.disabled = false; } if (msg) { msg.textContent = e.message; } });
+    }
+    function askDelete(id) { state.confirmId = id; renderLedger(); }
+    function doDelete(id) {
+      apiFetch("/api/bs/costs/" + encodeURIComponent(id), { method: "DELETE" })
+        .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+        .then(function (r) {
+          state.confirmId = "";
+          state.err = r.ok ? "" : (r.data.error || "Error");
+          loadFinancials();
+        })
+        .catch(function (e) { state.confirmId = ""; state.err = e.message; renderLedger(); });
+    }
+
+    function loadFinancials() {
+      return apiFetch("/api/bs/financials")
+        .then(function (res) {
+          if (!res.ok) { return res.json().then(function (d) { throw new Error(d.error || ("HTTP " + res.status)); }); }
+          return res.json();
+        })
+        .then(function (data) { state.data = data; renderAll(); })
+        .catch(function (e) {
+          var box = document.getElementById("clientsBox");
+          if (box) { box.innerHTML = '<div class="error-msg">' + t("Erro ao carregar: ", "Could not load: ") + escHtml(e.message) + '</div>'; }
+        });
+    }
+
+    function pageReady() {
+      setForm(null);
+      fillFormLabels();
+      document.addEventListener("apex:langchange", renderAll);
+      loadFinancials();
+    }
+
+    function setupPage(role) {
+      var roleEl  = document.getElementById("headerRole");
+      var email = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      var displayName = sessionStorage.getItem("apex_display_name") || null;
+      var avatarUrl = sessionStorage.getItem("apex_avatar_url") || null;
+      populateHeaderUser(email, displayName, avatarUrl);
+      if (roleEl)  { roleEl.textContent  = role; }
+
+      document.getElementById("loadingScreen").hidden = true;
+      document.getElementById("appMain").hidden       = false;
+
+      window.initNav && window.initNav();
+      pageReady();
+    }
+
+    function fetchAndApplyRole() {
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/role", {
+          headers: { "Authorization": "Bearer " + token },
+          cache: "no-store"
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        sessionStorage.setItem("apex_role",         data.role);
+        sessionStorage.setItem("apex_email",        data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        if (window.apexApplyRoleLanguage) { window.apexApplyRoleLanguage(data); }
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        return data;
+      });
+    }
+
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+      auth.onAuthStateChanged(function (user) {
+        if (!user) {
+          var hadCachedRole = sessionStorage.getItem("apex_role");
+          if (hadCachedRole) {
+            // WAIT, THEN EITHER BOOT OR BAIL -- never neither.
+            //
+            // Firebase reports a momentary null user during a token refresh
+            // and then restores the session. The old code only handled the bad
+            // outcome: if the user came back within the second it did NOTHING,
+            // and because this branch returns, setupPage() had already been
+            // skipped. The page sat on "Carregando..." with no navigation,
+            // forever, and a refresh replayed the same race -- only retyping
+            // the URL and logging in again cleared it.
+            //
+            // Seen live 2026-08-30, on every page at once, right after a
+            // worker deploy forced exactly that token refresh.
+            setTimeout(function () {
+              if (!auth.currentUser) { window.location.href = "index.html"; return; }
+              // Session came back. Boot the page the callback skipped.
+              currentUser = auth.currentUser;
+              try { setupPage(hadCachedRole); } catch (e) {}
+              if (typeof fetchAndApplyRole === "function") {
+                fetchAndApplyRole().catch(function () {});
+              }
+            }, 1000);
+            return;
+          }
+          window.location.href = "index.html";
+          return;
+        }
+        currentUser = user;
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) {
+          setupPage(cached);
+        }
+
+        fetchAndApplyRole().then(function(data) {
+          if (!cached) {
+            setupPage(data.role);
+          }
+        }).catch(function () {
+          if (!cached) { window.location.href = "index.html"; }
+        });
+      });
+
+      window.addEventListener("pageshow", function(evt) {
+        if (evt.persisted && currentUser) {
+          fetchAndApplyRole().catch(function() {});
+        }
+      });
+    }
+
+    window.onload = function () { init(); };
+  </script>
+  <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
+       injected fixed-position nav broke the desktop flex layout, so these
+       must exist in the markup from page load. nav.js only fills them in;
+       mobile.css alone controls their visibility and positioning. -->
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
+</body>
+</html>

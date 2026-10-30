@@ -1272,6 +1272,7 @@
     }
 
     function apiFetch(path) {
+      path = window.apexSidePath ? window.apexSidePath(path) : path;
       return getToken().then(function (token) {
         return fetch(WORKER_URL + path, { headers: { "Authorization": "Bearer " + token } });
       });
@@ -2480,7 +2481,9 @@ function escHtml(str) {
         // active promotion, not here, because asking for one at creation is
         // what makes people abandon the form.
         status:   (ncStatusEl   ? ncStatusEl.value   : "lead") || "lead",
-        contacts: contacts.length > 0 ? JSON.stringify(contacts) : null
+        contacts: contacts.length > 0 ? JSON.stringify(contacts) : null,
+        // Business System: a client added on that side is created on that side.
+        plan:     window.apexSide ? window.apexSide() : "consulting"
       };
 
       getToken().then(function (token) {

@@ -82,7 +82,7 @@ function harness(d, who, model, opts) {
   });
   const F = build(
     ["taskInvolvesDeveloper", "taskTranslationColumn", "taskWordsForRole", "taskVoiceTranslationRule", "taskTranslatePrompt", "taskTranslate", "taskVoiceAskClaude",
-     "taskDescriptionClean", "taskBoxMatch", "taskTypedSplit", "handlePatchTask", "handlePostTaskTyped", "handleGetAllTasks",
+     "taskDescriptionClean", "taskBoxMatch", "taskTypedSplit", "handlePatchTask", "handlePostTaskTyped", "handleGetAllTasks", "planParam", "planClientAnd",
      "taskGivenByRole", "taskAssigneeAliceName", "taskAssigneeRafaName", "taskVoiceOwnerRole", "taskVoicePushText", "taskVoiceNotify",
      "taskNoteRecipients", "taskNotePushText", "taskNoteNotify", "taskNoteView", "taskNotesTask", "handleGetTaskNotes", "handlePostTaskNote",
      "taskVoiceParseTasks", "taskVoiceMatchClient", "taskVoiceToday", "taskVoicePrompt", "taskVoiceTranscribe", "taskVoiceDumpOpen", "taskVoiceDumpSet", "handlePostTasksVoice"],

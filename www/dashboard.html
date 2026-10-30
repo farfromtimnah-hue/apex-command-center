@@ -1792,6 +1792,7 @@
     }
 
     function apiFetch(path, opts) {
+      path = window.apexSidePath ? window.apexSidePath(path, opts) : path;
       return getToken().then(function(token) {
         var method    = (opts && opts.method) || "GET";
         var headers   = { "Authorization": "Bearer " + token };

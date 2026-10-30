@@ -945,6 +945,45 @@ function actorName(user) {
     return user.display_name || user.role || null;
 }
 
+// ---------------------------------------------------------------------------
+// BUSINESS SYSTEM: clients.plan is 'consulting' (Pr Rafa's original business)
+// or 'business_system' (portal tools only, paid monthly). Staff reports and
+// lists take ?plan=. A MISSING or unknown value means 'consulting', so an old
+// cached page keeps showing exactly the numbers it always showed. 'all' is the
+// explicit opt-in for the few screens that must serve both plans (billing,
+// the developer preview pickers). The value is whitelisted here, so it is safe
+// to put in SQL text.
+// ---------------------------------------------------------------------------
+var CLIENT_PLANS = ["consulting", "business_system"];
+var CLIENT_SPLIT_MODES = ["split_50_50", "resonate_100", "rafa_100"];
+function planParam(request) {
+    var raw = null;
+    try { raw = new URL(request.url).searchParams.get("plan"); } catch (e) { raw = null; }
+    if (raw === "business_system" || raw === "all") { return raw; }
+    return "consulting";
+}
+// Opt-in variant for endpoints shared with the billing pages: no ?plan= at all
+// means everything, as before.
+function planParamOptIn(request) {
+    var raw = null;
+    try { raw = new URL(request.url).searchParams.get("plan"); } catch (e) { raw = null; }
+    if (raw === "business_system" || raw === "consulting") { return raw; }
+    return "all";
+}
+// " AND c.plan = 'x'" for a query that already joins or selects clients.
+function planAnd(col, plan) {
+    return plan === "all" ? "" : " AND " + col + " = '" + plan + "'";
+}
+// For a table that only carries client_id. A row with no client belongs to the
+// consulting side (a spoken to-do, a personal meeting), never to Business System.
+function planClientAnd(clientCol, plan) {
+    if (plan === "all") { return ""; }
+    if (plan === "consulting") {
+        return " AND (" + clientCol + " IS NULL OR " + clientCol + " IN (SELECT id FROM clients WHERE plan = 'consulting'))";
+    }
+    return " AND " + clientCol + " IN (SELECT id FROM clients WHERE plan = '" + plan + "')";
+}
+
 // Auto-advance a lead's stage as a side effect of a real action elsewhere
 // (first contact logged, X-Ray assigned/submitted, session scheduled).
 //
@@ -1713,7 +1752,7 @@ async function handleGetSessions(request, env) {
                 "raw_transcript IS NOT NULL as has_transcript " +
                 // Event entries (conferences, Apex Club) are not client
                 // sessions -- keep them out of the summarize/transcript list.
-                "FROM sessions WHERE status != 'archived' AND status != 'cancelled' AND meeting_category NOT IN ('event', 'personal', 'church') ORDER BY created_at DESC"
+                "FROM sessions WHERE status != 'archived' AND status != 'cancelled' AND meeting_category NOT IN ('event', 'personal', 'church')" + planClientAnd("client_id", planParam(request)) + " ORDER BY created_at DESC"
             );
         }
 
@@ -2668,12 +2707,17 @@ async function handleGetClients(request, env) {
         // would silently hide every legacy client.
         var listUrl = new URL(request.url);
         var includeArchived = listUrl.searchParams.get("include_archived") === "1";
+        // Business System: ?plan= picks the side; missing = consulting.
+        var listPlan = planParam(request);
+        var listWhere = [];
+        if (!includeArchived) { listWhere.push("COALESCE(archived, 0) = 0"); }
+        if (listPlan !== "all") { listWhere.push("plan = '" + listPlan + "'"); }
         var res = await env.DB.prepare(
             "SELECT id, name, owners, owners_json, industry, location, location_state, location_city, logo_url, profile_pt, profile_en, " +
             "package, status, phone, email, whatsapp, payment_method, contacts, zoho_customer_id, consolidated, lead_stage, lead_temperature, created_at, " +
-            "COALESCE(archived, 0) AS archived, archived_at, archived_by " +
+            "COALESCE(archived, 0) AS archived, archived_at, archived_by, plan, split_mode, monthly_amount_cents " +
             "FROM clients " +
-            (includeArchived ? "" : "WHERE COALESCE(archived, 0) = 0 ") +
+            (listWhere.length ? "WHERE " + listWhere.join(" AND ") + " " : "") +
             "ORDER BY name ASC"
         ).all();
 
@@ -2721,7 +2765,7 @@ async function handleGetClientEngagementDates(request, env) {
             "            AND s.status NOT IN ('discarded','cancelled')) AS first_session_on_file " +
             "FROM clients c " +
             "LEFT JOIN packages p ON p.short_name = c.package " +
-            "WHERE COALESCE(c.archived, 0) = 0 " +
+            "WHERE COALESCE(c.archived, 0) = 0" + planAnd("c.plan", planParam(request)) + " " +
             "ORDER BY c.name ASC"
         ).all();
 
@@ -2806,6 +2850,12 @@ async function handlePostClients(request, env) {
 
         var body = await request.json();
         if (!body.name) { return jsonErr("name is required", 400); }
+        // Business System: plan is whitelisted; missing means consulting.
+        var newPlan = "consulting";
+        if (body.hasOwnProperty("plan") && body.plan !== null && body.plan !== "") {
+            if (CLIENT_PLANS.indexOf(body.plan) === -1) { return jsonErr2("Plano inválido.", "Invalid plan.", 400); }
+            newPlan = body.plan;
+        }
 
         var clientId = crypto.randomUUID();
         await env.DB.prepare(
@@ -2840,6 +2890,15 @@ async function handlePostClients(request, env) {
             ((body.status || "lead") === "lead") ? "Lead" : null
         ).run();
 
+        // Business System: stamp the plan, turn the daily log off through the
+        // shared switch, and retire the old password login (a NEW client has
+        // none, so the cutover passes at once). No legacy credential is made.
+        var createdLegacy = null;
+        if (newPlan === "business_system") {
+            await clientApplyPlanChange(env, clientId, "business_system", user);
+            createdLegacy = await bsTryLegacyCutover(env, request, clientId, actorName(user));
+        }
+
         // B/C: structured owners and state/city, same validation as the PATCH
         // route. Optional — a quick-add with neither posted is unaffected.
         if (body.hasOwnProperty("owners_json") && (body.owners_json || []).length) {
@@ -2863,7 +2922,8 @@ async function handlePostClients(request, env) {
                 .bind(String(body.location_city).trim().slice(0, 100), clientId).run();
         }
 
-        var result = { client_id: clientId, name: body.name };
+        var result = { client_id: clientId, name: body.name, plan: newPlan };
+        if (createdLegacy) { result.legacy_cutover = createdLegacy; }
 
         // Auto-create a matching Zoho contact. A Zoho failure must never block
         // client creation -- surfaced as a warning on the response instead.
@@ -2915,7 +2975,8 @@ async function handleGetClient(id, request, env) {
             "c.daily_log_enabled, c.daily_log_enabled_set_by, c.daily_log_enabled_set_at, " +
             "c.goals_enabled, c.goals_enabled_set_by, c.goals_enabled_set_at, " +
             "c.source_type, c.source_detail, c.referred_by_partner_id, p.name AS referred_by_partner_name, " +
-            "c.lead_temperature, c.created_at, c.staff_manage FROM clients c " +
+            "c.lead_temperature, c.created_at, c.staff_manage, " +
+            "c.plan, c.plan_changed_at, c.plan_changed_by, c.split_mode, c.monthly_amount_cents FROM clients c " +
             "LEFT JOIN apex_partners p ON p.id = c.referred_by_partner_id " +
             "WHERE c.id = ?"
         ).bind(id).first();
@@ -3463,7 +3524,7 @@ async function handleGetClientsNeedingReview(request, env) {
             "  (SELECT COUNT(*) FROM sessions s WHERE s.client_id = c.id) AS session_count, " +
             "  (SELECT COUNT(*) FROM client_assessments a WHERE a.client_id = c.id) AS assessment_count " +
             "FROM clients c " +
-            "WHERE c.status = 'active' AND COALESCE(c.archived, 0) = 0 " +
+            "WHERE c.status = 'active' AND COALESCE(c.archived, 0) = 0" + planAnd("c.plan", planParam(request)) + " " +
             // Deliberately non-billable clients are not "needing review": a
             // joint venture, a pro-bono engagement and a paid-in-full
             // pre-system client will never have terms, by design. See the
@@ -3933,7 +3994,7 @@ async function handleGetVaultClients(request, env) {
             "legal_entity_address, legal_entity_filed_at, legal_entity_status, " +
             "legal_entity_officers, legal_entity_dba, legal_entity_dba_number, " +
             "duns_number, legal_entity_source, legal_entity_verified_at " +
-            "FROM clients WHERE COALESCE(archived,0) = 0 ORDER BY name"
+            "FROM clients WHERE COALESCE(archived,0) = 0" + planAnd("plan", planParam(request)) + " ORDER BY name"
         ).all();
         var clients = (rows.results || []).map(function(c) {
             // officers is stored as JSON text; hand it back parsed so it does
@@ -5733,7 +5794,7 @@ async function handlePostSessionsVoice(request, env) {
         // than the business name, so a roster without owners cannot resolve
         // what he actually says.
         var rosterRes = await env.DB.prepare(
-            "SELECT id, name, owners FROM clients WHERE archived = 0 ORDER BY name"
+            "SELECT id, name, owners FROM clients WHERE archived = 0 AND plan = 'consulting' ORDER BY name"
         ).all();
         var roster = rosterRes.results || [];
         var rosterText = roster.map(function(c) {
@@ -6489,7 +6550,10 @@ async function handleGetSessionsCalendar(request, env) {
             // availability from here, so fake events were OCCUPYING REAL
             // SLOTS and blocking real bookings. Archiving must actually
             // remove a session from the grid, or it is not archiving.
-            "FROM sessions WHERE date >= ? AND date <= ? AND status != 'discarded' AND status != 'cancelled' AND status != 'inbox' AND status != 'archived' ORDER BY date ASC, time ASC"
+            "FROM sessions WHERE date >= ? AND date <= ? AND status != 'discarded' AND status != 'cancelled' AND status != 'inbox' AND status != 'archived'" +
+            // Opt-in only: availability for booking links is read from here, so a
+            // missing ?plan= must keep returning every session (never hide a busy slot).
+            planClientAnd("client_id", planParamOptIn(request)) + " ORDER BY date ASC, time ASC"
         ).bind(startDate, endDate).all();
 
         var sessions = res.results.map(function(row) {
@@ -9435,7 +9499,7 @@ async function handleGetConsultantTasks(request, env) {
                 "SELECT t.id, t.client_id, c.name as client_name, t.type, " +
                 "t.description, t.description_en, t.description_pt, t.due_date, t.status, t.source, t.created_at " +
                 "FROM tasks t LEFT JOIN clients c ON t.client_id = c.id " +
-                "WHERE t.type = 'consultant' AND t.due_date = ?" + TASK_NOT_UNDONE_SQL + TASK_NOT_GIVEN_SQL + sourceClause + " " +
+                "WHERE t.type = 'consultant' AND t.due_date = ?" + TASK_NOT_UNDONE_SQL + TASK_NOT_GIVEN_SQL + sourceClause + planClientAnd("t.client_id", planParam(request)) + " " +
                 "ORDER BY t.due_date ASC"
             );
             stmt = source ? stmt.bind(today, source) : stmt.bind(today);
@@ -9454,7 +9518,7 @@ async function handleGetConsultantTasks(request, env) {
                 "SELECT t.id, t.client_id, c.name as client_name, t.type, " +
                 "t.description, t.description_en, t.description_pt, t.due_date, t.status, t.source, t.created_at " +
                 "FROM tasks t LEFT JOIN clients c ON t.client_id = c.id " +
-                "WHERE t.type = 'consultant' AND t.due_date >= ? AND t.due_date <= ?" + TASK_NOT_UNDONE_SQL + TASK_NOT_GIVEN_SQL + sourceClause + " " +
+                "WHERE t.type = 'consultant' AND t.due_date >= ? AND t.due_date <= ?" + TASK_NOT_UNDONE_SQL + TASK_NOT_GIVEN_SQL + sourceClause + planClientAnd("t.client_id", planParam(request)) + " " +
                 "ORDER BY t.due_date ASC"
             );
             stmt = source ? stmt.bind(weekStart, weekEnd, source) : stmt.bind(weekStart, weekEnd);
@@ -9494,7 +9558,7 @@ async function handleGetAllTasks(request, env) {
             "FROM tasks t " +
             "LEFT JOIN clients c ON t.client_id = c.id " +
             "LEFT JOIN sessions s ON t.session_id = s.id " +
-            "WHERE 1 = 1" + TASK_NOT_UNDONE_SQL + " " +
+            "WHERE 1 = 1" + TASK_NOT_UNDONE_SQL + planClientAnd("t.client_id", planParam(request)) + " " +
             "ORDER BY t.due_date ASC, t.created_at ASC"
         ).all();
 
@@ -9916,7 +9980,7 @@ async function handleGetConsultantTasksOverdue(request, env) {
             "SELECT t.id, t.client_id, c.name as client_name, t.type, " +
             "t.description, t.due_date, t.status, t.created_at " +
             "FROM tasks t LEFT JOIN clients c ON t.client_id = c.id " +
-            "WHERE t.type = 'consultant' AND t.status = 'pending' AND t.due_date < ?" + TASK_NOT_GIVEN_SQL + " " +
+            "WHERE t.type = 'consultant' AND t.status = 'pending' AND t.due_date < ?" + TASK_NOT_GIVEN_SQL + planClientAnd("t.client_id", planParam(request)) + " " +
             "ORDER BY t.due_date ASC"
         ).bind(today).all();
 
@@ -11898,7 +11962,7 @@ async function handleGetClientResourcesPending(request, env) {
             "FROM client_resources cr " +
             "JOIN resources r ON r.id = cr.resource_id " +
             "JOIN clients c ON c.id = cr.client_id " +
-            "WHERE cr.whatsapp_sent_at IS NULL " +
+            "WHERE cr.whatsapp_sent_at IS NULL" + planAnd("c.plan", planParam(request)) + " " +
             "ORDER BY cr.assigned_at ASC"
         ).all();
 
@@ -11921,12 +11985,13 @@ async function handleGetClientResourcesProgress(request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
 
+        var progPlan = planParam(request);
         var unsent = await env.DB.prepare(
-            "SELECT COUNT(*) AS n FROM client_resources WHERE whatsapp_sent_at IS NULL"
+            "SELECT COUNT(*) AS n FROM client_resources WHERE whatsapp_sent_at IS NULL" + planClientAnd("client_id", progPlan)
         ).first();
         var recent = await env.DB.prepare(
             "SELECT whatsapp_sent_at FROM client_resources " +
-            "WHERE whatsapp_sent_at IS NOT NULL AND whatsapp_sent_at >= datetime('now', '-2 days')"
+            "WHERE whatsapp_sent_at IS NOT NULL AND whatsapp_sent_at >= datetime('now', '-2 days')" + planClientAnd("client_id", progPlan)
         ).all();
 
         return jsonOk({
@@ -12578,7 +12643,7 @@ async function handleGetSalesGrowthRanking(request, env) {
             "SELECT c.id AS client_id, c.name, g.growth_percent, g.entered_by, g.entered_at " +
             "FROM clients c " +
             "LEFT JOIN client_growth_entries g ON g.client_id = c.id AND g.month_label = ? " +
-            "WHERE c.status = 'active' AND COALESCE(c.archived, 0) = 0 " +
+            "WHERE c.status = 'active' AND COALESCE(c.archived, 0) = 0" + planAnd("c.plan", planParam(request)) + " " +
             "ORDER BY (g.growth_percent IS NULL) ASC, g.growth_percent DESC, c.name ASC"
         ).bind(month).all();
 
@@ -16462,8 +16527,14 @@ async function handlePostClientLoginCreate(id, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
 
-        var client = await env.DB.prepare("SELECT id, name, email FROM clients WHERE id = ?").bind(id).first();
+        var client = await env.DB.prepare("SELECT id, name, email, plan FROM clients WHERE id = ?").bind(id).first();
         if (!client) { return jsonErr("Client not found", 404); }
+        // Business System clients sign in only with the text code and a passkey
+        // (owner invite link). No legacy username or password is ever issued.
+        if (client.plan === "business_system") {
+            return jsonErr2("Clientes do Business System entram só com o link de acesso (código por texto e passkey).",
+                "Business System clients sign in only with the access link (text code and passkey).", 403);
+        }
 
         var tempPassword = generateTempPassword();
         var passwordHash = await hashPassword(tempPassword);
@@ -17726,6 +17797,14 @@ async function handlePostPasskeyInviteRegister(request, env) {
         await env.DB.prepare(
             "UPDATE login_people SET status = 'active', accepted_at = COALESCE(accepted_at, ?), username = ? WHERE id = ?"
         ).bind(nowIso, username, row.person_id).run();
+        // Business System: once a passkey exists, the old password login of a
+        // business_system business is retired (same safety condition as the
+        // legacy-login switch). Runs BEFORE the session is minted, because the
+        // cutover clears the business's older password sessions.
+        try {
+            var bsPlanRow = await env.DB.prepare("SELECT plan FROM clients WHERE id = ?").bind(row.client_id).first();
+            if (bsPlanRow && bsPlanRow.plan === "business_system") { await bsTryLegacyCutover(env, request, row.client_id, "passkey-registered"); }
+        } catch (e) { /* never blocks a registration */ }
         var session = await passkeyMintSession(env, username, row.person_id, request);
         if (!session) { return passkeyFail("register"); }
         await env.DB.prepare("UPDATE login_people SET last_passkey_login_at = ? WHERE id = ?")
@@ -18154,18 +18233,19 @@ async function handlePostGmPersonStatus(personId, action, request, env) {
             p.status = "disabled";
             await loginActivityRecord(env, request, { client_id: p.client_id, person_id: p.id, role: p.role, kind: "person_disabled", detail: {} });
         } else {
-            if (!p.accepted_at) {
-                return jsonErr2("Esta pessoa ainda não aceitou o convite. Envie um novo link.",
-                    "This person has not accepted the invite yet. Send a new link.", 409);
-            }
+            // A person who never accepted goes back to 'invited' (where they were
+            // before being disabled), not to 'active'. Refusing here left a
+            // disabled, never-accepted person stuck: the new-link action refuses
+            // a disabled person and this one refused too.
+            var enableTo = p.accepted_at ? "active" : "invited";
             // Change J: re-enabling only re-checks the seat limit in 'block' mode.
             var pol = await passkeySeatPolicy(env, p.client_id);
             if (pol.mode === "block" && pol.hard_limit) {
                 var used = await passkeySeatsUsed(env, p.client_id);
                 if (used >= pol.hard_limit) { return passkeySeatBlockedMsgDirect(); }
             }
-            await env.DB.prepare("UPDATE login_people SET status = 'active' WHERE id = ?").bind(p.id).run();
-            p.status = "active";
+            await env.DB.prepare("UPDATE login_people SET status = ? WHERE id = ?").bind(enableTo, p.id).run();
+            p.status = enableTo;
         }
         await passkeySeatUsageBump(env, p.client_id);
         return jsonOk({ person: passkeyPublicPerson(p, null) });
@@ -18772,26 +18852,10 @@ async function handlePostGmClientLegacyLogin(clientId, request, env) {
             await loginActivityRecord(env, request, { client_id: clientId, kind: "legacy_cutover", detail: { disabled: false } });
             return jsonOk({ disabled: false });
         }
-        var logins = (await env.DB.prepare(
-            "SELECT username, role, seller_name FROM client_logins WHERE client_id = ? AND password_hash != ?"
-        ).bind(clientId, PASSKEY_ONLY_HASH).all()).results || [];
-        var missing = [];
-        for (var i = 0; i < logins.length; i++) {
-            var l = logins[i];
-            var covered = await env.DB.prepare(
-                "SELECT p.id FROM login_people p JOIN login_passkeys k ON k.person_id = p.id " +
-                "WHERE p.client_id = ? AND p.username = ? AND p.status = 'active' AND k.revoked_at IS NULL LIMIT 1"
-            ).bind(clientId, l.username).first();
-            if (!covered) { missing.push(l.seller_name || l.username); }
+        var applied = await legacyCutoverApply(env, clientId, actorName(user));
+        if (!applied.ok) {
+            return jsonErr2("Ainda faltam: " + applied.missing.join(", "), "Still missing: " + applied.missing.join(", "), 409, { missing: applied.missing });
         }
-        if (missing.length) {
-            return jsonErr2("Ainda faltam: " + missing.join(", "), "Still missing: " + missing.join(", "), 409, { missing: missing });
-        }
-        await env.DB.prepare(
-            "INSERT INTO login_legacy_cutover (client_id, disabled_at, disabled_by) VALUES (?, ?, ?) " +
-            "ON CONFLICT (client_id) DO UPDATE SET disabled_at = excluded.disabled_at, disabled_by = excluded.disabled_by"
-        ).bind(clientId, new Date().toISOString(), actorName(user)).run();
-        await env.DB.prepare("DELETE FROM client_auth_tokens WHERE client_id = ?").bind(clientId).run();
         await loginActivityRecord(env, request, { client_id: clientId, kind: "legacy_cutover", detail: { disabled: true } });
         return jsonOk({ disabled: true });
     } catch (e) {
@@ -19524,7 +19588,7 @@ async function handleGetGoalApprovals(request, env) {
             "SELECT f.client_id, c.name AS client_name, f.indicator_key, f.month_label, " +
             "f.meta_mensal, f.proposed_value, f.proposed_at, f.proposed_by " +
             "FROM client_field_config f LEFT JOIN clients c ON c.id = f.client_id " +
-            "WHERE f.status = 'pending' AND f.proposed_value IS NOT NULL " +
+            "WHERE f.status = 'pending' AND f.proposed_value IS NOT NULL" + planAnd("c.plan", planParam(request)) + " " +
             "ORDER BY f.proposed_at DESC"
         ).all();
         var out = (rows.results || []).map(function(r) {
@@ -20011,7 +20075,7 @@ async function handleGetPipelineGap(request, env) {
         ).bind(since, today).all();
 
         var names = await env.DB.prepare(
-            "SELECT id, name FROM clients WHERE archived = 0"
+            "SELECT id, name FROM clients WHERE archived = 0" + planAnd("plan", planParam(request))
         ).all();
         var nameById = {};
         (names.results || []).forEach(function(r) { nameById[r.id] = r.name; });
@@ -20503,7 +20567,7 @@ async function handleGetLeaderboard(request, env) {
 
         var clients = await env.DB.prepare(
             "SELECT id, name FROM clients WHERE (status = 'active' OR status IS NULL) " +
-            "AND COALESCE(archived, 0) = 0 ORDER BY name"
+            "AND COALESCE(archived, 0) = 0" + planAnd("plan", planParam(request)) + " ORDER BY name"
         ).all();
 
         var CATEGORIES = ["financeiro", "clientes_mercado", "processos", "crescimento"];
@@ -20600,7 +20664,7 @@ async function handleGetClientsAverage(request, env) {
         // status='closed', so they never enter the aggregate.
         var clients = await env.DB.prepare(
             "SELECT id, name FROM clients WHERE (status = 'active' OR status IS NULL) " +
-            "AND COALESCE(archived, 0) = 0 ORDER BY name"
+            "AND COALESCE(archived, 0) = 0" + planAnd("plan", planParam(request)) + " ORDER BY name"
         ).all();
         var list = clients.results || [];
 
@@ -40197,6 +40261,7 @@ async function handleGetAdminStaleContractNotices(request, env) {
             " AND NOT EXISTS (SELECT 1 FROM gm_contracts k WHERE k.client_id = n.client_id AND k.job_id = n.job_id AND k.status = 'completed')";
         var binds = [];
         if (clientId) { sql += " AND n.client_id = ?"; binds.push(clientId); }
+        else { sql += planAnd("c.plan", planParam(request)); }
         sql += " ORDER BY n.created_at";
         var stmt = env.DB.prepare(sql);
         var rows = (await stmt.bind.apply(stmt, binds).all()).results || [];
@@ -40912,7 +40977,9 @@ async function handleGetGmSellerLoginRequests(request, env) {
         var sql =
             "SELECT r.id, r.client_id, c.name AS client_name, r.seller_name, r.status, " +
             "r.requested_at, r.requested_by FROM gm_seller_login_requests r " +
-            "LEFT JOIN clients c ON c.id = r.client_id WHERE r.status = 'pending'";
+            "LEFT JOIN clients c ON c.id = r.client_id WHERE r.status = 'pending'" +
+            // Dashboard side filter. A call for ONE client (the profile) is not a list.
+            (filterClient ? "" : planAnd("c.plan", planParam(request)));
         var stmt;
         if (filterClient) {
             stmt = env.DB.prepare(sql + " AND r.client_id = ? ORDER BY r.requested_at ASC").bind(filterClient);
@@ -47297,7 +47364,9 @@ async function apptRemFindSessions(env, lo, hi) {
     var res = await env.DB.prepare(
         "SELECT id, client_id, client_name, date, time, session_type, location, created_by, send_text_reminder FROM sessions " +
         "WHERE date >= ? AND date <= ? AND time IS NOT NULL AND time != '' " +
-        "AND status NOT IN ('discarded', 'cancelled', 'inbox', 'archived')"
+        "AND status NOT IN ('discarded', 'cancelled', 'inbox', 'archived')" +
+        // Business System clients get no meeting reminders (no weekly meetings).
+        planClientAnd("client_id", "consulting")
     ).bind(lo.slice(0, 10), hi.slice(0, 10)).all();
     var rows = [], badTime = 0;
     (res.results || []).forEach(function(r) {
@@ -47528,7 +47597,7 @@ async function handleGetGmDormantLogins(request, env) {
             "JOIN client_logins l ON l.username = p.username " +
             "JOIN clients c ON c.id = p.client_id " +
             "WHERE p.username IS NOT NULL AND p.created_at <= ? AND l.last_login_at IS NULL " +
-            "AND p.status != 'disabled' " +
+            "AND p.status != 'disabled'" + planAnd("c.plan", planParam(request)) + " " +
             "ORDER BY p.created_at"
         ).bind(cutoff).all()).results || [];
         return jsonOk({ dormant: rows });
@@ -48141,6 +48210,7 @@ async function handleGetFinanceNewAttention(request, env) {
             "SELECT COUNT(*) AS n FROM clients c " +
             "WHERE COALESCE(c.status,'active') = 'active' " +
             "AND COALESCE(c.archived, 0) = 0 " +
+            "AND c.plan = 'consulting' " +
             "AND COALESCE(c.billing_type,'billable') = 'billable' " +
             // A bespoke total is not a missing one. The marketing add-on is
             // priced per client, by what that client needs -- there is no
@@ -48505,7 +48575,13 @@ async function handleGetFinanceNewInvoices(request, env) {
             "i.notes, i.line_description, " +
             "c.name AS client_name, c.whatsapp AS client_whatsapp " +
             "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id ";
-        if (!includeVoided) { sql += "WHERE i.status != 'voided_mistake' "; }
+        // Business System: the billing page serves both plans, so this filter is
+        // opt-in (no ?plan= means every invoice, as before). The Dashboard sends it.
+        var invPlan = planParamOptIn(request);
+        var invWhere = [];
+        if (!includeVoided) { invWhere.push("i.status != 'voided_mistake'"); }
+        if (invPlan !== "all") { invWhere.push("c.plan = '" + invPlan + "'"); }
+        if (invWhere.length) { sql += "WHERE " + invWhere.join(" AND ") + " "; }
         sql += "ORDER BY i.number DESC";
 
         var res = await env.DB.prepare(sql).all();
@@ -49197,7 +49273,7 @@ async function clientTermsContractProgressRows(env, onlyClientId) {
             // to what he needs -- a real paying client whose total only Rafa
             // knows. Hiding him would be worse than showing him with a blank.
             "FROM clients c LEFT JOIN client_package_terms t ON t.client_id = c.id " +
-            "WHERE COALESCE(c.archived,0) = 0 " +
+            "WHERE COALESCE(c.archived,0) = 0 AND c.plan = 'consulting' " +
             "AND (t.client_id IS NOT NULL OR COALESCE(c.custom_pricing,0) = 1) " +
             "AND COALESCE(c.status,'active') = 'active' " +
             // A joint venture, a pro-bono engagement or a client who paid in
@@ -52248,8 +52324,11 @@ async function handlePostSchedulingRequest(request, env) {
         var body = await request.json();
         if (!body.client_id) { return jsonErr("client_id is required", 400); }
 
-        var client = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?").bind(body.client_id).first();
+        var client = await env.DB.prepare("SELECT id, name, plan FROM clients WHERE id = ?").bind(body.client_id).first();
         if (!client) { return jsonErr("Client not found", 404); }
+        if (client.plan === "business_system") {
+            return jsonErr2("Clientes do Business System não têm reunião semanal.", "Business System clients have no weekly meeting.", 400);
+        }
 
         var settings = await schedSettings(env);
         var meetingType = body.meeting_type === "in_person" ? "in_person" : "online_meet";
@@ -55003,6 +55082,492 @@ function publicDocHeaders(response, request) {
     }
 }
 
+// ===========================================================================
+// BUSINESS SYSTEM (2026-10-30). The second admin side: clients who pay monthly
+// for the portal tools, with no consulting. Everything here is staff-only
+// (alice, rafa, developer). Money is integer cents; dates are ISO text.
+// ===========================================================================
+
+// Turning the daily log off goes through the SAME switch the client PATCH uses:
+// value, set_by, set_at, and the pause memory cleared (a hand flip wins over
+// the pause memory, hero build E2). Written only when the value changes.
+async function clientSetSwitchOff(env, clientId, key, user) {
+    var cur = await env.DB.prepare("SELECT " + key + " AS v FROM clients WHERE id = ?").bind(clientId).first();
+    if (!cur || cur.v === 0) { return false; }
+    var memCol = key === "daily_log_enabled" ? "daily_log_before_pause" : "goals_before_pause";
+    await env.DB.prepare("UPDATE clients SET " + key + " = 0, " + key + "_set_by = ?, " + key + "_set_at = datetime('now'), " + memCol + " = NULL WHERE id = ?")
+        .bind(actorName(user), clientId).run();
+    return true;
+}
+
+// Writes the plan and its audit stamp. Moving to business_system also turns the
+// daily log off. Moving back to consulting touches nothing else.
+async function clientApplyPlanChange(env, clientId, plan, user) {
+    await env.DB.prepare("UPDATE clients SET plan = ?, plan_changed_at = datetime('now'), plan_changed_by = ? WHERE id = ?")
+        .bind(plan, actorName(user), clientId).run();
+    if (plan === "business_system") { await clientSetSwitchOff(env, clientId, "daily_log_enabled", user); }
+}
+
+// The old password login is retired for a business only when EVERY password
+// login of that business already has an active passkey (the safety condition
+// of POST /api/gm/clients/:id/legacy-login). A business with no password login
+// at all passes at once. Returns { ok: true } or { ok: false, missing: [...] }.
+async function legacyCutoverApply(env, clientId, actor) {
+    var logins = (await env.DB.prepare(
+        "SELECT username, role, seller_name FROM client_logins WHERE client_id = ? AND password_hash != ?"
+    ).bind(clientId, PASSKEY_ONLY_HASH).all()).results || [];
+    var missing = [];
+    for (var i = 0; i < logins.length; i++) {
+        var l = logins[i];
+        var covered = await env.DB.prepare(
+            "SELECT p.id FROM login_people p JOIN login_passkeys k ON k.person_id = p.id " +
+            "WHERE p.client_id = ? AND p.username = ? AND p.status = 'active' AND k.revoked_at IS NULL LIMIT 1"
+        ).bind(clientId, l.username).first();
+        if (!covered) { missing.push(l.seller_name || l.username); }
+    }
+    if (missing.length) { return { ok: false, missing: missing }; }
+    await env.DB.prepare(
+        "INSERT INTO login_legacy_cutover (client_id, disabled_at, disabled_by) VALUES (?, ?, ?) " +
+        "ON CONFLICT (client_id) DO UPDATE SET disabled_at = excluded.disabled_at, disabled_by = excluded.disabled_by"
+    ).bind(clientId, new Date().toISOString(), actor || null).run();
+    await env.DB.prepare("DELETE FROM client_auth_tokens WHERE client_id = ?").bind(clientId).run();
+    return { ok: true };
+}
+
+// Business System passkey-only rule, best effort: try the cutover and record
+// it. Never throws (a login problem must not undo a plan change).
+async function bsTryLegacyCutover(env, request, clientId, actor) {
+    try {
+        var r = await legacyCutoverApply(env, clientId, actor);
+        if (r.ok) {
+            await loginActivityRecord(env, request, { client_id: clientId, kind: "legacy_cutover", detail: { disabled: true, via: "business_system" } });
+            return "applied";
+        }
+        return "pending_passkey";
+    } catch (e) {
+        return "error";
+    }
+}
+
+function bsIsStaff(user) { return isAdminRole(user); }
+
+// ---- Route: POST /api/clients/:id/plan { plan } ---------------------------
+async function handlePostClientPlan(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!bsIsStaff(user)) { return jsonErr("Forbidden", 403); }
+        var body = await request.json().catch(function() { return {}; });
+        var plan = body && body.plan;
+        if (CLIENT_PLANS.indexOf(plan) === -1) {
+            return jsonErr2("Plano inválido.", "Invalid plan.", 400);
+        }
+        var client = await env.DB.prepare("SELECT id, plan FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+        if (client.plan === plan) { return jsonOk({ plan: plan, changed: false }); }
+        await clientApplyPlanChange(env, id, plan, user);
+        var out = { plan: plan, changed: true };
+        if (plan === "business_system") {
+            out.legacy_cutover = await bsTryLegacyCutover(env, request, id, actorName(user));
+        }
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Error changing plan: " + e.message, 500);
+    }
+}
+
+// ---- Route: PUT /api/clients/:id/billing-split { split_mode?, monthly_amount_cents? }
+async function handlePutClientBillingSplit(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!bsIsStaff(user)) { return jsonErr("Forbidden", 403); }
+        var body = await request.json().catch(function() { return {}; });
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+        var touched = false;
+        if (body.hasOwnProperty("split_mode")) {
+            if (CLIENT_SPLIT_MODES.indexOf(body.split_mode) === -1) {
+                return jsonErr2("Divisão inválida.", "Invalid split.", 400);
+            }
+        }
+        if (body.hasOwnProperty("monthly_amount_cents") && body.monthly_amount_cents !== null) {
+            var c = body.monthly_amount_cents;
+            if (typeof c !== "number" || !isFinite(c) || Math.floor(c) !== c || c < 0 || c > 100000000) {
+                return jsonErr2("O valor mensal deve ser um número inteiro de centavos, zero ou mais.",
+                    "The monthly amount must be a whole number of cents, zero or more.", 400);
+            }
+        }
+        if (body.hasOwnProperty("split_mode")) {
+            await env.DB.prepare("UPDATE clients SET split_mode = ? WHERE id = ?").bind(body.split_mode, id).run();
+            touched = true;
+        }
+        if (body.hasOwnProperty("monthly_amount_cents")) {
+            await env.DB.prepare("UPDATE clients SET monthly_amount_cents = ? WHERE id = ?")
+                .bind(body.monthly_amount_cents === null ? null : body.monthly_amount_cents, id).run();
+            touched = true;
+        }
+        return jsonOk({ updated: touched });
+    } catch (e) {
+        return jsonErr("Error updating split: " + e.message, 500);
+    }
+}
+
+// ---- Costs ledger ----------------------------------------------------------
+var BS_COST_KINDS = ["investment", "recurring_cost", "planned_cost", "income"];
+var BS_COST_FREQS = ["one_time", "monthly", "yearly"];
+var BS_COST_PAID_BY = ["resonate", "rafa", "joint"];
+
+function bsValidDate(s) {
+    if (typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(s)) { return false; }
+    var d = new Date(s + "T00:00:00Z");
+    return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
+// Returns { ok: true, v: {...} } or { ok: false, pt, en }. Used for create and
+// for update (update sends the whole entry, so one rule covers both).
+function bsCostValidate(body) {
+    function bad(pt, en) { return { ok: false, pt: pt, en: en }; }
+    if (!body || typeof body !== "object") { return bad("Dados inválidos.", "Invalid data."); }
+    if (BS_COST_KINDS.indexOf(body.kind) === -1) { return bad("Tipo inválido.", "Invalid kind."); }
+    if (BS_COST_FREQS.indexOf(body.frequency) === -1) { return bad("Frequência inválida.", "Invalid frequency."); }
+    var desc = typeof body.description === "string" ? body.description.trim() : "";
+    if (!desc) { return bad("Descreva o lançamento.", "Describe the entry."); }
+    if (desc.length > 300) { return bad("Descrição longa demais.", "Description is too long."); }
+    var amt = body.amount_cents;
+    if (typeof amt !== "number" || !isFinite(amt) || Math.floor(amt) !== amt || amt <= 0 || amt > 100000000000) {
+        return bad("O valor deve ser um número inteiro de centavos, maior que zero.", "The amount must be a whole number of cents, above zero.");
+    }
+    if (!bsValidDate(body.start_date)) { return bad("Data de início inválida.", "Invalid start date."); }
+    var end = body.end_date === undefined || body.end_date === null || body.end_date === "" ? null : body.end_date;
+    if (end !== null) {
+        if (!bsValidDate(end)) { return bad("Data final inválida.", "Invalid end date."); }
+        if (end < body.start_date) { return bad("A data final não pode ser antes da inicial.", "The end date cannot be before the start date."); }
+    }
+    var paidBy = body.paid_by === undefined || body.paid_by === null || body.paid_by === "" ? null : body.paid_by;
+    if (paidBy !== null && BS_COST_PAID_BY.indexOf(paidBy) === -1) { return bad("Quem pagou: valor inválido.", "Invalid paid by."); }
+    var cat = typeof body.category === "string" ? body.category.trim().slice(0, 80) : "";
+    var note = typeof body.note === "string" ? body.note.trim().slice(0, 1000) : "";
+    return { ok: true, v: {
+        kind: body.kind, description: desc, category: cat || null, amount_cents: amt, frequency: body.frequency,
+        start_date: body.start_date, end_date: end, paid_by: paidBy, note: note || null
+    } };
+}
+
+var BS_COST_COLS = "id, kind, description, category, amount_cents, frequency, start_date, end_date, paid_by, note, created_at, created_by, updated_at, updated_by";
+
+async function handleGetBsCosts(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!bsIsStaff(user)) { return jsonErr("Forbidden", 403); }
+        var rows = await env.DB.prepare("SELECT " + BS_COST_COLS + " FROM bs_cost_entries WHERE deleted_at IS NULL ORDER BY start_date DESC, created_at DESC").all();
+        return jsonOk({ entries: rows.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching costs: " + e.message, 500);
+    }
+}
+
+async function handlePostBsCost(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!bsIsStaff(user)) { return jsonErr("Forbidden", 403); }
+        var body = await request.json().catch(function() { return null; });
+        var chk = bsCostValidate(body);
+        if (!chk.ok) { return jsonErr2(chk.pt, chk.en, 400); }
+        var v = chk.v;
+        var id = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO bs_cost_entries (id, kind, description, category, amount_cents, frequency, start_date, end_date, paid_by, note, created_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(id, v.kind, v.description, v.category, v.amount_cents, v.frequency, v.start_date, v.end_date, v.paid_by, v.note, actorName(user)).run();
+        var row = await env.DB.prepare("SELECT " + BS_COST_COLS + " FROM bs_cost_entries WHERE id = ?").bind(id).first();
+        return jsonOk({ entry: row });
+    } catch (e) {
+        return jsonErr("Error creating entry: " + e.message, 500);
+    }
+}
+
+async function handlePutBsCost(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!bsIsStaff(user)) { return jsonErr("Forbidden", 403); }
+        var body = await request.json().catch(function() { return null; });
+        var chk = bsCostValidate(body);
+        if (!chk.ok) { return jsonErr2(chk.pt, chk.en, 400); }
+        var cur = await env.DB.prepare("SELECT id FROM bs_cost_entries WHERE id = ? AND deleted_at IS NULL").bind(id).first();
+        if (!cur) { return jsonErr("Entry not found", 404); }
+        var v = chk.v;
+        await env.DB.prepare(
+            "UPDATE bs_cost_entries SET kind = ?, description = ?, category = ?, amount_cents = ?, frequency = ?, start_date = ?, end_date = ?, " +
+            "paid_by = ?, note = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?"
+        ).bind(v.kind, v.description, v.category, v.amount_cents, v.frequency, v.start_date, v.end_date, v.paid_by, v.note, actorName(user), id).run();
+        var row = await env.DB.prepare("SELECT " + BS_COST_COLS + " FROM bs_cost_entries WHERE id = ?").bind(id).first();
+        return jsonOk({ entry: row });
+    } catch (e) {
+        return jsonErr("Error updating entry: " + e.message, 500);
+    }
+}
+
+async function handleDeleteBsCost(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!bsIsStaff(user)) { return jsonErr("Forbidden", 403); }
+        var cur = await env.DB.prepare("SELECT id FROM bs_cost_entries WHERE id = ? AND deleted_at IS NULL").bind(id).first();
+        if (!cur) { return jsonErr("Entry not found", 404); }
+        await env.DB.prepare("UPDATE bs_cost_entries SET deleted_at = datetime('now'), updated_at = datetime('now'), updated_by = ? WHERE id = ?")
+            .bind(actorName(user), id).run();
+        return jsonOk({ deleted: true });
+    } catch (e) {
+        return jsonErr("Error deleting entry: " + e.message, 500);
+    }
+}
+
+// ---- Financials: pure math, integer cents ---------------------------------
+// Occurrences of a charge from start through min(today, end), inclusive. The
+// first charge lands on start_date; a monthly charge repeats on the same day of
+// the month, a yearly one on the same month and day. 0 if not started yet.
+function bsOccurrences(entry, today) {
+    if (entry.start_date > today) { return 0; }
+    if (entry.frequency === "one_time") { return 1; }
+    var last = entry.end_date && entry.end_date < today ? entry.end_date : today;
+    var y1 = parseInt(entry.start_date.slice(0, 4), 10), m1 = parseInt(entry.start_date.slice(5, 7), 10), d1 = parseInt(entry.start_date.slice(8, 10), 10);
+    var y2 = parseInt(last.slice(0, 4), 10), m2 = parseInt(last.slice(5, 7), 10), d2 = parseInt(last.slice(8, 10), 10);
+    if (entry.frequency === "monthly") {
+        var months = (y2 - y1) * 12 + (m2 - m1);
+        return months + (d2 >= d1 ? 1 : 0);
+    }
+    var years = y2 - y1;
+    var reached = (m2 > m1) || (m2 === m1 && d2 >= d1);
+    return years + (reached ? 1 : 0);
+}
+function bsMonthlyEquivalent(entry) {
+    if (entry.frequency === "monthly") { return entry.amount_cents; }
+    if (entry.frequency === "yearly") { return Math.round(entry.amount_cents / 12); }
+    return 0;
+}
+function bsSplitShares(amount, mode) {
+    if (amount === null || amount === undefined) { return { resonate: 0, rafa: 0 }; }
+    if (mode === "resonate_100") { return { resonate: amount, rafa: 0 }; }
+    if (mode === "rafa_100") { return { resonate: 0, rafa: amount }; }
+    var rafa = Math.floor(amount / 2);
+    return { resonate: amount - rafa, rafa: rafa };
+}
+function bsComputeFinancials(clients, entries, today) {
+    var rows = [], revenue = 0, resTotal = 0, rafaTotal = 0, notSet = 0;
+    clients.forEach(function(c) {
+        var amt = (c.monthly_amount_cents === null || c.monthly_amount_cents === undefined) ? null : c.monthly_amount_cents;
+        var sh = bsSplitShares(amt, c.split_mode);
+        if (amt === null) { notSet++; }
+        revenue += amt || 0; resTotal += sh.resonate; rafaTotal += sh.rafa;
+        rows.push({ id: c.id, name: c.name, status: c.status, split_mode: c.split_mode, monthly_amount_cents: amt,
+            resonate_cents: sh.resonate, rafa_cents: sh.rafa });
+    });
+    var monthlyCost = 0, monthlyPlanned = 0, oneTimeSpent = 0, plannedAhead = 0, recurringAccrued = 0, incomeReceived = 0, plannedOverdue = 0;
+    entries.forEach(function(e) {
+        var started = e.start_date <= today;
+        var ended = !!e.end_date && e.end_date < today;
+        var recurring = e.frequency === "monthly" || e.frequency === "yearly";
+        if (e.kind === "recurring_cost") {
+            if (recurring) {
+                if (started && !ended) { monthlyCost += bsMonthlyEquivalent(e); }
+                recurringAccrued += bsOccurrences(e, today) * e.amount_cents;
+            } else if (started) { oneTimeSpent += e.amount_cents; }
+        } else if (e.kind === "investment") {
+            if (started) { oneTimeSpent += e.amount_cents; }
+        } else if (e.kind === "planned_cost") {
+            if (recurring) { if (!ended) { monthlyPlanned += bsMonthlyEquivalent(e); } }
+            else if (!started) { plannedAhead += e.amount_cents; }
+            else { plannedOverdue++; }
+        } else if (e.kind === "income") {
+            incomeReceived += bsOccurrences(e, today) * e.amount_cents;
+        }
+    });
+    var monthlyCostAfter = monthlyCost + monthlyPlanned;
+    return {
+        clients: rows,
+        totals: { monthly_revenue_cents: revenue, resonate_cents: resTotal, rafa_cents: rafaTotal, not_set_count: notSet },
+        figures: {
+            monthly_revenue_cents: revenue,
+            monthly_cost_cents: monthlyCost,
+            monthly_profit_cents: revenue - monthlyCost,
+            monthly_cost_after_planned_cents: monthlyCostAfter,
+            monthly_profit_after_planned_cents: revenue - monthlyCostAfter,
+            one_time_spend_to_date_cents: oneTimeSpent,
+            planned_one_time_ahead_cents: plannedAhead,
+            income_received_to_date_cents: incomeReceived,
+            recurring_accrued_cents: recurringAccrued,
+            unrecovered_cents: oneTimeSpent + recurringAccrued - incomeReceived,
+            planned_overdue_count: plannedOverdue
+        }
+    };
+}
+
+async function handleGetBsFinancials(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!bsIsStaff(user)) { return jsonErr("Forbidden", 403); }
+        var cl = await env.DB.prepare(
+            "SELECT id, name, status, split_mode, monthly_amount_cents FROM clients " +
+            "WHERE plan = 'business_system' AND COALESCE(archived, 0) = 0 AND COALESCE(status, 'active') IN ('active', 'paused') ORDER BY name"
+        ).all();
+        var en = await env.DB.prepare("SELECT " + BS_COST_COLS + " FROM bs_cost_entries WHERE deleted_at IS NULL ORDER BY start_date DESC, created_at DESC").all();
+        var today = gmEasternToday();
+        var calc = bsComputeFinancials(cl.results || [], en.results || [], today);
+        return jsonOk({ today: today, clients: calc.clients, totals: calc.totals, entries: en.results || [], figures: calc.figures });
+    } catch (e) {
+        return jsonErr("Error fetching financials: " + e.message, 500);
+    }
+}
+
+// ---- Promo materials -------------------------------------------------------
+function bsPromoUrlOk(u) {
+    if (u === "") { return true; }
+    if (typeof u !== "string" || u.length > 600) { return false; }
+    return /^https:\/\//.test(u) || /^\/api\//.test(u);
+}
+// The promo video and poster live in the private media bucket (the same bucket
+// and key prefix the Learn videos use: help/video/). A <video> tag cannot send
+// a sign-in header, so the page gets a short-lived signed address instead,
+// signed with the same secret and the same helpLinkSig as the Learn files.
+// video_url / poster_url hold the plain address /api/bs/promo-file/<name>.
+var BS_PROMO_FILE_RE = /^(video|poster)-(pt|en)\.(mp4|jpg)$/;
+function bsPromoKey(name) {
+    var m = BS_PROMO_FILE_RE.exec(name);
+    if (!m || (m[1] === "video") !== (m[3] === "mp4")) { return null; }
+    return "help/video/bs-promo-" + m[2] + "." + m[3];
+}
+async function bsPromoSign(env, request, plain) {
+    if (typeof plain !== "string" || plain.indexOf("/api/bs/promo-file/") !== 0) { return plain || ""; }
+    var name = plain.slice("/api/bs/promo-file/".length);
+    if (!bsPromoKey(name)) { return ""; }
+    var exp = Math.floor(Date.now() / 60000) * 60 + HELP_LINK_TTL_SEC;
+    var sig = await helpLinkSig(env, "bs-promo/" + name, exp, "staff");
+    if (!sig) { return ""; }
+    return new URL(request.url).origin + plain + "?e=" + exp + "&s=" + sig;
+}
+
+// GET /api/bs/promo-file/<name>?e=&s=[&download=1] -- signed, no sign-in header.
+async function handleGetBsPromoFile(request, env, name) {
+    try {
+        var key = bsPromoKey(name);
+        if (!key) { return helpNotFound(); }
+        var q = new URL(request.url).searchParams;
+        var e = q.get("e"), sg = q.get("s");
+        if (!e || !/^\d{1,12}$/.test(e) || !sg || !/^[a-f0-9]{64}$/.test(sg)) { return helpNotFound(); }
+        var nowSec = Math.floor(Date.now() / 1000);
+        var exp = parseInt(e, 10);
+        if (exp < nowSec || exp > nowSec + HELP_LINK_TTL_SEC + 120) { return helpNotFound(); }
+        var want = await helpLinkSig(env, "bs-promo/" + name, exp, "staff");
+        if (!want || !helpSameText(want, sg)) { return helpNotFound(); }
+        var ext = name.slice(name.lastIndexOf(".") + 1);
+        var headers = Object.assign({}, CORS_HEADERS, {
+            "Content-Type": HELP_TYPES[ext] || "application/octet-stream",
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+            "Accept-Ranges": "bytes",
+            "Cross-Origin-Resource-Policy": "cross-origin",
+            "Referrer-Policy": "no-referrer"
+        });
+        if (q.get("download") === "1") { headers["Content-Disposition"] = 'attachment; filename="aprenda-promo-' + name.split("-")[1].split(".")[0] + '.' + ext + '"'; }
+        var head = await env.ASSETS.head(key);
+        if (!head) { return helpNotFound(); }
+        var size = head.size;
+        var range = helpParseRange(request.headers.get("Range"), size);
+        if (range === "bad") {
+            headers["Content-Range"] = "bytes */" + size;
+            return new Response(null, { status: 416, headers: headers });
+        }
+        if (request.method === "HEAD") {
+            headers["Content-Length"] = String(size);
+            return new Response(null, { status: 200, headers: headers });
+        }
+        if (range) {
+            var part = await env.ASSETS.get(key, { range: { offset: range.start, length: range.end - range.start + 1 } });
+            if (!part || !part.body) { return helpNotFound(); }
+            headers["Content-Range"] = "bytes " + range.start + "-" + range.end + "/" + size;
+            headers["Content-Length"] = String(range.end - range.start + 1);
+            return new Response(part.body, { status: 206, headers: headers });
+        }
+        var obj = await env.ASSETS.get(key);
+        if (!obj || !obj.body) { return helpNotFound(); }
+        headers["Content-Length"] = String(size);
+        return new Response(obj.body, { status: 200, headers: headers });
+    } catch (err) {
+        return helpNotFound();
+    }
+}
+
+async function handleGetBsPromo(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!bsIsStaff(user)) { return jsonErr("Forbidden", 403); }
+        var rows = await env.DB.prepare("SELECT id, lang, title, video_url, poster_url, post_text, updated_at, updated_by FROM bs_promo_items ORDER BY lang").all();
+        var items = [];
+        var list = rows.results || [];
+        for (var i = 0; i < list.length; i++) {
+            var it = list[i];
+            it.video_src = await bsPromoSign(env, request, it.video_url);
+            it.poster_src = await bsPromoSign(env, request, it.poster_url);
+            items.push(it);
+        }
+        return jsonOk({ items: items });
+    } catch (e) {
+        return jsonErr("Error fetching promo items: " + e.message, 500);
+    }
+}
+async function handlePutBsPromo(lang, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!bsIsStaff(user)) { return jsonErr("Forbidden", 403); }
+        if (lang !== "pt" && lang !== "en") { return jsonErr("Not found", 404); }
+        var body = await request.json().catch(function() { return null; });
+        if (!body || typeof body !== "object") { return jsonErr2("Dados inválidos.", "Invalid data.", 400); }
+        var cur = await env.DB.prepare("SELECT title, video_url, poster_url, post_text FROM bs_promo_items WHERE lang = ?").bind(lang).first();
+        if (!cur) { return jsonErr("Not found", 404); }
+        var title = body.hasOwnProperty("title") ? String(body.title || "").slice(0, 200) : cur.title;
+        var post = body.hasOwnProperty("post_text") ? String(body.post_text || "").slice(0, 5000) : cur.post_text;
+        var video = body.hasOwnProperty("video_url") ? body.video_url : cur.video_url;
+        var poster = body.hasOwnProperty("poster_url") ? body.poster_url : cur.poster_url;
+        if (!bsPromoUrlOk(video) || !bsPromoUrlOk(poster)) { return jsonErr2("Endereço inválido.", "Invalid address.", 400); }
+        await env.DB.prepare("UPDATE bs_promo_items SET title = ?, post_text = ?, video_url = ?, poster_url = ?, updated_at = datetime('now'), updated_by = ? WHERE lang = ?")
+            .bind(title, post, video, poster, actorName(user), lang).run();
+        return jsonOk({ saved: true });
+    } catch (e) {
+        return jsonErr("Error saving promo item: " + e.message, 500);
+    }
+}
+
+// Router for the Business System routes; returns a Response or null.
+function bsRoute(path, method, request, env) {
+    var m;
+    if (path === "/api/bs/costs") {
+        if (method === "GET") { return handleGetBsCosts(request, env); }
+        if (method === "POST") { return handlePostBsCost(request, env); }
+    }
+    m = path.match(/^\/api\/bs\/costs\/([A-Za-z0-9-]+)$/);
+    if (m) {
+        if (method === "PUT") { return handlePutBsCost(m[1], request, env); }
+        if (method === "DELETE") { return handleDeleteBsCost(m[1], request, env); }
+    }
+    if (path === "/api/bs/financials" && method === "GET") { return handleGetBsFinancials(request, env); }
+    if (path === "/api/bs/promo" && method === "GET") { return handleGetBsPromo(request, env); }
+    if (path.indexOf("/api/bs/promo-file/") === 0 && (method === "GET" || method === "HEAD")) { return handleGetBsPromoFile(request, env, path.slice("/api/bs/promo-file/".length)); }
+    m = path.match(/^\/api\/bs\/promo\/(pt|en)$/);
+    if (m && method === "PUT") { return handlePutBsPromo(m[1], request, env); }
+    m = path.match(/^\/api\/clients\/([A-Za-z0-9-]+)\/plan$/);
+    if (m && method === "POST") { return handlePostClientPlan(m[1], request, env); }
+    m = path.match(/^\/api\/clients\/([A-Za-z0-9-]+)\/billing-split$/);
+    if (m && method === "PUT") { return handlePutClientBillingSplit(m[1], request, env); }
+    return null;
+}
+
 export default {
     // Thin wrapper over the real handler. Every response leaving this Worker
     // passes through withCorsOrigin(), so the allowlisted Origin is echoed
@@ -55607,6 +56172,8 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/fireflies/transcripts" && method === "GET")  { return handleGetFirefliesTranscripts(request, env); }
         if (path === "/api/fireflies/pull"        && method === "POST") { return handlePostFirefliesPull(request, env); }
         if (path === "/api/fireflies/dismiss"     && method === "POST") { return handlePostFirefliesDismiss(request, env); }
+        var bsResp = bsRoute(path, method, request, env);
+        if (bsResp) { return bsResp; }
         if (path === "/api/clients"              && method === "GET")  { return handleGetClients(request, env); }
         // Must precede the /api/clients/:id segment matcher below, or
         // "engagement-dates" is read as a client id.
@@ -58837,7 +59404,7 @@ async function handleGetPrepBlockQueue(request, env) {
         var rows = await env.DB.prepare(
             "SELECT b.*, c.name AS client_name FROM prep_custom_blocks b " +
             "LEFT JOIN clients c ON c.id = b.client_id " +
-            "WHERE b.built_at IS NULL ORDER BY b.created_at DESC"
+            "WHERE b.built_at IS NULL" + planClientAnd("b.client_id", planParam(request)) + " ORDER BY b.created_at DESC"
         ).all();
 
         var out = [];
@@ -65021,7 +65588,7 @@ async function handleGetClientTermsNext(request, env) {
         var clients = (await env.DB.prepare(
             "SELECT c.id, c.name, c.status, c.package FROM clients c " +
             "LEFT JOIN client_terms t ON t.client_id = c.id " +
-            "WHERE COALESCE(c.archived, 0) = 0 AND c.status IN ('active','paused') " +
+            "WHERE COALESCE(c.archived, 0) = 0 AND c.plan = 'consulting' AND c.status IN ('active','paused') " +
             // A joint venture, a pro-bono client or one who paid in full before this
             // system existed has no money coming in: never asked about.
             "AND COALESCE(c.billing_type, 'billable') = 'billable' " +
@@ -65469,7 +66036,7 @@ async function handleGetClientTermsForecast(request, env) {
         var rows = (await env.DB.prepare(
             "SELECT c.id AS client_id, t.answers_json, c.name, c.status FROM clients c " +
             "LEFT JOIN client_terms t ON t.client_id = c.id AND t.completed = 1 " +
-            "WHERE COALESCE(c.archived, 0) = 0 AND c.status IN ('active','paused')"
+            "WHERE COALESCE(c.archived, 0) = 0 AND c.plan = 'consulting' AND c.status IN ('active','paused')"
         ).all()).results || [];
 
         var today = gmEasternToday();

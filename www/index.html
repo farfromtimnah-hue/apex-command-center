@@ -740,6 +740,8 @@
           if (typeof apexNoteNativeSessionPresent === "function") { apexNoteNativeSessionPresent(); }
           sessionStorage.setItem("apex_role",  data.role);
           sessionStorage.setItem("apex_email", data.email);
+          // Business System: every fresh sign-in starts on the Consulting side.
+          sessionStorage.removeItem("apex_side");
           // Client-role Google accounts land in the Client Portal;
           // alice/rafa/developer keep going to the dashboard exactly as before.
           window.location.href = data.role === "client" ? "portal.html" : "dashboard.html";
@@ -972,6 +974,8 @@
         }).then(function(data) {
           sessionStorage.setItem("apex_role",  data.role);
           sessionStorage.setItem("apex_email", data.email);
+          // Business System: every fresh sign-in starts on the Consulting side.
+          sessionStorage.removeItem("apex_side");
           window.location.href = data.role === "client" ? "portal.html" : "dashboard.html";
         }).catch(function() {
           // Restored session is not usable (revoked, offline, role removed).

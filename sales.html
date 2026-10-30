@@ -628,6 +628,7 @@
     }
 
     function apiFetch(path) {
+      path = window.apexSidePath ? window.apexSidePath(path) : path;
       return getToken().then(function (token) {
         return fetch(WORKER_URL + path, { headers: { "Authorization": "Bearer " + token } });
       });

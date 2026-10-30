@@ -104,7 +104,7 @@ function harness(d, opts) {
     ["taskVoiceParseTasks", "taskVoiceMatchClient", "taskVoiceToday", "taskVoicePrompt", "taskVoiceTranscribe", "taskVoiceAskClaude", "taskVoiceDumpOpen", "taskVoiceDumpSet",
      "taskAssigneeAliceName", "taskAssigneeRafaName", "taskGivenByRole", "taskVoiceOwnerRole", "taskVoicePushText", "taskVoiceNotify",
      "taskInvolvesDeveloper", "taskTranslationColumn", "taskWordsForRole", "taskTranslatePrompt", "taskTranslate", "taskVoiceTranslationRule",
-     "handlePostTasksVoice", "handlePostTasksVoiceUndo", "handleGetAllTasks", "handleGetConsultantTasks", "handleGetConsultantTasksOverdue", "handleGetClientTasks", "handlePatchTask"],
+     "handlePostTasksVoice", "handlePostTasksVoiceUndo", "handleGetAllTasks", "handleGetConsultantTasks", "handleGetConsultantTasksOverdue", "handleGetClientTasks", "handlePatchTask", "planParam", "planClientAnd"],
     ["TASK_VOICE_MAX_TASKS", "TASK_VOICE_MAX_PER_DAY", "TASK_VOICE_UNDO_MARK", "TASK_NOT_UNDONE_SQL", "TASK_NOT_GIVEN_SQL", "TASK_PUSH_BODY_MAX", "TASK_TRANSLATE_TIMEOUT_MS", "TASK_TRANSLATION_MAX"], stubs);
   const audioReq = (bytes, lang) => ({
     url: "https://x.test/api/tasks/voice",

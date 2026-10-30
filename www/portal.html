@@ -3397,6 +3397,12 @@
       }
 
       var list = peopleState.list || [];
+      // Plain seat count: everyone invited or active, the owner included (the
+      // same count the Worker uses). "of N" only when the Worker sends the limit.
+      var seatCount = 0;
+      list.forEach(function(sp) { if (sp.status === "invited" || sp.status === "active") { seatCount++; } });
+      html += '<p class="muted" id="peopleSeatCount" style="margin-bottom:12px;">' + (en ? "People with access: " : "Pessoas com acesso: ") + seatCount +
+        (peopleState.seats && peopleState.seats.included ? (en ? " of " : " de ") + peopleState.seats.included : "") + '</p>';
       if (!list.length) {
         html += '<p class="muted" style="margin-bottom:12px;">' + (en ? "Nobody added yet." : "Ninguém adicionado ainda.") + '</p>';
       }

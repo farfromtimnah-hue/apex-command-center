@@ -8,7 +8,7 @@ import { makeDb, build, baseStubs } from "./fixtures/d1-shim.mjs";
 let fail = 0, pass = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass++; } else { fail++; } };
 
-const FNS = ["handleGetGmDormantLogins", "isAdminRole", "easternDateStr"];
+const FNS = ["handleGetGmDormantLogins", "isAdminRole", "easternDateStr", "planParam", "planAnd"];
 
 function world() {
   const d = makeDb([]);

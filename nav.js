@@ -112,6 +112,73 @@
       tipPt: "Configuracoes",                  tipEn: "Settings" }
   ];
 
+  // ── Business System side ────────────────────────────────────────────────
+  // Two sides share one login and one client list: Consulting (Pr Rafa's
+  // original business, the menus above) and Business System (clients who pay
+  // monthly for the portal tools only). The current side lives in
+  // sessionStorage under apex_side, the same per-tab mechanism as apex_role and
+  // apex_dev_view, so every fresh sign-in starts on Consulting (index.html
+  // clears the key). Only the staff admin roles see the switch. Pages ask
+  // window.apexSide() which plan to request and send it as ?plan=.
+  var SIDE_KEY = "apex_side";
+  function sideAllowed() {
+    var r = null;
+    try { r = sessionStorage.getItem("apex_role"); } catch (e) { r = null; }
+    return r === "alice" || r === "rafa" || r === "developer";
+  }
+  function currentSide() {
+    try {
+      if (sideAllowed() && sessionStorage.getItem(SIDE_KEY) === "business_system") { return "business_system"; }
+    } catch (e) { /* storage unavailable: Consulting */ }
+    return "consulting";
+  }
+  window.apexSide = currentSide;
+  window.apexSetSide = function (side) {
+    try {
+      if (side === "business_system") { sessionStorage.setItem(SIDE_KEY, "business_system"); }
+      else { sessionStorage.removeItem(SIDE_KEY); }
+    } catch (e) { /* storage unavailable */ }
+    window.location.href = "dashboard.html";
+  };
+
+  // The list and count endpoints the staff pages read take ?plan= (the side).
+  // One place adds it, so a page's apiFetch only has to pass its path through
+  // here. GET only; a path that already names a plan is left alone. Endpoints
+  // not in this list are not side-aware (single-client lookups, settings).
+  var SIDE_PATHS = /^\/api\/(clients(\?.*)?$|clients-needing-review|clients-average|leaderboard|sales\/growth-ranking|sessions(\?|$)|sessions\/calendar|tasks(\?|$)|tasks\/consultant|goal-approvals|prep-blocks\/queue|contracts\/stale-notices|finance-new\/invoices|gm\/dormant-logins|gm\/seller-login-requests|client-resources\/(pending|progress)|clients\/pipeline-gap|clients\/engagement-dates)/;
+  window.apexSidePath = function (path, opts) {
+    var m = (opts && opts.method) ? String(opts.method).toUpperCase() : "GET";
+    if (m !== "GET" || typeof path !== "string" || !SIDE_PATHS.test(path) || /[?&]plan=/.test(path)) { return path; }
+    return path + (path.indexOf("?") === -1 ? "?" : "&") + "plan=" + currentSide();
+  };
+
+  // The smaller Business System menu. Calendar, Sessions, Documents, Tasks,
+  // Vendors, Apex Club (and the old Financial page) are Consulting only. Leads
+  // is not its own menu item (the Clients page has a leads tab), so none here.
+  var NAV_ITEMS_BS = [
+    { key: "dashboard", href: "dashboard.html", icon: "home",
+      labelPt: "Dashboard",                    labelEn: "Dashboard",
+      tipPt: "Dashboard",                      tipEn: "Dashboard" },
+    { key: "clients",   href: "clients.html",   icon: "users",
+      labelPt: "Clientes",                     labelEn: "Clients",
+      tipPt: "Clientes",                       tipEn: "Clients" },
+    { key: "bsfinancials", href: "bs-financials.html", icon: "finance",
+      labelPt: "Financeiro",                   labelEn: "Financials",
+      tipPt: "Financeiro",                     tipEn: "Financials" },
+    { key: "bspromo",   href: "bs-promo.html",  icon: "star",
+      labelPt: "Materiais de divulga&ccedil;&atilde;o", labelEn: "Promo materials",
+      tipPt: "Materiais de divulgacao",        tipEn: "Promo materials" },
+    { key: "clientanalytics", href: "client-analytics.html", icon: "target",
+      labelPt: "An&aacute;lise de Clientes",   labelEn: "Client Analytics",
+      tipPt: "Analise de Clientes",            tipEn: "Client Analytics" },
+    { key: "sales",     href: "sales.html",     icon: "trend",
+      labelPt: "Vendas",                       labelEn: "Sales",
+      tipPt: "Vendas",                         tipEn: "Sales" },
+    { key: "settings",  href: "settings.html",  icon: "settings",
+      labelPt: "Configura&ccedil;&otilde;es",  labelEn: "Settings",
+      tipPt: "Configuracoes",                  tipEn: "Settings" }
+  ];
+
   // ── SVG icon builder ────────────────────────────────────────────────────
     // Learn links for the staff menu: each item opens the guide that explains its page.
   var NAV_HELP = {
@@ -121,7 +188,7 @@
     tasks: "admin-tasks#tasks#1", financenew: "admin-finance-overview#ov#1",
     vendors: "admin-vendors#vendors#1", apexclub: "admin-apex-club#club#1",
     sales: "admin-sales-growth#sales#1", settings: "admin-settings-pictures-message#pics#1",
-    learn: "admin-menu-language-learn#menu#3", contractreview: "admin-contract-review#review#1",
+    learn: "admin-menu-language-learn#menu#3", bsfinancials: "admin-menu-language-learn#menu#3", bspromo: "admin-menu-language-learn#menu#3", contractreview: "admin-contract-review#review#1",
     adduser: "admin-add-user#users#1", loginactivity: "admin-activity-support-preview#tools#1"
   };
   function navHelpAttr(key) { return NAV_HELP[key] ? ' data-help="' + NAV_HELP[key] + '"' : ''; }
@@ -243,6 +310,28 @@ function navSvg(type) {
       ".apex-nav-logo { height: 64px; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #2a2a2e; flex-shrink: 0; overflow: hidden; }" +
       ".apex-nav-logo-img { height: 28px; width: auto; display: block; }" +
 
+      /* Business System: the logo is a button that opens the side menu */
+      ".apex-side-btn { display: flex; align-items: center; gap: 10px; background: none; border: none; padding: 0; margin: 0; cursor: pointer; color: inherit; font-family: 'Inter', sans-serif; min-width: 0; }" +
+      ".apex-side-name { font-size: 11px; font-weight: 700; letter-spacing: 0.4px; color: #C9A43A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }" +
+      "#navSidebar.apex-nav-collapsed .apex-side-name { display: none; }" +
+      "#navSidebar.apex-nav-collapsed .apex-nav-logo { padding: 0 8px; justify-content: center; }" +
+      ".apex-side-menu { position: fixed; z-index: 10000; min-width: 210px; background: #1a1a1d; border: 1px solid #3a3a40; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.45); padding: 6px; font-family: 'Inter', sans-serif; }" +
+      "body.apex-side-bs .apex-side-menu { background: #2b2b30; }" +
+      ".apex-side-menu button { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; background: none; border: none; color: rgba(255,255,255,0.8); font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; padding: 12px 12px; border-radius: 8px; cursor: pointer; text-align: left; min-height: 44px; }" +
+      ".apex-side-menu button:hover { background: rgba(255,255,255,0.08); }" +
+      ".apex-side-menu button.apex-side-current { color: #C9A43A; }" +
+      ".apex-side-menu-note { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(255,255,255,0.35); padding: 6px 12px 4px; }" +
+      /* Phone: the sidebar is hidden, so the same switch sits in the page header */
+      ".apex-side-hbtn { display: none; align-items: center; gap: 6px; background: transparent; border: 1.5px solid rgba(255,255,255,0.18); color: #C9A43A; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; padding: 0 10px; height: 36px; border-radius: 18px; cursor: pointer; flex-shrink: 0; white-space: nowrap; }" +
+      "@media (max-width: 720px) { .apex-side-hbtn { display: inline-flex; } }" +
+      /* Business System look: a lighter charcoal header and menu. Pages keep
+         their own copy of the black header, so the override lives here once. */
+      "body.apex-side-bs { --header: #2b2b30; }" +
+      "body.apex-side-bs #appHeader { background: #2b2b30; }" +
+      "body.apex-side-bs #navSidebar { background: #2b2b30; border-right-color: #3a3a40; }" +
+      "body.apex-side-bs .apex-nav-logo, body.apex-side-bs .apex-nav-footer, body.apex-side-bs .apex-nav-switcher { border-color: #3a3a40; }" +
+      "body.apex-side-bs #mobile-tab-bar { background: #2b2b30; }" +
+
       /* Items list */
       ".apex-nav-items { flex: 1 0 auto; padding: 8px 0; overflow-y: auto; overflow-x: hidden; }" +
       "a.apex-nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 20px; color: rgba(255,255,255,0.55); font-size: 13px; font-weight: 500; text-decoration: none; position: relative; transition: color 0.15s, background 0.15s; white-space: nowrap; font-family: 'Inter', sans-serif; }" +
@@ -297,9 +386,16 @@ function navSvg(type) {
     var activePage = getActivePage();
     var html = "";
 
-    // Logo
+    // Logo. For the staff admin roles it is a button that opens the side menu
+    // (Consulting / Business System) with the current side named beside it.
     html += '<div class="apex-nav-logo">';
-    html += '<img src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png" alt="Apex" class="apex-nav-logo-img">';
+    var logoImg = '<img src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png" alt="Apex" class="apex-nav-logo-img">';
+    if (sideAllowed()) {
+      html += '<button type="button" class="apex-side-btn" id="apexSideBtn" aria-haspopup="menu" aria-expanded="false" onclick="apexSideMenuToggle(this)">' +
+        logoImg + sideNameSpan() + '</button>';
+    } else {
+      html += logoImg;
+    }
     html += '</div>';
 
     // Nav items
@@ -549,6 +645,97 @@ function navSvg(type) {
     } catch (e) { /* never throws */ }
   }, true);
 
+  // ── Side switch: name, menu, header button ───────────────────────────────
+  function sideNameSpan() {
+    var bs = currentSide() === "business_system";
+    return '<span class="apex-side-name">' +
+      '<span class="show-pt">' + (bs ? "Business System" : "Consultoria") + '</span>' +
+      '<span class="show-en">' + (bs ? "Business System" : "Consulting") + '</span></span>';
+  }
+
+  function closeSideMenu() {
+    if (document.removeEventListener) { document.removeEventListener("click", sideMenuOutside, true); }
+    var m = document.getElementById("apexSideMenu");
+    if (m && m.parentNode) { m.parentNode.removeChild(m); }
+    var btns = document.querySelectorAll("#apexSideBtn, #apexSideHBtn");
+    for (var i = 0; i < btns.length; i++) { btns[i].setAttribute("aria-expanded", "false"); }
+  }
+  window.apexSideMenuClose = closeSideMenu;
+
+  // Opens a small menu under the clicked button. Created on demand and removed
+  // on close, so it never sits in the page while closed.
+  window.apexSideMenuToggle = function (btn) {
+    if (document.getElementById("apexSideMenu")) { closeSideMenu(); return; }
+    if (!btn || !sideAllowed()) { return; }
+    var cur = currentSide();
+    var menu = document.createElement("div");
+    menu.id = "apexSideMenu";
+    menu.className = "apex-side-menu";
+    menu.setAttribute("role", "menu");
+    function item(side, pt, en) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("role", "menuitem");
+      if (cur === side) { b.className = "apex-side-current"; }
+      b.innerHTML = '<span><span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span></span>' +
+        (cur === side ? '<span aria-hidden="true">&#10003;</span>' : '');
+      b.onclick = function () {
+        closeSideMenu();
+        if (cur === side) { return; }
+        window.apexSetSide(side);
+      };
+      return b;
+    }
+    var note = document.createElement("div");
+    note.className = "apex-side-menu-note";
+    note.innerHTML = '<span class="show-pt">Lado do sistema</span><span class="show-en">Side of the system</span>';
+    menu.appendChild(note);
+    menu.appendChild(item("consulting", "Consultoria", "Consulting"));
+    menu.appendChild(item("business_system", "Business System", "Business System"));
+    document.body.appendChild(menu);
+    var r = btn.getBoundingClientRect();
+    var left = Math.max(8, Math.min(r.left, window.innerWidth - 226));
+    menu.style.left = left + "px";
+    menu.style.top = (r.bottom + 6) + "px";
+    btn.setAttribute("aria-expanded", "true");
+    window.setTimeout(function () {
+      document.addEventListener("click", sideMenuOutside, true);
+    }, 0);
+  };
+  function sideMenuOutside(ev) {
+    var m = document.getElementById("apexSideMenu");
+    if (m && ev.target && m.contains(ev.target)) { return; }
+    if (ev.target && ev.target.closest && ev.target.closest("#apexSideBtn, #apexSideHBtn")) {
+      // the toggle itself handles this click
+      closeSideMenu();
+      ev.stopPropagation();
+      return;
+    }
+    closeSideMenu();
+  }
+
+  // Phone: the sidebar is hidden below 720px, so the same switch sits in the
+  // page header (CSS shows it only there), next to the settings gear.
+  function placeSideHeaderButton() {
+    var header = document.getElementById("appHeader");
+    if (!header || !sideAllowed()) { return; }
+    var host = header.querySelector(".header-right") || header;
+    var b = document.getElementById("apexSideHBtn");
+    if (!b) {
+      b = document.createElement("button");
+      b.type = "button";
+      b.id = "apexSideHBtn";
+      b.className = "apex-side-hbtn";
+      b.setAttribute("aria-haspopup", "menu");
+      b.setAttribute("aria-expanded", "false");
+      b.onclick = function () { window.apexSideMenuToggle(b); };
+      host.insertBefore(b, host.firstChild);
+    }
+    var bs = currentSide() === "business_system";
+    b.innerHTML = '<span class="show-pt">' + (bs ? "Business System" : "Consultoria") + '</span>' +
+      '<span class="show-en">' + (bs ? "Business System" : "Consulting") + '</span>';
+  }
+
   // ── Public: dev view switcher ─────────────────────────────────────────────
   window.apexNavSetView = function (v) {
     // "Client" opens the portal preview picker instead of a cosmetic nav
@@ -631,7 +818,7 @@ function navSvg(type) {
       return;
     }
     fb.auth().currentUser.getIdToken().then(function (token) {
-      return fetch(workerUrl + "/api/clients", { headers: { "Authorization": "Bearer " + token } });
+      return fetch(workerUrl + "/api/clients?plan=all", { headers: { "Authorization": "Bearer " + token } });
     }).then(function (res) { return res.json(); }).then(function (data) {
       pickerClients = data.clients || [];
       window.apexClientPickerRender();
@@ -837,6 +1024,20 @@ function navSvg(type) {
   // initNav() passes the same answer it uses for the desktop side menu, so the
   // phone never offers a page the desktop does not.
   function getMobileNavConfig(navRole, opts) {
+    if (opts && opts.side === "business_system") {
+      var bsBiz = [MTAB_VENDAS];
+      if (opts.learn) { bsBiz = [learnEntry()].concat(bsBiz); }
+      return {
+        spots: [
+          MTAB_INICIO,
+          mobileGroupDef("clients", "users", "Clientes", "Clients", [MTAB_CLIENTES, MTAB_CLIENTANALYTICS]),
+          mobileTabDef("bsfinancials", "bs-financials.html", "finance", "Financeiro", "Financials"),
+          mobileTabDef("bspromo", "bs-promo.html", "star", "Divulga&ccedil;&atilde;o", "Promo"),
+          mobileGroupDef("business", "briefcase", "Neg&oacute;cio", "Business", bsBiz)
+        ],
+        gear: MTAB_CONFIG
+      };
+    }
     var clients = [MTAB_CLIENTES, MTAB_CLIENTANALYTICS];
     if (opts && opts.contractReview) { clients.push(MTAB_CONTRATO); }
     if (navRole === "developer") { clients.push(MTAB_ADDUSER); }
@@ -919,7 +1120,7 @@ function navSvg(type) {
     var menu = document.getElementById("mobile-more-menu");
     if (!bar || !menu) { return; }
 
-    var cfg = getMobileNavConfig(navRole, { contractReview: contractReview, learn: learn });
+    var cfg = getMobileNavConfig(navRole, { contractReview: contractReview, learn: learn, side: currentSide() });
     var activePage = getActivePage();
     var i;
 
@@ -953,7 +1154,7 @@ function navSvg(type) {
     if (!mobileDockWired) {
       mobileDockWired = true;
       document.addEventListener("keydown", function (ev) {
-        if (ev.key === "Escape" || ev.key === "Esc") { window.apexDockGroupClose(); }
+        if (ev.key === "Escape" || ev.key === "Esc") { window.apexDockGroupClose(); closeSideMenu(); }
       });
     }
 
@@ -1139,6 +1340,11 @@ function navSvg(type) {
     var navRole = (role === "developer" && (devView === "alice" || devView === "rafa")) ? devView : role;
 
     var items = (navRole === "rafa") ? NAV_ITEMS_RAFA : NAV_ITEMS_ALICE;
+    // Business System side: a smaller menu and a lighter charcoal look (body class).
+    var onBsSide = currentSide() === "business_system";
+    if (onBsSide) { document.body.classList.add("apex-side-bs"); }
+    else { document.body.classList.remove("apex-side-bs"); }
+    if (onBsSide) { items = NAV_ITEMS_BS; }
     // Contract clause review (contracts build, checkpoint A): always for the
     // developer; for Rafa only once the developer released it (dashboard.html
     // stores the flag it reads from /api/contracts/review-status). The API
@@ -1148,11 +1354,11 @@ function navSvg(type) {
       labelPt: "Revis&atilde;o do contrato", labelEn: "Contract review",
       tipPt: "Revisao do contrato",           tipEn: "Contract review"
     };
-    if (navRole === "rafa" && sessionStorage.getItem("apex_contract_review_released") === "1") {
+    if (!onBsSide && navRole === "rafa" && sessionStorage.getItem("apex_contract_review_released") === "1") {
       items = items.slice();
       items.push(CONTRACT_REVIEW_ITEM);
     }
-    if (navRole === "developer") {
+    if (!onBsSide && navRole === "developer") {
       items = items.slice();
       items.push(CONTRACT_REVIEW_ITEM);
       items.push({
@@ -1191,6 +1397,7 @@ function navSvg(type) {
       (navRole === "rafa" && sessionStorage.getItem("apex_contract_review_released") === "1");
     populateMobileNav(navRole, showContractReview, showLearn);
 
+    placeSideHeaderButton();
     setupTabStrips();
   };
 

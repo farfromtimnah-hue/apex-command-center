@@ -2704,6 +2704,18 @@
           <div id="contractStatusBody" style="padding:16px 20px;"></div>
         </div>
 
+        <!-- Business System: which side this client is on, how the monthly
+             amount is shared, and the amount. Filled by renderBsPlanCard(). -->
+        <div class="content-card" id="sec-bsPlan">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Plano</span>
+              <span class="show-en">Plan</span>
+            </h2>
+          </div>
+          <div id="bsPlanBody" style="padding:16px 20px;"></div>
+        </div>
+
         <!-- Client Portal access (login + daily-entry field config) -->
         <div class="content-card" id="sec-portalAccess">
           <div class="content-card-header">
@@ -3705,7 +3717,7 @@
         <button class="modal-close" onclick="closeModalById('modalOwnerInvite')">&times;</button>
       </div>
       <div class="modal-body">
-        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;" id="ownerInviteNote">
           <span class="show-pt">O dono abre o link, recebe um c&oacute;digo por SMS e cria uma passkey. O login com usu&aacute;rio e senha continua funcionando.</span>
           <span class="show-en">The owner opens the link, gets a code by text and creates a passkey. The username and password login keeps working.</span>
         </p>
@@ -4635,11 +4647,144 @@
       });
     }
 
+    // ── Business System: plan, split and monthly amount ─────────────────────
+    var bsPlan = { busy: false, confirm: "", msg: "", err: "" };
+
+    function bsCentsToDollars(c) {
+      if (c === null || c === undefined || c === "") { return ""; }
+      var n = Number(c) / 100;
+      return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    // "1,850.50" -> 185050. Empty -> null (not set). Anything else -> NaN.
+    function bsDollarsToCents(txt) {
+      var raw = String(txt || "").replace(/[$,\s]/g, "");
+      if (raw === "") { return null; }
+      if (!/^\d+(\.\d{1,2})?$/.test(raw)) { return NaN; }
+      var parts = raw.split(".");
+      var cents = parts[1] ? parseInt((parts[1] + "0").slice(0, 2), 10) : 0;
+      return parseInt(parts[0], 10) * 100 + cents;
+    }
+
+    function renderBsPlanCard() {
+      var el = document.getElementById("bsPlanBody");
+      if (!el || !clientData) { return; }
+      var isBs = clientData.plan === "business_system";
+      var html = '<div style="font-size:14px;margin-bottom:12px;"><strong>' +
+        (isBs ? '<span class="show-pt">Business System</span><span class="show-en">Business System</span>'
+              : '<span class="show-pt">Consultoria</span><span class="show-en">Consulting</span>') +
+        '</strong></div>';
+      if (bsPlan.confirm) {
+        var toBs = bsPlan.confirm === "business_system";
+        html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;">' +
+          (toBs
+            ? '<span class="show-pt">Passar este cliente para o Business System? Ele sai da lista de Consultoria, o registro di&aacute;rio &eacute; desligado e, depois que o dono criar uma passkey, o login antigo &eacute; desativado. Nenhum dado &eacute; apagado.</span>' +
+              '<span class="show-en">Move this client to Business System? They leave the Consulting list, the daily log is turned off and, once the owner creates a passkey, the old login is turned off. No data is deleted.</span>'
+            : '<span class="show-pt">Voltar este cliente para a Consultoria? Nenhum outro dado muda; o registro di&aacute;rio continua como est&aacute;.</span>' +
+              '<span class="show-en">Move this client back to Consulting? No other data changes; the daily log stays as it is.</span>') +
+          '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">' +
+          '<button class="btn-primary"' + (bsPlan.busy ? " disabled" : "") + ' onclick="bsChangePlan(\'' + bsPlan.confirm + '\')">' +
+          '<span class="show-pt">Sim, mudar</span><span class="show-en">Yes, move</span></button>' +
+          '<button class="btn-add" onclick="bsPlan.confirm=\'\';renderBsPlanCard();">' +
+          '<span class="show-pt">Cancelar</span><span class="show-en">Cancel</span></button></div></div>';
+      } else {
+        html += isBs
+          ? '<button class="btn-add" onclick="bsPlan.confirm=\'consulting\';bsPlan.msg=\'\';bsPlan.err=\'\';renderBsPlanCard();">' +
+            '<span class="show-pt">Voltar para Consultoria</span><span class="show-en">Back to Consulting</span></button>'
+          : '<button class="btn-add" onclick="bsPlan.confirm=\'business_system\';bsPlan.msg=\'\';bsPlan.err=\'\';renderBsPlanCard();">' +
+            '<span class="show-pt">Passar para o Business System</span><span class="show-en">Graduate to Business System</span></button>';
+      }
+      if (isBs) {
+        var mode = clientData.split_mode || "split_50_50";
+        html += '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);">' +
+          '<label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;">' +
+          '<span class="show-pt">Divis&atilde;o do valor mensal</span><span class="show-en">Split of the monthly amount</span></label>' +
+          '<select id="bsSplitMode" style="width:100%;max-width:340px;margin-bottom:12px;">' +
+          '<option value="split_50_50"' + (mode === "split_50_50" ? " selected" : "") + '>50-50 (Resonate / Pr Rafa)</option>' +
+          '<option value="resonate_100"' + (mode === "resonate_100" ? " selected" : "") + '>100% Resonate</option>' +
+          '<option value="rafa_100"' + (mode === "rafa_100" ? " selected" : "") + '>100% Pr Rafa</option></select>' +
+          '<label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;">' +
+          '<span class="show-pt">Valor mensal (US$). Vazio = n&atilde;o definido.</span><span class="show-en">Monthly amount (US$). Empty = not set.</span></label>' +
+          '<input type="text" id="bsMonthlyAmount" inputmode="decimal" placeholder="1,850.00" value="' + escHtml(bsCentsToDollars(clientData.monthly_amount_cents)) + '" style="width:100%;max-width:340px;margin-bottom:12px;">' +
+          '<div><button class="btn-primary"' + (bsPlan.busy ? " disabled" : "") + ' onclick="bsSaveSplit()">' +
+          '<span class="show-pt">Salvar</span><span class="show-en">Save</span></button></div></div>';
+      }
+      if (bsPlan.msg) { html += '<div style="color:#3f7d4e;font-size:13px;margin-top:10px;">' + bsPlan.msg + '</div>'; }
+      if (bsPlan.err) { html += '<div style="color:#b44040;font-size:13px;margin-top:10px;">' + escHtml(bsPlan.err) + '</div>'; }
+      el.innerHTML = html;
+    }
+
+    function bsChangePlan(plan) {
+      if (bsPlan.busy) { return; }
+      bsPlan.busy = true; bsPlan.err = ""; bsPlan.msg = "";
+      renderBsPlanCard();
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/plan", { method: "POST", body: { plan: plan } })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          bsPlan.busy = false; bsPlan.confirm = "";
+          if (!r.ok) { bsPlan.err = r.data.error_pt ? t(r.data.error_pt, r.data.error_en) : (r.data.error || "Erro"); renderBsPlanCard(); return; }
+          var pend = r.data.legacy_cutover === "pending_passkey";
+          bsPlan.msg = plan === "business_system"
+            ? (pend ? '<span class="show-pt">Movido. O login antigo continua at&eacute; o dono registrar uma passkey.</span><span class="show-en">Moved. The old login stays until the owner registers a passkey.</span>'
+                    : '<span class="show-pt">Movido. O login antigo foi desativado.</span><span class="show-en">Moved. The old login is turned off.</span>')
+            : '<span class="show-pt">Movido de volta para a Consultoria.</span><span class="show-en">Moved back to Consulting.</span>';
+          loadClient();
+        })
+        .catch(function(e) { bsPlan.busy = false; bsPlan.err = e.message; renderBsPlanCard(); });
+    }
+
+    function bsSaveSplit() {
+      if (bsPlan.busy) { return; }
+      var modeEl = document.getElementById("bsSplitMode");
+      var amtEl = document.getElementById("bsMonthlyAmount");
+      if (!modeEl || !amtEl) { return; }
+      var cents = bsDollarsToCents(amtEl.value);
+      if (cents !== null && (typeof cents !== "number" || isNaN(cents))) {
+        bsPlan.err = t("Digite um valor em dólares, como 1,850.00.", "Type a dollar amount, like 1,850.00.");
+        bsPlan.msg = "";
+        renderBsPlanCard();
+        return;
+      }
+      bsPlan.busy = true; bsPlan.err = ""; bsPlan.msg = "";
+      apiFetch("/api/clients/" + encodeURIComponent(CLIENT_ID) + "/billing-split", { method: "PUT", body: { split_mode: modeEl.value, monthly_amount_cents: cents } })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          bsPlan.busy = false;
+          if (!r.ok) { bsPlan.err = r.data.error_pt ? t(r.data.error_pt, r.data.error_en) : (r.data.error || "Erro"); renderBsPlanCard(); return; }
+          clientData.split_mode = modeEl.value;
+          clientData.monthly_amount_cents = cents;
+          bsPlan.msg = '<span class="show-pt">Salvo.</span><span class="show-en">Saved.</span>';
+          renderBsPlanCard();
+        })
+        .catch(function(e) { bsPlan.busy = false; bsPlan.err = e.message; renderBsPlanCard(); });
+    }
+
     function renderPortalAccess() {
       var el = document.getElementById("portalAccessBody");
       if (!el) { return; }
       var s = portalLoginStatus || { exists: false };
       var html = "";
+      var isBs = !!(clientData && clientData.plan === "business_system");
+      if (isBs) {
+        // Business System: passkey only. No temporary password, no credentials
+        // by WhatsApp; the one action is the owner's invite link (and sending a
+        // fresh one is the same button).
+        html += '<div style="font-size:13px;color:var(--muted);margin-bottom:10px;">' +
+          '<span class="show-pt">Este cliente entra s&oacute; com o link de acesso: c&oacute;digo por texto e passkey.</span>' +
+          '<span class="show-en">This client signs in only with the access link: a text code and a passkey.</span>' +
+          (s.exists
+            ? '<br><span class="show-pt">O login antigo ainda funciona at&eacute; o dono registrar uma passkey; depois &eacute; desativado sozinho.</span>' +
+              '<span class="show-en">The old login still works until the owner registers a passkey; then it turns off by itself.</span>'
+            : '') +
+          '</div>';
+        html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+          '<button class="btn-add" id="btnOwnerInvite" hidden onclick="openOwnerInvite()">' +
+          '<span class="show-pt">Enviar novo login (link)</span><span class="show-en">Send new login (link)</span>' +
+          '</button></div>';
+        html += clientSwitchesHtml();
+        el.innerHTML = html;
+        ownerInviteCheckEnabled().then(function(on) { if (on) { loadLoginSecurity(); } });
+        return;
+      }
       if (s.exists) {
         html += '<div style="font-size:13px;margin-bottom:10px;">' +
           '<span class="show-pt">Login criado:</span><span class="show-en">Login created:</span> ' +
@@ -4717,6 +4862,15 @@
       ownerInvite.copied = false;
       var m = document.getElementById("modalOwnerInvite");
       if (m) { m.hidden = false; }
+      // Business System: this is the ONLY way in, so the old-login sentence goes.
+      var inviteNote = document.getElementById("ownerInviteNote");
+      if (inviteNote) {
+        inviteNote.innerHTML = (clientData && clientData.plan === "business_system")
+          ? '<span class="show-pt">O dono abre o link, recebe um c&oacute;digo por SMS e cria uma passkey. Este cliente n&atilde;o usa usu&aacute;rio e senha.</span>' +
+            '<span class="show-en">The owner opens the link, gets a code by text and creates a passkey. This client does not use a username and password.</span>'
+          : '<span class="show-pt">O dono abre o link, recebe um c&oacute;digo por SMS e cria uma passkey. O login com usu&aacute;rio e senha continua funcionando.</span>' +
+            '<span class="show-en">The owner opens the link, gets a code by text and creates a passkey. The username and password login keeps working.</span>';
+      }
       renderOwnerInvite();
       return apiFetch("/api/gm/clients/" + encodeURIComponent(CLIENT_ID) + "/owner-invite")
         .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
@@ -5874,7 +6028,7 @@
     var NEIGHBOR_CLIENTS = { prev: null, next: null };
 
     function loadClientNeighbors() {
-      apiFetch("/api/clients")
+      apiFetch("/api/clients?plan=" + (window.apexSide ? window.apexSide() : "consulting"))
         .then(function(res) { return res.json(); })
         .then(function(data) {
           var list = data.clients || [];
@@ -6297,6 +6451,7 @@
         .then(function(data) {
           if (data.error) { throw new Error(data.error); }
           clientData = data.client;
+          renderBsPlanCard();
           // The switches read clientData; the login card may have drawn first.
           if (portalLoginStatus) { renderPortalAccess(); }
           renderClientHeader(clientData);
@@ -10780,7 +10935,7 @@
     var CG_GROUPS = [
       { key: "overview", icon: "view",
         pt: "Vis\u00e3o geral", en: "Overview", shortPt: "Geral", shortEn: "Overview",
-        sections: ["leadPipeline", "overview", "contacts", "notes", "portalAccess", "sellerLogins"] },
+        sections: ["leadPipeline", "overview", "contacts", "notes", "bsPlan", "portalAccess", "sellerLogins"] },
       { key: "apexwork", icon: "peak",
         pt: "Trabalho Apex", en: "Apex work", shortPt: "Apex", shortEn: "Apex",
         sections: ["sessions", "clientTasks", "consultantTasks", "assessments", "resources", "docs"] },

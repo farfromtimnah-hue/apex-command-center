@@ -1245,8 +1245,8 @@
             {
               "n": 27,
               "text": {
-                "pt": "Se o seu estado não exige contrato por escrito neste valor, a folha não pergunta nada e não há contrato.",
-                "en": "If your state does not require a written contract at this amount, the sheet asks nothing and there is no contract."
+                "pt": "Se o seu estado não exige contrato por escrito neste valor, a folha não pergunta nada e não há contrato. O cliente recebe o Aviso de Cancelamento no lugar.",
+                "en": "If your state does not require a written contract at this amount, the sheet asks nothing and there is no contract. The customer gets the Notice of Cancellation instead."
               },
               "image": {
                 "pt": "help/img/guides/estimate/send-flow-27.jpg",
@@ -1397,8 +1397,8 @@
             {
               "n": 13,
               "text": {
-                "pt": "Sem contrato, o cliente vai do aceite direto para a fatura do primeiro pagamento. (Tela do cliente · inglês)",
-                "en": "With no contract, the customer goes from accepting straight to the invoice for the first payment. (Customer's screen · English)"
+                "pt": "Sem contrato, o cliente lê o Aviso de Cancelamento, que aparece na página do orçamento. (Tela do cliente · inglês)",
+                "en": "With no contract, the customer reads the Notice of Cancellation, shown on the estimate page. (Customer's screen · English)"
               },
               "image": {
                 "pt": "help/img/guides/estimate/customer-step-13.jpg",
@@ -1407,6 +1407,17 @@
             },
             {
               "n": 14,
+              "text": {
+                "pt": "O cliente toca em Pagar. A fatura do primeiro pagamento abre. (Tela do cliente · inglês)",
+                "en": "The customer taps Pay. The invoice for the first payment opens. (Customer's screen · English)"
+              },
+              "image": {
+                "pt": "help/img/guides/estimate/customer-step-14.jpg",
+                "en": "help/img/guides/estimate/customer-step-14.jpg"
+              }
+            },
+            {
+              "n": 15,
               "text": {
                 "pt": "Você vê a assinatura na tela inicial. Em Assinados online pelo cliente aparece o orçamento assinado.",
                 "en": "You see the signature on the home page. Under Signed online by the customer you see the signed estimate."
@@ -1417,7 +1428,7 @@
               }
             },
             {
-              "n": 15,
+              "n": 16,
               "text": {
                 "pt": "O registro mostra quem assinou e quando. Abra o orçamento e role até Documento assinado.",
                 "en": "The record shows who signed and when. Open the estimate and scroll to Signed document."
@@ -1428,7 +1439,7 @@
               }
             },
             {
-              "n": 16,
+              "n": 17,
               "text": {
                 "pt": "O projeto é criado sozinho. Em Negócio, Projetos, o projeto do cliente já está lá.",
                 "en": "The project is created on its own. In Business, Projects, the customer's project is already there."
@@ -1439,7 +1450,7 @@
               }
             },
             {
-              "n": 17,
+              "n": 18,
               "text": {
                 "pt": "O contrato já foi feito, assinado por você e depois pelo cliente. Se você enviou só o orçamento, toque em Criar contrato a partir do orçamento aceito. Veja o guia do contrato.",
                 "en": "The contract is already made, signed by you and then by the customer. If you sent the estimate only, tap Create contract from the accepted estimate. See the contract guide."

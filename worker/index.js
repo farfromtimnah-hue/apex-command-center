@@ -32243,10 +32243,11 @@ async function gmEstChainInvoiceOnly(env, request, est, customerName, presign) {
     var first = null;
     if (made instanceof Response) {
         if (made.status !== 409) { await gmEstChainStopped(env, est, null, await gmChainReason(made), job.id); return null; }
-        first = await env.DB.prepare("SELECT id FROM gm_invoices WHERE client_id = ? AND job_id = ? AND status <> 'void' ORDER BY rowid LIMIT 1").bind(est.client_id, job.id).first();
+        // Invoices already exist on this project. Only this estimate's own first invoice may be reused; another estimate's invoice is never sent for it.
+        first = await env.DB.prepare("SELECT id FROM gm_invoices WHERE client_id = ? AND job_id = ? AND estimate_id = ? AND status <> 'void' ORDER BY rowid LIMIT 1").bind(est.client_id, job.id, est.id).first();
     } else if (made.created && made.created.length) { first = { id: made.created[0].id }; }
     var inv = first ? await gmInvLoad(env, est.client_id, first.id) : null;
-    if (!inv) { await gmEstChainStopped(env, est, null, "no invoice to send", job.id); return null; }
+    if (!inv) { await gmEstChainStopped(env, est, null, "no invoice of its own to send for this estimate (invoices already exist on the project)", job.id); return null; }
     if (inv.status !== "sent") {
         var sent = await gmInvoiceSendCore(env, request, est.client_id, inv, actor);
         if (sent instanceof Response) { await gmEstChainStopped(env, est, null, await gmChainReason(sent), job.id); return null; }
@@ -40160,7 +40161,12 @@ async function gmContractChainInvoice(env, request, c, customerName) {
     var first = null;
     if (made instanceof Response) {
         if (made.status !== 409) { await gmContractChainInvoiceStopped(env, c, await gmChainReason(made)); return; }
-        first = await env.DB.prepare("SELECT id FROM gm_invoices WHERE client_id = ? AND job_id = ? AND status <> 'void' ORDER BY rowid LIMIT 1").bind(c.client_id, c.job_id).first();
+        // Only an invoice of this contract's own estimate may be reused; another estimate's invoice is never sent for it.
+        var ceIds = gmDocParseJsonObject(c.estimate_ids_json, null) || c.estimate_ids || [];
+        if (ceIds.length) {
+            var ceStmt = env.DB.prepare("SELECT id FROM gm_invoices WHERE client_id = ? AND job_id = ? AND estimate_id IN (" + ceIds.map(function() { return "?"; }).join(",") + ") AND status <> 'void' ORDER BY rowid LIMIT 1");
+            first = await ceStmt.bind.apply(ceStmt, [c.client_id, c.job_id].concat(ceIds)).first();
+        }
     } else if (made.created && made.created.length) {
         first = { id: made.created[0].id };
     }

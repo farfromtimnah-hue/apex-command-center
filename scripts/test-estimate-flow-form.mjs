@@ -106,6 +106,22 @@ function fill(qs) { const a = {}; qs.forEach((q) => { const k = q.field; a[k] = 
   ok(c2.json.contract_needed === true, "one cent over the Florida amount: the contract is needed again");
 }
 
+// ── 3b. A second estimate on a project that already has invoices never sends another estimate's invoice ──
+{
+  const w = newWorld();
+  const l = lead(w);
+  const a = w.estimate(l, { price: 200000, jobName: "First job" });
+  await w.gm("POST", "estimates/" + a.id + "/send", { full_flow: true });
+  const accA = await w.pub("POST", "/estimates/" + a.token + "/accept", ACCEPT());
+  ok(/^https:\/\//.test(accA.json.invoice_link), "the first estimate on the project gets its invoice");
+  const b = w.estimate(l, { price: 150000, jobName: "Add-on" });
+  await w.gm("POST", "estimates/" + b.id + "/send", { full_flow: true });
+  const accB = await w.pub("POST", "/estimates/" + b.token + "/accept", ACCEPT());
+  ok(accB.status === 200 && accB.json.accepted === true && !accB.json.invoice_link && accB.json.flow_stopped === true, "the second estimate is accepted; the first one's invoice is NOT sent for it, and the chain reports it stopped");
+  ok(count(w, "SELECT COUNT(*) n FROM gm_invoices") === 3, "no invoice was created or reused for the second estimate");
+  ok(count(w, "SELECT COUNT(*) n FROM gm_lead_events WHERE action = 'contract_flow_stopped'") === 1, "the stop is recorded so the owner is told");
+}
+
 // ── 4. Pool questions appear only on a pool job ──
 {
   const w = newWorld();

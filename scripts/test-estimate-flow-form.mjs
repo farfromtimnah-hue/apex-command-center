@@ -138,6 +138,24 @@ function fill(qs) { const a = {}; qs.forEach((q) => { const k = q.field; a[k] = 
   ok(acc.status === 200 && con && con.status === "sent" && con.company_signer_name === "Pat Owner", "the customer accepts; the contract carries the signer's signature, not the seller's");
 }
 
+// ── 5b. The fallback: a seller who cannot sign sends the estimate alone, the contract comes later ──
+{
+  const w = newWorld();
+  const e = w.estimate(lead(w, { vendedor: "Nina NoSign" }));
+  const r = await w.gm("POST", "estimates/" + e.id + "/send", undefined, "seller-nina");
+  ok(r.status === 200 && r.json.sent === true && w.d.one("SELECT company_presign_json p FROM gm_estimates WHERE id = ?", e.id).p === null, "send the estimate only: it sends, with no pre-authorization");
+  const acc = await w.pub("POST", "/estimates/" + e.token + "/accept", ACCEPT());
+  ok(acc.status === 200 && Object.keys(acc.json).sort().join() === "accepted,content_hash" && count(w, "SELECT COUNT(*) n FROM gm_contracts") === 0 && count(w, "SELECT COUNT(*) n FROM gm_jobs") === 1, "the customer accepts as today; the project exists and the contract is made later from it");
+  // Asked first, then the seller changes to the fallback: the waiting request is withdrawn.
+  const e2 = w.estimate(lead(w, { vendedor: "Nina NoSign" }), { name: "Ana Souza" });
+  const c = await w.gm("POST", "estimates/" + e2.id + "/send", CHECK(), "seller-nina");
+  await w.gm("POST", "estimates/" + e2.id + "/sign-request", { full_flow: true, answers: fill(c.json.questions) }, "seller-nina");
+  const r2 = await w.gm("POST", "estimates/" + e2.id + "/send", undefined, "seller-nina");
+  ok(r2.status === 200 && w.d.one("SELECT company_presign_json p FROM gm_estimates WHERE id = ?", e2.id).p === null, "after asking, the fallback still sends and withdraws the waiting request");
+  const aw = await w.gm("GET", "contracts/awaiting", undefined, "owner1");
+  ok(!aw.json.sign_requests || aw.json.sign_requests.length === 0, "the withdrawn request no longer waits for a signer");
+}
+
 // ── 6. A business with two kinds is asked which kind, then the template ──
 {
   const w = newWorld({ trades: ["general", "cleaning"], migrations: ["migrations/contracts_e_cleaning.sql"] });

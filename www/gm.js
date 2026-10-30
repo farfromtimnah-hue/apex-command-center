@@ -12863,7 +12863,7 @@ function gmEstMessageVars(est) {
 // the questions change as the answers change. Everything the system already
 // knows is filled in. The old estimate-only send stays for people and
 // businesses the flow does not apply to.
-function gmEstFlowFresh() { return { mode: "", loaded: false, plan: null, answers: {}, flags: {}, kind: null, tpl: null, remember: {}, name: "", consent: false, errs: {}, busy: false, poolTouched: false, show: false }; }
+function gmEstFlowFresh() { return { mode: "", loaded: false, plan: null, answers: {}, flags: {}, kind: null, tpl: null, remember: {}, name: "", consent: false, errs: {}, busy: false, poolTouched: false, show: false, estimateOnly: false }; }
 var gmEstFlow = gmEstFlowFresh();
 function gmEstFlowMode() {
   if (!gmContractsEnabled()) { return ""; }
@@ -13058,14 +13058,24 @@ function gmEstFlowBarRender() {
   var el = document.getElementById("gmEstFlowBar");
   if (!el) { return; }
   var f = gmEstFlow, est = gmEstDetail;
+  // The fallback: send the estimate alone now; the contract is made and signed later from the project.
+  if (f.estimateOnly) { el.innerHTML = gmEstSendChannelsHtml(est); return; }
   var r = gmEstFlowCheckLocal();
-  if (f.plan && f.plan.signature === "pending") { el.innerHTML = ""; return; }
+  if (f.plan && f.plan.signature === "pending") { el.innerHTML = '<button type="button" class="gm-btn-secondary" style="width:100%;" onclick="gmEstFlowEstimateOnly()">' + gmT("Enviar só o orçamento, contrato depois", "Send the estimate only, contract later") + '</button>'; return; }
   if (!r.ok || (f.mode === "ask" && !(f.plan && f.plan.signature === "approved"))) {
-    var label = f.mode === "ask" ? gmT("Pedir assinatura", "Ask to sign") : gmT("Enviar", "Send");
-    el.innerHTML = '<button type="button" class="gm-btn-primary" style="width:100%;"' + (f.busy ? " disabled" : "") + ' onclick="' + (f.mode === "ask" ? "gmEstFlowAskTap()" : "gmEstFlowSendTap()") + '">' + label + '</button>';
+    var ask = f.mode === "ask";
+    var label = ask ? gmT("Pedir assinatura", "Ask to sign") : gmT("Enviar", "Send");
+    el.innerHTML = '<button type="button" class="gm-btn-primary" style="width:100%;"' + (f.busy ? " disabled" : "") + ' onclick="' + (ask ? "gmEstFlowAskTap()" : "gmEstFlowSendTap()") + '">' + label + '</button>' +
+      (ask ? '<button type="button" class="gm-btn-secondary" style="width:100%;margin-top:8px;" onclick="gmEstFlowEstimateOnly()">' + gmT("Enviar só o orçamento, contrato depois", "Send the estimate only, contract later") + '</button>' : "");
     return;
   }
   el.innerHTML = gmEstSendChannelsHtml(est);
+}
+function gmEstFlowEstimateOnly() {
+  gmEstFlow.estimateOnly = true;
+  var form = document.getElementById("gmEstFlowForm");
+  if (form) { form.innerHTML = ""; }
+  gmEstFlowBarRender();
 }
 
 function gmEstSendOpen() {
@@ -13108,6 +13118,7 @@ function gmEstSendMessageHtml(est) {
     '<p class="gm-derived-note" id="gmEstMsgPreview" style="white-space:pre-wrap;">' + escHtml(gmEstSendText(est)) + '</p>';
 }
 function gmEstFlowMarkTap() {
+  if (gmEstFlow.estimateOnly) { gmEstSendMark(true); return; }
   if (gmEstFlowCheckLocal().ok && !(gmEstFlow.mode === "ask" && !(gmEstFlow.plan && gmEstFlow.plan.signature === "approved"))) { gmEstSendMark(true); }
   else { gmEstFlowSendTap(); }
 }
@@ -13144,7 +13155,7 @@ function gmEstSendMark(silent) {
   if (!est || gmEstSendInFlight) { return; }
   gmEstSendInFlight = true;
   var sendOpts = { method: "POST" };
-  if (gmEstFlow.mode && gmEstFlow.plan) { sendOpts.body = gmEstFlowBody({ consent: true, signer_name: gmEstFlow.name, consent_text: gmEstFlowConsentText() }); }
+  if (gmEstFlow.mode && gmEstFlow.plan && !gmEstFlow.estimateOnly) { sendOpts.body = gmEstFlowBody({ consent: true, signer_name: gmEstFlow.name, consent_text: gmEstFlowConsentText() }); }
   gmApi("estimates/" + encodeURIComponent(est.id) + "/send", sendOpts)
     .then(function() {
       gmEstSendInFlight = false;

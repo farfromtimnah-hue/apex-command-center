@@ -417,8 +417,7 @@
       if (est.status === "accepted") {
         banner.innerHTML = signedHtml();
         banner.classList.remove("hidden");
-        card.innerHTML = '<p class="muted">You can download a copy of this signed estimate at any time.</p>' +
-          (continueLink ? '<button type="button" class="btn" id="btnContract" onclick="openContract()">Contract</button>' : "");
+        card.innerHTML = '<p class="muted">You can download a copy of this signed estimate at any time.</p>';
         return;
       }
       if (est.status === "expired") {
@@ -528,7 +527,6 @@
       if (b && !b.hasAttribute("data-busy")) { b.disabled = !(c && c.checked); }
     }
     var continueLink = null;
-    function openContract() { if (continueLink) { window.location.href = continueLink; } }
     function accept() {
       var err = byId("acceptErr"); if (!err) { return; }
       err.textContent = "";

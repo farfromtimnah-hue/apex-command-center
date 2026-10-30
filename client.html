@@ -6581,6 +6581,32 @@
     // worker/index.js — terminal outcomes are NOT stages, they change status.
     var LEAD_STAGES = ["Lead", "Contato inicial", "Raio X enviado", "Raio X recebido", "Agendamento"];
     var LEAD_STAGE_FLAGGED = "Raio X recebido";
+    // Business System has its own ladder (mirrors LEAD_STAGES_BS in the Worker).
+    // A lead is offered the ladder of ITS OWN plan.
+    var LEAD_STAGES_BS = ["Lead", "Contato inicial", "Lista de espera", "Link enviado"];
+    var BS_STAGE_EN = { "Lead": "New lead", "Contato inicial": "Contacted", "Lista de espera": "Waiting list", "Link enviado": "Link sent" };
+    function leadIsBusinessSystem() {
+      return !!(clientData && clientData.plan === "business_system");
+    }
+    function leadStageList() {
+      return leadIsBusinessSystem() ? LEAD_STAGES_BS : LEAD_STAGES;
+    }
+    // Consulting shows the stage name as stored, as it always did. Business
+    // System shows the English label when the page is in English.
+    function leadStageLabel(stage) {
+      return (leadIsBusinessSystem() && document.body.classList.contains("lang-en") && BS_STAGE_EN[stage]) ? BS_STAGE_EN[stage] : stage;
+    }
+    function fillLeadStageSelect() {
+      var sel = document.getElementById("leadStageSelect");
+      if (!sel) { return; }
+      var list = leadStageList();
+      var html = "";
+      for (var i = 0; i < list.length; i++) {
+        html += '<option value="' + list[i] + '">' + leadStageLabel(list[i]) + "</option>";
+      }
+      sel.innerHTML = html;
+      if (leadStageCurrent) { sel.value = leadStageCurrent; }
+    }
     var leadFacts = null;          // system-known facts, for conflict detection
     var leadStageCurrent = null;   // last committed stage, to revert a cancel
     var pendingStage = null;       // stage awaiting conflict confirmation
@@ -6622,15 +6648,11 @@
       // Contract card (cgGroupNames()).
       cgInit();
 
-      leadStageCurrent = client.lead_stage && LEAD_STAGES.indexOf(client.lead_stage) >= 0
+      leadStageCurrent = client.lead_stage && leadStageList().indexOf(client.lead_stage) >= 0
         ? client.lead_stage : "Lead";
 
       var sel = document.getElementById("leadStageSelect");
-      var html = "";
-      for (var i = 0; i < LEAD_STAGES.length; i++) {
-        html += '<option value="' + LEAD_STAGES[i] + '">' + LEAD_STAGES[i] + "</option>";
-      }
-      sel.innerHTML = html;
+      fillLeadStageSelect();
       sel.value = leadStageCurrent;
       document.getElementById("leadStageFlag").hidden = (leadStageCurrent !== LEAD_STAGE_FLAGGED);
 
@@ -6688,7 +6710,7 @@
 
     function renderLeadHero() {
       var en = document.body.classList.contains("lang-en");
-      document.getElementById("leadStagePill").textContent = leadStageCurrent || "Lead";
+      document.getElementById("leadStagePill").textContent = leadStageLabel(leadStageCurrent || "Lead");
       // Before the early return below: provenance is known independently of
       // the day count, so a lead with an unknown clock can still show who
       // moved it (and vice versa).
@@ -6868,21 +6890,22 @@
     function leadStageConflict(target) {
       if (!leadFacts) { return null; }
       var en = document.body.classList.contains("lang-en");
-      var ti = LEAD_STAGES.indexOf(target);
+      var stageList = leadStageList();
+      var ti = stageList.indexOf(target);
       var msgs = [];
-      if (leadFacts.has_session && ti < LEAD_STAGES.indexOf("Agendamento")) {
+      if (leadFacts.has_session && ti < stageList.indexOf("Agendamento")) {
         msgs.push(en ? "The system shows a session is already scheduled"
                      : "O sistema mostra que já existe uma sessão agendada");
       }
-      if (leadFacts.xray_completed && ti < LEAD_STAGES.indexOf("Raio X recebido")) {
+      if (leadFacts.xray_completed && ti < stageList.indexOf("Raio X recebido")) {
         msgs.push(en ? "The system shows the X-Ray was already submitted"
                      : "O sistema mostra que o Raio X já foi enviado pelo lead");
       }
-      if (leadFacts.xray_assigned && ti < LEAD_STAGES.indexOf("Raio X enviado")) {
+      if (leadFacts.xray_assigned && ti < stageList.indexOf("Raio X enviado")) {
         msgs.push(en ? "The system shows the X-Ray was already sent"
                      : "O sistema mostra que o Raio X já foi enviado");
       }
-      if (leadFacts.has_contact_log && ti < LEAD_STAGES.indexOf("Contato inicial")) {
+      if (leadFacts.has_contact_log && ti < stageList.indexOf("Contato inicial")) {
         msgs.push(en ? "The system shows contact was already logged"
                      : "O sistema mostra que já houve contato registrado");
       }
@@ -7097,6 +7120,7 @@
         // attributes; they are not spans and need an explicit swap.
         applyBilingualAttrs();
         renderContactLogOptions();
+        if (leadIsBusinessSystem()) { fillLeadStageSelect(); }
         renderLeadHero();
         renderLeadContactActions();
         renderNextStep();
@@ -7380,7 +7404,7 @@
           if (data.error) { throw new Error(data.error); }
           document.getElementById("modalContactLog").hidden = true;
           // The first entry may have auto-advanced the stage server-side.
-          if (data.lead_stage && LEAD_STAGES.indexOf(data.lead_stage) >= 0) {
+          if (data.lead_stage && leadStageList().indexOf(data.lead_stage) >= 0) {
             leadStageCurrent = data.lead_stage;
             document.getElementById("leadStageSelect").value = data.lead_stage;
             document.getElementById("leadStageFlag").hidden = (data.lead_stage !== LEAD_STAGE_FLAGGED);
@@ -8444,14 +8468,16 @@
     // Stage ladder for the lead correction path, fetched once from the worker
     // (LEAD_STAGES) rather than hardcoded here, so a new stage reaches both
     // copies of this file without an HTML edit.
-    var LEAD_STAGE_CACHE = null;
+    // One list per plan: the editor offers the ladder of THIS client's plan.
+    var LEAD_STAGE_CACHE = {};
     function loadLeadStages() {
-      if (LEAD_STAGE_CACHE) { return Promise.resolve(LEAD_STAGE_CACHE); }
-      return apiFetch("/api/lead-stages")
+      var stagePlan = leadIsBusinessSystem() ? "business_system" : "consulting";
+      if (LEAD_STAGE_CACHE[stagePlan]) { return Promise.resolve(LEAD_STAGE_CACHE[stagePlan]); }
+      return apiFetch("/api/lead-stages?plan=" + stagePlan)
         .then(function(res) { return res.json(); })
         .then(function(data) {
-          LEAD_STAGE_CACHE = (data && data.stages) ? data.stages : [];
-          return LEAD_STAGE_CACHE;
+          LEAD_STAGE_CACHE[stagePlan] = (data && data.stages) ? data.stages : [];
+          return LEAD_STAGE_CACHE[stagePlan];
         });
     }
 
@@ -8497,7 +8523,7 @@
         for (var i = 0; i < stages.length; i++) {
           var opt = document.createElement("option");
           opt.value = stages[i];
-          opt.textContent = stages[i];
+          opt.textContent = leadStageLabel(stages[i]);
           stageSel.appendChild(opt);
         }
         btn.disabled = stages.length === 0;
@@ -8779,7 +8805,8 @@
 
     function loadApexPartnersForPicker() {
       if (apexPartnersCache) { return Promise.resolve(apexPartnersCache); }
-      return apiFetch("/api/apex-partners")
+      // Only the partners of this client's own plan can be picked.
+      return apiFetch("/api/apex-partners?plan=" + (leadIsBusinessSystem() ? "business_system" : "consulting"))
         .then(function(res) { return res.json(); })
         .then(function(d) {
           apexPartnersCache = d.partners || [];

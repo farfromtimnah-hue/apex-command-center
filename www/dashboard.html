@@ -739,6 +739,8 @@
       font-size: 14px; margin: 14px 0; white-space: pre-wrap;
     }
     /* --- My tasks card ("Speak my tasks") --- */
+    /* Business System side: no meetings, no sessions. nav.js puts apex-side-bs on the body. */
+    body.apex-side-bs .cons-only { display: none !important; }
     .mt-speak { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 18px 8px; }
     .btn-voice-mic[disabled] { opacity: 0.55; cursor: default; }
     /* "Add task": the same button shape, outlined, beside the microphone. */
@@ -931,12 +933,12 @@
               <span class="show-en">Overview</span>
             </h1>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <button data-help="admin-rafa-dashboard#rd#1" class="btn-voice-mic" onclick="openVoiceModal()">
+              <button data-help="admin-rafa-dashboard#rd#1" class="btn-voice-mic cons-only" onclick="openVoiceModal()">
                 <span aria-hidden="true">&#127908;</span>
                 <span class="show-pt">Falar reuniao</span>
                 <span class="show-en">Speak a meeting</span>
               </button>
-              <a href="sessions.html" class="btn-cta-link">
+              <a href="sessions.html" class="btn-cta-link cons-only">
                 <span class="show-pt">+ Nova Sessao</span>
                 <span class="show-en">+ New Session</span>
               </a>
@@ -1105,7 +1107,7 @@
               <!-- Voice booking was built for Rafa and shipped onto Alice's and
                    the dev dashboard only, so the one person it exists for could
                    not reach it. -->
-              <button data-help="admin-rafa-dashboard#rd#1" class="btn-voice-mic" onclick="openVoiceModal()">
+              <button data-help="admin-rafa-dashboard#rd#1" class="btn-voice-mic cons-only" onclick="openVoiceModal()">
                 <span aria-hidden="true">&#127908;</span>
                 <span class="show-pt">Falar reuniao</span>
                 <span class="show-en">Speak a meeting</span>
@@ -1270,19 +1272,19 @@
               <span class="show-en">Overview</span>
             </h1>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <button data-help="admin-rafa-dashboard#rd#1" class="btn-voice-mic" onclick="openVoiceModal()">
+              <button data-help="admin-rafa-dashboard#rd#1" class="btn-voice-mic cons-only" onclick="openVoiceModal()">
                 <span aria-hidden="true">&#127908;</span>
                 <span class="show-pt">Falar reuniao</span>
                 <span class="show-en">Speak a meeting</span>
               </button>
-              <a href="sessions.html" class="btn-cta-link">
+              <a href="sessions.html" class="btn-cta-link cons-only">
                 <span class="show-pt">+ Nova Sessao</span>
                 <span class="show-en">+ New Session</span>
               </a>
             </div>
           </div>
           <!-- Glass tiles -->
-          <div class="glass-tile-row" id="devStatRow">
+          <div class="glass-tile-row cons-only" id="devStatRow">
             <div class="glass-tile">
               <div class="glass-tile-label">
                 <span class="show-pt">Pendentes</span>

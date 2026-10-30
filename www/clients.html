@@ -84,6 +84,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
+  <script src="datetime.js"></script>
   <title data-title-pt="Apex — Clientes" data-title-en="Apex &#8212; Clients">Apex — Clientes</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -884,7 +885,10 @@
     @media (prefers-reduced-motion: reduce) {
       #heroBgImage.is-loaded { animation: none; }
     }
-  </style>
+  
+    /* Business System side: no consulting packages. nav.js puts apex-side-bs on the body. */
+    body.apex-side-bs .cons-only { display: none !important; }
+</style>
 </head>
 <body class="lang-pt">
 
@@ -932,19 +936,19 @@
                 </div>
                 <div class="glass-tile-value is-gold" id="statActive">--</div>
               </div>
-              <div class="glass-tile">
+              <div class="glass-tile cons-only">
                 <div class="glass-tile-label">Raio-X</div>
                 <div class="glass-tile-value" id="statRaioX">--</div>
               </div>
-              <div class="glass-tile">
+              <div class="glass-tile cons-only">
                 <div class="glass-tile-label">Sprint</div>
                 <div class="glass-tile-value" id="statSprint">--</div>
               </div>
-              <div class="glass-tile">
+              <div class="glass-tile cons-only">
                 <div class="glass-tile-label">Premium</div>
                 <div class="glass-tile-value" id="statPremium">--</div>
               </div>
-              <div class="glass-tile">
+              <div class="glass-tile cons-only">
                 <div class="glass-tile-label">Executivo</div>
                 <div class="glass-tile-value" id="statExecutivo">--</div>
               </div>
@@ -1119,7 +1123,7 @@
           <input type="text" id="ncName" data-ph-pt="Nome da empresa *" data-ph-en="Company name *" placeholder="Nome da empresa *">
         </div>
         <div class="field-row">
-          <div class="field-group">
+          <div class="field-group cons-only">
             <select id="ncPackage">
               <option value="" data-opt-pt="-- Pacote" data-opt-en="Package --">-- Pacote</option>
               <option value="Raio-X">Raio-X</option>
@@ -1271,10 +1275,26 @@
       emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
     }
 
-    function apiFetch(path) {
-      path = window.apexSidePath ? window.apexSidePath(path) : path;
+    // opts: { method, body, headers }. A string body is sent as is, with a JSON
+    // Content-Type unless the caller gave one. With no opts it is a plain GET.
+    // (It used to take only the path, so toggleArchive's PUT went out as a GET
+    // and answered 404.) The Authorization header always wins.
+    function apiFetch(path, opts) {
+      path = window.apexSidePath ? window.apexSidePath(path, opts) : path;
       return getToken().then(function (token) {
-        return fetch(WORKER_URL + path, { headers: { "Authorization": "Bearer " + token } });
+        var headers = {};
+        var given = (opts && opts.headers) || {};
+        var hasType = false;
+        Object.keys(given).forEach(function (k) {
+          headers[k] = given[k];
+          if (k.toLowerCase() === "content-type") { hasType = true; }
+        });
+        if (opts && typeof opts.body === "string" && !hasType) { headers["Content-Type"] = "application/json"; }
+        headers["Authorization"] = "Bearer " + token;
+        var init = { headers: headers };
+        if (opts && opts.method) { init.method = opts.method; }
+        if (opts && opts.body !== undefined && opts.body !== null) { init.body = opts.body; }
+        return fetch(WORKER_URL + path, init);
       });
     }
 
@@ -1664,6 +1684,23 @@
     var LEAD_STAGES = ["Lead", "Contato inicial", "Raio X enviado", "Raio X recebido", "Agendamento"];
     var LEAD_STAGE_FLAGGED = "Raio X recebido";   // the one stage that demands action
 
+    // Business System has its own ladder (mirrors LEAD_STAGES_BS in the Worker).
+    // The Leads board shows the ladder of the side you are on.
+    var LEAD_STAGES_BS = ["Lead", "Contato inicial", "Lista de espera", "Link enviado"];
+    var BS_STAGE_WAITLIST = "Lista de espera";
+    var BS_STAGE_EN = { "Lead": "New lead", "Contato inicial": "Contacted", "Lista de espera": "Waiting list", "Link enviado": "Link sent" };
+    function onBusinessSide() {
+      return !!(window.apexSide && window.apexSide() === "business_system");
+    }
+    function leadStagesForSide() {
+      return onBusinessSide() ? LEAD_STAGES_BS : LEAD_STAGES;
+    }
+    // Consulting shows the stage name as stored, as it always did. Business
+    // System shows the English label when the page is in English.
+    function leadStageLabel(stage, en) {
+      return (onBusinessSide() && en && BS_STAGE_EN[stage]) ? BS_STAGE_EN[stage] : stage;
+    }
+
     // Past this many LIVE leads the stacked sections become unwieldy and the
     // layout auto-switches to a chip rail. Terminal records never reach this
     // tab at all (they change status), so nothing terminal can inflate it.
@@ -1684,7 +1721,7 @@
       // NULL lead_stage = a lead created before the pipeline shipped; read as
       // the first stage rather than backfilled, so "never moved" stays visible.
       var s = c.lead_stage || "Lead";
-      return LEAD_STAGES.indexOf(s) < 0 ? "Lead" : s;
+      return leadStagesForSide().indexOf(s) < 0 ? "Lead" : s;
     }
 
     function filterClientsForTab(tab) {
@@ -1772,22 +1809,43 @@
         return;
       }
 
+      var stagesList = leadStagesForSide();
       var byStage = {};
-      for (var s = 0; s < LEAD_STAGES.length; s++) { byStage[LEAD_STAGES[s]] = []; }
+      for (var s = 0; s < stagesList.length; s++) { byStage[stagesList[s]] = []; }
       for (var i = 0; i < leads.length; i++) { byStage[leadStageOf(leads[i])].push(leads[i]); }
+      // Business System: the waiting list is worked oldest first, so people are
+      // contacted in the order they joined. A lead with no date goes last.
+      if (onBusinessSide() && byStage[BS_STAGE_WAITLIST]) {
+        byStage[BS_STAGE_WAITLIST].sort(function (x, y) {
+          var xa = x.bs_waitlist_at || "", ya = y.bs_waitlist_at || "";
+          if (xa === ya) { return 0; }
+          if (!xa) { return 1; }
+          if (!ya) { return -1; }
+          return xa < ya ? -1 : 1;
+        });
+      }
+      // The date a lead joined the waiting list (US format, Eastern), shown on
+      // the lead's card. No words, just the date.
+      function joinDateEl(c) {
+        if (!onBusinessSide() || !c.bs_waitlist_at || leadStageOf(c) !== BS_STAGE_WAITLIST || typeof formatDateUTC !== "function") { return null; }
+        var d = document.createElement("span");
+        d.className = "lead-row-meta";
+        d.textContent = formatDateUTC(c.bs_waitlist_at);
+        return d;
+      }
 
       if (layout === "rail") {
         var rail = document.createElement("div");
         rail.className = "lead-chip-rail";
-        for (var r = 0; r < LEAD_STAGES.length; r++) {
-          var stage = LEAD_STAGES[r];
+        for (var r = 0; r < stagesList.length; r++) {
+          var stage = stagesList[r];
           var col = document.createElement("div");
           col.className = "lead-chip-col";
           if (stage === LEAD_STAGE_FLAGGED) { col.setAttribute("data-flagged", "1"); }
           var ch = document.createElement("div");
           ch.className = "lead-stage-header";
           ch.innerHTML = '<span class="lead-stage-name"></span><span class="lead-stage-count"></span>';
-          ch.querySelector(".lead-stage-name").textContent = stage;
+          ch.querySelector(".lead-stage-name").textContent = leadStageLabel(stage, en);
           ch.querySelector(".lead-stage-count").textContent = byStage[stage].length;
           col.appendChild(ch);
           for (var q = 0; q < byStage[stage].length; q++) {
@@ -1796,6 +1854,8 @@
             chip.href = "client.html?id=" + encodeURIComponent(byStage[stage][q].id);
             chip.textContent = byStage[stage][q].name || "--";
             appendLeadTemp(chip, byStage[stage][q].lead_temperature, en);
+            var chipDate = joinDateEl(byStage[stage][q]);
+            if (chipDate) { chip.appendChild(chipDate); }
             col.appendChild(chip);
           }
           rail.appendChild(col);
@@ -1804,8 +1864,8 @@
         return;
       }
 
-      for (var k = 0; k < LEAD_STAGES.length; k++) {
-        var st2 = LEAD_STAGES[k];
+      for (var k = 0; k < stagesList.length; k++) {
+        var st2 = stagesList[k];
         var sec = document.createElement("div");
         sec.className = "lead-stage-section";
         if (st2 === LEAD_STAGE_FLAGGED) { sec.setAttribute("data-flagged", "1"); }
@@ -1814,7 +1874,7 @@
         head.className = "lead-stage-header";
         head.innerHTML = '<span class="lead-stage-name"></span><span class="lead-stage-count"></span>' +
           (st2 === LEAD_STAGE_FLAGGED ? '<span class="lead-stage-flag"></span>' : "");
-        head.querySelector(".lead-stage-name").textContent = st2;
+        head.querySelector(".lead-stage-name").textContent = leadStageLabel(st2, en);
         head.querySelector(".lead-stage-count").textContent = byStage[st2].length;
         if (st2 === LEAD_STAGE_FLAGGED) {
           head.querySelector(".lead-stage-flag").textContent =
@@ -1838,6 +1898,8 @@
             a.textContent = c2.name || "--";
             appendLeadTemp(a, c2.lead_temperature, en);
             row.appendChild(a);
+            var rowDate = joinDateEl(c2);
+            if (rowDate) { row.appendChild(rowDate); }
             if (c2.phone || c2.whatsapp) {
               var meta = document.createElement("span");
               meta.className = "lead-row-meta";
@@ -1980,7 +2042,8 @@
       if (!container) { return; }
       var en = document.body.classList.contains("lang-en");
       container.innerHTML = '<div class="empty-state">' + (en ? "Loading…" : "Carregando…") + "</div>";
-      return apexApi("/api/apex-partners")
+      // The partners of the side you are on (Consulting or Business System).
+      return apexApi("/api/apex-partners?plan=" + (onBusinessSide() ? "business_system" : "consulting"))
         .then(function (d) {
           apexPartners = d.partners || [];
           if (d.statuses && d.statuses.length) { apexPartnerStatuses = d.statuses; }
@@ -2153,7 +2216,8 @@
         contato: document.getElementById("apContato").value.trim() || null,
         status: document.getElementById("apStatus").value,
         ultima_interacao: document.getElementById("apUltima").value || null,
-        proxima_acao: document.getElementById("apProxima").value.trim() || null
+        proxima_acao: document.getElementById("apProxima").value.trim() || null,
+        plan: onBusinessSide() ? "business_system" : "consulting"
       };
       var req = apexOpenPartnerId
         ? apexApi("/api/apex-partners/" + apexOpenPartnerId, "PUT", body)

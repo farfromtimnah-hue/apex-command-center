@@ -83,6 +83,10 @@ eval(slice(worker, "var CLIENT_SOURCE_TYPES = [", "// Contact-log vocabularies")
   + "\n; globalThis.CLIENT_SOURCE_TYPES = CLIENT_SOURCE_TYPES;");
 eval(slice(worker, "async function handleGetClient(id, request, env)", "// ---------------------------------------------------------------------------\n// Route: GET /api/clients/:id/contacts")
   + "\n; globalThis.handleGetClient = handleGetClient;");
+eval(slice(worker, "function apexPartnerPlanOf(row)", "function apexPartnerPlanParam(") +
+  "\n; globalThis.apexPartnerPlanOf = apexPartnerPlanOf;");
+eval(slice(worker, "function leadStagesFor(plan)", "function actorName(user)") +
+  "\n; Object.assign(globalThis, { leadStagesFor, bsStageStampSql });");
 eval(slice(worker, "async function handlePatchClient(id, request, env)", "// ---------------------------------------------------------------------------\n// Route: GET /api/clients/:id/digital-presence")
   + "\n; globalThis.handlePatchClient = handlePatchClient;");
 
@@ -304,7 +308,7 @@ t("a partner renders as a link through to that partner",
 t("the partner link uses the id, not the name",
   /partner=" \+ encodeURIComponent\(client\.referred_by_partner_id/.test(client), true);
 t("picking 'partner' opens a picker of REAL apex_partners rows",
-  /loadApexPartnersForPicker/.test(client) && /apiFetch\("\/api\/apex-partners"\)/.test(client), true);
+  /loadApexPartnersForPicker/.test(client) && /apiFetch\("\/api\/apex-partners[?"]/.test(client), true);
 t("editing the detail of a partner opens the record picker, never a text box",
   /if \(client\.source_type === "partner"\) \{ return startSourcePartnerPick\(client\); \}/.test(client), true);
 t("the picker offers no free-text partner fallback",

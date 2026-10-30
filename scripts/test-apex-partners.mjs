@@ -148,9 +148,9 @@ t("blank name is rejected, not silently stored", apexPartnerFields({ name: "   "
   await handleGetApexPartners(req({}), env);
   const sql = allSql();
   t("clientes_indicados is computed from clients at read time",
-    /SELECT COUNT\(\*\) FROM clients c WHERE c\.referred_by_partner_id = p\.id\) AS clientes_indicados/.test(sql), true);
+    /SELECT COUNT\(\*\) FROM clients c WHERE c\.referred_by_partner_id = p\.id( AND c\.plan = p\.plan)?\) AS clientes_indicados/.test(sql), true);
   t("converted counts only clients that actually became active",
-    /referred_by_partner_id = p\.id AND c\.status = 'active'\) AS clientes_convertidos/.test(sql), true);
+    /referred_by_partner_id = p\.id( AND c\.plan = p\.plan)? AND c\.status = 'active'\) AS clientes_convertidos/.test(sql), true);
   t("no stored counter column is read", /p\.clientes_indicados/.test(sql), false);
 }
 

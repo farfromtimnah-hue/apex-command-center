@@ -770,6 +770,15 @@ function isDeveloperRole(user) {
 
 var LEAD_STAGES = ["Lead", "Contato inicial", "Raio X enviado", "Raio X recebido", "Agendamento"];
 
+// Business System has no Raio X and no packages, so its leads climb their own
+// ladder. LEAD_STAGES above stays the Consulting list, untouched. Use
+// leadStagesFor(plan) wherever a stage list is needed, never one of the two
+// constants directly. Staff-only English labels (shown by the pages when the
+// side is Business System): New lead, Contacted, Waiting list, Link sent.
+var LEAD_STAGES_BS = ["Lead", "Contato inicial", "Lista de espera", "Link enviado"];
+var BS_STAGE_WAITLIST = "Lista de espera";
+var BS_STAGE_LINK_SENT = "Link enviado";
+
 // ---------------------------------------------------------------------------
 // CLIENT STATUS — the full set of values clients.status may hold.
 //
@@ -935,6 +944,28 @@ function leadStageIndex(stage) {
     return i < 0 ? 0 : i;
 }
 
+// The stage list of a plan. A missing or unknown plan is Consulting.
+function leadStagesFor(plan) {
+    return plan === "business_system" ? LEAD_STAGES_BS : LEAD_STAGES;
+}
+
+// leadStageIndex for a plan's own list. Consulting gives the same numbers as
+// leadStageIndex above.
+function leadStageIndexFor(stage, plan) {
+    var i = leadStagesFor(plan).indexOf(stage || "Lead");
+    return i < 0 ? 0 : i;
+}
+
+// The extra SET clause that stamps a Business System lead entering Lista de
+// espera (bs_waitlist_at) or Link enviado (bs_link_sent_at). Empty for
+// Consulting and for every other stage.
+function bsStageStampSql(plan, stage) {
+    if (plan !== "business_system") { return ""; }
+    if (stage === BS_STAGE_WAITLIST) { return ", bs_waitlist_at = datetime('now')"; }
+    if (stage === BS_STAGE_LINK_SENT) { return ", bs_link_sent_at = datetime('now')"; }
+    return "";
+}
+
 // The display name to record as the actor for a server-side write, following
 // the convention set by client_assessments.activated_by, lead_contact_log
 // .logged_by, resources.created_by and clients.next_step_set_by: the human's
@@ -1009,10 +1040,13 @@ async function advanceLeadStage(env, clientId, targetStage, actor, source) {
     if (!clientId) { return; }
     try {
         var row = await env.DB.prepare(
-            "SELECT status, lead_stage FROM clients WHERE id = ?"
+            "SELECT status, lead_stage, plan FROM clients WHERE id = ?"
         ).bind(clientId).first();
         if (!row || (row.status || "") !== "lead") { return; }
-        if (leadStageIndex(row.lead_stage) >= leadStageIndex(targetStage)) { return; }
+        // A stage the lead's own plan does not have (a Business System lead
+        // has no Raio X and no Agendamento) is never written.
+        if (leadStagesFor(row.plan).indexOf(targetStage) < 0) { return; }
+        if (leadStageIndexFor(row.lead_stage, row.plan) >= leadStageIndexFor(targetStage, row.plan)) { return; }
         // The early return above is what keeps stage_changed_at honest: this
         // line is only ever reached when the stage genuinely moves, so the
         // "days in stage" clock never resets on a re-run of the same action.
@@ -2270,6 +2304,22 @@ function buildCustomSectionsPrompt(customSections) {
     return block;
 }
 
+// One retry per Claude call, after a 2 second wait, only when Cloudflare timed
+// out (524) or Claude was overloaded or down (529, any 500 or higher). A 4xx is
+// the caller's mistake and is never retried. doFetch makes one request; the
+// second answer is returned whatever it is.
+var CLAUDE_RETRY_WAIT_MS = 2000;
+function claudeShouldRetry(status) {
+    return status === 524 || status === 529 || status >= 500;
+}
+async function claudeFetchRetryOnce(doFetch, waitMs) {
+    var res = await doFetch();
+    if (res.ok || !claudeShouldRetry(res.status)) { return res; }
+    try { if (res.body && res.body.cancel) { res.body.cancel(); } } catch (e) { /* the first answer is dropped */ }
+    await new Promise(function(resolve) { setTimeout(resolve, waitMs); });
+    return doFetch();
+}
+
 async function handlePostSummarize(request, env) {
     try {
         var user = await authenticate(request, env);
@@ -2321,20 +2371,22 @@ async function handlePostSummarize(request, env) {
             transcriptBlock;
 
         function callClaude(promptText, maxTokens) {
-            return fetch(CLAUDE_API_URL, {
-                method: "POST",
-                headers: {
-                    "Content-Type":      "application/json",
-                    "x-api-key":         env.CLAUDE_API_KEY,
-                    "anthropic-version": "2023-06-01"
-                },
-                body: JSON.stringify({
-                    model:      CLAUDE_MODEL,
-                    max_tokens: maxTokens,
-                    system:     SUMMARY_SYSTEM,
-                    messages:   [{ role: "user", content: promptText }]
-                })
-            });
+            return claudeFetchRetryOnce(function() {
+                return fetch(CLAUDE_API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":      "application/json",
+                        "x-api-key":         env.CLAUDE_API_KEY,
+                        "anthropic-version": "2023-06-01"
+                    },
+                    body: JSON.stringify({
+                        model:      CLAUDE_MODEL,
+                        max_tokens: maxTokens,
+                        system:     SUMMARY_SYSTEM,
+                        messages:   [{ role: "user", content: promptText }]
+                    })
+                });
+            }, CLAUDE_RETRY_WAIT_MS);
         }
 
         var claudeResults = await Promise.all([
@@ -2715,7 +2767,8 @@ async function handleGetClients(request, env) {
         var res = await env.DB.prepare(
             "SELECT id, name, owners, owners_json, industry, location, location_state, location_city, logo_url, profile_pt, profile_en, " +
             "package, status, phone, email, whatsapp, payment_method, contacts, zoho_customer_id, consolidated, lead_stage, lead_temperature, created_at, " +
-            "COALESCE(archived, 0) AS archived, archived_at, archived_by, plan, split_mode, monthly_amount_cents " +
+            "COALESCE(archived, 0) AS archived, archived_at, archived_by, plan, split_mode, monthly_amount_cents, " +
+            "bs_waitlist_at, bs_link_sent_at " +
             "FROM clients " +
             (listWhere.length ? "WHERE " + listWhere.join(" AND ") + " " : "") +
             "ORDER BY name ASC"
@@ -2976,7 +3029,8 @@ async function handleGetClient(id, request, env) {
             "c.goals_enabled, c.goals_enabled_set_by, c.goals_enabled_set_at, " +
             "c.source_type, c.source_detail, c.referred_by_partner_id, p.name AS referred_by_partner_name, " +
             "c.lead_temperature, c.created_at, c.staff_manage, " +
-            "c.plan, c.plan_changed_at, c.plan_changed_by, c.split_mode, c.monthly_amount_cents FROM clients c " +
+            "c.plan, c.plan_changed_at, c.plan_changed_by, c.split_mode, c.monthly_amount_cents, " +
+            "c.bs_waitlist_at, c.bs_link_sent_at, c.bs_activated_at FROM clients c " +
             "LEFT JOIN apex_partners p ON p.id = c.referred_by_partner_id " +
             "WHERE c.id = ?"
         ).bind(id).first();
@@ -3265,13 +3319,16 @@ async function handlePatchLeadStage(id, request, env) {
 
         var body = await request.json();
         var stage = (body.stage || "").trim();
-        if (LEAD_STAGES.indexOf(stage) < 0) { return jsonErr("Invalid stage", 400); }
+        // A name no plan has is refused before the lookup, as it always was.
+        if (leadStagesFor("consulting").indexOf(stage) < 0 && leadStagesFor("business_system").indexOf(stage) < 0) { return jsonErr("Invalid stage", 400); }
 
         var client = await env.DB.prepare(
-            "SELECT id, status, lead_stage, stage_changed_at, stage_changed_by, stage_change_source FROM clients WHERE id = ?"
+            "SELECT id, status, lead_stage, stage_changed_at, stage_changed_by, stage_change_source, plan FROM clients WHERE id = ?"
         ).bind(id).first();
         if (!client) { return jsonErr("Client not found", 404); }
         if ((client.status || "") !== "lead") { return jsonErr("Not a lead", 400); }
+        // The stage must belong to THIS client's own plan.
+        if (leadStagesFor(client.plan).indexOf(stage) < 0) { return jsonErr("Invalid stage", 400); }
 
         // Re-selecting the stage the lead is already on is a no-op, NOT a
         // reset of the "days in stage" clock. A lead sitting on "Agendamento"
@@ -3296,9 +3353,12 @@ async function handlePatchLeadStage(id, request, env) {
         // source 'manual' is what separates a deliberate pick from an
         // automatic advance in the UI. Written in the SAME statement as the
         // stage and the clock so the four can never drift apart.
+        // Business System only: entering Lista de espera or Link enviado stamps
+        // when (the waiting list is worked oldest first). Entering is all this
+        // branch reaches: a re-pick of the same stage returned above.
         await env.DB.prepare(
             "UPDATE clients SET lead_stage = ?, stage_changed_at = datetime('now'), " +
-            "stage_changed_by = ?, stage_change_source = 'manual' WHERE id = ?"
+            "stage_changed_by = ?, stage_change_source = 'manual'" + bsStageStampSql(client.plan, stage) + " WHERE id = ?"
         ).bind(stage, actorName(user), id).run();
 
         var stamped = await env.DB.prepare(
@@ -3376,6 +3436,77 @@ async function handlePatchLeadNextStep(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// BUSINESS SYSTEM LEAD PIPELINE (progress.md: Business System pipeline and
+// payment hook). A business_system lead climbs Lead, Contato inicial, Lista de
+// espera, Link enviado (LEAD_STAGES_BS), then becomes an active client.
+// ---------------------------------------------------------------------------
+
+// Whole minutes between two SQLite UTC datetime strings, or null when either
+// is missing or the order is wrong.
+function bsMinutesBetween(fromAt, toAt) {
+    if (!fromAt || !toAt) { return null; }
+    var a = Date.parse(String(fromAt).replace(" ", "T") + "Z");
+    var b = Date.parse(String(toAt).replace(" ", "T") + "Z");
+    if (isNaN(a) || isNaN(b) || b < a) { return null; }
+    return Math.floor((b - a) / 60000);
+}
+
+// Turns a business_system lead into an active client. No package is needed.
+// opts.source says who asked: "manual" (staff, the converted outcome) today,
+// "payment" later. opts.actor is the staff display name, if any.
+//
+// It uses clientStatusSwitchSql("active"), the SAME status-switch the converted
+// outcome uses, so the daily log of a business_system client stays OFF (the
+// pause memory is empty, so nothing is restored to ON).
+//
+// Returns { ok: true, changed, minutes } where minutes is the whole minutes
+// between bs_link_sent_at and bs_activated_at when both exist, else null.
+// Or { ok: false, status, error }.
+//
+// ===== PAYMENT HOOK (not built yet) =========================================
+// A later payment build calls this with source "payment" when the first
+// payment succeeds. Immediately after the UPDATE below, THAT build issues the
+// owner's Stytch credentials and sends the login. The model is the existing
+// owner-invite path, handleGmOwnerInvite (do not copy or edit it here; call it).
+// THIS function must NOT issue credentials, send a text or change any login.
+// ============================================================================
+async function bsActivateLead(env, clientId, opts) {
+    opts = opts || {};
+    var row = await env.DB.prepare(
+        "SELECT id, plan, status, bs_link_sent_at, bs_activated_at FROM clients WHERE id = ?"
+    ).bind(clientId).first();
+    if (!row) { return { ok: false, status: 404, error: "Client not found" }; }
+    if (row.plan !== "business_system") { return { ok: false, status: 400, error: "Not a Business System client" }; }
+    if (row.status === "active") {
+        return { ok: true, changed: false, minutes: bsMinutesBetween(row.bs_link_sent_at, row.bs_activated_at) };
+    }
+    await env.DB.prepare(
+        "UPDATE clients SET status = 'active', lead_stage = NULL, bs_activated_at = datetime('now'), " +
+        "stage_changed_at = datetime('now'), stage_changed_by = ?, stage_change_source = ?" +
+        clientStatusSwitchSql("active") + " WHERE id = ?"
+    ).bind(opts.actor || null, "bs_activate:" + (opts.source || "manual"), clientId).run();
+    var after = await env.DB.prepare(
+        "SELECT bs_link_sent_at, bs_activated_at FROM clients WHERE id = ?"
+    ).bind(clientId).first();
+    return { ok: true, changed: true, minutes: bsMinutesBetween(after && after.bs_link_sent_at, after && after.bs_activated_at) };
+}
+
+// Makes a sign-up link token for a business_system lead. Stores ONLY the
+// sha256 hash; the raw token is returned once to the caller and is never
+// logged or stored. No route, screen or sending uses this yet.
+async function bsMintLeadLink(env, clientId, actorNameValue) {
+    var bytes = crypto.getRandomValues(new Uint8Array(32));
+    var token = "bsl_";
+    for (var i = 0; i < bytes.length; i++) { token += bytes[i].toString(16).padStart(2, "0"); }
+    var tokenHash = await sha256Hex(token);
+    var linkId = crypto.randomUUID();
+    await env.DB.prepare(
+        "INSERT INTO bs_lead_links (id, client_id, token_hash, created_at, created_by) VALUES (?, ?, ?, ?, ?)"
+    ).bind(linkId, clientId, tokenHash, new Date().toISOString(), actorNameValue || null).run();
+    return { id: linkId, token: token };
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/clients/:id/lead-outcome
 // Body: { outcome: 'converted' | 'dormant', package? }
 //
@@ -3402,8 +3533,15 @@ async function handlePostLeadOutcome(id, request, env) {
         var body = await request.json();
         var outcome = (body.outcome || "").trim();
 
-        var client = await env.DB.prepare("SELECT id, status FROM clients WHERE id = ?").bind(id).first();
+        var client = await env.DB.prepare("SELECT id, status, plan FROM clients WHERE id = ?").bind(id).first();
         if (!client) { return jsonErr("Client not found", 404); }
+
+        if (outcome === "converted" && client.plan === "business_system") {
+            // Business System has no packages: the lead simply becomes active.
+            var activated = await bsActivateLead(env, id, { source: "manual", actor: actorName(user) });
+            if (!activated.ok) { return jsonErr(activated.error, activated.status); }
+            return jsonOk({ status: "active", plan: "business_system", changed: activated.changed, minutes_link_sent_to_active: activated.minutes });
+        }
 
         if (outcome === "converted") {
             var pkg = (body.package || "").trim();
@@ -3483,7 +3621,10 @@ async function handleGetLeadStages(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        return jsonOk({ stages: LEAD_STAGES });
+        // ?plan= like the other admin list endpoints: missing means consulting.
+        var stagesPlan = "consulting";
+        try { if (new URL(request.url).searchParams.get("plan") === "business_system") { stagesPlan = "business_system"; } } catch (e0) { stagesPlan = "consulting"; }
+        return jsonOk({ stages: leadStagesFor(stagesPlan) });
     } catch (e) {
         return jsonErr("Error fetching lead stages: " + e.message, 500);
     }
@@ -5061,16 +5202,25 @@ async function handlePatchClient(id, request, env) {
 
             if (newStatus === "lead") {
                 var leadStage = body.lead_stage || null;
-                if (!leadStage || LEAD_STAGES.indexOf(leadStage) === -1) {
+                // The stage must belong to this client's own plan.
+                var leadRow = await env.DB.prepare("SELECT plan, status, lead_stage FROM clients WHERE id = ?").bind(id).first();
+                var leadPlan = (leadRow && leadRow.plan) || "consulting";
+                if (!leadStage || leadStagesFor(leadPlan).indexOf(leadStage) === -1) {
                     return jsonErr("Selecione uma etapa / Select a lead stage", 400);
                 }
+                // Business System: stamp the date it ENTERS Lista de espera or
+                // Link enviado. A client that is already a lead on that same
+                // stage keeps its original date.
+                var leadStamp = "";
+                var alreadyThere = !!(leadRow && leadRow.status === "lead" && leadRow.lead_stage === leadStage);
+                if (!alreadyThere) { leadStamp = bsStageStampSql(leadPlan, leadStage); }
                 // stage_change_source identifies the path that made the change,
                 // matching the 'manual-d1' stamp left by the ELITE REMODELING
                 // correction that was done by hand before this UI existed.
                 await env.DB.prepare(
                     "UPDATE clients SET status = 'lead', lead_stage = ?, " +
                     "stage_changed_at = datetime('now'), stage_changed_by = ?, " +
-                    "stage_change_source = 'client-status-edit' WHERE id = ?"
+                    "stage_change_source = 'client-status-edit'" + leadStamp + " WHERE id = ?"
                 ).bind(leadStage, user.display_name || user.role, id).run();
             } else if (newStatus === "active") {
                 // Somebody becomes ACTIVE when they have a contract, and a
@@ -5133,6 +5283,13 @@ async function handlePatchClient(id, request, env) {
                     "SELECT id FROM apex_partners WHERE id = ?"
                 ).bind(srcPartnerId).first();
                 if (!partnerRow) { return jsonErr("Parceiro não encontrado / Partner not found", 404); }
+                // A partner belongs to one side (Consulting or Business System)
+                // and may only be linked to a client of that same plan.
+                var srcPartnerPlan = await env.DB.prepare("SELECT plan FROM apex_partners WHERE id = ?").bind(srcPartnerId).first();
+                var srcClientRow = await env.DB.prepare("SELECT plan FROM clients WHERE id = ?").bind(id).first();
+                if (apexPartnerPlanOf(srcPartnerPlan) !== apexPartnerPlanOf(srcClientRow)) {
+                    return jsonErr("O parceiro e o cliente são de planos diferentes / The partner and the client are on different plans", 400);
+                }
                 // source_detail stays NULL for partners: the name is resolved by
                 // join at read time and must never be duplicated here.
             } else if (srcType !== null) {
@@ -25344,6 +25501,17 @@ async function handleGetReferralExtra(slug, kind, request, env) {
 // tier's list is configurable per client, Apex's own is fixed.
 var APEX_PARTNER_STATUSES = ["Prospectando", "Ativo", "Inativo"];
 
+// Each partner belongs to one side, Consulting or Business System (the same two
+// values as clients.plan). A row with no plan reads as consulting.
+function apexPartnerPlanOf(row) {
+    return row && row.plan === "business_system" ? "business_system" : "consulting";
+}
+// The side a request asks for: ?plan=business_system, else consulting.
+function apexPartnerPlanParam(request) {
+    try { if (new URL(request.url).searchParams.get("plan") === "business_system") { return "business_system"; } } catch (e) { /* consulting */ }
+    return "consulting";
+}
+
 function apexPartnerFields(body, partial) {
     var out = {};
     function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
@@ -25391,15 +25559,18 @@ async function handleGetApexPartners(request, env) {
                 .bind(gmReferralSlug(), missingRows[mi].id).run();
         }
 
+        // Only the partners of the asked side, and only referred clients of the
+        // partner's OWN plan are counted. Missing ?plan= means consulting.
+        var listPartnerPlan = apexPartnerPlanParam(request);
         var rows = await env.DB.prepare(
             "SELECT p.*, " +
-            "(SELECT COUNT(*) FROM clients c WHERE c.referred_by_partner_id = p.id) AS clientes_indicados, " +
+            "(SELECT COUNT(*) FROM clients c WHERE c.referred_by_partner_id = p.id AND c.plan = p.plan) AS clientes_indicados, " +
             // "Converted" means the referred lead actually became a paying
             // client — status='active'. A lead still in the pipeline counts as
             // referred but not yet converted.
-            "(SELECT COUNT(*) FROM clients c WHERE c.referred_by_partner_id = p.id AND c.status = 'active') AS clientes_convertidos " +
-            "FROM apex_partners p ORDER BY p.name COLLATE NOCASE"
-        ).all();
+            "(SELECT COUNT(*) FROM clients c WHERE c.referred_by_partner_id = p.id AND c.plan = p.plan AND c.status = 'active') AS clientes_convertidos " +
+            "FROM apex_partners p WHERE p.plan = ? ORDER BY p.name COLLATE NOCASE"
+        ).bind(listPartnerPlan).all();
 
         return jsonOk({ partners: rows.results || [], statuses: APEX_PARTNER_STATUSES });
     } catch (e) {
@@ -25529,17 +25700,20 @@ async function handlePostApexPartner(request, env) {
         if (parsed.error) { return jsonErr(parsed.error, 400); }
         var f = parsed.fields;
 
+        // The partner is stored on the side it was created on. The page sends
+        // body.plan; ?plan= is the fallback; anything else is consulting.
+        var newPartnerPlan = body.plan === "business_system" ? "business_system" : apexPartnerPlanParam(request);
         var rowId = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO apex_partners (id, name, tipo, contato, status, ultima_interacao, proxima_acao, referral_slug) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO apex_partners (id, name, tipo, contato, status, ultima_interacao, proxima_acao, referral_slug, plan) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(rowId, f.name,
             f.tipo !== undefined ? f.tipo : null,
             f.contato !== undefined ? f.contato : null,
             f.status !== undefined ? f.status : "Prospectando",
             f.ultima_interacao !== undefined ? f.ultima_interacao : null,
             f.proxima_acao !== undefined ? f.proxima_acao : null,
-            gmReferralSlug()).run();
+            gmReferralSlug(), newPartnerPlan).run();
 
         var row = await env.DB.prepare("SELECT * FROM apex_partners WHERE id = ?").bind(rowId).first();
         return jsonOk({ created: true, partner: row });
@@ -25616,7 +25790,7 @@ async function handleDeleteApexPartner(rowId, request, env) {
 async function apexPartnerBySlug(env, slug) {
     if (!gmReferralSlugValid(slug)) { return null; }
     return env.DB.prepare(
-        "SELECT id, name, hero_url FROM apex_partners WHERE referral_slug = ?"
+        "SELECT id, name, hero_url, plan FROM apex_partners WHERE referral_slug = ?"
     ).bind(slug).first();
 }
 
@@ -25698,9 +25872,15 @@ async function handlePostApexReferralLead(slug, request, env) {
             // WHICH partner — the name is never copied into source_detail.
             // language 'en' explicitly (the column DEFAULT is 'pt'; click-through fixes B2).
             // A lead that filled in a partner's link is warm (Nicole, 2026-09-29).
-            "INSERT INTO clients (id, name, status, lead_stage, stage_changed_at, phone, email, referred_by_partner_id, source_type, language, lead_temperature) " +
-            "VALUES (?, ?, 'lead', 'Lead', datetime('now'), ?, ?, ?, 'partner', 'en', 'warm')"
-        ).bind(leadId, nome, telefone, email, partner.id).run();
+            // plan: the lead belongs to the same side as the partner's link.
+            "INSERT INTO clients (id, name, status, lead_stage, stage_changed_at, phone, email, referred_by_partner_id, source_type, language, lead_temperature, plan) " +
+            "VALUES (?, ?, 'lead', 'Lead', datetime('now'), ?, ?, ?, 'partner', 'en', 'warm', ?)"
+        ).bind(leadId, nome, telefone, email, partner.id, apexPartnerPlanOf(partner)).run();
+        // A Business System lead starts with the daily log OFF, through the same
+        // switch the Business System build uses for its new clients.
+        if (apexPartnerPlanOf(partner) === "business_system") {
+            await clientSetSwitchOff(env, leadId, "daily_log_enabled", { display_name: "system" });
+        }
 
         // Deliberately no id and no data in the public response.
         return jsonOk({ created: true });

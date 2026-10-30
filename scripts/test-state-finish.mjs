@@ -378,8 +378,10 @@ const BIZ_YES = { values: { ins_cgl: "yes", ins_cgl_insurer: "Acme Mutual", ins_
   const ctShop = await run("CT", {}, { flags: { sold_in_home: false } });
   ok(F.contractStateMessageNote(ctShop.comp) === "" && line(ctShop.card, "notice:CT-email-sentence") === null && !ctShop.card.more.some(function (m) { return m.key === "notice:CT-email-sentence"; }),
     "a Connecticut contract not sold at the customer's home has no Notice of Cancellation, so the sentence about it is not added and the line is not on the card");
-  const send = fnSrc("handlePostGmContractSend", workerSrc);
-  ok(/var besideMsg = contractStateMessageNote\(comp\);\s+if \(besideMsg\) \{ msg = msg \+ "\\n\\n" \+ besideMsg; \}/.test(send) && /"state_delivered", \{ message_note: !!besideMsg, slots: sentSlots, actor_id: contractActorRecord\(user\)\.id, actor_role: contractActorRecord\(user\)\.role \}/.test(send),
+  // The Send button and the one-link flow share contractSendCore; the button adds the sentence to its message.
+  const send = fnSrc("handlePostGmContractSend", workerSrc), sendCore = fnSrc("contractSendCore", workerSrc);
+  ok(/var besideMsg = contractStateMessageNote\(comp\);/.test(sendCore) && /if \(sent\.besideMsg\) \{ msg = msg \+ "\\n\\n" \+ sent\.besideMsg; \}/.test(send) && /actorRec: contractActorRecord\(user\)/.test(send) &&
+    /"state_delivered", \{ message_note: !!besideMsg, slots: sentSlots, actor_id: p\.actorRec\.id, actor_role: p\.actorRec\.role \}/.test(sendCore),
     "the Send step puts it on its own lines right under the message, and records that it went out, by whom");
   const l0 = line(ct.card, "notice:CT-email-sentence");
   const old = F.contractStateActionCard(ct.comp.state, ct.comp.checklist, ct.r.c.flags, { c: SENT, frozen: frozenOf(ct), who: WHO });

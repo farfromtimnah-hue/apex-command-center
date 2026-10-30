@@ -417,7 +417,8 @@
       if (est.status === "accepted") {
         banner.innerHTML = signedHtml();
         banner.classList.remove("hidden");
-        card.innerHTML = '<p class="muted">You can download a copy of this signed estimate at any time.</p>';
+        card.innerHTML = '<p class="muted">You can download a copy of this signed estimate at any time.</p>' +
+          (continueLink ? '<button type="button" class="btn" id="btnContract" onclick="openContract()">Contract</button>' : "");
         return;
       }
       if (est.status === "expired") {
@@ -526,6 +527,8 @@
       var c = byId("consent"); var b = byId(btnId);
       if (b && !b.hasAttribute("data-busy")) { b.disabled = !(c && c.checked); }
     }
+    var continueLink = null;
+    function openContract() { if (continueLink) { window.location.href = continueLink; } }
     function accept() {
       var err = byId("acceptErr"); if (!err) { return; }
       err.textContent = "";
@@ -546,6 +549,8 @@
         .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
         .then(function(r) {
           if (!r.ok) { throw new Error(r.data.error || "Could not accept"); }
+          // Sent with the contract as one link: the contract is already waiting, signed by the company.
+          continueLink = (typeof r.data.contract_link === "string" && /^https:\/\//.test(r.data.contract_link)) ? r.data.contract_link : null;
           return load();
         })
         .then(function() { window.scrollTo(0, 0); })

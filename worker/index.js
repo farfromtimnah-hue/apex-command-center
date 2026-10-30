@@ -31434,11 +31434,38 @@ async function handlePostGmEstimateSend(id, estId, request, env) {
             return jsonErr("A " + est.status + " estimate cannot be sent", 409);
         }
         var actor = actorName(user);
+        // Send with contract (one link): optional, off by default. Everything
+        // is checked before anything is written, so a refusal leaves the
+        // estimate exactly as it was. Without the option the body is never read.
+        var flow = null;
+        var flowBody = null;
+        try { flowBody = await request.json(); } catch (eFlowBody) { flowBody = null; }
+        if (flowBody && flowBody.full_flow === true) {
+            flow = await gmEstFullFlowCheck(env, user, id, est, flowBody, flowBody.check_only === true);
+            if (flow instanceof Response) { return flow; }
+            if (flowBody.check_only === true) { return jsonOk({ ok: true, check_only: true, signer_name: flow.signer.name }); }
+        }
         var res = await env.DB.prepare(
             "UPDATE gm_estimates SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), updated_at = datetime('now') " +
             "WHERE id = ? AND client_id = ? AND status IN ('draft','sent','viewed','changes_requested')"
         ).bind(estId, id).run();
         if (!res.meta || !res.meta.changes) { return jsonErr("The estimate changed while sending. Reload and try again.", 409); }
+        if (flow) {
+            // The owner's signature, given now and applied to the contract when
+            // the customer accepts: who, what they agreed to, from where, when.
+            var consentTextHash = flowBody.consent_text ? await sha256Hex(String(flowBody.consent_text).slice(0, 600)) : null;
+            var presign = {
+                v: 1, signer_name: flow.signer.name, typed_name: flow.typed_name, user: actor, actor_record: contractActorRecord(user), consent: true,
+                consent_text_sha256: consentTextHash, ip: request.headers.get("CF-Connecting-IP") || null,
+                user_agent: (request.headers.get("User-Agent") || "").slice(0, 400) || null, at: new Date().toISOString().slice(0, 19).replace("T", " "),
+                estimate_number: est.number, revision: est.revision
+            };
+            await env.DB.prepare("UPDATE gm_estimates SET company_presign_json = ? WHERE id = ? AND client_id = ?").bind(JSON.stringify(presign), estId, id).run();
+            await gmLogLeadEvents(env, id, est.lead_id, actor, [{ action: "estimate_full_flow_authorized", field: "estimate", old_value: null, new_value: est.number + (est.revision > 1 ? "-R" + est.revision : ""), reason: "signed for the company by " + flow.signer.name + " (one link)" }]);
+        } else if (est.company_presign_json) {
+            // A normal send after a one-link send: the earlier authorization is withdrawn.
+            await env.DB.prepare("UPDATE gm_estimates SET company_presign_json = NULL WHERE id = ? AND client_id = ?").bind(estId, id).run();
+        }
         await env.DB.prepare(
             "UPDATE gm_estimates SET status = 'superseded', updated_at = datetime('now') WHERE client_id = ? AND number = ? AND id <> ? AND revision < ? AND status IN ('sent','viewed','changes_requested','accepted','declined')"
         ).bind(id, est.number, estId, est.revision).run();
@@ -31480,6 +31507,56 @@ async function handlePostGmEstimateSend(id, estId, request, env) {
     } catch (e) {
         return jsonErr("Error sending estimate: " + e.message, 500);
     }
+}
+
+// Send with contract (one link): who may, and whether the contract this
+// estimate would become is ready. Returns a Response (the refusal, with the
+// full list when information is missing) or { signer, typed_name }.
+// checkOnly skips the consent and the typed name (the send sheet asks for the
+// list first, then for the signature).
+async function gmEstFullFlowCheck(env, user, id, est, body, checkOnly) {
+    var cs = await contractSettingsRow(env, id);
+    var client = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
+    if (!cs.trades.length || !(cs.owner_signer_name || (cs.signers || []).length)) {
+        return jsonErr2("Configure o contrato primeiro (ofícios e quem assina) em Estimates > Configurações.", "Set up the contract settings first (trades, signers) under Estimates > Settings", 400);
+    }
+    var signer = contractSignerAllowed(user, cs, client);
+    if (!signer.ok) { return jsonErr2("Você não está autorizado a assinar pela empresa. Encaminhe o contrato para quem assina.", "You are not an authorized signer. Route the contract to one.", 403); }
+    var typed = gmStr(body.signer_name, 120);
+    if (!checkOnly) {
+        if (body.consent !== true) { return jsonErr2("Marque a caixa de consentimento.", "Please agree to sign electronically", 400); }
+        if (!typed) { return jsonErr2("Digite o seu nome.", "Please type your name", 400); }
+    }
+    var problems = await gmEstContractPrecheck(env, id, est);
+    if (problems) { return problems; }
+    return { signer: signer, typed_name: typed || null };
+}
+
+// The contract this estimate would become, composed the way the company's
+// signature composes it, without writing anything. A tiered estimate is
+// checked for each option (the customer picks later). Returns null when it is
+// ready, else the Response that names everything still missing at once.
+async function gmEstContractPrecheck(env, id, est) {
+    var picks = (est.mode === "tiered" && est.options.length) ? est.options : [null];
+    var blockers = [], missing = [];
+    var nowStamp = new Date().toISOString().slice(0, 19).replace("T", " ");
+    var today = gmEasternToday();
+    for (var i = 0; i < picks.length; i++) {
+        var asIf = Object.assign({}, est, { accepted_option_id: picks[i] ? picks[i].id : (est.options[0] ? est.options[0].id : null), accepted_at: nowStamp, sent_at: est.sent_at || nowStamp });
+        var made = await gmContractCreateCore(env, id, { id: null, lead_id: est.lead_id }, {}, "check", { estimates: [asIf], plan_only: true });
+        if (made instanceof Response) { return made; }
+        var plan = made.plan;
+        var c = { id: "check", client_id: id, job_id: null, lead_id: est.lead_id, estimate_ids: [est.id], number: "CON-CHECK", revision: 1, status: "draft", library_version: 1,
+            selections: plan.selections, answers: plan.answers, flags: plan.flags, custom_clauses: [], contract_date: today, offer_expiry_date: today,
+            company_signed_at: nowStamp, company_signature_voided_at: null, contract_price_cents: null };
+        var ctx = await contractContext(env, id, c);
+        ctx.estimates = [asIf];
+        var comp = contractCompose(ctx, c, today, "template");
+        comp.blockers.forEach(function(b) { if (!blockers.some(function(x) { return x.code === b.code; })) { blockers.push(b); } });
+        comp.missing.forEach(function(m) { if (!missing.some(function(x) { return x.field === m.field; })) { missing.push(m); } });
+    }
+    if (blockers.length || missing.length) { return contractProblemsErr({ blockers: blockers, missing: missing }); }
+    return null;
 }
 
 var GM_DOC_DEFAULT_ESTIMATE_MESSAGE = "Hi {customer_first_name}, it's {seller_name} from {business_name}. Here is your estimate for {job_name}: {link}";
@@ -31632,6 +31709,10 @@ async function handleGetGmDocMessages(id, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         var s = await gmDocSettingsRow(env, id);
         var client = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
+        // Send with contract (one link) is offered only to a person who may sign for the
+        // company, at a business whose contract settings name the trades and the signers.
+        var ffSettings = await contractSettingsRow(env, id);
+        var ffSigner = (ffSettings.trades.length && (ffSettings.owner_signer_name || (ffSettings.signers || []).length)) ? contractSignerAllowed(user, ffSettings, client) : null;
         return jsonOk({
         // The non-sensitive slice a seller's estimate wizard needs. No
         // payment details, no license, no late-fee terms.
@@ -31641,7 +31722,8 @@ async function handleGetGmDocMessages(id, request, env) {
             // F24: every message built in the portal names the person sending.
             sender_first_name: await gmDocSenderFirstName(env, user, id, client, s),
             estimate_valid_days: s.estimate_valid_days, schedule_presets: s.schedule_presets,
-            min_margin_pct: s.min_margin_pct, setup_completed_at: s.setup_completed_at
+            min_margin_pct: s.min_margin_pct, setup_completed_at: s.setup_completed_at,
+            full_flow_signer: ffSigner && ffSigner.ok ? ffSigner.name : null
         },
         messages: {
             estimate_message: s.estimate_message || GM_DOC_DEFAULT_ESTIMATE_MESSAGE,
@@ -31892,11 +31974,74 @@ async function handlePostPublicEstimateAccept(token, request, env) {
                 await gmPromoteLeadCore(env, est.client_id, leadRow, signer, "estimate " + est.number + " accepted online");
             }
         } catch (e3) { console.error("online acceptance: lead close/promote failed", e3 && e3.message); }
+        // Send with contract (one link): only when the owner pre-authorized the
+        // company signature at sending. Anything that cannot finish stops the
+        // chain; the acceptance above stands exactly as it would have.
+        var contractLink = null;
+        if (full && full.company_presign_json) {
+            try { contractLink = await gmEstChainContract(env, request, full, signer); }
+            catch (eChain) { console.error("one-link flow: contract step failed", eChain && eChain.message); await gmEstChainStopped(env, full, null, "unexpected error: " + (eChain && eChain.message)); }
+        }
         docPdfAfterFinal(request, env, "estimate", token);
-        return jsonOk({ accepted: true, content_hash: snap.hash });
+        return jsonOk(contractLink ? { accepted: true, content_hash: snap.hash, contract_link: contractLink } : { accepted: true, content_hash: snap.hash });
     } catch (e) {
         return jsonErr("Error accepting estimate: " + e.message, 500);
     }
+}
+
+// ── Send with contract (one link) ─────────────────────────────────────────
+// The estimate was accepted and carries the owner's pre-authorization. Build
+// the contract from it, apply the company signature, move it to sent, and hand
+// back its public link. Each step logs an event on the contract. Any step that
+// cannot finish stops here and returns null: the acceptance already stands,
+// a contract that was created stays a draft (or company-signed) for the owner,
+// and the owner is told through the customer-responses list and push.
+async function gmEstChainContract(env, request, est, customerName) {
+    var presign = gmDocParseJsonObject(est.company_presign_json, null);
+    if (!presign || presign.consent !== true || !presign.signer_name || presign.revision !== est.revision) {
+        await gmEstChainStopped(env, est, null, "the owner's signature for this estimate is missing or no longer matches it");
+        return null;
+    }
+    var job = await env.DB.prepare("SELECT * FROM gm_jobs WHERE client_id = ? AND lead_id = ? ORDER BY created_at DESC LIMIT 1").bind(est.client_id, est.lead_id).first();
+    if (!job) { await gmEstChainStopped(env, est, null, "the project was not created"); return null; }
+    var made = await gmContractCreateCore(env, est.client_id, job, { estimate_ids: [est.id] }, presign.signer_name, { full_flow: true });
+    if (made instanceof Response) { await gmEstChainStopped(env, est, null, await gmChainReason(made), job.id); return null; }
+    var cid = made.contract_id;
+    var actorRec = presign.actor_record || { id: null, role: null };
+    await gmContractEvent(env, est.client_id, cid, presign.signer_name, "flow_started", { estimate: est.number, accepted_by: customerName });
+    var c = await gmContractLoad(env, est.client_id, cid);
+    var ctx = await contractContext(env, est.client_id, c);
+    var signed = await contractCompanySignCore(env, request, est.client_id, cid, c, ctx, {
+        signerName: presign.signer_name, actor: presign.signer_name, actorRec: actorRec,
+        getBody: async function() { return { consent: presign.consent === true, signature_kind: "typed" }; }
+    });
+    if (signed instanceof Response) { await gmEstChainStopped(env, est, cid, await gmChainReason(signed), job.id); return null; }
+    await gmContractEvent(env, est.client_id, cid, presign.signer_name, "flow_company_signed", { from: "the owner's signature given when the estimate was sent", signed_at_sending: presign.at, consent_text_sha256: presign.consent_text_sha256 || null });
+    c = await gmContractLoad(env, est.client_id, cid);
+    ctx = await contractContext(env, est.client_id, c);
+    var sent = await contractSendCore(env, request, est.client_id, cid, c, ctx, { actor: presign.signer_name, actorRec: actorRec });
+    if (sent instanceof Response) { await gmEstChainStopped(env, est, cid, await gmChainReason(sent), job.id); return null; }
+    await gmContractEvent(env, est.client_id, cid, presign.signer_name, "flow_sent", { link_for: customerName });
+    return sent.link;
+}
+
+// The plain-words reason out of a refusal Response (the English line).
+async function gmChainReason(res) {
+    try {
+        var d = await res.clone().json();
+        return String(d.error_en || d.error || "refused").slice(0, 400);
+    } catch (e) { return "refused (" + res.status + ")"; }
+}
+
+// The chain stopped: a line on the contract (when there is one) and on the
+// lead, and the owner is told. Never throws.
+async function gmEstChainStopped(env, est, contractId, reason, jobId) {
+    try {
+        if (contractId) { await gmContractEvent(env, est.client_id, contractId, "system", "flow_stopped", { step: "contract", reason: reason }); }
+        await gmLogLeadEvents(env, est.client_id, est.lead_id, "system", [{ action: "contract_flow_stopped", field: "contract", old_value: null, new_value: est.number, reason: reason }]);
+        await gmRecordHomeownerResponse(env, { client_id: est.client_id, lead_id: est.lead_id, job_id: jobId || null, doc_kind: "estimate", doc_id: est.id,
+            doc_number: est.number + (est.revision > 1 ? "-R" + est.revision : ""), response: "contract_not_ready", reason: reason, customer_name: est.customer_name });
+    } catch (e) { console.error("one-link flow: could not record the stop", e && e.message); }
 }
 
 async function handlePostPublicEstimateRespond(token, kind, request, env) {
@@ -32152,6 +32297,20 @@ async function handlePostGmJobInvoicesFromEstimate(id, jobId, request, env) {
         if (!job) { return jsonErr("Project not found", 404); }
         var guard = await gmInvSellerGuardJob(env, user, id, jobId);
         if (guard) { return guard; }
+        var made = await gmInvoicesFromEstimateCore(env, id, jobId, job, actorName(user));
+        if (made instanceof Response) { return made; }
+        return jsonOk(made);
+    } catch (e) {
+        return jsonErr("Error creating invoices: " + e.message, 500);
+    }
+}
+
+
+// One draft invoice per payment step, for the project's accepted estimate or
+// its live contract. Shared by the Create invoices button and the one-link
+// flow (the customer's signature). Returns a Response when it refuses (the
+// same answers the button always gave, 409 when invoices already exist), else { created }.
+async function gmInvoicesFromEstimateCore(env, id, jobId, job, actor) {
         if (!job.lead_id) { return jsonErr("This project is not linked to a lead, so it has no accepted estimate", 400); }
         // Hero follow-up G5a / F2: with a contract, the invoices follow the
         // CONTRACT: its estimate list, its schedule (the first estimate's
@@ -32178,7 +32337,6 @@ async function handlePostGmJobInvoicesFromEstimate(id, jobId, request, env) {
         var steps = gmEstScheduleAmounts(est.schedule, invTotal);
         if (!steps.length) { return jsonErr("The accepted estimate has no payment schedule", 400); }
         var settings = await gmDocSettingsRow(env, id);
-        var actor = actorName(user);
         var today = gmEasternToday();
         var created = [];
         for (var i = 0; i < steps.length; i++) {
@@ -32196,10 +32354,7 @@ async function handlePostGmJobInvoicesFromEstimate(id, jobId, request, env) {
             created.push({ id: invId, number: num.number, step_label: st.label, amount_cents: st.amount_cents });
         }
         await gmLogLeadEvents(env, id, job.lead_id, actor, [{ action: "invoices_created", field: "invoices", old_value: null, new_value: created.map(function(c) { return c.number; }).join(", "), reason: "from " + est.number }]);
-        return jsonOk({ created: created });
-    } catch (e) {
-        return jsonErr("Error creating invoices: " + e.message, 500);
-    }
+        return { created: created };
 }
 
 // ── List and detail ──────────────────────────────────────────────────────
@@ -32348,29 +32503,41 @@ async function handlePostGmInvoiceSend(id, invId, request, env) {
         if (!inv) { return jsonErr("Invoice not found", 404); }
         var guard = await gmInvSellerGuardJob(env, user, id, inv.job_id);
         if (guard) { return guard; }
-        var res = await env.DB.prepare(
-            "UPDATE gm_invoices SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), changed_after_send_at = NULL, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('draft','sent')"
-        ).bind(invId, id).run();
-        if (!res.meta || !res.meta.changes) { return jsonErr("A void invoice cannot be sent", 409); }
-        await gmDocFreezeLook(env, request, id, "invoice", invId);
+        var sent = await gmInvoiceSendCore(env, request, id, inv, actorName(user));
+        if (sent instanceof Response) { return sent; }
+        var link = sent.link;
         var settings = await gmDocSettingsRow(env, id);
         var client = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
         var lead = inv.lead_id ? await gmOwnedRow(env, "gm_leads", inv.lead_id, id) : null;
         var job = await env.DB.prepare("SELECT obra FROM gm_jobs WHERE id = ?").bind(inv.job_id).first();
         var estPhone = await gmInvEstimatePhone(env, inv);
-        var link = await docPrettyLink(env, "invoice", inv.public_token, id, inv.number, inv.customer_name || (typeof lead !== "undefined" && lead && lead.cliente) || "");
         var msg = gmDocFillMessage(settings.invoice_message || GM_DOC_DEFAULT_INVOICE_MESSAGE, {
             customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "",
             job_name: (job && job.obra) || "", business_name: settings.legal_name || (client && client.name) || "",
             seller_name: (await gmDocSenderFirstName(env, user, id, client, settings)), link: link
         });
-        if (inv.status === "draft" && inv.lead_id) {
-            await gmLogLeadEvents(env, id, inv.lead_id, actorName(user), [{ action: "invoice_sent", field: "invoice", old_value: null, new_value: inv.number }]);
-        }
         return jsonOk({ sent: true, message: msg, link: link, phone: gmDocSendPhone(lead, estPhone), email: gmDocSendEmail(lead, await gmInvEstimateEmail(env, inv, lead)), business_name: settings.legal_name || (client && client.name) || "" });
     } catch (e) {
         return jsonErr("Error sending invoice: " + e.message, 500);
     }
+}
+
+// Marking an invoice sent: the status and sent date, the frozen look, the
+// public link and the history line. Shared by the Send button and the
+// one-link flow (the first invoice, once both parties have signed). It sends
+// no message. Returns a Response when it refuses, else { link }.
+async function gmInvoiceSendCore(env, request, id, inv, actor) {
+        var res = await env.DB.prepare(
+            "UPDATE gm_invoices SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), changed_after_send_at = NULL, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('draft','sent')"
+        ).bind(inv.id, id).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr("A void invoice cannot be sent", 409); }
+        await gmDocFreezeLook(env, request, id, "invoice", inv.id);
+        var lead = inv.lead_id ? await gmOwnedRow(env, "gm_leads", inv.lead_id, id) : null;
+        var link = await docPrettyLink(env, "invoice", inv.public_token, id, inv.number, inv.customer_name || (typeof lead !== "undefined" && lead && lead.cliente) || "");
+        if (inv.status === "draft" && inv.lead_id) {
+            await gmLogLeadEvents(env, id, inv.lead_id, actor, [{ action: "invoice_sent", field: "invoice", old_value: null, new_value: inv.number }]);
+        }
+        return { link: link };
 }
 
 // ── Payments (3d) ────────────────────────────────────────────────────────
@@ -35502,7 +35669,15 @@ var CONTRACT_OPTIONAL_EMPTY = ["business_dba_clause", "co_owner_clause", "owner_
     "allowance_markup_clause", "payment_account_hint", "owner_agent_name", "payment_schedule_note", "cancellation_period_clause", "noc_sentence", "lead_paint_clause", "defect_notice_sentence",
     // Cleaning library: its "... or empty" placeholders.
     "landlord_consent_sentence", "customer_entity_sentence", "turnover_deadline_sentence", "tax_note_short", "tax_line_sentence", "renewal_notice_sentence",
-    "renewal_reminder_sentence", "early_termination_sentence", "insurance_claim_sentence", "translation_notice_sentence"];
+    "renewal_reminder_sentence", "early_termination_sentence", "insurance_claim_sentence", "translation_notice_sentence",
+    // The customer's email is never required (2026-10-30): empty prints nothing, see CONTRACT_EMAIL_FIELDS.
+    "owner_email", "customer_email"];
+// The customer's email is the one value that sits behind a label in the
+// clause text (", email {owner_email}" / ", {customer_email}."). When it is
+// empty the separator and the word "email" in front of it go with it, so the
+// sentence reads as if no email had ever been asked. The clause text is not
+// touched; this runs only at the placeholder.
+var CONTRACT_EMAIL_FIELDS = ["owner_email", "customer_email"];
 // F7: an "... or empty" value must never leave doubled punctuation or a
 // doubled space where it was assembled. The junction is fixed at the
 // placeholder only, never anywhere else in the library text (the statute
@@ -35518,6 +35693,7 @@ function contractFillPass(text, vars) {
         if (val === null) { out += m[0]; continue; }
         var next = src.charAt(last);
         if (val !== "" && /[,;]$/.test(val) && /^[,.;:]/.test(next)) { val = val.slice(0, -1); }
+        if (val === "" && CONTRACT_EMAIL_FIELDS.indexOf(k) !== -1) { out = out.replace(/,?[ \t]*(?:email[ \t]*)?$/, ""); }
         if (val === "") {
             // "Section 12. {x} Contractor" and "**15. ...** {x} Except": one space, not two.
             if (/[ \t]$/.test(out) && /^[ \t]/.test(next)) { out = out.replace(/[ \t]+$/, ""); }
@@ -36211,6 +36387,8 @@ function contractCleaningCompose(ctx, c, today, mode) {
     }
     function fix(k, val, from) { v[k] = val === undefined || val === null ? "" : String(val); src[k] = from; }
     def("customer_full_name", base.owner_full_name, "lead"); def("customer_phone", base.owner_phone, "lead"); def("customer_email", base.owner_email, "lead");
+    // The customer's email is never required: unset means empty (CONTRACT_EMAIL_FIELDS prints nothing for it).
+    if (!has("customer_email")) { fix("customer_email", "", "lead"); }
     def("service_address", base.property_address, "lead"); def("customer_entity_name", base.owner_full_name, "lead"); def("customer_address", base.property_address, "lead");
     src.property_county = "lead";
     fix("service_county", has("property_county") ? v.property_county : "", "lead");
@@ -36675,7 +36853,19 @@ async function contractPublicView(env, c, ctx, origin, opts) {
     // RES-36: the page asks only for the parts that are in the text it shows.
     if (pub.state_parts) { pub.state_parts.requires = contractStateRequiresFromSections(pub.sections, pub.state_parts.requires); }
     pub.signed_render = signedRender;
+    // One-link flow: once both parties have signed, the page offers the first invoice.
+    // A link, nothing else; null for every contract that was not built by the flow.
+    pub.pay_link = (!opts || !opts.internal) ? await contractPayLink(env, c) : null;
     return pub;
+}
+
+// The customer's link to the first invoice of a contract built by the one-link
+// flow, once that invoice has been sent. Anything else: null.
+async function contractPayLink(env, c) {
+    if (c.status !== "completed" || !c.flags || c.flags.full_flow !== true || !c.flags.first_invoice_id) { return null; }
+    var inv = await env.DB.prepare("SELECT id, number, public_token FROM gm_invoices WHERE id = ? AND client_id = ? AND status = 'sent'").bind(c.flags.first_invoice_id, c.client_id).first();
+    if (!inv) { return null; }
+    return docPrettyLink(env, "invoice", inv.public_token, c.client_id, inv.number, c.homeowner_signer_name || "");
 }
 
 // F38: a voided contract's link says so plainly, with the business name and
@@ -36862,6 +37052,26 @@ async function handlePostGmJobContract(id, jobId, request, env) {
         if (!job) { return jsonErr("Project not found", 404); }
         var guard = await gmInvSellerGuardJob(env, user, id, jobId);
         if (guard) { return guard; }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var made = await gmContractCreateCore(env, id, job, body, actorName(user), {});
+        if (made instanceof Response) { return made; }
+        return jsonOk(made);
+    } catch (e) {
+        return jsonErr2("Erro ao criar o contrato. Tente de novo.", "Error creating contract: " + e.message, 500);
+    }
+}
+
+// The whole "create a contract on this project" step, shared by the button
+// (handlePostGmJobContract) and the one-link flow (an estimate accepted with
+// the owner's pre-authorization). Returns a Response when it refuses (the same
+// answers the button always gave), or { created, contract_id, number, copied_from }.
+// opts.full_flow marks the contract as built by the one-link flow.
+// opts.estimates + opts.plan_only: the send-time check. The estimate is read
+// as the caller holds it, nothing is written, and the plan comes back instead.
+async function gmContractCreateCore(env, id, job, body, actor, opts) {
+    opts = opts || {};
+    body = body || {};
         // F12: a project made by hand has no accepted estimate to build from.
         if (!job.lead_id) { return jsonErr2("Este projeto não veio de um lead com estimate aceito; o contrato é montado a partir do estimate.", "This project did not come from a lead with an accepted estimate; the contract is built from the estimate.", 400, { code: "no_estimate" }); }
         var settings = await contractSettingsRow(env, id);
@@ -36871,10 +37081,8 @@ async function handlePostGmJobContract(id, jobId, request, env) {
         // business's state, else Florida). Only a Florida job needs the
         // Florida license number before a contract can be made.
         var leadRow0 = await gmOwnedRow(env, "gm_leads", job.lead_id, id);
-        var estAddrRows = (await env.DB.prepare("SELECT customer_address, updated_at, created_at FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted'").bind(id, job.lead_id).all()).results || [];
+        var estAddrRows = opts.estimates ? opts.estimates : ((await env.DB.prepare("SELECT customer_address, updated_at, created_at FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted'").bind(id, job.lead_id).all()).results || []);
         var jobState = contractDefaultJobState(contractJobAddress(leadRow0, estAddrRows), settings);
-        var body = {};
-        try { body = await request.json(); } catch (e2) { body = {}; }
         // Cleaning: which kind of contract this is. Asked only when the
         // business does both; a cleaning-only business goes straight to
         // cleaning, and a business without the cleaning trade is never asked.
@@ -36887,7 +37095,9 @@ async function handlePostGmJobContract(id, jobId, request, env) {
         if (cleaning && CONTRACT_CLEANING_TEMPLATES.indexOf(body.cleaning_template) === -1) { return jsonErr2("Escolha o modelo do contrato de limpeza.", "Choose the cleaning agreement template.", 400, { code: "template_required", cleaning_templates: contractCleaningTemplateList() }); }
         // The license blocker is the construction library's; it does not apply to cleaning.
         if (!cleaning && jobState === "FL" && !gmLicenseSatisfied(doc)) { return jsonErr2("Falta o n\u00famero da licen\u00e7a da Fl\u00f3rida nas configura\u00e7\u00f5es dos documentos.", "A Florida license number is required in the document settings", 400); }
-        var ests = (await env.DB.prepare("SELECT id FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted' ORDER BY accepted_at").bind(id, job.lead_id).all()).results || [];
+        var ests = opts.estimates ? opts.estimates.map(function(e) { return { id: e.id }; }) : ((await env.DB.prepare("SELECT id FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted' ORDER BY accepted_at").bind(id, job.lead_id).all()).results || []);
+        // A send-time check (opts.estimates) reads the estimate as the caller holds it; nothing is looked up or written.
+        function loadEstimate(eid) { return opts.estimates ? Promise.resolve(opts.estimates.filter(function(e) { return e.id === eid; })[0] || null) : gmEstLoad(env, id, eid); }
         if (!ests.length) { return jsonErr2("Este projeto n\u00e3o veio de um lead com estimate aceito; o contrato \u00e9 montado a partir do estimate.", "No accepted estimate on this project", 400, { code: "no_estimate" }); }
         // Several accepted estimates: the owner picks which ones this contract
         // covers (all by default, the rule before this fix).
@@ -36896,8 +37106,8 @@ async function handlePostGmJobContract(id, jobId, request, env) {
             ests = ests.filter(function(e) { return pick.indexOf(e.id) !== -1; });
             if (!ests.length) { return jsonErr2("Marque ao menos um estimate aceito.", "Pick at least one accepted estimate.", 400); }
         }
-        var live = await env.DB.prepare("SELECT id, number, revision, status FROM gm_contracts WHERE client_id = ? AND job_id = ? AND status NOT IN ('void','superseded','declined') ORDER BY created_at DESC LIMIT 1").bind(id, jobId).first();
-        if (live) { return jsonErr2("Este projeto já tem o contrato " + contractDisplayNumber(live) + " (" + contractStatusPt(live.status) + "). Abra pelo projeto.", "This project already has contract " + live.number + " (" + live.status + "). Open it from the project.", 409); }
+        var live = await env.DB.prepare("SELECT id, number, revision, status FROM gm_contracts WHERE client_id = ? AND job_id = ? AND status NOT IN ('void','superseded','declined') ORDER BY created_at DESC LIMIT 1").bind(id, job.id).first();
+        if (live && !opts.plan_only) { return jsonErr2("Este projeto já tem o contrato " + contractDisplayNumber(live) + " (" + contractStatusPt(live.status) + "). Abra pelo projeto.", "This project already has contract " + live.number + " (" + live.status + "). Open it from the project.", 409); }
         var selections = {};
         if (!cleaning) CONTRACT_AREA_ORDER.forEach(function(a) {
             var d = settings.defaults[a];
@@ -36905,8 +37115,8 @@ async function handlePostGmJobContract(id, jobId, request, env) {
             var first = lib.optionsForClient.filter(function(o) { return o.area_id === a; })[0];
             if (first) { selections[a] = first.id; }
         });
-        var estRow = await gmEstLoad(env, id, ests[0].id);
-        var prevState = await env.DB.prepare("SELECT flags_json FROM gm_contracts WHERE client_id = ? AND job_id = ? ORDER BY created_at DESC LIMIT 1").bind(id, jobId).first();
+        var estRow = await loadEstimate(ests[0].id);
+        var prevState = await env.DB.prepare("SELECT flags_json FROM gm_contracts WHERE client_id = ? AND job_id = ? ORDER BY created_at DESC LIMIT 1").bind(id, job.id).first();
         jobState = contractStateCode((gmDocParseJsonObject(prevState && prevState.flags_json, {}) || {}).job_state) || jobState;
         // A new contract outside Florida starts on the safer option of an area
         // when the default is one the research flags in that state. The owner
@@ -36926,7 +37136,7 @@ async function handlePostGmJobContract(id, jobId, request, env) {
         var pricingCats = {};
         ((await env.DB.prepare("SELECT id, category FROM gm_pricing WHERE client_id = ?").bind(id).all()).results || []).forEach(function(r) { pricingCats[r.id] = r.category || ""; });
         for (var ei = 0; ei < ests.length && !isPoolJob && !cleaning; ei++) {
-            var eFull = ei === 0 ? estRow : await gmEstLoad(env, id, ests[ei].id);
+            var eFull = ei === 0 ? estRow : await loadEstimate(ests[ei].id);
             if (!eFull) { continue; }
             var accOpt = (eFull.options || []).filter(function(o) { return o.id === eFull.accepted_option_id; })[0] || (eFull.options || [])[0];
             ((accOpt && accOpt.items) || []).forEach(function(it) {
@@ -36941,10 +37151,12 @@ async function handlePostGmJobContract(id, jobId, request, env) {
             flags = { kind: "cleaning", cleaning_template: body.cleaning_template, sold_in_home: true, job_state: jobState };
             selections = contractCleaningDefaults({ lib: lib, settings: settings, admin: await contractAdminSettings(env) }, { flags: flags }, contractCleaningGate({ settings: settings }, gmEasternToday()));
         }
+        // The one-link flow marks its contract so the customer's signature can carry on to the first invoice (and a hand-built contract never does).
+        if (opts.full_flow) { flags.full_flow = true; }
         var answers = {};
         // F39: a new contract on the same project starts from the latest
         // earlier one (any status): answers, flags and clause choices.
-        var prev = await env.DB.prepare("SELECT number, revision, answers_json, flags_json, selections_json FROM gm_contracts WHERE client_id = ? AND job_id = ? ORDER BY created_at DESC LIMIT 1").bind(id, jobId).first();
+        var prev = await env.DB.prepare("SELECT number, revision, answers_json, flags_json, selections_json FROM gm_contracts WHERE client_id = ? AND job_id = ? ORDER BY created_at DESC LIMIT 1").bind(id, job.id).first();
         // Cleaning: only an earlier contract of the same kind is copied from
         // (a cleaning agreement also needs the same template).
         if (prev) {
@@ -36983,14 +37195,15 @@ async function handlePostGmJobContract(id, jobId, request, env) {
             var leadPT = await env.DB.prepare("SELECT property_type FROM gm_leads WHERE id = ? AND client_id = ?").bind(job.lead_id, id).first();
             if (leadPT && leadPT.property_type) { flags.property_type = leadPT.property_type; }
         }
+        if (opts.plan_only) { return { plan: { flags: flags, selections: selections, answers: answers, estimate_ids: ests.map(function(e) { return e.id; }), est_row: estRow, cleaning: cleaning, settings: settings, doc: doc } }; }
         var num = await gmDocAllocateNumber(env, id, "CON");
         var cid = crypto.randomUUID();
         var today = gmEasternToday();
         await env.DB.prepare(
             "INSERT INTO gm_contracts (id, client_id, job_id, lead_id, estimate_ids_json, number, revision, status, library_version, template_scope, selections_json, answers_json, flags_json, contract_date, offer_expiry_date, public_token, created_by) " +
             "VALUES (?, ?, ?, ?, ?, ?, 1, 'draft', 1, ?, ?, ?, ?, ?, ?, ?, ?)"
-        ).bind(cid, id, jobId, job.lead_id, JSON.stringify(ests.map(function(e) { return e.id; })), num.number, settings.source === "client" ? id : "apex",
-               JSON.stringify(selections), JSON.stringify(answers), JSON.stringify(flags), today, estRow && estRow.valid_until && estRow.valid_until > today ? estRow.valid_until : gmDateAddDays(today, 30), gmEstNewToken(), actorName(user)).run();
+        ).bind(cid, id, job.id, job.lead_id, JSON.stringify(ests.map(function(e) { return e.id; })), num.number, settings.source === "client" ? id : "apex",
+               JSON.stringify(selections), JSON.stringify(answers), JSON.stringify(flags), today, estRow && estRow.valid_until && estRow.valid_until > today ? estRow.valid_until : gmDateAddDays(today, 30), gmEstNewToken(), actor).run();
         // The amount is known from the accepted estimates on day one.
         try {
             var c0 = await gmContractLoad(env, id, cid);
@@ -36998,12 +37211,9 @@ async function handlePostGmJobContract(id, jobId, request, env) {
             var comp0 = contractCompose(ctx0, c0, today);
             await gmRunUpdate(env, "UPDATE gm_contracts SET contract_amount_cents = ?, rules_json = ? WHERE id = ? AND client_id = ?", [comp0.amount_cents, JSON.stringify(comp0.rules), cid, id]);
         } catch (e4) { console.error("contract amount at creation", e4 && e4.message); }
-        await gmContractEvent(env, id, cid, actorName(user), "created", { number: num.number, estimates: ests.length });
-        await gmLogLeadEvents(env, id, job.lead_id, actorName(user), [{ action: "contract_created", field: "contract", old_value: null, new_value: num.number }]);
-        return jsonOk({ created: true, contract_id: cid, number: num.number, copied_from: flags.copied_from || null });
-    } catch (e) {
-        return jsonErr2("Erro ao criar o contrato. Tente de novo.", "Error creating contract: " + e.message, 500);
-    }
+        await gmContractEvent(env, id, cid, actor, "created", { number: num.number, estimates: ests.length });
+        await gmLogLeadEvents(env, id, job.lead_id, actor, [{ action: "contract_created", field: "contract", old_value: null, new_value: num.number }]);
+        return { created: true, contract_id: cid, number: num.number, copied_from: flags.copied_from || null };
 }
 
 // The create step: the accepted estimates a contract on this project can be
@@ -37420,6 +37630,25 @@ async function handlePostGmContractCompanySign(id, cid, request, env) {
         var ctx = await contractContext(env, id, c);
         var signer = contractSignerAllowed(user, ctx.settings, ctx.client);
         if (!signer.ok) { return jsonErr2("Você não está autorizado a assinar pela empresa. Encaminhe o contrato para quem assina.", "You are not an authorized signer. Route the contract to one.", 403); }
+        var out = await contractCompanySignCore(env, request, id, cid, c, ctx, {
+            signerName: signer.name, actor: actorName(user), actorRec: contractActorRecord(user),
+            getBody: async function() { var b = {}; try { b = await request.json(); } catch (e2) { b = {}; } return b; }
+        });
+        if (out instanceof Response) { return out; }
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Error signing: " + e.message, 500);
+    }
+}
+
+
+// The company's signature on a contract, shared by the Sign as company button
+// and the one-link flow (the owner's pre-authorization given when the estimate
+// was sent). p = { signerName, actor, actorRec, getBody }: the signer, the name
+// the history shows, the actor record for the event, and the consent body
+// (the button posts it; the one-link flow rebuilds it from the stored
+// pre-authorization). Returns a Response when it refuses, else { signed, content_hash }.
+async function contractCompanySignCore(env, request, id, cid, c, ctx, p) {
         // The company-signing time is fixed once and used both in the frozen
         // text (C16's "Contractor signed on ...") and in the row.
         var signedAt = new Date().toISOString().slice(0, 19).replace("T", " ");
@@ -37432,8 +37661,7 @@ async function handlePostGmContractCompanySign(id, cid, request, env) {
         c.company_signed_at = prevSignedAt; c.company_signature_voided_at = prevVoided;
         // F14: every remaining problem at once, never one at a time.
         if (comp.blockers.length || comp.missing.length) { return contractProblemsErr(comp); }
-        var body = {};
-        try { body = await request.json(); } catch (e2) { body = {}; }
+        var body = await p.getBody();
         if (body.consent !== true) { return jsonErr2("Marque a caixa de consentimento.", "Please agree to sign electronically", 400); }
         var kind = body.signature_kind === "drawn" ? "drawn" : "typed";
         var sigKey = null;
@@ -37445,21 +37673,18 @@ async function handlePostGmContractCompanySign(id, cid, request, env) {
             "UPDATE gm_contracts SET status = 'company_signed', company_signer_name = ?, company_signer_phone = ?, company_signed_at = ?, company_signature_kind = ?, company_signature_r2_key = ?, company_signed_ip = ?, company_signed_ua = ?, " +
             "company_signature_voided_at = NULL, company_signature_void_reason = NULL, snapshot_r2_key = ?, content_hash = ?, disclaimer_line = ?, contract_amount_cents = ? + " + CONTRACT_APPLIED_CO_SQL + ", rules_json = ?, has_custom_clause = ?, flags_json = ?, updated_at = datetime('now') " +
             "WHERE id = ? AND client_id = ? AND status IN ('draft','awaiting_company','changes_requested')"
-        ).bind(signer.name, ctx.settings.owner_signer_phone || ctx.doc.phone || null, signedAt, kind, sigKey, ip, ua, snap.key, snap.hash, comp.disclaimer_line, comp.amount_cents, JSON.stringify(comp.rules), c.custom_clauses.length ? 1 : 0, JSON.stringify(c.flags), cid, id).run();
+        ).bind(p.signerName, ctx.settings.owner_signer_phone || ctx.doc.phone || null, signedAt, kind, sigKey, ip, ua, snap.key, snap.hash, comp.disclaimer_line, comp.amount_cents, JSON.stringify(comp.rules), c.custom_clauses.length ? 1 : 0, JSON.stringify(c.flags), cid, id).run();
         if (!res.meta || !res.meta.changes) { return jsonErr2("Este contrato não pode mais ser assinado pela empresa (" + contractStatusPt(c.status) + ").", "This contract can no longer be signed by the company (status " + c.status + ")", 409); }
-        await gmContractEvent(env, id, cid, actorName(user), "company_signed", { signer: signer.name, kind: kind, hash: snap.hash, actor_id: contractActorRecord(user).id, actor_role: contractActorRecord(user).role });
+        await gmContractEvent(env, id, cid, p.actor, "company_signed", { signer: p.signerName, kind: kind, hash: snap.hash, actor_id: p.actorRec.id, actor_role: p.actorRec.role });
         await contractStateSysStamp(env, id, cid);
         // G2a: what this contract used for the customer's email, phone and
         // address is saved back to the lead (the name stays the lead's own;
         // "Salvar no cliente" on the form is how a legal name is copied).
         if (c.lead_id) {
-            await gmCustomerToLead(env, id, c.lead_id, { email: comp.vars.owner_email, telefone: comp.vars.owner_phone, address: comp.vars.property_address }, actorName(user), "used on " + contractDisplayNumber(c));
+            await gmCustomerToLead(env, id, c.lead_id, { email: comp.vars.owner_email, telefone: comp.vars.owner_phone, address: comp.vars.property_address }, p.actor, "used on " + contractDisplayNumber(c));
         }
-        if (c.lead_id) { await gmLogLeadEvents(env, id, c.lead_id, actorName(user), [{ action: "contract_company_signed", field: "contract", old_value: c.status, new_value: contractDisplayNumber(c), reason: "signed by " + signer.name + " (" + kind + ")" }]); }
-        return jsonOk({ signed: true, content_hash: snap.hash });
-    } catch (e) {
-        return jsonErr("Error signing: " + e.message, 500);
-    }
+        if (c.lead_id) { await gmLogLeadEvents(env, id, c.lead_id, p.actor, [{ action: "contract_company_signed", field: "contract", old_value: c.status, new_value: contractDisplayNumber(c), reason: "signed by " + p.signerName + " (" + kind + ")" }]); }
+        return { signed: true, content_hash: snap.hash };
 }
 
 // Not an authorized signer: route to one (in-app alert + a text/WhatsApp link
@@ -37537,14 +37762,9 @@ async function handlePostGmContractSend(id, cid, request, env) {
         if (guard) { return guard; }
         if (!c.company_signed_at || c.company_signature_voided_at) { return jsonErr2("A empresa assina primeiro. Assine pela empresa ou encaminhe para quem assina.", "The company signs first. Sign as company or route the contract to an authorized signer.", 409); }
         var ctx = await contractContext(env, id, c);
-        var comp = contractCompose(ctx, c, gmEasternToday());
-        if (comp.blockers.length) { return contractProblemsErr({ blockers: comp.blockers, missing: [] }); }
-        var res = await env.DB.prepare(
-            "UPDATE gm_contracts SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), sent_by = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('company_signed','sent','viewed')"
-        ).bind(actorName(user), cid, id).run();
-        if (!res.meta || !res.meta.changes) { return jsonErr2("Este contrato não pode ser enviado agora (" + contractStatusPt(c.status) + ").", "This contract cannot be sent now (status " + c.status + ")", 409); }
-        await gmDocFreezeLook(env, request, id, "contract", cid);
-        var link = await docPrettyLink(env, "contract", c.public_token, id, c.number + (c.revision > 1 ? "-R" + c.revision : ""), c.owner_full_name || (typeof lead !== "undefined" && lead && lead.cliente) || "");
+        var sent = await contractSendCore(env, request, id, cid, c, ctx, { actor: actorName(user), actorRec: contractActorRecord(user) });
+        if (sent instanceof Response) { return sent; }
+        var link = sent.link;
         var msg = gmDocFillMessage(ctx.doc.contract_message || CONTRACT_DEFAULT_MESSAGE, {
             customer_first_name: String((ctx.lead && ctx.lead.cliente) || (ctx.job && ctx.job.obra) || "").trim().split(/\s+/)[0] || "",
             job_name: (ctx.job && ctx.job.obra) || "", business_name: ctx.doc.legal_name || (ctx.client && ctx.client.name) || "",
@@ -37553,25 +37773,42 @@ async function handlePostGmContractSend(id, cid, request, env) {
         // RES-36: a state that wants a sentence beside the message that
         // delivers the contract (Connecticut). The official wording, on its
         // own lines right under the message.
+        if (sent.besideMsg) { msg = msg + "\n\n" + sent.besideMsg; }
+        return jsonOk({ sent: true, message: msg, link: link, phone: gmDocSendPhone(ctx.lead, null), email: gmDocSendEmail(ctx.lead, null), business_name: ctx.doc.legal_name || (ctx.client && ctx.client.name) || "" });
+    } catch (e) {
+        return jsonErr("Error sending contract: " + e.message, 500);
+    }
+}
+
+// Moving a company-signed contract to sent: the status change, the frozen
+// look, the link and the history lines. Shared by the Send button and the
+// one-link flow (which sends no message of its own: the customer is already on
+// the page). p = { actor, actorRec }. Returns a Response when it refuses, else
+// { comp, link, besideMsg }; the button builds the message from those.
+async function contractSendCore(env, request, id, cid, c, ctx, p) {
+        var comp = contractCompose(ctx, c, gmEasternToday());
+        if (comp.blockers.length) { return contractProblemsErr({ blockers: comp.blockers, missing: [] }); }
+        var res = await env.DB.prepare(
+            "UPDATE gm_contracts SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), sent_by = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('company_signed','sent','viewed')"
+        ).bind(p.actor, cid, id).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr2("Este contrato não pode ser enviado agora (" + contractStatusPt(c.status) + ").", "This contract cannot be sent now (status " + c.status + ")", 409); }
+        await gmDocFreezeLook(env, request, id, "contract", cid);
+        var link = await docPrettyLink(env, "contract", c.public_token, id, c.number + (c.revision > 1 ? "-R" + c.revision : ""), c.owner_full_name || (typeof lead !== "undefined" && lead && lead.cliente) || "");
         var besideMsg = contractStateMessageNote(comp);
-        if (besideMsg) { msg = msg + "\n\n" + besideMsg; }
         // What went out with this send (the sentence, the agency documents
         // loaded at this moment): the card's lines read this record, so a
         // contract sent before a document was loaded never claims it.
         var sentSlots = contractStateLoadedSlots(comp);
         if (besideMsg || sentSlots.length) {
-            await gmContractEvent(env, id, cid, actorName(user), "state_delivered", { message_note: !!besideMsg, slots: sentSlots, actor_id: contractActorRecord(user).id, actor_role: contractActorRecord(user).role });
+            await gmContractEvent(env, id, cid, p.actor, "state_delivered", { message_note: !!besideMsg, slots: sentSlots, actor_id: p.actorRec.id, actor_role: p.actorRec.role });
             if (c.status !== "company_signed") { await contractStateSysStamp(env, id, cid); }
         }
         if (c.status === "company_signed") {
-            await gmContractEvent(env, id, cid, actorName(user), "sent", { actor_id: contractActorRecord(user).id, actor_role: contractActorRecord(user).role });
+            await gmContractEvent(env, id, cid, p.actor, "sent", { actor_id: p.actorRec.id, actor_role: p.actorRec.role });
             await contractStateSysStamp(env, id, cid);
-            if (c.lead_id) { await gmLogLeadEvents(env, id, c.lead_id, actorName(user), [{ action: "contract_sent", field: "contract", old_value: null, new_value: contractDisplayNumber(c) }]); }
+            if (c.lead_id) { await gmLogLeadEvents(env, id, c.lead_id, p.actor, [{ action: "contract_sent", field: "contract", old_value: null, new_value: contractDisplayNumber(c) }]); }
         }
-        return jsonOk({ sent: true, message: msg, link: link, phone: gmDocSendPhone(ctx.lead, null), email: gmDocSendEmail(ctx.lead, null), business_name: ctx.doc.legal_name || (ctx.client && ctx.client.name) || "" });
-    } catch (e) {
-        return jsonErr("Error sending contract: " + e.message, 500);
-    }
+        return { comp: comp, link: link, besideMsg: besideMsg };
 }
 
 // The statements a state wants repeated on each change order of a contract:
@@ -39371,9 +39608,16 @@ async function gmRecordHomeownerResponse(env, o) {
             var pushUrl = o.doc_kind === "estimate" && o.lead_id
                 ? "/portal.html?tab=gmcrm&lead=" + encodeURIComponent(o.lead_id)
                 : "/portal.html?tab=analytics";
+            // The one-link flow stopped partway (the customer was NOT given the next document):
+            // the owner is told what is waiting for them, in the same list and the same push.
+            var autoStop = o.response === "contract_not_ready" || o.response === "invoice_not_ready";
+            var autoTitle = o.response === "invoice_not_ready"
+                ? (respEn ? "Contract signed, the invoice needs you" : "Contrato assinado, a fatura precisa de você")
+                : (respEn ? "Estimate accepted, the contract needs you" : "Orçamento aceito, o contrato precisa de você");
+            var autoBody = autoStop ? who + (respEn ? " signed " + whatEn : " assinou " + what) + (o.doc_number ? " " + o.doc_number : "") + (respEn ? ". The next step was not sent automatically" : ". O próximo passo não foi enviado automaticamente") + (o.reason ? ": " + String(o.reason).slice(0, 140) : "") : null;
             await pushToUsers(env, targets, {
-                title: respEn ? (o.response === "changes_requested" ? "Customer asked for changes" : "Customer declined") : (o.response === "changes_requested" ? "Cliente pediu mudanças" : "Cliente recusou"),
-                body: who + (respEn ? (o.response === "changes_requested" ? " asked for changes to " : " declined ") + whatEn : (o.response === "changes_requested" ? " pediu mudanças em " : " recusou ") + what) + (o.doc_number ? " " + o.doc_number : "") + (o.reason ? ": " + String(o.reason).slice(0, 140) : ""),
+                title: autoStop ? autoTitle : (respEn ? (o.response === "changes_requested" ? "Customer asked for changes" : "Customer declined") : (o.response === "changes_requested" ? "Cliente pediu mudanças" : "Cliente recusou")),
+                body: autoStop ? autoBody : who + (respEn ? (o.response === "changes_requested" ? " asked for changes to " : " declined ") + whatEn : (o.response === "changes_requested" ? " pediu mudanças em " : " recusou ") + what) + (o.doc_number ? " " + o.doc_number : "") + (o.reason ? ": " + String(o.reason).slice(0, 140) : ""),
                 url: pushUrl
             });
         }
@@ -39521,11 +39765,56 @@ async function handlePostPublicContractSign(token, request, env) {
         // state parts, signed in this same visit under the same consent.
         try { await contractStateDoneSave(env, c, comp, body.state_parts, signer, signedAt, ip, ua); } catch (eSP) { console.error("state parts at signing", eSP && eSP.message); }
         await contractStateSysStamp(env, c.client_id, c.id);
+        // One-link flow: both parties have signed, so the first scheduled
+        // invoice exists and is payable. Only for a contract the flow built;
+        // a failure here never undoes the signature.
+        if (c.flags && c.flags.full_flow === true) {
+            try { await gmContractChainInvoice(env, request, c, signer); }
+            catch (eInv) { console.error("one-link flow: invoice step failed", eInv && eInv.message); await gmContractChainInvoiceStopped(env, c, "unexpected error: " + (eInv && eInv.message)); }
+        }
         docPdfAfterFinal(request, env, "contract", token);
         return jsonOk({ signed: true, cancellation_deadline_date: deadline });
     } catch (e) {
         return jsonErr("Error signing contract: " + e.message, 500);
     }
+}
+
+// ── One-link flow, last step ──────────────────────────────────────────────
+// Both parties have signed. Create the job's scheduled invoices exactly as the
+// Create invoices button does (all drafts), then mark ONLY the first one sent
+// (the deposit) with the same logic as the Send button, sending no message,
+// and remember it on the contract so the page can link to it. Nothing is
+// created twice: invoices that already exist are reused, and a first invoice
+// that is already sent keeps its link.
+async function gmContractChainInvoice(env, request, c, customerName) {
+    var actor = c.company_signer_name || "system";
+    var job = await gmOwnedRow(env, "gm_jobs", c.job_id, c.client_id);
+    if (!job) { await gmContractChainInvoiceStopped(env, c, "the project was not found"); return; }
+    var made = await gmInvoicesFromEstimateCore(env, c.client_id, c.job_id, job, actor);
+    var first = null;
+    if (made instanceof Response) {
+        if (made.status !== 409) { await gmContractChainInvoiceStopped(env, c, await gmChainReason(made)); return; }
+        first = await env.DB.prepare("SELECT id FROM gm_invoices WHERE client_id = ? AND job_id = ? AND status <> 'void' ORDER BY rowid LIMIT 1").bind(c.client_id, c.job_id).first();
+    } else if (made.created && made.created.length) {
+        first = { id: made.created[0].id };
+    }
+    var inv = first ? await gmInvLoad(env, c.client_id, first.id) : null;
+    if (!inv) { await gmContractChainInvoiceStopped(env, c, "no invoice to send"); return; }
+    if (inv.status !== "sent") {
+        var sent = await gmInvoiceSendCore(env, request, c.client_id, inv, actor);
+        if (sent instanceof Response) { await gmContractChainInvoiceStopped(env, c, await gmChainReason(sent)); return; }
+    }
+    await env.DB.prepare("UPDATE gm_contracts SET flags_json = json_set(COALESCE(flags_json, '{}'), '$.first_invoice_id', ?) WHERE id = ? AND client_id = ?").bind(inv.id, c.id, c.client_id).run();
+    await gmContractEvent(env, c.client_id, c.id, actor, "flow_invoice_sent", { invoice: inv.number, customer: customerName });
+}
+
+async function gmContractChainInvoiceStopped(env, c, reason) {
+    try {
+        await gmContractEvent(env, c.client_id, c.id, "system", "flow_stopped", { step: "invoice", reason: reason });
+        if (c.lead_id) { await gmLogLeadEvents(env, c.client_id, c.lead_id, "system", [{ action: "invoice_flow_stopped", field: "invoice", old_value: null, new_value: contractDisplayNumber(c), reason: reason }]); }
+        await gmRecordHomeownerResponse(env, { client_id: c.client_id, lead_id: c.lead_id || null, job_id: c.job_id, doc_kind: "contract", doc_id: c.id,
+            doc_number: contractDisplayNumber(c), response: "invoice_not_ready", reason: reason, customer_name: c.homeowner_signer_name || null });
+    } catch (e) { console.error("one-link flow: could not record the stop", e && e.message); }
 }
 
 // The second customer signer (a state that wants both spouses to sign). Typed

@@ -503,7 +503,12 @@ const SIGNED = { status: "completed", company_signed_at: "2026-10-05 19:00:00", 
     "the actor comes from the logged-in session only: login, display name, role (a seller login is \"seller\")");
   // where it is recorded
   const evt = function (n, action) { return new RegExp('"' + action + '", \\{[^}]*actor_id: contractActorRecord\\(user\\)\\.id, actor_role: contractActorRecord\\(user\\)\\.role \\}\\);\\s+await contractStateSysStamp\\(env, id, cid\\);').test(fnSrc(n, workerSrc)); };
-  ok(evt("handlePostGmContractCompanySign", "company_signed") && evt("handlePostGmContractSend", "sent") && evt("handlePostGmContractSignedCopy", "signed_copy_sent"),
+  // Company signing and sending live in cores shared with the one-link flow; the buttons hand them the session's actor record.
+  const evtCore = function (core, handler, action) {
+    return new RegExp('"' + action + '", \\{[^}]*actor_id: p\\.actorRec\\.id, actor_role: p\\.actorRec\\.role \\}\\);\\s+await contractStateSysStamp\\(env, id, cid\\);').test(fnSrc(core, workerSrc)) &&
+      /actorRec: contractActorRecord\(user\)/.test(fnSrc(handler, workerSrc));
+  };
+  ok(evtCore("contractCompanySignCore", "handlePostGmContractCompanySign", "company_signed") && evtCore("contractSendCore", "handlePostGmContractSend", "sent") && evt("handlePostGmContractSignedCopy", "signed_copy_sent"),
     "signing for the company, sending, and sending the signed copy each log the actor's login and role with the event, then save the record");
   ok(["handlePostPublicContractSign", "handlePostPublicContractSecondSign", "handlePostPublicContractRespond"].every(function (n) { return /await contractStateSysStamp\(env, c\.client_id, c\.id\);/.test(fnSrc(n, workerSrc)); }) &&
     /a\.kind === "before_photos"[\s\S]*contractStateSysStamp\(env, a\.client_id, ackCons\[aci\]\.id\)/.test(fnSrc("handlePostPublicAckSign", workerSrc)) && /await contractStateSysStamp\(env, id, cid\);\s+return jsonOk\(\{ saved: true, contract:/.test(fnSrc("handlePutGmContract", workerSrc)),

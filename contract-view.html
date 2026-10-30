@@ -198,7 +198,7 @@
       <div id="sections"></div>
       <div class="card hidden" id="cardPay"><h2>Accepted payment methods</h2><div id="payMethods"></div></div>
       <div class="card" id="cardActions"></div>
-      <div class="card" id="cardPdf" style="margin-top:28px;"><button type="button" class="btn secondary" id="btnPdf">Download contract (PDF)</button><div class="err" role="alert" id="pdfErr"></div><p class="disclaimer" id="disclaimerEnd"></p></div>
+      <div class="card" id="cardPdf" style="margin-top:28px;"><button type="button" class="btn secondary" id="btnPdf">Download contract (PDF)</button><button type="button" class="btn hidden" id="btnPay">Pay</button><div class="err" role="alert" id="pdfErr"></div><p class="disclaimer" id="disclaimerEnd"></p></div>
     </div>
     <div class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Privacy Policy</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Terms</a></div>
   </div>
@@ -1193,6 +1193,13 @@
           var de = byId("disclaimerEnd"); if (de) { de.textContent = con.disclaimer_line || ""; }
           var pdf = byId("btnPdf");
           if (pdf) { pdf.textContent = con.status === "completed" ? "Download your signed contract (PDF)" : "Download contract (PDF)"; pdf.onclick = function() { openPdf("contract"); }; }
+          // Sent with the estimate as one link: once both parties have signed, the first invoice is one tap away.
+          var payBtn = byId("btnPay");
+          if (payBtn) {
+            var canPay = !previewId && con.status === "completed" && typeof con.pay_link === "string" && /^https:\/\//.test(con.pay_link);
+            payBtn.classList.toggle("hidden", !canPay);
+            payBtn.onclick = canPay ? function() { window.location.href = con.pay_link; } : null;
+          }
           show("doc");
         })
         .catch(function(e) { console.error(e); show("cardNotFound"); });

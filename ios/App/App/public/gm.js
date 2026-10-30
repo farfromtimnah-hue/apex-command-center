@@ -8244,9 +8244,11 @@ function gmConResponsesCardHtml() {
   return '<div class="card-title" style="margin-top:12px;">' + gmT("Respostas dos clientes", "Customer responses") + ' <span class="goal-pending-badge">' + gmConResponses.length + '</span></div>' +
     gmConResponses.map(function(r) {
       var d = GM_CON_RESP_DOC[r.doc_kind] || ["o documento", "the document"];
-      var verb = r.response === "changes_requested" ? gmT(" pediu mudanças em ", " asked for changes to ") : gmT(" recusou ", " declined ");
+      var flowStop = r.response === "contract_not_ready" || r.response === "invoice_not_ready";
+      var verb = flowStop ? gmT(" assinou ", " signed ") : (r.response === "changes_requested" ? gmT(" pediu mudanças em ", " asked for changes to ") : gmT(" recusou ", " declined "));
       return '<div class="gm-row" style="cursor:default;"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(r.customer_name || r.job_name || "") + verb + escHtml(gmT(d[0], d[1])) + (r.doc_number ? " " + escHtml(r.doc_number) : "") + '</span>' +
-        (r.reason ? '<div class="gm-lead-sub" style="white-space:normal;">"' + escHtml(r.reason) + '"</div>' : '<div class="gm-lead-sub">' + gmT("sem motivo escrito", "no reason given") + '</div>') +
+        (flowStop ? '<div class="gm-lead-sub" style="white-space:normal;">' + gmT("O próximo passo não foi enviado automaticamente: ", "The next step was not sent automatically: ") + escHtml(r.reason || "") + '</div>' :
+          (r.reason ? '<div class="gm-lead-sub" style="white-space:normal;">"' + escHtml(r.reason) + '"</div>' : '<div class="gm-lead-sub">' + gmT("sem motivo escrito", "no reason given") + '</div>')) +
         '<div class="gm-lead-sub">' + escHtml(r.job_name || "") + ' · ' + escHtml(formatDateTimeUTC(r.created_at)) + '</div>' +
         '<div class="gm-est-actions" style="margin-top:6px;">' + (r.job_id ? '<button data-help="projects#overview#7" type="button" class="gm-btn-primary" onclick="switchTab(\'gmjobs\'); gmContractGuardSend(\'' + escHtml(r.job_id) + '\')">' + gmT("Abrir o projeto", "Open the project") + '</button>' : "") +
         '<button type="button" class="gm-btn-secondary" onclick="gmConResponseSeen(\'' + escHtml(r.id) + '\', this)">' + gmT("Marcar como visto", "Mark as seen") + '</button></div></span></div>';
@@ -12823,9 +12825,63 @@ function gmEstMessageVars(est) {
   };
 }
 
+// Send with contract (one link): off by default, shown only to a person who may sign
+// for the company. The person signs now; the contract reaches the customer already
+// signed by the company when the customer accepts the estimate.
+var gmEstFlow = { on: false, checked: false, name: "", consent: false, problems: "" };
+function gmEstFlowSigner() {
+  var lite = (gmDocMessages && gmDocMessages.settings_lite) || {};
+  return (gmContractsEnabled() && lite.full_flow_signer) ? String(lite.full_flow_signer) : "";
+}
+function gmEstFlowConsentText() {
+  return gmT("Concordo em assinar eletronicamente este contrato em nome da empresa.", "I agree to sign this contract electronically on behalf of the company.");
+}
+function gmEstFlowToggle(on) {
+  gmEstFlow.on = !!on; gmEstFlow.checked = false; gmEstFlow.problems = "";
+  gmEstRenderSendSheet();
+}
+function gmEstFlowEdit() { gmEstFlow.checked = false; gmEstRenderSendSheet(); }
+function gmEstFlowCheck() {
+  var est = gmEstDetail;
+  var nameEl = document.getElementById("gmEstFlowName"), cEl = document.getElementById("gmEstFlowConsent");
+  var msg = document.getElementById("gmEstFlowMsg"), btn = document.getElementById("gmEstFlowBtn");
+  var name = nameEl ? nameEl.value.trim() : "";
+  gmEstFlow.name = name; gmEstFlow.consent = !!(cEl && cEl.checked);
+  function say(t) { if (msg) { msg.textContent = t; msg.hidden = false; } }
+  if (!est) { return; }
+  if (!name) { say(gmT("Digite o seu nome.", "Type your name.")); return; }
+  if (!gmEstFlow.consent) { say(gmT("Marque a caixa de consentimento.", "Tick the consent box.")); return; }
+  if (btn) { btn.disabled = true; }
+  gmApi("estimates/" + encodeURIComponent(est.id) + "/send", { method: "POST", body: { full_flow: true, check_only: true } })
+    .then(function() { gmEstFlow.checked = true; gmEstFlow.problems = ""; gmEstRenderSendSheet(); })
+    .catch(function(e) {
+      if (btn) { btn.disabled = false; }
+      var d = e.data || {};
+      if (d.code === "contract_incomplete") { gmEstFlow.problems = gmConProblemsHtml(d.blockers, d.missing_fields); gmEstRenderSendSheet(); return; }
+      say(e.message); console.error(e);
+    });
+}
+function gmEstFlowHtml() {
+  var signer = gmEstFlowSigner();
+  if (!signer) { return ""; }
+  var f = gmEstFlow;
+  var h = '<label style="display:flex;gap:10px;align-items:flex-start;min-height:44px;margin-bottom:8px;"><input type="checkbox" id="gmEstFlowOn" style="width:22px;height:22px;"' + (f.on ? " checked" : "") + ' onchange="gmEstFlowToggle(this.checked)"> <span><strong>' + gmT("Enviar com contrato (um só link)", "Send with contract (one link)") + '</strong></span></label>';
+  if (!f.on) { return '<div class="gm-sheet-section">' + h + '</div>'; }
+  h += '<p class="muted">' + gmT("O cliente aceita o orçamento e já recebe o contrato assinado por você. Você assina agora.", "The customer accepts the estimate and gets the contract already signed by you. You sign now.") + '</p>';
+  if (f.problems) { h += f.problems; }
+  h += '<input type="text" class="gm-input" id="gmEstFlowName" autocomplete="name" placeholder="' + gmT("Seu nome completo", "Your full name") + '" value="' + escHtml(f.name || signer) + '"' + (f.checked ? " disabled" : "") + '>' +
+    '<label style="display:flex;gap:10px;align-items:flex-start;min-height:44px;margin-top:8px;"><input type="checkbox" id="gmEstFlowConsent" style="width:22px;height:22px;"' + (f.consent ? " checked" : "") + (f.checked ? " disabled" : "") + '> <span>' + gmEstFlowConsentText() + '</span></label>' +
+    '<p class="gm-warn" id="gmEstFlowMsg" hidden></p>';
+  h += f.checked
+    ? '<p class="gm-derived-note">' + gmT("Pronto. Envie o link abaixo.", "Ready. Send the link below.") + '</p><button type="button" class="gm-btn-secondary" onclick="gmEstFlowEdit()">' + gmT("Mudar", "Change") + '</button>'
+    : '<button type="button" class="gm-btn-primary" id="gmEstFlowBtn" onclick="gmEstFlowCheck()">' + gmT("Verificar", "Check") + '</button>';
+  return '<div class="gm-sheet-section">' + h + '</div>';
+}
+
 function gmEstSendOpen() {
   var est = gmEstDetail;
   if (!est) { return; }
+  gmEstFlow = { on: false, checked: false, name: "", consent: false, problems: "" };
   gmSheetOpen(gmT("Enviar orçamento", "Send estimate"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
   // The readable doc.resonateai.online link, minted before the sheet renders
   // so the WhatsApp / SMS tap stays synchronous. On failure the old link stays.
@@ -12843,8 +12899,9 @@ function gmEstRenderSendSheet() {
   // The lead's CURRENT phone first (A4); the estimate's frozen one as fallback.
   var phone = est.send_phone || est.customer_phone || "";
   var digits = gmWaDigits(phone);
-  var body = '<div class="gm-sheet-section">' +
-    '<p class="muted">' + gmT("Abre o app de mensagens do seu telefone com o texto e o link prontos. O orçamento fica como enviado.",
+  var flowHold = gmEstFlow.on && !gmEstFlow.checked;
+  var body = gmEstFlowHtml() + (flowHold ? '<div class="gm-sheet-section"><button type="button" class="gm-btn-secondary" onclick="gmRenderEstimateSheet()">' + gmT("Voltar", "Back") + '</button></div>' : '<div class="gm-sheet-section">') +
+    (flowHold ? '' : '<p class="muted">' + gmT("Abre o app de mensagens do seu telefone com o texto e o link prontos. O orçamento fica como enviado.",
         "Opens your phone's messaging app with the text and link ready. The estimate is marked as sent.") + '</p>' +
     '<div class="gm-contact-row">' +
       '<a class="gm-contact-btn gm-sms" href="sms:' + escHtml(phone.replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(text) + '" onclick="gmEstSendMark()">' + gmIcon("sms") + gmT("Mensagem de texto", "Text message") + '</a>' +
@@ -12856,7 +12913,7 @@ function gmEstRenderSendSheet() {
     '<p class="gm-derived-note" id="gmEstMsgPreview" style="white-space:pre-wrap;">' + escHtml(text) + '</p>' +
     '<button data-help="estimate#create-send#14" type="button" class="gm-btn-secondary" onclick="gmEstSendMark(true)">' + gmT("Marcar como enviado sem abrir mensagem", "Mark as sent without opening a message") + '</button>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmRenderEstimateSheet()">' + gmT("Voltar", "Back") + '</button>' +
-    '</div>';
+    '</div>');
   gmSheetOpen(gmT("Enviar orçamento", "Send estimate") + " · " + escHtml(est.display_number), body);
   var pencil = document.getElementById("gmEstMsgPencil");
   if (pencil) { pencil.onclick = function(ev) { ev.preventDefault(); gmDocMsgEditorOpen("estimate_message", function() { gmEstRenderSendSheet(); }); }; }
@@ -12869,7 +12926,9 @@ function gmEstSendMark(silent) {
   var est = gmEstDetail;
   if (!est || gmEstSendInFlight) { return; }
   gmEstSendInFlight = true;
-  gmApi("estimates/" + encodeURIComponent(est.id) + "/send", { method: "POST" })
+  var sendOpts = { method: "POST" };
+  if (gmEstFlow.on && gmEstFlow.checked) { sendOpts.body = { full_flow: true, consent: true, signer_name: gmEstFlow.name, consent_text: gmEstFlowConsentText() }; }
+  gmApi("estimates/" + encodeURIComponent(est.id) + "/send", sendOpts)
     .then(function() {
       gmEstSendInFlight = false;
       gmToast(gmT("Orçamento marcado como enviado", "Estimate marked as sent"));

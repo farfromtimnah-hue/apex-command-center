@@ -2895,6 +2895,19 @@ async function handlePutClientArchive(id, request, env) {
     }
 }
 
+// The first contact of a clients.contacts value (a JSON string or an array),
+// as { phone, whatsapp } with each one the stored string or null. Never throws.
+function clientPrimaryContact(contacts) {
+    var list = contacts;
+    if (typeof list === "string") {
+        try { list = JSON.parse(list); } catch (e) { return null; }
+    }
+    if (!Array.isArray(list) || !list.length || !list[0] || typeof list[0] !== "object") { return null; }
+    var first = list[0];
+    function keep(v) { return (typeof v === "string" && v.trim()) ? v : null; }
+    return { phone: keep(first.phone), whatsapp: keep(first.whatsapp) };
+}
+
 async function handlePostClients(request, env) {
     try {
         var user = await authenticate(request, env);
@@ -2908,6 +2921,22 @@ async function handlePostClients(request, env) {
         if (body.hasOwnProperty("plan") && body.plan !== null && body.plan !== "") {
             if (CLIENT_PLANS.indexOf(body.plan) === -1) { return jsonErr2("Plano inválido.", "Invalid plan.", 400); }
             newPlan = body.plan;
+        }
+
+        // The Call and WhatsApp buttons read clients.phone and clients.whatsapp,
+        // so the typed primary contact is copied there too, unless the caller
+        // sent a phone or whatsapp explicitly. Email is never copied.
+        var primaryContact = clientPrimaryContact(body.contacts);
+        var newPhone = body.phone || (primaryContact && primaryContact.phone) || null;
+        var newWhatsapp = body.whatsapp || (primaryContact && primaryContact.whatsapp) || null;
+
+        // Business System lead: an optional starting stage from that plan's own
+        // list. Consulting ignores it, so its leads always start at Lead.
+        var newStatus = body.status || "lead";
+        var newLeadStageBs = null;
+        if (newPlan === "business_system" && newStatus === "lead" && body.lead_stage) {
+            if (leadStagesFor("business_system").indexOf(body.lead_stage) < 0) { return jsonErr("Invalid stage", 400); }
+            newLeadStageBs = body.lead_stage;
         }
 
         var clientId = crypto.randomUUID();
@@ -2932,9 +2961,9 @@ async function handlePostClients(request, env) {
             // 'lead', not 'active': active means a contract, which means a
             // package. Nothing created through this endpoint has one yet.
             body.status     || "lead",
-            body.phone      || null,
+            newPhone,
             body.email      || null,
-            body.whatsapp   || null,
+            newWhatsapp,
             body.contacts   || null,
             // New leads start at the first stage; anything else has no pipeline.
             // Reads the RESOLVED status, not the raw body: with 'lead' now the
@@ -2950,6 +2979,14 @@ async function handlePostClients(request, env) {
         if (newPlan === "business_system") {
             await clientApplyPlanChange(env, clientId, "business_system", user);
             createdLegacy = await bsTryLegacyCutover(env, request, clientId, actorName(user));
+            // A chosen starting stage is saved with its time stamps, the same
+            // columns the stage-change route writes.
+            if (newLeadStageBs && newLeadStageBs !== "Lead") {
+                await env.DB.prepare(
+                    "UPDATE clients SET lead_stage = ?, stage_changed_at = datetime('now'), stage_changed_by = ?, " +
+                    "stage_change_source = 'manual'" + bsStageStampSql("business_system", newLeadStageBs) + " WHERE id = ?"
+                ).bind(newLeadStageBs, actorName(user), clientId).run();
+            }
         }
 
         // B/C: structured owners and state/city, same validation as the PATCH
@@ -3485,6 +3522,10 @@ async function bsActivateLead(env, clientId, opts) {
         "stage_changed_at = datetime('now'), stage_changed_by = ?, stage_change_source = ?" +
         clientStatusSwitchSql("active") + " WHERE id = ?"
     ).bind(opts.actor || null, "bs_activate:" + (opts.source || "manual"), clientId).run();
+    // Both switches stay OFF for a Business System client, whatever they held
+    // before (the status switch above only restores a remembered pause value).
+    await clientSetSwitchOff(env, clientId, "daily_log_enabled", { display_name: "system" });
+    await clientSetSwitchOff(env, clientId, "goals_enabled", { display_name: "system" });
     var after = await env.DB.prepare(
         "SELECT bs_link_sent_at, bs_activated_at FROM clients WHERE id = ?"
     ).bind(clientId).first();
@@ -24844,7 +24885,8 @@ async function gmPartnerBySlug(env, slug) {
         "SELECT p.id, p.client_id, p.name, c.name AS business_name, " +
         "c.language, c.referral_bg_color, c.referral_text_color, c.logo_url " +
         "FROM gm_partners p JOIN clients c ON c.id = p.client_id " +
-        "WHERE p.referral_slug = ?"
+        // An archived client's link answers 404 like an unknown link.
+        "WHERE p.referral_slug = ? AND COALESCE(c.archived, 0) = 0"
     ).bind(slug).first();
 }
 
@@ -25531,6 +25573,19 @@ function apexPartnerFields(body, partial) {
     if (has("contato")) { out.contato = body.contato === null ? null : gmStr(body.contato, 200); }
     if (has("ultima_interacao")) { out.ultima_interacao = body.ultima_interacao === null ? null : gmStr(body.ultima_interacao, 40); }
     if (has("proxima_acao")) { out.proxima_acao = body.proxima_acao === null ? null : gmStr(body.proxima_acao, 500); }
+    // The stage a Business System partner's link creates its leads at. Checked
+    // against that plan's own stage list; empty means the stage Lead (NULL).
+    // Only the Business System routes keep it (see handlePostApexPartner and
+    // handlePutApexPartner).
+    if (has("start_stage")) {
+        if (body.start_stage === null || body.start_stage === "") {
+            out.start_stage = null;
+        } else if (leadStagesFor("business_system").indexOf(body.start_stage) < 0) {
+            return { error: "Etapa inválida" };
+        } else {
+            out.start_stage = body.start_stage;
+        }
+    }
     return { fields: out };
 }
 
@@ -25703,17 +25758,23 @@ async function handlePostApexPartner(request, env) {
         // The partner is stored on the side it was created on. The page sends
         // body.plan; ?plan= is the fallback; anything else is consulting.
         var newPartnerPlan = body.plan === "business_system" ? "business_system" : apexPartnerPlanParam(request);
+        // Start stage: Business System partners only. A new one defaults to
+        // Lista de espera; a Consulting partner never stores one.
+        var newStartStage = null;
+        if (newPartnerPlan === "business_system") {
+            newStartStage = f.start_stage !== undefined ? f.start_stage : BS_STAGE_WAITLIST;
+        }
         var rowId = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO apex_partners (id, name, tipo, contato, status, ultima_interacao, proxima_acao, referral_slug, plan) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO apex_partners (id, name, tipo, contato, status, ultima_interacao, proxima_acao, referral_slug, plan, start_stage) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(rowId, f.name,
             f.tipo !== undefined ? f.tipo : null,
             f.contato !== undefined ? f.contato : null,
             f.status !== undefined ? f.status : "Prospectando",
             f.ultima_interacao !== undefined ? f.ultima_interacao : null,
             f.proxima_acao !== undefined ? f.proxima_acao : null,
-            gmReferralSlug(), newPartnerPlan).run();
+            gmReferralSlug(), newPartnerPlan, newStartStage).run();
 
         var row = await env.DB.prepare("SELECT * FROM apex_partners WHERE id = ?").bind(rowId).first();
         return jsonOk({ created: true, partner: row });
@@ -25728,7 +25789,7 @@ async function handlePutApexPartner(rowId, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
 
-        var existing = await env.DB.prepare("SELECT id FROM apex_partners WHERE id = ?").bind(rowId).first();
+        var existing = await env.DB.prepare("SELECT id, plan FROM apex_partners WHERE id = ?").bind(rowId).first();
         if (!existing) { return jsonErr("Partner not found", 404); }
 
         var body = {};
@@ -25736,6 +25797,8 @@ async function handlePutApexPartner(rowId, request, env) {
         var parsed = apexPartnerFields(body, true);
         if (parsed.error) { return jsonErr(parsed.error, 400); }
         var f = parsed.fields;
+        // A Consulting partner has no start stage: the value is dropped.
+        if (apexPartnerPlanOf(existing) !== "business_system") { delete f.start_stage; }
 
         var sets = [], binds = [];
         Object.keys(f).forEach(function(k) { sets.push(k + " = ?"); binds.push(f[k]); });
@@ -25787,10 +25850,21 @@ async function handleDeleteApexPartner(rowId, request, env) {
 //     (clients.status='lead', lead_stage='Lead') — never a gm_leads row.
 // ---------------------------------------------------------------------------
 
+// Public-form text: trimmed, control characters removed (a note may keep line
+// breaks), cut to max. Anything that is not a string, or ends up empty, is null.
+function apexCleanText(v, max, keepNewlines) {
+    if (typeof v !== "string") { return null; }
+    var s = v.replace(/\r\n?/g, "\n");
+    s = keepNewlines ? s.replace(/[\u0000-\u0009\u000B-\u001F\u007F-\u009F]/g, "") : s.replace(/[\u0000-\u001F\u007F-\u009F]/g, " ");
+    s = s.trim();
+    if (!s) { return null; }
+    return s.slice(0, max);
+}
+
 async function apexPartnerBySlug(env, slug) {
     if (!gmReferralSlugValid(slug)) { return null; }
     return env.DB.prepare(
-        "SELECT id, name, hero_url, plan FROM apex_partners WHERE referral_slug = ?"
+        "SELECT id, name, hero_url, plan, start_stage FROM apex_partners WHERE referral_slug = ?"
     ).bind(slug).first();
 }
 
@@ -25805,7 +25879,10 @@ async function handleGetApexReferralInfo(slug, request, env) {
         // whether to render the hero branch, and the key stays server-side.
         return jsonOk({
             partner_name: (partner.name || "").split(/\s+/)[0],
-            has_hero:     !!partner.hero_url
+            has_hero:     !!partner.hero_url,
+            // A Business System link shows three more optional fields. A
+            // boolean only: no plan name and no id leave the server.
+            show_company_fields: apexPartnerPlanOf(partner) === "business_system"
         });
     } catch (e) {
         return jsonErr("Error loading referral form", 500);
@@ -25859,9 +25936,33 @@ async function handlePostApexReferralLead(slug, request, env) {
             return jsonErr("Email inválido", 400);
         }
 
-        // Lands in the APEX-INTERNAL pipeline at the first rung, with
-        // stage_changed_at stamped so Task 1's "days in this stage" starts
-        // counting from arrival rather than reading as unknown.
+        var isBsLink = apexPartnerPlanOf(partner) === "business_system";
+
+        // Business System links only: company, sector and a note. Every value is
+        // cleaned and length-limited here; the page is never trusted. A
+        // Consulting link ignores all three, exactly as before.
+        var empresa = isBsLink ? apexCleanText(body.empresa, 200, false) : null;
+        var setor   = isBsLink ? apexCleanText(body.setor, 100, false) : null;
+        var nota    = isBsLink ? apexCleanText(body.nota, 1000, true) : null;
+
+        // With a company the company is the client and the person is its
+        // primary contact; without one the person's name is the client name.
+        var clientName = empresa || nome;
+        var contactsJson = null;
+        if (empresa) {
+            contactsJson = JSON.stringify([{ name: nome, role: null, phone: telefone, whatsapp: null, email: email }]);
+        }
+
+        // A Business System link creates its leads at the partner's start stage
+        // (Lead when it has none or holds a value that is no longer valid).
+        var leadStage = "Lead";
+        if (isBsLink && partner.start_stage && leadStagesFor("business_system").indexOf(partner.start_stage) >= 0) {
+            leadStage = partner.start_stage;
+        }
+
+        // Lands in the APEX-INTERNAL pipeline, with stage_changed_at stamped so
+        // Task 1's "days in this stage" starts counting from arrival rather
+        // than reading as unknown.
         var leadId = crypto.randomUUID();
         await env.DB.prepare(
             // source_type is stamped 'partner' here rather than inferred later
@@ -25873,13 +25974,30 @@ async function handlePostApexReferralLead(slug, request, env) {
             // language 'en' explicitly (the column DEFAULT is 'pt'; click-through fixes B2).
             // A lead that filled in a partner's link is warm (Nicole, 2026-09-29).
             // plan: the lead belongs to the same side as the partner's link.
-            "INSERT INTO clients (id, name, status, lead_stage, stage_changed_at, phone, email, referred_by_partner_id, source_type, language, lead_temperature, plan) " +
-            "VALUES (?, ?, 'lead', 'Lead', datetime('now'), ?, ?, ?, 'partner', 'en', 'warm', ?)"
-        ).bind(leadId, nome, telefone, email, partner.id, apexPartnerPlanOf(partner)).run();
-        // A Business System lead starts with the daily log OFF, through the same
-        // switch the Business System build uses for its new clients.
-        if (apexPartnerPlanOf(partner) === "business_system") {
+            "INSERT INTO clients (id, name, status, lead_stage, stage_changed_at, phone, email, referred_by_partner_id, source_type, language, lead_temperature, plan, industry, contacts) " +
+            "VALUES (?, ?, 'lead', ?, datetime('now'), ?, ?, ?, 'partner', 'en', 'warm', ?, ?, ?)"
+        ).bind(leadId, clientName, leadStage, telefone, email, partner.id, apexPartnerPlanOf(partner), setor, contactsJson).run();
+        if (isBsLink) {
+            // Entering Lista de espera is stamped the same way the stage-change
+            // route stamps it.
+            var stampSql = bsStageStampSql("business_system", leadStage);
+            if (stampSql) {
+                await env.DB.prepare("UPDATE clients SET stage_change_source = 'partner_link'" + stampSql + " WHERE id = ?").bind(leadId).run();
+            }
+            // A Business System lead starts with the daily log and the Growth
+            // switch OFF, through the same switch the Business System build uses.
             await clientSetSwitchOff(env, leadId, "daily_log_enabled", { display_name: "system" });
+            await clientSetSwitchOff(env, leadId, "goals_enabled", { display_name: "system" });
+            // The note goes in the Notes card's own table, signed "Partner link"
+            // (never a person's name). Nothing is saved when it is empty. A
+            // failed note must not undo or hide a lead that was saved.
+            if (nota) {
+                try {
+                    await env.DB.prepare(
+                        "INSERT INTO client_notes (id, client_id, content, created_by) VALUES (?, ?, ?, 'Partner link')"
+                    ).bind(crypto.randomUUID(), leadId, nota).run();
+                } catch (eNote) { console.error("partner link note failed", eNote && eNote.message); }
+            }
         }
 
         // Deliberately no id and no data in the public response.
@@ -55281,11 +55399,15 @@ async function clientSetSwitchOff(env, clientId, key, user) {
 }
 
 // Writes the plan and its audit stamp. Moving to business_system also turns the
-// daily log off. Moving back to consulting touches nothing else.
+// daily log and the Growth switch (goals_enabled) off. Moving back to
+// consulting touches nothing else.
 async function clientApplyPlanChange(env, clientId, plan, user) {
     await env.DB.prepare("UPDATE clients SET plan = ?, plan_changed_at = datetime('now'), plan_changed_by = ? WHERE id = ?")
         .bind(plan, actorName(user), clientId).run();
-    if (plan === "business_system") { await clientSetSwitchOff(env, clientId, "daily_log_enabled", user); }
+    if (plan === "business_system") {
+        await clientSetSwitchOff(env, clientId, "daily_log_enabled", user);
+        await clientSetSwitchOff(env, clientId, "goals_enabled", user);
+    }
 }
 
 // The old password login is retired for a business only when EVERY password

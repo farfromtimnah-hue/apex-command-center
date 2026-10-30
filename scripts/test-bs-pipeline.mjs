@@ -14,6 +14,7 @@ const worker = readFileSync(here("worker/index.js"), "utf8");
 const schema = readFileSync(here("scripts/fixtures/bs-pipeline-schema.sql"), "utf8");
 const migPartners = readFileSync(here("migrations/apex_partners_plan.sql"), "utf8");
 const migPipeline = readFileSync(here("migrations/bs_lead_pipeline.sql"), "utf8");
+const migStartStage = readFileSync(here("migrations/apex_partners_start_stage.sql"), "utf8");
 
 function slice(src, a, b) {
   const i = src.indexOf(a), j = src.indexOf(b, i);
@@ -88,6 +89,7 @@ const req = (body, url) => ({
   env.raw.exec("INSERT INTO clients (id, name, status, lead_stage) VALUES ('c-old', 'Old client', 'lead', 'Lead')");
   env.raw.exec(migPartners);
   env.raw.exec(migPipeline);
+  env.raw.exec(migStartStage);
   t("migration: an existing partner reads consulting", row(env, "SELECT plan FROM apex_partners WHERE id = 'p-old'").plan, "consulting");
   t("migration: the new client columns are NULL for an existing row",
     row(env, "SELECT bs_waitlist_at, bs_link_sent_at, bs_activated_at FROM clients WHERE id = 'c-old'"),
@@ -110,6 +112,7 @@ function fresh() {
   const env = makeDb();
   env.raw.exec(migPartners);
   env.raw.exec(migPipeline);
+  env.raw.exec(migStartStage);
   return env;
 }
 function addPartner(env, id, plan, slug) {

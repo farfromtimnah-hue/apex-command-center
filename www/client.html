@@ -2311,7 +2311,7 @@
 
             <!-- "Raio X enviado" is one stage but three real steps. Real
                  completion state, read from the tables each step writes to. -->
-            <div style="margin-bottom:18px;">
+            <div style="margin-bottom:18px;" id="leadChecklistWrap">
               <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:var(--muted);margin-bottom:8px;">
                 <span class="show-pt">Raio X enviado — checklist</span>
                 <span class="show-en">X-Ray sent — checklist</span>
@@ -4665,6 +4665,33 @@
       return parseInt(parts[0], 10) * 100 + cents;
     }
 
+    // Business System profile: the cards that belong to the consulting work are
+    // hidden with the same hidden attribute the page uses for the Lead Pipeline
+    // card (the group watcher below follows it, and a group with no card left,
+    // here Apex work, drops out of the bar). The plan read is the client's own
+    // (clientData.plan), never the admin side switch. Entry Week is hidden only
+    // while the client's daily log is off. A consulting client is untouched.
+    var BS_HIDDEN_CARDS = ["apexContract", "contractStatus", "vendors", "sessions", "clientTasks",
+      "consultantTasks", "assessments", "resources", "docs"];
+    function clientIsBs() {
+      return !!(clientData && clientData.plan === "business_system");
+    }
+    function applyBsProfileCards() {
+      if (!clientIsBs()) { return; }
+      for (var i = 0; i < BS_HIDDEN_CARDS.length; i++) {
+        var card = document.getElementById("sec-" + BS_HIDDEN_CARDS[i]);
+        if (card) { card.hidden = true; }
+      }
+      var weekly = document.getElementById("sec-weeklySummary");
+      if (weekly) { weekly.hidden = Number(clientData.daily_log_enabled) === 0; }
+      // The X-Ray checklist is a consulting step list; the stage control, next
+      // step and contact log stay.
+      var checklist = document.getElementById("leadChecklistWrap");
+      if (checklist) { checklist.hidden = true; }
+      // The Apex work tab is gone, so a deep link must not leave it on screen.
+      if (cgGroup === "apexwork") { cgShowGroup("overview", false); }
+    }
+
     function renderBsPlanCard() {
       var el = document.getElementById("bsPlanBody");
       if (!el || !clientData) { return; }
@@ -5256,6 +5283,7 @@
           }
           clientSwitchBusy = false;
           renderPortalAccess();
+          applyBsProfileCards();
         })
         .catch(function(e) {
           clientSwitchBusy = false;
@@ -6461,6 +6489,7 @@
           initPaymentMethod(clientData);
           initLeadPipeline(clientData);
           initApexContract(clientData);
+          applyBsProfileCards();
           // The plan card resolves its package name out of the live package
           // list, so load that first rather than racing it.
           loadLivePackageList().then(loadPaymentPlan);
@@ -6617,6 +6646,8 @@
       var card = document.getElementById("sec-apexContract");
       var role = sessionStorage.getItem("apex_role") || "";
       if (!card || !window.ApexContract || ["alice", "rafa", "developer"].indexOf(role) === -1) { return; }
+      // A Business System client has no APEX Contract card.
+      if (client && client.plan === "business_system") { card.hidden = true; return; }
       // Placed in the page's own columns (the printed order), so anything
       // cgLayout() has on screen goes home first and is laid out again after.
       cgHome();
@@ -12573,6 +12604,8 @@
       var card = document.getElementById("sec-contractStatus");
       var body = document.getElementById("contractStatusBody");
       if (!card || !body || !contractStatusLoaded) { return; }
+      // A Business System client has no Contract status card.
+      if (clientIsBs()) { card.hidden = true; return; }
       card.hidden = false;
       var c = contractStatusRow;
       if (!c) {

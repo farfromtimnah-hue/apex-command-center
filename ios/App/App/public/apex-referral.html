@@ -127,11 +127,12 @@
     }
     label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 14px 0 6px; }
     label:first-child { margin-top: 0; }
-    input[type="text"], input[type="tel"], input[type="email"] {
+    input[type="text"], input[type="tel"], input[type="email"], textarea {
       width: 100%; min-height: 48px; padding: 10px 12px; font-size: 16px;
       border: 1px solid var(--border); border-radius: 10px; background: #fff;
     }
-    input:focus { outline: none; border-color: var(--gold); }
+    textarea { min-height: 96px; resize: vertical; font-family: inherit; line-height: 1.4; }
+    input:focus, textarea:focus { outline: none; border-color: var(--gold); }
     .btn {
       width: 100%; min-height: 52px; margin-top: 18px; border: none; border-radius: 10px;
       background: var(--gold); color: #1a1a1d; font-size: 17px; font-weight: 700; cursor: pointer;
@@ -309,6 +310,16 @@
     <input type="tel" id="fTel" autocomplete="tel">
     <label for="fEmail">Email</label>
     <input type="email" id="fEmail" autocomplete="email">
+    <!-- Business System links only: three optional fields. Hidden unless the
+         link's info answer says to show them. -->
+    <div id="bsFields" hidden>
+      <label for="fEmpresa">Nome da empresa</label>
+      <input type="text" id="fEmpresa" maxlength="200" autocomplete="organization">
+      <label for="fSetor">Setor</label>
+      <input type="text" id="fSetor" maxlength="100">
+      <label for="fNota">Nota</label>
+      <textarea id="fNota" maxlength="1000"></textarea>
+    </div>
     <!-- Honeypot: humans never see or fill this. -->
     <div class="hp-field" aria-hidden="true">
       <label for="website">Website</label>
@@ -355,6 +366,8 @@
             (d.partner_name ? escHtml(d.partner_name) + " indicou você. " : "") +
             "Deixe seus dados e a equipe entra em contato.";
           if (d.has_hero) { applyHero(); }
+          var bsBox = document.getElementById("bsFields");
+          if (bsBox) { bsBox.hidden = !d.show_company_fields; }
           showCard("cardForm");
         })
         .catch(function() { showCard("cardNotFound"); });
@@ -367,16 +380,25 @@
       if (!nome) { err.textContent = "Preencha seu nome."; return; }
       var btn = document.getElementById("btnSend");
       btn.disabled = true;
+      var payload = {
+        nome: nome,
+        telefone: document.getElementById("fTel").value.trim() || null,
+        email: document.getElementById("fEmail").value.trim() || null,
+        website: document.getElementById("website").value || null,
+        elapsed_ms: Date.now() - loadedAt
+      };
+      // The three extra fields are sent only when this link shows them, and
+      // only in the request body (never in the address).
+      var bsFieldsBox = document.getElementById("bsFields");
+      if (bsFieldsBox && !bsFieldsBox.hidden) {
+        payload.empresa = document.getElementById("fEmpresa").value.trim() || null;
+        payload.setor = document.getElementById("fSetor").value.trim() || null;
+        payload.nota = document.getElementById("fNota").value.trim() || null;
+      }
       fetch(WORKER_URL + "/api/apex-referral/" + slug, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nome: nome,
-          telefone: document.getElementById("fTel").value.trim() || null,
-          email: document.getElementById("fEmail").value.trim() || null,
-          website: document.getElementById("website").value || null,
-          elapsed_ms: Date.now() - loadedAt
-        })
+        body: JSON.stringify(payload)
       })
         .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
         .then(function(r) {

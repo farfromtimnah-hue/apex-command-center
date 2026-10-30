@@ -1057,6 +1057,11 @@
             <select id="apStatus"></select>
           </div>
         </div>
+        <!-- Business System side only: the stage this link's leads start at. -->
+        <div class="field-group" id="apStartStageGroup" hidden>
+          <label><span class="show-pt">Etapa inicial</span><span class="show-en">Start stage</span></label>
+          <select id="apStartStage"></select>
+        </div>
         <div class="field-group">
           <label><span class="show-pt">Contato</span><span class="show-en">Contact</span></label>
           <input type="text" id="apContato" maxlength="200">
@@ -1137,13 +1142,18 @@
             <!-- Lead is FIRST, so the browser's own default for this select is
                  lead. Active means a contract, and a contract means a package;
                  a record being typed for the first time has neither. -->
-            <select id="ncStatus">
+            <select id="ncStatus" onchange="syncNewClientStage()">
               <option value="lead">Lead</option>
               <option value="active" data-opt-pt="Ativo" data-opt-en="Active">Ativo</option>
               <option value="paused" data-opt-pt="Pausado" data-opt-en="Paused">Pausado</option>
               <option value="closed" data-opt-pt="Encerrado" data-opt-en="Closed">Encerrado</option>
             </select>
           </div>
+        </div>
+        <!-- Business System side only, and only while the status is Lead. -->
+        <div class="field-group" id="ncStageGroup" hidden>
+          <label><span class="show-pt">Etapa</span><span class="show-en">Stage</span></label>
+          <select id="ncStage"></select>
         </div>
         <div class="field-row">
           <div class="field-group">
@@ -2102,6 +2112,7 @@
             "</div>" +
           "</div>" +
           '<div class="ap-rows">' +
+            (onBusinessSide() ? apexRowHtml("tag", en ? "Start stage" : "Etapa inicial", leadStageLabel(p.start_stage || "Lead", en)) : "") +
             apexRowHtml("person", en ? "Contact" : "Contato", p.contato) +
             apexRowHtml("calendar", en ? "Last interaction" : "Última interação", p.ultima_interacao) +
             apexRowHtml("check", en ? "Next action" : "Próxima ação", p.proxima_acao) +
@@ -2174,6 +2185,26 @@
       }).join("");
       sel.value = p ? (p.status || "Prospectando") : "Prospectando";
 
+      // Start stage: only on the Business System side, from the same stage list
+      // the Leads board uses. A new partner starts at Lista de espera; a
+      // partner with no value (the stage Lead) shows Lead.
+      var stageGroup = document.getElementById("apStartStageGroup");
+      var stageSel = document.getElementById("apStartStage");
+      if (stageGroup && stageSel) {
+        stageGroup.hidden = !onBusinessSide();
+        if (onBusinessSide()) {
+          var stageList = leadStagesForSide();
+          var stageHtml = "";
+          for (var si = 0; si < stageList.length; si++) {
+            stageHtml += '<option value="' + escHtml(stageList[si]) + '" data-opt-pt="' + escHtml(leadStageLabel(stageList[si], false)) +
+              '" data-opt-en="' + escHtml(leadStageLabel(stageList[si], true)) + '">' + escHtml(stageList[si]) + "</option>";
+          }
+          stageSel.innerHTML = stageHtml;
+          stageSel.value = p ? (p.start_stage || "Lead") : BS_STAGE_WAITLIST;
+          applyPageBilingualAttrs();
+        }
+      }
+
       document.getElementById("apStatusMsg").textContent = "";
       document.getElementById("apDelete").hidden = !id;
 
@@ -2219,6 +2250,8 @@
         proxima_acao: document.getElementById("apProxima").value.trim() || null,
         plan: onBusinessSide() ? "business_system" : "consulting"
       };
+      var stageSelSave = document.getElementById("apStartStage");
+      if (onBusinessSide() && stageSelSave) { body.start_stage = stageSelSave.value; }
       var req = apexOpenPartnerId
         ? apexApi("/api/apex-partners/" + apexOpenPartnerId, "PUT", body)
         : apexApi("/api/apex-partners", "POST", body);
@@ -2472,11 +2505,35 @@ function escHtml(str) {
 
       if (ncPackageEl)  { ncPackageEl.value   = ""; }
       if (ncStatusEl)   { ncStatusEl.value    = "lead"; }
+      var ncStageEl = document.getElementById("ncStage");
+      if (ncStageEl && ncStageEl.options.length) { ncStageEl.value = BS_STAGE_WAITLIST; }
+      syncNewClientStage();
       if (ncStatus2El)  { ncStatus2El.textContent = ""; ncStatus2El.className = "form-status"; }
       if (ncSaveBtn)    { ncSaveBtn.disabled   = false; }
       if (nc2WrapEl)    { nc2WrapEl.style.display = "none"; }
       if (nc2BtnEl)     { nc2BtnEl.style.display  = ""; }
       if (modalEl)      { modalEl.hidden        = false; }
+    }
+
+    // The Stage control of the Add New Client form: Business System side only,
+    // shown while the status is Lead, from the same stage list the Leads board uses.
+    function syncNewClientStage() {
+      var group = document.getElementById("ncStageGroup");
+      var sel = document.getElementById("ncStage");
+      var statusEl = document.getElementById("ncStatus");
+      if (!group || !sel || !statusEl) { return; }
+      var show = onBusinessSide() && statusEl.value === "lead";
+      group.hidden = !show;
+      if (!show || sel.options.length) { return; }
+      var list = leadStagesForSide();
+      var html = "";
+      for (var i = 0; i < list.length; i++) {
+        html += '<option value="' + escHtml(list[i]) + '" data-opt-pt="' + escHtml(leadStageLabel(list[i], false)) +
+          '" data-opt-en="' + escHtml(leadStageLabel(list[i], true)) + '">' + escHtml(list[i]) + "</option>";
+      }
+      sel.innerHTML = html;
+      sel.value = BS_STAGE_WAITLIST;
+      applyPageBilingualAttrs();
     }
 
     function toggleSecondContact() {
@@ -2549,6 +2606,12 @@ function escHtml(str) {
         // Business System: a client added on that side is created on that side.
         plan:     window.apexSide ? window.apexSide() : "consulting"
       };
+      // Business System side: the chosen starting stage, while the status is Lead.
+      var ncStageSel = document.getElementById("ncStage");
+      var ncStageBox = document.getElementById("ncStageGroup");
+      if (onBusinessSide() && ncStageSel && ncStageBox && !ncStageBox.hidden && payload.status === "lead") {
+        payload.lead_stage = ncStageSel.value;
+      }
 
       getToken().then(function (token) {
         return fetch(WORKER_URL + "/api/clients", {

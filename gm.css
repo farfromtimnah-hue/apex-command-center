@@ -553,7 +553,20 @@
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .gm-wx-glass { background: rgba(0, 0, 0, 0.55); }
 }
-.gm-wx-glass-title { padding-right: 12px; margin-bottom: 8px; font-size: 12px; font-weight: 700; }
+.gm-wx-glass-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-right: 12px; margin-bottom: 8px; }
+.gm-wx-glass-title { font-size: 12px; font-weight: 700; }
+.gm-wx-nav { display: inline-flex; gap: 8px; }
+.gm-wx-nav-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.75); border-radius: 20px; background: rgba(0, 0, 0, 0.3); color: #fff;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.gm-wx-nav-btn svg { width: 18px; height: 18px; }
+.gm-wx-nav-prev svg { transform: rotate(180deg); }
+.gm-wx-nav-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.22); }
+.gm-wx-nav-btn:active:not(:disabled) { background: rgba(255, 255, 255, 0.34); }
+.gm-wx-nav-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.gm-wx-nav-btn:disabled { opacity: 0.35; cursor: default; }
 .gm-wx-strip {
   display: flex; gap: 6px; overflow-x: auto; padding: 0 12px 8px 0;
   scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;

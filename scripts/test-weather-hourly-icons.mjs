@@ -82,7 +82,7 @@ const day3 = [
 let EN = false;
 const C_FNS = ["gmWeatherClock", "gmWeatherIconName", "gmWeatherSkyName", "gmWeatherIconLabel", "gmWeatherIconHtml", "gmWeatherRepHour", "gmWeatherTileSky",
   "gmWeatherHourLabel", "gmWeatherRangeText", "gmWeatherHighLowText", "gmWeatherHighLowHtml", "gmWeatherCardTitle", "gmWeatherTileKey", "gmWeatherTileToggle",
-  "gmWeatherTileIsOpen", "gmWeatherHoursButtonHtml", "gmWeatherApproxHtml", "gmWeatherCellsHtml", "gmWeatherOpenTileHtml", "gmWeatherClosedTileHtml", "gmWeatherNoForecastTileHtml", "gmWeatherWorkHours", "gmWeatherRainRange", "gmWeatherHighLow", "gmWeatherPeakRain", "gmWeatherPeakHtml", "gmWeatherDayCardHtml", "gmWeatherJobCardHtml"];
+  "gmWeatherTileIsOpen", "gmWeatherHoursButtonHtml", "gmWeatherApproxHtml", "gmWeatherCellsHtml", "gmWeatherOpenTileHtml", "gmWeatherClosedTileHtml", "gmWeatherNoForecastTileHtml", "gmWeatherNavHtml", "gmWeatherNavState", "gmWeatherWorkHours", "gmWeatherRainRange", "gmWeatherHighLow", "gmWeatherPeakRain", "gmWeatherPeakHtml", "gmWeatherDayCardHtml", "gmWeatherJobCardHtml"];
 const C_VARS = ["GM_WEATHER_ICON_LABELS", "GM_WEATHER_RAIN_PCT_FRONTEND_THRESHOLD", "GM_WEATHER_DAY_START", "gmWeatherTileOpen"];
 const C = build(C_FNS, C_VARS, {
   gmT: (pt, en) => (EN ? en : pt),
@@ -209,7 +209,7 @@ ok(C.gmWeatherTileKey("A", "2026-11-01") !== C.gmWeatherTileKey("A", "2026-11-02
 // Project card
 const forecast = { today: hours24, today_rain_window: { from: "13:00", to: "18:00" }, tomorrow_rain_window: { from: "09:00", to: "14:00" }, high_f: 91, low_f: 74 };
 const jc = C.gmWeatherJobCardHtml(forecast, true);
-ok(/gm-wx-open/.test(jc) && jc.indexOf("<button") < 0, "project card is the open tile with no Hours button");
+ok(/gm-wx-open/.test(jc) && jc.indexOf("gm-wx-hours") < 0 && (jc.match(/<button/g) || []).length === 2, "project card is the open tile with no Hours button (only the two arrows)");
 ok(/Rain likely 1 PM to 6 PM/.test(jc) && /Tomorrow: rain likely 9 AM to 2 PM/.test(jc), "project card: rain line and tomorrow line in 12-hour with the word to");
 ok(/Approximate location/.test(jc) && /High 91°/.test(jc) && />Now</.test(jc), "project card: approximate note, high and low, Now first cell");
 ok(!/–/.test(jc), "project card has no en dash");
@@ -277,6 +277,31 @@ ok(existsSync(new URL("../assets/weather/sources.txt", import.meta.url)), "asset
 const seen = new Set();
 [["Showers And Thunderstorms", true], ["Rain", true], ["Snow", true], ["Fog", true], ["Sunny", true], ["Partly Cloudy", true], ["Cloudy", true], ["Clear", false], ["Cloudy", false]].forEach(([c, d]) => seen.add(sky(c, d, 0)));
 ok([...seen].every((s) => SKIES.indexOf(s) >= 0 && existsSync(new URL("../assets/weather/" + s + ".jpg", import.meta.url))), "every sky name the function returns has a file");
+
+
+// Back and forward arrows on the hourly strip
+EN = true;
+const openNav = C.gmWeatherDayCardHtml("2026-11-01", [ev], "2026-11-01");
+C.gmWeatherTileToggle(C.gmWeatherTileKey(ev.title, "2026-11-01"));
+const openNav2 = C.gmWeatherDayCardHtml("2026-11-01", [ev], "2026-11-01");
+ok(/gm-wx-nav-prev/.test(openNav2) && /gm-wx-nav-next/.test(openNav2), "open tile has a back and a forward arrow");
+ok(/aria-label="Earlier hours"/.test(openNav2) && /aria-label="Later hours"/.test(openNav2), "arrows have accessible names in English");
+ok(/<button type="button" class="gm-wx-nav-btn gm-wx-nav-prev"[^>]* disabled/.test(openNav2) && !/gm-wx-nav-next"[^>]* disabled/.test(openNav2), "back arrow starts off, forward arrow starts on");
+EN = false;
+ok(/aria-label="Horas anteriores"/.test(C.gmWeatherNavHtml()) && /aria-label="Próximas horas"/.test(C.gmWeatherNavHtml()), "arrows have accessible names in Portuguese");
+EN = true;
+ok(C.gmWeatherNavHtml().indexOf("alert(") < 0 && (C.gmWeatherNavHtml().match(/<button/g) || []).length === 2, "two real buttons, no pop-ups");
+let ns = C.gmWeatherNavState(0, 300, 900);
+ok(ns.prev === false && ns.next === true, "at the start: back off, forward on");
+ns = C.gmWeatherNavState(300, 300, 900);
+ok(ns.prev === true && ns.next === true, "in the middle: both on");
+ns = C.gmWeatherNavState(600, 300, 900);
+ok(ns.prev === true && ns.next === false, "at the end: back on, forward off");
+ns = C.gmWeatherNavState(0, 300, 300);
+ok(ns.prev === false && ns.next === false, "everything fits: both off");
+ns = C.gmWeatherNavState(599.4, 300, 900);
+ok(ns.next === false || ns.next === true, "fractional scroll positions do not throw");
+ok(C.gmWeatherNavHtml().indexOf("gm-wx-nav") === 12, "arrows sit in their own group");
 
 console.log("\n" + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);

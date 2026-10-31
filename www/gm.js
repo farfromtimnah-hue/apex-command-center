@@ -8512,6 +8512,60 @@ function gmWeatherCellsHtml(hours, isToday) {
   }).join("");
 }
 
+// Back and forward arrows for the hourly strip, so nobody has to guess that it slides.
+function gmWeatherNavHtml() {
+  return '<div class="gm-wx-nav">' +
+    '<button type="button" class="gm-wx-nav-btn gm-wx-nav-prev" data-dir="-1" disabled aria-label="' + escHtml(gmT("Horas anteriores", "Earlier hours")) + '">' + gmIcon("chevron") + '</button>' +
+    '<button type="button" class="gm-wx-nav-btn gm-wx-nav-next" data-dir="1" aria-label="' + escHtml(gmT("Próximas horas", "Later hours")) + '">' + gmIcon("chevron") + '</button>' +
+    '</div>';
+}
+
+// Which arrows work for a strip: pure, so it can be tested. Both are off when everything already fits.
+function gmWeatherNavState(scrollLeft, clientWidth, scrollWidth) {
+  var fits = scrollWidth <= clientWidth + 1;
+  return { prev: !fits && scrollLeft > 1, next: !fits && scrollLeft + clientWidth < scrollWidth - 1 };
+}
+
+function gmWeatherNavUpdate(glass) {
+  if (!glass || !glass.querySelector) { return; }
+  var strip = glass.querySelector(".gm-wx-strip");
+  var prev = glass.querySelector(".gm-wx-nav-prev");
+  var next = glass.querySelector(".gm-wx-nav-next");
+  if (!strip || !prev || !next) { return; }
+  var st = gmWeatherNavState(strip.scrollLeft, strip.clientWidth, strip.scrollWidth);
+  prev.disabled = !st.prev;
+  next.disabled = !st.next;
+}
+
+function gmWeatherNavRefresh() {
+  var all = document.querySelectorAll(".gm-wx-glass");
+  for (var i = 0; i < all.length; i++) { gmWeatherNavUpdate(all[i]); }
+}
+
+function gmWeatherNavDocClick(e) {
+  var b = e && e.target && e.target.closest ? e.target.closest(".gm-wx-nav-btn") : null;
+  if (!b || b.disabled) { return; }
+  var glass = b.closest(".gm-wx-glass");
+  var strip = glass ? glass.querySelector(".gm-wx-strip") : null;
+  if (!strip) { return; }
+  var dir = parseInt(b.getAttribute("data-dir"), 10) === -1 ? -1 : 1;
+  var step = Math.max(64, Math.round(strip.clientWidth * 0.8));
+  strip.scrollLeft = strip.scrollLeft + dir * step;
+  gmWeatherNavUpdate(glass);
+}
+
+function gmWeatherNavDocScroll(e) {
+  var t = e && e.target;
+  if (t && t.classList && t.classList.contains("gm-wx-strip")) { gmWeatherNavUpdate(t.closest(".gm-wx-glass")); }
+}
+
+if (typeof document !== "undefined" && document.addEventListener && !window.__gmWeatherNavBound) {
+  window.__gmWeatherNavBound = true;
+  document.addEventListener("click", gmWeatherNavDocClick);
+  document.addEventListener("scroll", gmWeatherNavDocScroll, true);
+  window.addEventListener("resize", gmWeatherNavRefresh);
+}
+
 function gmWeatherApproxHtml(approx) {
   return approx ? '<div class="gm-wx-approx">' + escHtml(gmT("Local aproximado", "Approximate location")) + '</div>' : "";
 }
@@ -8534,7 +8588,10 @@ function gmWeatherOpenTileHtml(o) {
     '</div>' +
     (o.hours.length ?
       '<div class="gm-wx-glass">' +
-        '<div class="gm-wx-glass-title">' + escHtml(gmT("Previsão por hora", "Hourly forecast")) + '</div>' +
+        '<div class="gm-wx-glass-head">' +
+          '<div class="gm-wx-glass-title">' + escHtml(gmT("Previsão por hora", "Hourly forecast")) + '</div>' +
+          gmWeatherNavHtml() +
+        '</div>' +
         '<div class="gm-wx-strip" tabindex="0" role="group" aria-label="' + escHtml(gmT("Previsão por hora, deslize para o lado", "Hourly forecast, slide sideways")) + '">' +
           gmWeatherCellsHtml(o.hours, o.isToday) +
         '</div>' +
@@ -8668,6 +8725,7 @@ function gmRenderJobWeather(jobId) {
   var d = gmJobWeather[jobId];
   if (!d || !d.available || !d.forecast) { box.innerHTML = ""; return; }
   box.innerHTML = gmWeatherJobCardHtml(d.forecast, d.approx_location);
+  gmWeatherNavRefresh();
 }
 
 function gmLoadJobPhotos(jobId) {
@@ -10366,6 +10424,7 @@ function gmCalRenderDayWeather(dateStr, events) {
   gmWeatherLastDay = { dateStr: dateStr, events: events };
   host.innerHTML = gmWeatherDayCardHtml(dateStr, events, localDateStr());
   host.onclick = gmCalWeatherClick;
+  gmWeatherNavRefresh();
 }
 
 // A tap on a tile (the Hours button or the tile itself) opens or closes it. A

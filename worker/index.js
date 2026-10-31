@@ -56542,11 +56542,32 @@ function bsPromoUrlOk(u) {
 // a sign-in header, so the page gets a short-lived signed address instead,
 // signed with the same secret and the same helpLinkSig as the Learn files.
 // video_url / poster_url hold the plain address /api/bs/promo-file/<name>.
-var BS_PROMO_FILE_RE = /^(video|poster)-(pt|en)\.(mp4|jpg)$/;
-function bsPromoKey(name) {
+// A file name is either the legacy form (video-pt.mp4, key bs-promo-pt.mp4, the
+// Aprenda promo) or video-<slug>-<lang>.mp4 / poster-<slug>-<lang>.jpg with the
+// key bs-promo-<slug>-<lang>.<ext>. The slug is lowercase letters and digits with
+// single hyphens between parts, 1 to 40 characters. This rule is the allow list:
+// nothing else ever becomes an R2 key.
+var BS_PROMO_FILE_RE = /^(?:(video|poster)-(pt|en)|(video|poster)-([a-z0-9]+(?:-[a-z0-9]+)*)-(pt|en))\.(mp4|jpg)$/;
+var BS_PROMO_SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+function bsPromoSlugOk(slug) {
+    return typeof slug === "string" && slug.length >= 1 && slug.length <= 40 && BS_PROMO_SLUG_RE.test(slug);
+}
+// { slug, lang, ext } for a file name that passes the rule, otherwise null.
+// The legacy form reports the slug "aprenda" (for the download file name).
+function bsPromoParse(name) {
+    if (typeof name !== "string") { return null; }
     var m = BS_PROMO_FILE_RE.exec(name);
-    if (!m || (m[1] === "video") !== (m[3] === "mp4")) { return null; }
-    return "help/video/bs-promo-" + m[2] + "." + m[3];
+    if (!m) { return null; }
+    var kind = m[1] || m[3];
+    var ext = m[6];
+    if ((kind === "video") !== (ext === "mp4")) { return null; }
+    if (m[4] !== undefined && !bsPromoSlugOk(m[4])) { return null; }
+    return { legacy: m[4] === undefined, slug: m[4] === undefined ? "aprenda" : m[4], lang: m[2] || m[5], ext: ext };
+}
+function bsPromoKey(name) {
+    var p = bsPromoParse(name);
+    if (!p) { return null; }
+    return "help/video/bs-promo-" + (p.legacy ? "" : p.slug + "-") + p.lang + "." + p.ext;
 }
 async function bsPromoSign(env, request, plain) {
     if (typeof plain !== "string" || plain.indexOf("/api/bs/promo-file/") !== 0) { return plain || ""; }
@@ -56580,7 +56601,7 @@ async function handleGetBsPromoFile(request, env, name) {
             "Cross-Origin-Resource-Policy": "cross-origin",
             "Referrer-Policy": "no-referrer"
         });
-        if (q.get("download") === "1") { headers["Content-Disposition"] = 'attachment; filename="aprenda-promo-' + name.split("-")[1].split(".")[0] + '.' + ext + '"'; }
+        if (q.get("download") === "1") { var pn = bsPromoParse(name); headers["Content-Disposition"] = 'attachment; filename="apex-promo-' + pn.slug + "-" + pn.lang + '.' + ext + '"'; }
         var head = await env.ASSETS.head(key);
         if (!head) { return helpNotFound(); }
         var size = head.size;
@@ -56651,6 +56672,81 @@ async function handlePutBsPromo(lang, request, env) {
     }
 }
 
+// GET /api/bs/promos -- every promo with its Portuguese and English entry.
+async function handleGetBsPromos(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!bsIsStaff(user)) { return jsonErr("Forbidden", 403); }
+        var pr = await env.DB.prepare("SELECT id, slug, name_pt, name_en, sort_order FROM bs_promos ORDER BY sort_order, created_at, slug").all();
+        var en = await env.DB.prepare("SELECT promo_id, lang, video_url, poster_url, post_text, updated_at, updated_by FROM bs_promo_entries").all();
+        var byPromo = {};
+        var entries = en.results || [];
+        for (var i = 0; i < entries.length; i++) {
+            var row = entries[i];
+            var one = {
+                video_url: row.video_url, poster_url: row.poster_url, post_text: row.post_text,
+                video_src: await bsPromoSign(env, request, row.video_url),
+                poster_src: await bsPromoSign(env, request, row.poster_url),
+                updated_at: row.updated_at, updated_by: row.updated_by
+            };
+            if (!byPromo[row.promo_id]) { byPromo[row.promo_id] = { pt: null, en: null }; }
+            byPromo[row.promo_id][row.lang] = one;
+        }
+        var promos = [];
+        var list = pr.results || [];
+        for (var j = 0; j < list.length; j++) {
+            var p = list[j];
+            promos.push({ slug: p.slug, name_pt: p.name_pt, name_en: p.name_en, sort_order: p.sort_order, entries: byPromo[p.id] || { pt: null, en: null } });
+        }
+        return jsonOk({ promos: promos });
+    } catch (e) {
+        console.error("handleGetBsPromos", e && e.message);
+        return jsonErr("Error fetching promos", 500);
+    }
+}
+
+// PUT /api/bs/promos/:slug/:lang -- updates only the fields sent. There is no
+// route that deletes a promo or an entry or replaces a video: new promos are
+// added by migration.
+async function handlePutBsPromoEntry(slug, lang, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!bsIsStaff(user)) { return jsonErr("Forbidden", 403); }
+        if (!bsPromoSlugOk(slug) || (lang !== "pt" && lang !== "en")) { return jsonErr("Not found", 404); }
+        var body = await request.json().catch(function() { return null; });
+        if (!body || typeof body !== "object" || Array.isArray(body)) { return jsonErr2("Dados inválidos.", "Invalid data.", 400); }
+        var sets = [];
+        var vals = [];
+        if (Object.prototype.hasOwnProperty.call(body, "post_text")) {
+            if (typeof body.post_text !== "string" || body.post_text.length > 5000) { return jsonErr2("Dados inválidos.", "Invalid data.", 400); }
+            sets.push("post_text = ?"); vals.push(body.post_text);
+        }
+        var urlFields = ["video_url", "poster_url"];
+        for (var i = 0; i < urlFields.length; i++) {
+            var f = urlFields[i];
+            if (!Object.prototype.hasOwnProperty.call(body, f)) { continue; }
+            var u = body[f];
+            if (!bsPromoUrlOk(u)) { return jsonErr2("Endereço inválido.", "Invalid address.", 400); }
+            if (u.indexOf("/api/bs/promo-file/") === 0 && !bsPromoKey(u.slice("/api/bs/promo-file/".length))) { return jsonErr2("Endereço inválido.", "Invalid address.", 400); }
+            sets.push(f + " = ?"); vals.push(u);
+        }
+        if (!sets.length) { return jsonErr2("Dados inválidos.", "Invalid data.", 400); }
+        var cur = await env.DB.prepare(
+            "SELECT e.id FROM bs_promo_entries e JOIN bs_promos p ON p.id = e.promo_id WHERE p.slug = ? AND e.lang = ?"
+        ).bind(slug, lang).first();
+        if (!cur) { return jsonErr("Not found", 404); }
+        vals.push(actorName(user), cur.id);
+        var upd = env.DB.prepare("UPDATE bs_promo_entries SET " + sets.join(", ") + ", updated_at = datetime('now'), updated_by = ? WHERE id = ?");
+        await upd.bind.apply(upd, vals).run();
+        return jsonOk({ saved: true });
+    } catch (e) {
+        console.error("handlePutBsPromoEntry", e && e.message);
+        return jsonErr("Error saving promo entry", 500);
+    }
+}
+
 // Router for the Business System routes; returns a Response or null.
 function bsRoute(path, method, request, env) {
     var m;
@@ -56668,6 +56764,9 @@ function bsRoute(path, method, request, env) {
     if (path.indexOf("/api/bs/promo-file/") === 0 && (method === "GET" || method === "HEAD")) { return handleGetBsPromoFile(request, env, path.slice("/api/bs/promo-file/".length)); }
     m = path.match(/^\/api\/bs\/promo\/(pt|en)$/);
     if (m && method === "PUT") { return handlePutBsPromo(m[1], request, env); }
+    if (path === "/api/bs/promos" && method === "GET") { return handleGetBsPromos(request, env); }
+    m = path.match(/^\/api\/bs\/promos\/([^\/]+)\/([^\/]+)$/);
+    if (m && method === "PUT") { return handlePutBsPromoEntry(m[1], m[2], request, env); }
     m = path.match(/^\/api\/clients\/([A-Za-z0-9-]+)\/plan$/);
     if (m && method === "POST") { return handlePostClientPlan(m[1], request, env); }
     m = path.match(/^\/api\/clients\/([A-Za-z0-9-]+)\/billing-split$/);

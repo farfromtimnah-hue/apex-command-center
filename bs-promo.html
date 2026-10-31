@@ -174,32 +174,47 @@
     .page-wrap { padding: 28px 32px; display: flex; flex-direction: column; gap: 18px; max-width: 920px; }
     .page-title { font-size: 22px; font-weight: 700; }
     .section-note { font-size: 12px; color: var(--muted); line-height: 1.5; }
-    /* Tabs styled like browser tabs: the active tab joins the panel below it. */
-    .tab-strip { display: flex; gap: 4px; align-items: flex-end; border-bottom: 1px solid var(--border); padding: 0 6px; margin-bottom: -18px; position: relative; z-index: 1; }
+    /* Language tabs: they apply to every card below. */
+    .tab-strip { display: flex; gap: 4px; align-items: flex-end; border-bottom: 1px solid var(--border); padding: 0 6px; }
     .tab-btn { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; color: var(--muted); background: #ece7de; border: 1px solid var(--border); border-bottom: none; border-radius: 10px 10px 0 0; padding: 10px 22px 9px; cursor: pointer; min-height: 42px; position: relative; top: 1px; }
     .tab-btn:hover { color: var(--text); }
     .tab-btn.is-active { background: var(--card); color: var(--text); padding-bottom: 11px; box-shadow: 0 -2px 0 var(--gold) inset; }
-    .tab-panel { background: var(--card); border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius); box-shadow: var(--shadow); padding: 24px 22px; display: flex; flex-direction: column; gap: 16px; }
+    .tab-btn:focus-visible, .btn-gold:focus-visible, .btn-line:focus-visible, .field-area:focus-visible { outline: 2px solid var(--brown); outline-offset: 2px; }
+    #promoList { display: flex; flex-direction: column; gap: 18px; }
+    .promo-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+    .promo-card-title { grid-column: 1 / -1; font-size: 17px; font-weight: 600; }
+    .promo-media { display: flex; flex-direction: column; gap: 12px; }
+    .promo-body { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
     .field-label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; display: block; }
-    .field-input, .field-area { font-family: 'Inter', sans-serif; font-size: 15px; color: var(--text); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; width: 100%; }
-    .field-area { min-height: 160px; line-height: 1.5; resize: vertical; }
-    .field-input:focus, .field-area:focus { outline: none; border-color: var(--gold); }
-    .video-box { background: #111; border-radius: 12px; overflow: hidden; display: flex; justify-content: center; }
-    .video-box video { width: 100%; max-width: 340px; max-height: 60vh; background: #000; display: block; }
-    .video-empty { background: var(--surface); border: 1px dashed var(--border); border-radius: 12px; padding: 34px 20px; text-align: center; color: var(--muted); font-size: 14px; }
+    .field-area { font-family: 'Inter', sans-serif; font-size: 15px; color: var(--text); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; width: 100%; min-height: 150px; line-height: 1.5; resize: vertical; }
+    .field-area:focus { outline: none; border-color: var(--gold); }
+    .video-box { background: #111; border-radius: 10px; overflow: hidden; display: flex; justify-content: center; }
+    .video-box video { width: 100%; max-width: 300px; max-height: 60vh; background: #000; display: block; }
+    .video-empty { background: var(--surface); border: 1px dashed var(--border); border-radius: 10px; padding: 34px 20px; text-align: center; color: var(--muted); font-size: 14px; }
     .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    .btn-gold { background: var(--gold); color: #fff; border: none; border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; padding: 10px 18px; cursor: pointer; min-height: 42px; text-decoration: none; display: inline-flex; align-items: center; }
+    .btn-gold { background: var(--gold); color: var(--text); border: none; border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; padding: 10px 18px; cursor: pointer; min-height: 42px; text-decoration: none; display: inline-flex; align-items: center; }
+    .btn-gold:hover { filter: brightness(0.95); }
+    .btn-gold:active { filter: brightness(0.88); }
     .btn-gold:disabled { opacity: 0.55; cursor: default; }
     .btn-line { background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; padding: 10px 16px; cursor: pointer; min-height: 42px; text-decoration: none; display: inline-flex; align-items: center; }
     .btn-line:hover { border-color: var(--gold); color: var(--brown); }
-    .inline-msg { font-size: 13px; color: #3f7d4e; min-height: 18px; }
-    .inline-msg.is-error { color: #b44040; }
-    .share-title { font-size: 13px; font-weight: 700; margin-top: 4px; }
-    .error-msg { padding: 20px; color: #b44040; font-size: 13px; }
+    .btn-line:active { background: var(--gold-dim); }
+    .btn-line:disabled { opacity: 0.55; cursor: default; }
+    .inline-msg { font-size: 13px; color: #2f6b40; min-height: 18px; }
+    .inline-msg.is-error { color: #a33636; }
+    .error-msg { padding: 20px; color: #a33636; font-size: 13px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+    .empty-state { color: var(--muted); font-size: 14px; padding: 20px 0; }
+    /* How to post: shown once, as a callout. */
+    .callout { display: flex; gap: 14px; background: #1a1a1d; color: #f3efe8; border-radius: var(--radius); padding: 16px 18px; }
+    .callout svg { flex-shrink: 0; width: 22px; height: 22px; color: var(--gold); margin-top: 2px; }
+    .callout-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+    .callout-rows { display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.5; }
+    .callout-rows b { color: var(--gold); font-weight: 600; }
     @media (max-width: 720px) {
       .page-wrap { padding: 16px; }
       .tab-btn { padding: 10px 16px 9px; }
-      .tab-panel { padding: 18px 14px; }
+      .promo-card { grid-template-columns: 1fr; padding: 16px; }
+      .video-box video { max-width: 100%; }
     }
   </style>
 </head>
@@ -241,8 +256,18 @@
             <button type="button" class="tab-btn is-active" id="tabPt" role="tab" aria-selected="true" onclick="selectTab('pt')">Portugu&ecirc;s</button>
             <button type="button" class="tab-btn" id="tabEn" role="tab" aria-selected="false" onclick="selectTab('en')">English</button>
           </div>
-          <div class="tab-panel" id="promoPanel" role="tabpanel">
-            <div class="empty-state" style="color:var(--muted);font-size:14px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
+          <div class="callout" role="note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.6" fill="currentColor"/></svg>
+            <div>
+              <div class="callout-title"><span class="show-pt">Como publicar</span><span class="show-en">How to post</span></div>
+              <div class="callout-rows">
+                <div><b>Instagram</b> <span class="show-pt">Copie o texto, baixe o vídeo e publique.</span><span class="show-en">Copy the text, download the video, post it.</span></div>
+                <div><b>Facebook, LinkedIn, X</b> <span class="show-pt">Abrem com o texto. O vídeo você envia.</span><span class="show-en">They open with the text. You upload the video.</span></div>
+              </div>
+            </div>
+          </div>
+          <div id="promoList" role="tabpanel">
+            <div class="empty-state"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
           </div>
         </div>
       </main>
@@ -338,97 +363,118 @@ function escHtml(str) {
       emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
     }
 
-    var promo = { items: { pt: null, en: null }, lang: "pt", msg: "", msgErr: false, shareNote: "" };
+    var promo = { promos: [], lang: "pt", msgs: {} };
+
+    // PROMO-LIST-LOGIC-START
+    function promoTitle(p) { return (isEn() ? p.name_en : p.name_pt) || p.name_pt || p.name_en || p.slug; }
+    function promoEntry(p) { return (p.entries && p.entries[promo.lang]) || null; }
+    function downloadHref(src) { return src + (src.indexOf("?") === -1 ? "?" : "&") + "download=1"; }
+    function cardHtml(p) {
+      var en = promoEntry(p);
+      var slug = escHtml(p.slug);
+      var hasVideo = !!(en && en.video_src);
+      var msg = promo.msgs[p.slug] || { text: "", err: false };
+      var h = '<section class="promo-card" data-slug="' + slug + '">';
+      h += '<h2 class="promo-card-title">' + escHtml(promoTitle(p)) + '</h2>';
+      h += '<div class="promo-media">';
+      if (hasVideo) {
+        h += '<div class="video-box"><video controls playsinline preload="metadata" src="' + escHtml(en.video_src) + '"' +
+          (en.poster_src ? ' poster="' + escHtml(en.poster_src) + '"' : '') + '></video></div>';
+        h += '<div class="btn-row">' +
+          '<a class="btn-line" href="' + escHtml(downloadHref(en.video_src)) + '" download>' + t("Baixar vídeo", "Download video") + '</a>' +
+          '<a class="btn-line" href="' + escHtml(en.video_src) + '" target="_blank" rel="noopener">' + t("Abrir vídeo", "Open video") + '</a>' +
+          '<button type="button" class="btn-line" data-role="share-video" data-slug="' + slug + '" onclick="shareVideo(this)" hidden>' + t("Compartilhar vídeo", "Share video") + '</button></div>';
+      } else {
+        h += '<div class="video-empty">' + (promo.lang === "en"
+          ? "No video in English yet for this promo"
+          : "Ainda não há vídeo em português para esta divulgação") + '</div>';
+      }
+      h += '</div><div class="promo-body">';
+      h += '<div><label class="field-label" for="post-' + slug + '">' + t("Texto do post (modelo)", "Post text (template)") + '</label>' +
+        '<textarea class="field-area" id="post-' + slug + '" maxlength="5000">' + escHtml(en ? en.post_text || "" : "") + '</textarea></div>';
+      h += '<div class="btn-row">' +
+        '<button type="button" class="btn-gold" data-role="save" data-slug="' + slug + '" onclick="savePromo(this)"' + (en ? '' : ' disabled') + '>' + t("Salvar", "Save") + '</button>' +
+        '<button type="button" class="btn-line" data-slug="' + slug + '" onclick="copyPromoText(this)">' + t("Copiar texto", "Copy text") + '</button>' +
+        '<span class="inline-msg' + (msg.err ? " is-error" : "") + '" id="msg-' + slug + '" role="status">' + escHtml(msg.text) + '</span></div>';
+      h += '<div class="btn-row">' +
+        '<a class="btn-line" href="#" target="_blank" rel="noopener" data-slug="' + slug + '" onclick="return openShare(\'fb\', this)">Facebook</a>' +
+        '<a class="btn-line" href="#" target="_blank" rel="noopener" data-slug="' + slug + '" onclick="return openShare(\'li\', this)">LinkedIn</a>' +
+        '<a class="btn-line" href="#" target="_blank" rel="noopener" data-slug="' + slug + '" onclick="return openShare(\'x\', this)">X</a></div>';
+      h += '</div></section>';
+      return h;
+    }
+    // PROMO-LIST-LOGIC-END
+
+    function findPromo(slug) {
+      for (var i = 0; i < promo.promos.length; i++) { if (promo.promos[i].slug === slug) { return promo.promos[i]; } }
+      return null;
+    }
+    function slugOf(el) { return el ? el.getAttribute("data-slug") : null; }
+    function postEl(slug) { return document.getElementById("post-" + slug); }
 
     // Keep what was typed (not yet saved) when the tab or the language changes.
     function stashDraft() {
-      var it = promo.items[promo.lang];
-      var titleEl = document.getElementById("promoTitle"), postEl = document.getElementById("promoPost");
-      if (it && titleEl && postEl) { it.title = titleEl.value; it.post_text = postEl.value; }
+      for (var i = 0; i < promo.promos.length; i++) {
+        var p = promo.promos[i], en = promoEntry(p), el = postEl(p.slug);
+        if (en && el) { en.post_text = el.value; }
+      }
+    }
+
+    function renderList() {
+      var box = document.getElementById("promoList");
+      if (!box) { return; }
+      if (!promo.promos.length) {
+        box.innerHTML = '<div class="empty-state">' + t("Nenhuma divulgação ainda.", "No promos yet.") + '</div>';
+        return;
+      }
+      var h = "";
+      for (var i = 0; i < promo.promos.length; i++) { h += cardHtml(promo.promos[i]); }
+      box.innerHTML = h;
+      var shares = box.querySelectorAll('[data-role="share-video"]');
+      for (var k = 0; k < shares.length; k++) {
+        if (navigator.share && navigator.canShare) { shares[k].hidden = false; }
+      }
     }
 
     function selectTab(lang) {
       stashDraft();
       promo.lang = lang === "en" ? "en" : "pt";
-      promo.msg = ""; promo.shareNote = "";
+      promo.msgs = {};
       var tp = document.getElementById("tabPt"), te = document.getElementById("tabEn");
       if (tp) { tp.className = "tab-btn" + (promo.lang === "pt" ? " is-active" : ""); tp.setAttribute("aria-selected", promo.lang === "pt" ? "true" : "false"); }
       if (te) { te.className = "tab-btn" + (promo.lang === "en" ? " is-active" : ""); te.setAttribute("aria-selected", promo.lang === "en" ? "true" : "false"); }
-      renderPanel();
+      renderList();
     }
 
-    function curItem() { return promo.items[promo.lang] || { lang: promo.lang, title: "", post_text: "", video_src: "", poster_src: "" }; }
-
-    function downloadHref(src) { return src + (src.indexOf("?") === -1 ? "?" : "&") + "download=1"; }
-
-    function renderPanel() {
-      var box = document.getElementById("promoPanel");
-      if (!box) { return; }
-      var it = curItem();
-      var hasVideo = !!it.video_src;
-      var h = "";
-      h += '<div><label class="field-label" for="promoTitle">' + t("Título", "Title") + '</label>' +
-        '<input type="text" class="field-input" id="promoTitle" maxlength="200" value="' + escHtml(it.title || "") + '"></div>';
-      if (hasVideo) {
-        h += '<div class="video-box"><video id="promoVideo" controls playsinline preload="metadata" src="' + escHtml(it.video_src) + '"' +
-          (it.poster_src ? ' poster="' + escHtml(it.poster_src) + '"' : '') + '></video></div>';
-      } else {
-        h += '<div class="video-empty">' + (promo.lang === "en"
-          ? t("Ainda não há vídeo em inglês. Você já pode preparar o título e o texto.", "No English video yet. You can already prepare the title and the text.")
-          : t("O vídeo em português ainda não foi enviado.", "The Portuguese video has not been uploaded yet.")) + '</div>';
-      }
-      h += '<div><label class="field-label" for="promoPost">' + t("Texto do post (modelo)", "Post text (template)") + '</label>' +
-        '<textarea class="field-area" id="promoPost" maxlength="5000">' + escHtml(it.post_text || "") + '</textarea></div>';
-      h += '<div class="btn-row">' +
-        '<button type="button" class="btn-gold" id="btnPromoSave" onclick="savePromo()">' + t("Salvar", "Save") + '</button>' +
-        '<button type="button" class="btn-line" onclick="copyPromoText()">' + t("Copiar texto", "Copy text") + '</button>' +
-        '<span class="inline-msg' + (promo.msgErr ? " is-error" : "") + '" id="promoMsg">' + escHtml(promo.msg) + '</span></div>';
-      if (hasVideo) {
-        h += '<div class="btn-row">' +
-          '<a class="btn-line" id="lnkDownload" href="' + escHtml(downloadHref(it.video_src)) + '" download>' + t("Baixar vídeo", "Download video") + '</a>' +
-          '<a class="btn-line" id="lnkOpen" href="' + escHtml(it.video_src) + '" target="_blank" rel="noopener">' + t("Abrir vídeo", "Open video") + '</a>' +
-          '<button type="button" class="btn-line" id="btnShareVideo" onclick="shareVideo()" hidden>' + t("Compartilhar vídeo", "Share video") + '</button></div>';
-      }
-      h += '<div class="share-title">' + t("Compartilhar o texto", "Share the text") + '</div>' +
-        '<div class="btn-row">' +
-        '<a class="btn-line" id="lnkFb" href="#" target="_blank" rel="noopener" onclick="return openShare(\'fb\', this)">Facebook</a>' +
-        '<a class="btn-line" id="lnkLi" href="#" target="_blank" rel="noopener" onclick="return openShare(\'li\', this)">LinkedIn</a>' +
-        '<a class="btn-line" id="lnkX" href="#" target="_blank" rel="noopener" onclick="return openShare(\'x\', this)">X</a></div>' +
-        '<p class="section-note">' + t("O Instagram não tem link de compartilhamento: copie o texto, baixe o vídeo e publique no Instagram.",
-          "Instagram has no share link: copy the text, download the video, post it in Instagram.") + '</p>' +
-        '<p class="section-note">' + t("Facebook, LinkedIn e X abrem com o texto quando a rede permite. O vídeo é sempre enviado por você.",
-          "Facebook, LinkedIn and X open with the text where the network allows it. You always upload the video yourself.") + '</p>';
-      box.innerHTML = h;
-      var sb = document.getElementById("btnShareVideo");
-      if (sb && navigator.share && navigator.canShare) { sb.hidden = false; }
-    }
-
-    function currentText() { var el = document.getElementById("promoPost"); return el ? el.value : ""; }
-    function setMsg(text, isErr) {
-      promo.msg = text; promo.msgErr = !!isErr;
-      var m = document.getElementById("promoMsg");
+    function setMsg(slug, text, isErr) {
+      promo.msgs[slug] = { text: text, err: !!isErr };
+      var m = document.getElementById("msg-" + slug);
       if (m) { m.textContent = text; m.className = "inline-msg" + (isErr ? " is-error" : ""); }
     }
+    function currentText(slug) { var el = postEl(slug); return el ? el.value : ""; }
 
-    function savePromo() {
-      var titleEl = document.getElementById("promoTitle");
-      var btn = document.getElementById("btnPromoSave");
-      if (btn) { btn.disabled = true; }
-      var lang = promo.lang;
-      apiFetch("/api/bs/promo/" + lang, { method: "PUT", body: { title: titleEl ? titleEl.value : "", post_text: currentText() } })
+    function savePromo(btn) {
+      var slug = slugOf(btn), lang = promo.lang;
+      var p = findPromo(slug);
+      if (!p) { return; }
+      var label = btn.textContent;
+      btn.disabled = true; btn.textContent = t("Salvando...", "Saving...");
+      var text = currentText(slug);
+      apiFetch("/api/bs/promos/" + encodeURIComponent(slug) + "/" + lang, { method: "PUT", body: { post_text: text } })
         .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
         .then(function (r) {
-          if (btn) { btn.disabled = false; }
-          if (!r.ok) { setMsg(r.data.error_pt ? t(r.data.error_pt, r.data.error_en) : (r.data.error || "Error"), true); return; }
-          var it = promo.items[lang];
-          if (it) { it.title = titleEl ? titleEl.value : it.title; it.post_text = currentText(); }
-          setMsg(t("Salvo.", "Saved."), false);
+          btn.disabled = false; btn.textContent = label;
+          if (!r.ok) { setMsg(slug, r.data.error_pt ? t(r.data.error_pt, r.data.error_en) : t("Não foi possível salvar.", "Could not save."), true); return; }
+          var en = p.entries && p.entries[lang];
+          if (en) { en.post_text = text; }
+          setMsg(slug, t("Salvo.", "Saved."), false);
         })
-        .catch(function (e) { if (btn) { btn.disabled = false; } setMsg(e.message, true); });
+        .catch(function () { btn.disabled = false; btn.textContent = label; setMsg(slug, t("Não foi possível salvar.", "Could not save."), true); });
     }
 
-    function copyPromoText() {
-      var text = currentText();
+    function copyPromoText(btn) {
+      var slug = slugOf(btn);
+      var text = currentText(slug);
       function fallback() {
         var ta = document.createElement("textarea");
         ta.value = text;
@@ -439,16 +485,16 @@ function escHtml(str) {
         var ok = false;
         try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
         document.body.removeChild(ta);
-        setMsg(ok ? t("Copiado.", "Copied.") : t("Não foi possível copiar. Selecione o texto e copie.", "Could not copy. Select the text and copy it."), !ok);
+        setMsg(slug, ok ? t("Copiado.", "Copied.") : t("Não foi possível copiar. Selecione o texto e copie.", "Could not copy. Select the text and copy it."), !ok);
       }
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(function () { setMsg(t("Copiado.", "Copied."), false); }, fallback);
+        navigator.clipboard.writeText(text).then(function () { setMsg(slug, t("Copiado.", "Copied."), false); }, fallback);
       } else { fallback(); }
     }
 
     var SHARE_SITE = "https://apex.resonateai.online";
     function openShare(net, a) {
-      var text = encodeURIComponent(currentText());
+      var text = encodeURIComponent(currentText(slugOf(a)));
       var url;
       if (net === "fb") { url = "https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(SHARE_SITE) + "&quote=" + text; }
       else if (net === "li") { url = "https://www.linkedin.com/feed/?shareActive=true&text=" + text; }
@@ -459,45 +505,57 @@ function escHtml(str) {
 
     // The download attribute does nothing in the iPhone app web view, so the
     // share sheet gets the real file when the device can take it.
-    function shareVideo() {
-      var it = curItem();
-      if (!it.video_src) { return; }
-      setMsg(t("Preparando o vídeo...", "Preparing the video..."), false);
-      fetch(it.video_src).then(function (res) {
+    function shareVideo(btn) {
+      var slug = slugOf(btn);
+      var p = findPromo(slug), en = p ? promoEntry(p) : null;
+      if (!en || !en.video_src) { return; }
+      var lang = promo.lang;
+      setMsg(slug, t("Preparando o vídeo...", "Preparing the video..."), false);
+      fetch(en.video_src).then(function (res) {
         if (!res.ok) { throw new Error("HTTP " + res.status); }
         return res.blob();
       }).then(function (blob) {
-        var file = new File([blob], "aprenda-promo-" + promo.lang + ".mp4", { type: "video/mp4" });
+        var file = new File([blob], "apex-promo-" + slug + "-" + lang + ".mp4", { type: "video/mp4" });
         if (!navigator.canShare || !navigator.canShare({ files: [file] })) {
-          setMsg(t("Este aparelho não aceita compartilhar o arquivo. Use Abrir vídeo.", "This device cannot share the file. Use Open video."), true);
+          setMsg(slug, t("Este aparelho não aceita compartilhar o arquivo. Use Abrir vídeo.", "This device cannot share the file. Use Open video."), true);
           return null;
         }
-        return navigator.share({ files: [file], text: currentText() }).then(function () { setMsg("", false); });
+        return navigator.share({ files: [file], text: currentText(slug) }).then(function () { setMsg(slug, "", false); });
       }).catch(function (e) {
-        if (e && e.name === "AbortError") { setMsg("", false); return; }
-        setMsg(t("Não foi possível compartilhar: ", "Could not share: ") + (e && e.message ? e.message : ""), true);
+        if (e && e.name === "AbortError") { setMsg(slug, "", false); return; }
+        setMsg(slug, t("Não foi possível compartilhar o vídeo.", "Could not share the video."), true);
       });
     }
 
     function loadPromo() {
-      return apiFetch("/api/bs/promo")
+      var box = document.getElementById("promoList");
+      if (box) { box.innerHTML = '<div class="empty-state">' + t("Carregando...", "Loading...") + '</div>'; }
+      return apiFetch("/api/bs/promos")
         .then(function (res) {
-          if (!res.ok) { return res.json().then(function (d) { throw new Error(d.error || ("HTTP " + res.status)); }); }
+          if (!res.ok) { throw new Error("HTTP " + res.status); }
           return res.json();
         })
         .then(function (data) {
-          var list = data.items || [];
-          for (var i = 0; i < list.length; i++) { promo.items[list[i].lang] = list[i]; }
-          renderPanel();
+          promo.promos = data.promos || [];
+          renderList();
         })
         .catch(function (e) {
-          var box = document.getElementById("promoPanel");
-          if (box) { box.innerHTML = '<div class="error-msg">' + t("Erro ao carregar: ", "Could not load: ") + escHtml(e.message) + '</div>'; }
+          var b = document.getElementById("promoList");
+          if (b) {
+            b.innerHTML = '<div class="error-msg"><span>' + t("Erro ao carregar: ", "Could not load: ") + escHtml(e && e.message ? e.message : "") + '</span>' +
+              '<button type="button" class="btn-line" onclick="loadPromo()">' + t("Tentar de novo", "Try again") + '</button></div>';
+          }
         });
     }
 
     function pageReady() {
-      document.addEventListener("apex:langchange", function () { stashDraft(); renderPanel(); });
+      document.addEventListener("apex:langchange", function () { stashDraft(); renderList(); });
+      // Only one video plays at a time: starting one pauses the others.
+      // play does not bubble, so listen in the capture phase.
+      document.addEventListener("play", function (ev) {
+        var vids = document.querySelectorAll("#promoList video");
+        for (var i = 0; i < vids.length; i++) { if (vids[i] !== ev.target) { vids[i].pause(); } }
+      }, true);
       loadPromo();
     }
 

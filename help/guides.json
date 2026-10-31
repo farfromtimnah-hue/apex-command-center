@@ -6104,12 +6104,12 @@
             {
               "n": 1,
               "text": {
-                "pt": "Leia o cartão de previsão do tempo. Em um projeto Em andamento, role até Previsão do tempo. O cartão tem uma foto do céu, a temperatura de agora grande, a máxima e a mínima do dia, e a linha (1) que diz Chuva provável, com as horas, ou Sem chuva hoje. Dentro do vidro (2) há uma faixa com as próximas horas de hoje, que você desliza para o lado: a hora, o ícone, a temperatura em graus Fahrenheit e a chance de chuva em cada hora. Uma chance de 40 por cento ou mais aparece em negrito. A linha (3) diz se é esperada chuva amanhã. O cartão só aparece em um projeto Em andamento cujo lead tem um endereço que o Apex achou no mapa. O vendedor não o vê.",
-                "en": "Read the weather card. On a project that is In progress, scroll down to Weather outlook. The card has a sky photo, a big temperature for now, the high and low for the day, and the line (1) that says Rain likely, with the hours, or No rain today. Inside the glass panel (2) there is a strip with the next hours of today, which you slide sideways: the time, the icon, the temperature in degrees Fahrenheit and the chance of rain for every hour. A chance of 40 percent or more is bold. The line (3) says if rain is expected tomorrow. The card shows only for a project that is In progress and whose lead has an address that Apex found on the map. A salesperson does not see it."
+                "pt": "Leia o cartão de previsão do tempo. Em um projeto Em andamento, role até Previsão do tempo. O cartão tem uma foto do céu. No alto, à esquerda (1), estão a temperatura de agora, o tempo em palavras, a máxima e a mínima do dia e a linha Chuva provável, com as horas, ou Sem chuva hoje. O painel de vidro abaixo mostra as próximas horas de hoje: a hora, o ícone, a temperatura em graus Fahrenheit e a chance de chuva em cada hora. Toque na seta para voltar ou na seta para avançar (2) para passar pelas horas, ou deslize para o lado. A barra de rolagem (3) mostra em que ponto da faixa você está. A linha (4) diz se é esperada chuva amanhã. Uma chance de 40 por cento ou mais aparece em negrito. O cartão só aparece em um projeto Em andamento cujo lead tem um endereço que o Apex achou no mapa. O vendedor não o vê.",
+                "en": "Read the weather card. On a project that is In progress, scroll down to Weather outlook. The card has a sky photo. In the top left (1) are the temperature for now, the weather in words, the high and low for the day, and the line Rain likely, with the hours, or No rain today. The glass panel below shows the next hours of today: the time, the icon, the temperature in degrees Fahrenheit and the chance of rain for each hour. Tap the back arrow or the forward arrow (2) to move through the hours, or slide sideways. The scroll bar (3) shows where you are in the strip. The line (4) says if rain is expected tomorrow. A chance of 40 percent or more is bold. The card shows only for a project that is In progress and whose lead has an address that Apex found on the map. A salesperson does not see it."
               },
               "image": {
-                "en": "help/img/guides/projects/weather-01.en.jpg",
-                "pt": "help/img/guides/projects/weather-01.pt.jpg"
+                "pt": "help/img/guides/projects/weather-11.pt.jpg",
+                "en": "help/img/guides/projects/weather-11.en.jpg"
               }
             },
             {
@@ -6122,8 +6122,23 @@
             {
               "n": 3,
               "text": {
-                "pt": "Veja a previsão de todas as obras de um dia. Abra Agenda e toque em Dia. Cada obra ativa naquele dia é um quadrado com uma foto do céu, um ícone do tempo e a máxima e a mínima do dia. Toque em Horas (1) no quadrado para abrir. Ele ocupa a linha inteira e mostra a previsão por hora: deslize a faixa para o lado para ver o ícone, a temperatura e a chance de chuva de cada hora. Toque em Horas de novo para fechar.",
-                "en": "See the forecast for every site on one day. Open Calendar and tap Day. Each site that is active that day is a square tile with a sky photo, a weather icon, and the high and low for the day. Tap Hours (1) on the tile to open it. It takes the whole line and shows the hour by hour forecast: slide the strip sideways to see the icon, the temperature and the chance of rain for each hour. Tap Hours again to close it."
+                "pt": "Veja a previsão de todas as obras de um dia. Abra Agenda e toque em Dia. Cada obra ativa naquele dia é um quadrado com uma foto do céu, um ícone do tempo, a maior chance de chuva do dia e a máxima e a mínima. Toque em Horas (1) no quadrado para abrir.",
+                "en": "See the forecast for every site on one day. Open Calendar and tap Day. Each site that is active that day is a square tile with a sky photo, a weather icon, the highest chance of rain for the day, and the high and low. Tap Hours (1) on the tile to open it."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/weather-12.pt.jpg",
+                "en": "help/img/guides/projects/weather-12.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Use a faixa de horas. O quadrado aberto ocupa a linha inteira e mostra a previsão por hora. Toque na seta para voltar ou na seta para avançar (1) para passar pelas horas, ou deslize para o lado. A barra de rolagem (2) mostra em que ponto da faixa você está. Cada hora mostra a hora, o ícone, a temperatura e a chance de chuva. Hoje a faixa começa em Agora; nos outros dias ela começa às 6 AM. Toque em Horas de novo para fechar.",
+                "en": "Use the hour strip. The open tile takes the whole line and shows the hour by hour forecast. Tap the back arrow or the forward arrow (1) to move through the hours, or slide sideways. The scroll bar (2) shows where you are in the strip. Each hour shows the time, the icon, the temperature and the chance of rain. Today the strip starts at Now; on other days it starts at 6 AM. Tap Hours again to close it."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/weather-13.pt.jpg",
+                "en": "help/img/guides/projects/weather-13.en.jpg"
               }
             }
           ]

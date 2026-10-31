@@ -8343,7 +8343,7 @@ function gmWeatherHourStripHtml(hours) {
   return '<div class="gm-weather-strip">' +
     hours.slice(0, 12).map(function(h) {
       return '<div class="gm-weather-hour">' +
-        '<span class="gm-weather-hour-time">' + escHtml(h.time) + '</span>' +
+        '<span class="gm-weather-hour-time">' + escHtml(gmWeatherClock(h.time)) + '</span>' +
         '<span class="gm-weather-hour-temp">' + (h.temp_f !== null ? Math.round(h.temp_f) + '°' : '—') + '</span>' +
         '<span class="gm-weather-hour-rain' + (h.rain_pct >= GM_WEATHER_RAIN_PCT_FRONTEND_THRESHOLD ? ' gm-weather-rain-on' : '') + '">' + h.rain_pct + '%</span>' +
         '</div>';
@@ -8353,9 +8353,19 @@ function gmWeatherHourStripHtml(hours) {
 
 var GM_WEATHER_RAIN_PCT_FRONTEND_THRESHOLD = 40;
 
+// The forecast sends hours as 24-hour "HH:00" text; every screen in Apex is
+// 12-hour, so convert here ("00:00" is 12 AM, "14:00" is 2 PM).
+function gmWeatherClock(hhmm) {
+  var m = String(hhmm == null ? "" : hhmm).match(/^(\d{1,2}):(\d{2})/);
+  if (!m) { return String(hhmm == null ? "" : hhmm); }
+  var h = parseInt(m[1], 10);
+  var h12 = h % 12; if (h12 === 0) { h12 = 12; }
+  return h12 + (m[2] === "00" ? "" : ":" + m[2]) + " " + (h >= 12 ? "PM" : "AM");
+}
+
 function gmWeatherVerdictLineHtml(forecast) {
   if (forecast.today_rain_window) {
-    var from = forecast.today_rain_window.from, to = forecast.today_rain_window.to;
+    var from = gmWeatherClock(forecast.today_rain_window.from), to = gmWeatherClock(forecast.today_rain_window.to);
     return '<p class="gm-weather-verdict gm-warn">' +
       gmT("Chuva provável " + from + "–" + to, "Rain likely " + from + "–" + to) + '</p>';
   }
@@ -8369,8 +8379,8 @@ function gmRenderJobWeather(jobId) {
   if (!d || !d.available || !d.forecast) { box.innerHTML = ""; return; }
   var forecast = d.forecast;
   var tomorrowLine = forecast.tomorrow_rain_window
-    ? gmT("Amanhã: chuva provável " + forecast.tomorrow_rain_window.from + "–" + forecast.tomorrow_rain_window.to,
-          "Tomorrow: rain likely " + forecast.tomorrow_rain_window.from + "–" + forecast.tomorrow_rain_window.to)
+    ? gmT("Amanhã: chuva provável " + gmWeatherClock(forecast.tomorrow_rain_window.from) + "–" + gmWeatherClock(forecast.tomorrow_rain_window.to),
+          "Tomorrow: rain likely " + gmWeatherClock(forecast.tomorrow_rain_window.from) + "–" + gmWeatherClock(forecast.tomorrow_rain_window.to))
     : gmT("Amanhã: sem chuva prevista", "Tomorrow: no rain expected");
   box.innerHTML = '<div class="content-card">' +
     '<div class="card-title">' + escHtml(gmT("Previsão do tempo", "Weather outlook")) + '</div>' +
@@ -10082,7 +10092,7 @@ function gmCalRenderDayWeather(dateStr, events) {
       var v = ev.rain_verdict;
       var dotCls = v ? (v.rain ? "gm-cal-rain-dot-rain" : "gm-cal-rain-dot-clear") : "gm-cal-rain-dot-unknown";
       var text = !v ? gmT("Sem previsão", "No forecast") :
-        v.rain ? gmT("Chuva " + v.from + "–" + v.to, "Rain " + v.from + "–" + v.to) :
+        v.rain ? gmT("Chuva " + gmWeatherClock(v.from) + "–" + gmWeatherClock(v.to), "Rain " + gmWeatherClock(v.from) + "–" + gmWeatherClock(v.to)) :
         gmT("Sem chuva", "No rain");
       return '<div class="gm-cal-rain-row">' +
         '<span class="gm-cal-rain-dot ' + dotCls + '"></span>' +

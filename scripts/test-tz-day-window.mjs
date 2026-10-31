@@ -19,9 +19,9 @@ d.raw.exec("INSERT INTO clients (id, name, status, archived) VALUES ('c2','C TWO
 let F;
 try {
   F = build(
-    ["tzIsValid", "tzParts", "tzPad2", "tzSqlUtc", "tzMidnightUtcMs", "tzOffsetMinutes", "tzDayWindowUtc", "tzZoneForState", "resolveRequestZone", "tzLocalNowStamp",
+    ["tzIsValid", "tzParts", "tzPad2", "tzSqlUtc", "tzMidnightUtcMs", "tzOffsetMinutes", "tzDayWindowUtc", "tzZoneForState", "clientZoneFor", "resolveRequestZone", "tzLocalNowStamp",
      "handleGetEntrySuggestions", "gmInsertLead", "requireClientAccess", "isValidDateStr", "num0", "cents"],
-    ["TZ_STATE_ZONES", "TZ_STATE_NAMES", "GM_LEAD_COST_FIELDS"],
+    ["APEX_TIMEZONE", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "GM_LEAD_COST_FIELDS"],
     Object.assign({}, baseStubs, {
       URL: globalThis.URL, Intl: globalThis.Intl, Date: Date, Math: Math, Number: Number, Object: Object, crypto: globalThis.crypto,
       authenticate: async (r) => r.user,

@@ -23,12 +23,13 @@ if (blockStart < 0 || blockEnd < 0) { console.log("FAIL  booking block not found
 const block = workerSrc.slice(blockStart, blockEnd);
 const names = [...block.matchAll(/^(?:async )?function ((?:bk|handle\w*Booking)\w*)\(/gm)].map((m) => m[1]);
 const helpers = ["schedMinutes", "schedHHMM", "schedAddDays", "schedDayOfWeek", "fmtTime12", "tzOffsetMs", "tzShortLabel", "gmStr", "gmNum", "gmDateStr", "gmTimeStr",
-  "gmReferralSlug", "gmEstNewToken", "gmNyNowParts", "gmOwnedRow", "gmInsertLead", "gmLogLeadEvents", "tzIsValid", "tzParts", "tzPad2", "tzLocalNowStamp", "tzZoneForState", "resolveRequestZone", "gmGetConfig", "gmParseJsonList", "gmParseJsonListNonEmpty", "gmDocSettingsOwnerOnly", "sessionSellerName", "sellerCanActOnLead", "logoVersionParam",
+  "gmReferralSlug", "gmEstNewToken", "gmNyNowParts", "gmOwnedRow", "gmInsertLead", "gmLogLeadEvents", "tzIsValid", "tzParts", "tzPad2", "tzLocalNowStamp", "tzZoneForState", "clientZoneFor", "resolveRequestZone", "gmGetConfig", "gmParseJsonList", "gmParseJsonListNonEmpty", "gmDocSettingsOwnerOnly", "sessionSellerName", "sellerCanActOnLead", "logoVersionParam",
   "docPrettyLink", "docLinkTarget", "docLinkSlugPart", "docLinkRandom"];
 const vars = ["TZ_STATE_ZONES", "TZ_STATE_NAMES", "BK_STEP_MIN", "BK_ACTOR", "BK_QTYPES", "BK_PRESETS", "BK_INACTIVE", "BRAZIL_TZ_LABELS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS", "GM_MONTH_NAMES_PT", "GM_DEFAULT_FINANCE_CATEGORIES", "GM_DEFAULT_VIEW_THRESHOLD", "APEX_TIMEZONE", "DEFAULT_ORIGIN", "DOC_LINK_ORIGIN", "DOC_LINK_PAGES", "DOC_LINK_LABELS"];
 
 function world() {
   const d = makeDb(MIG);
+  try { d.raw.exec("ALTER TABLE clients ADD COLUMN location_state TEXT"); } catch (e) { /* the shared schema may already have it */ }
   d.raw.exec("CREATE TABLE IF NOT EXISTS gm_doc_settings (client_id TEXT PRIMARY KEY, legal_name TEXT)");
   // gm_leads.imposto is live but has no migration file in the repo
   try { d.raw.exec("ALTER TABLE gm_leads ADD COLUMN imposto REAL"); } catch (e) { /* already there */ }

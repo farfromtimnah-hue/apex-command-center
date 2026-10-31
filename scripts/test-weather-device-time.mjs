@@ -114,7 +114,8 @@ const NOW = at("2026-11-01T05:30:00Z");
 
 // 6. The routes: same auth as before, and the validated zone is what gets used.
 {
-  const ROUTE_FNS = ["handleGetGmJobWeather", "handleGetGmEvents"].concat(HAVE_ZONE ? ["gmWeatherZone", "tzIsValid"] : [], HAVE_WINDOW ? ["gmWeatherCalendarWindow"] : []);
+  const ROUTE_FNS = ["handleGetGmJobWeather", "handleGetGmEvents"].concat(HAVE_ZONE ? ["gmWeatherZone", "tzIsValid"] : [], HAVE_WINDOW ? ["gmWeatherCalendarWindow"] : [],
+    hasFn("gmWeatherRequestZone") ? ["gmWeatherRequestZone", "resolveRequestZone", "clientZoneFor", "tzZoneForState"] : []);
   const FIXED = Date.parse("2026-11-01T05:30:00Z");
   class FixedDate extends Date {
     constructor(...a) { if (a.length) { super(...a); } else { super(FIXED); } }
@@ -141,7 +142,7 @@ const NOW = at("2026-11-01T05:30:00Z");
       gmEventOut: (r) => r, effectiveSellerName: () => null, gmRedactEventsForSeller: (a) => a,
       gmWeatherDayVerdict: async (lat, lon, date, tz) => { seen.verdict.push(date + "@" + tz); return { rain: false }; }
     });
-    return { F: build(ROUTE_FNS, [], stubs), env: { DB: db } };
+    return { F: build(ROUTE_FNS, hasFn("gmWeatherRequestZone") ? ["TZ_STATE_ZONES", "TZ_STATE_NAMES"] : [], stubs), env: { DB: db } };
   }
   const R = (qs) => ({ url: "https://x.test/api/clients/c1/gm/jobs/j1/weather" + qs, headers: { get: () => null } });
 

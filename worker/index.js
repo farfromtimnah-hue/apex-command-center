@@ -6997,7 +6997,7 @@ async function handlePostSessionWhatsapp(sessionId, request, env) {
         // another zone. LEFT JOIN: a session can have no client_id at all.
         var session = await env.DB.prepare(
             "SELECT s.id, s.client_id, s.client_name, s.date, s.time, s.session_type, " +
-            "s.google_meet_link, s.status, s.meeting_category, c.timezone AS client_timezone " +
+            "s.google_meet_link, s.status, s.meeting_category, c.timezone AS client_timezone, c.location_state AS client_state " +
             "FROM sessions s LEFT JOIN clients c ON c.id = s.client_id WHERE s.id = ?"
         ).bind(sessionId).first();
         if (!session) { return jsonErr("Session not found", 404); }
@@ -7039,7 +7039,7 @@ async function handlePostSessionWhatsapp(sessionId, request, env) {
         // A client with a non-Eastern timezone on file gets BOTH zones,
         // labelled, because their WhatsApp group holds Rafa in Florida and
         // their own team elsewhere. Everyone else is unchanged.
-        var time    = fmtTimeForClient(session.date, session.time || "", session.client_timezone);
+        var time    = fmtTimeForClient(session.date, session.time || "", clientZoneFor({ timezone: session.client_timezone, location_state: session.client_state }));
 
         var templateKey = session.session_type === "in_person" ? "session_in_person" : "session_online";
         var templateRow = await env.DB.prepare(
@@ -20406,6 +20406,8 @@ function tzIsValid(tz) {
 function tzZoneForState(value) {
     if (typeof value !== "string") { return null; }
     var key = value.trim();
+    // clients.location_state is stored as "US-WA"; take the code after the prefix.
+    if (/^US-/i.test(key)) { key = key.slice(3); }
     if (!key) { return null; }
     var code = TZ_STATE_ZONES[key.toUpperCase()] ? key.toUpperCase() : TZ_STATE_NAMES[key.toLowerCase()];
     return (code && TZ_STATE_ZONES[code]) || null;
@@ -20469,15 +20471,23 @@ function tzLocalNowStamp(tz, nowMs) {
     return p.year + "-" + tzPad2(p.month) + "-" + tzPad2(p.day) + "T" + tzPad2(p.hour) + ":" + tzPad2(p.minute);
 }
 
+// The zone for a client with no device to ask: the saved clients.timezone when
+// it is a real zone, else the zone of clients.location_state, else Eastern.
+// Pure. Every server side time shown or scheduled for a client goes through it.
+function clientZoneFor(row) {
+    if (row && tzIsValid(row.timezone)) { return row.timezone; }
+    return tzZoneForState(row && row.location_state) || APEX_TIMEZONE;
+}
+
 // The zone of whoever is making this request: the X-Client-Tz header when it
-// is a real zone, else the client's state, else Eastern. A bad header is
-// ignored, never repaired or echoed. The database is read only when the header
-// is missing or unusable.
+// is a real zone, else the client's saved zone or state, else Eastern. A bad
+// header is ignored, never repaired or echoed. The database is read only when
+// the header is missing or unusable.
 async function resolveRequestZone(request, env, clientId) {
     var header = request && request.headers ? request.headers.get("X-Client-Tz") : null;
     if (tzIsValid(header)) { return header; }
-    var row = await env.DB.prepare("SELECT location_state FROM clients WHERE id = ?").bind(clientId).first();
-    return tzZoneForState(row && row.location_state) || "America/New_York";
+    var row = await env.DB.prepare("SELECT timezone, location_state FROM clients WHERE id = ?").bind(clientId).first();
+    return clientZoneFor(row);
 }
 
 async function handleGetEntrySuggestions(id, request, env) {
@@ -27925,6 +27935,15 @@ function gmWeatherZone(tz) {
     return APEX_TIMEZONE;
 }
 
+// The zone for a weather request: a valid ?tz= first (the browser sends it),
+// else the request zone (header, then the client's saved zone or state, then
+// Eastern).
+async function gmWeatherRequestZone(request, env, clientId) {
+    var q = new URL(request.url).searchParams.get("tz");
+    if (typeof q === "string" && /^[A-Za-z0-9_+\-\/]{1,64}$/.test(q) && tzIsValid(q)) { return q; }
+    return resolveRequestZone(request, env, clientId);
+}
+
 // Today and the last day worth asking NOAA about (7 days on), as dates in the
 // viewer's zone. `now` is only passed by tests.
 function gmWeatherCalendarWindow(tz, now) {
@@ -28062,7 +28081,7 @@ async function handleGetGmJobWeather(id, jobId, request, env) {
         if (!lead || typeof lead.addr_lat !== "number" || typeof lead.addr_lon !== "number") {
             return jsonOk({ available: false });
         }
-        var forecast = await getHourlyForecast(lead.addr_lat, lead.addr_lon, env, gmWeatherZone(new URL(request.url).searchParams.get("tz")));
+        var forecast = await getHourlyForecast(lead.addr_lat, lead.addr_lon, env, await gmWeatherRequestZone(request, env, id));
         if (!forecast) { return jsonOk({ available: false }); }
         return jsonOk({ available: true, forecast: forecast, verdict: gmWeatherVerdict(forecast), approx_location: gmLocationApprox(lead.addr_located) });
     } catch (e) {
@@ -28548,7 +28567,7 @@ async function handleGetGmEvents(id, request, env) {
         // NWS hourly only reaches about a week out -- skip the request
         // entirely for a day past that instead of paying for a call that
         // will just come back null.
-        var weatherTz = gmWeatherZone(url.searchParams.get("tz"));
+        var weatherTz = await gmWeatherRequestZone(request, env, id);
         var weatherWin = gmWeatherCalendarWindow(weatherTz);
         var weatherToday = weatherWin.today, weatherHorizon = weatherWin.horizon;
         var weatherPairs = {};
@@ -48531,8 +48550,8 @@ async function apptRemFindSessions(env, lo, hi) {
     return { rows: rows, bad_time: badTime };
 }
 
-// A client's own calendar is in THAT client's zone (clients.timezone, falling
-// back to the business zone): a customer's time follows their device, so the
+// A client's own calendar is in THAT client's zone (clients.timezone, then the
+// zone of clients.location_state, then the business zone): a customer's time follows their device, so the
 // window is computed per row's zone, never converted.
 //
 // Task 1.5: lead_id/telefone/client_name/owners are only for the text-reminder
@@ -48542,7 +48561,7 @@ async function apptRemFindSessions(env, lo, hi) {
 async function apptRemFindClientEvents(env, loMs, hiMs) {
     var res = await env.DB.prepare(
         "SELECT e.id, e.client_id, e.title, e.event_date, e.start_time, e.location, e.lead_id, " +
-        "c.language AS language, c.timezone AS timezone, c.name AS client_name, c.owners AS owners, " +
+        "c.language AS language, c.timezone AS timezone, c.location_state AS location_state, c.name AS client_name, c.owners AS owners, " +
         "l.telefone AS lead_phone " +
         "FROM gm_events e JOIN clients c ON c.id = e.client_id LEFT JOIN gm_leads l ON l.id = e.lead_id " +
         "WHERE e.event_date >= ? AND e.event_date <= ? AND COALESCE(e.all_day, 0) = 0 " +
@@ -48553,7 +48572,7 @@ async function apptRemFindClientEvents(env, loMs, hiMs) {
     (res.results || []).forEach(function(r) {
         var t = apptRemTime(r.start_time);
         if (!t) { badTime++; return; }
-        var zone = r.timezone || APEX_TIMEZONE;
+        var zone = clientZoneFor(r);
         if (!zoneWalls[zone]) { zoneWalls[zone] = { lo: apptRemWall(loMs, zone), hi: apptRemWall(hiMs, zone) }; }
         var wall = r.event_date + " " + t;
         if (wall > zoneWalls[zone].lo && wall <= zoneWalls[zone].hi) {
@@ -52083,14 +52102,14 @@ async function bkEnsureSettingsRow(env, clientId, actor) {
 }
 
 async function bkClientInfo(env, clientId) {
-    var c = await env.DB.prepare("SELECT name, phone, logo_url, language, timezone FROM clients WHERE id = ?").bind(clientId).first();
+    var c = await env.DB.prepare("SELECT name, phone, logo_url, language, timezone, location_state FROM clients WHERE id = ?").bind(clientId).first();
     c = c || {};
     return {
         name: c.name || "",
         phone: c.phone || null,
         logo_url: c.logo_url || null,
         language: c.language === "pt" ? "pt" : "en",
-        timezone: c.timezone || APEX_TIMEZONE
+        timezone: clientZoneFor(c)
     };
 }
 

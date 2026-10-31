@@ -7494,19 +7494,6 @@
     // never call it) — renderMeetings([]) just leaves the card hidden.
     var lastMeetings = [];
 
-    // Today on Apex's clock (America/New_York) as "YYYY-MM-DD", matching the
-    // window the worker selected. Intl handles the EDT/EST boundary; en-CA
-    // formats as YYYY-MM-DD. Falls back to the viewer's local date if Intl
-    // throws. NOT a display formatter -- formatDate() still renders the date.
-    function easternTodayStr() {
-      try {
-        return new Intl.DateTimeFormat("en-CA", {
-          timeZone: "America/New_York",
-          year: "numeric", month: "2-digit", day: "2-digit"
-        }).format(new Date());
-      } catch (e) { return todayStr(); }
-    }
-
     // The scheduling half of the card's state (booking token, whether a time
     // is booked at all). Kept alongside lastMeetings so the language toggle
     // re-renders both halves from one place without refetching either.
@@ -7736,11 +7723,10 @@
       // The original card's own rows, now carrying Reagendar beside Entrar.
       if (title) { setCardTitle(title, "Próximas reuniões", "Upcoming meetings"); }
 
-      // "Today" on APEX's clock, not the viewer's. The server picked these two
-      // dates in Eastern; todayStr() is the viewer's local date, so a client in
-      // Brazil (UTC-3) or travelling west would label an Eastern-today meeting
-      // "Amanhã". One clock, same rule as formatDateTimeUTC in datetime.js.
-      var today = easternTodayStr();
+      // "Today" is the viewer's device date. The Worker already converted each
+      // meeting's date and time to the viewer's zone (the same zone this device
+      // sends in X-Client-Tz), so both sides are on one clock.
+      var today = localDateStr();
       meetings.forEach(function(m) {
         var row = document.createElement("div");
         row.className = "meeting-card meeting-row";

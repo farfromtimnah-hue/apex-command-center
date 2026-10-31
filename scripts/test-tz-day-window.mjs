@@ -19,7 +19,7 @@ d.raw.exec("INSERT INTO clients (id, name, status, archived) VALUES ('c2','C TWO
 let F;
 try {
   F = build(
-    ["tzIsValid", "tzParts", "tzPad2", "tzSqlUtc", "tzMidnightUtcMs", "tzOffsetMinutes", "tzDayWindowUtc", "tzZoneForState", "clientZoneFor", "resolveRequestZone", "tzLocalNowStamp",
+    ["tzIsValid", "tzParts", "tzPad2", "tzSqlUtc", "tzMidnightUtcMs", "tzWallToUtcMs", "tzOffsetMinutes", "tzDayWindowUtc", "tzZoneForState", "clientZoneFor", "resolveRequestZone", "tzLocalNowStamp",
      "handleGetEntrySuggestions", "gmInsertLead", "requireClientAccess", "isValidDateStr", "num0", "cents"],
     ["APEX_TIMEZONE", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "GM_LEAD_COST_FIELDS"],
     Object.assign({}, baseStubs, {

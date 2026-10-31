@@ -19505,13 +19505,16 @@ async function handleGetPortalMe(request, env) {
 // Today's date on Apex's clock (America/New_York) as "YYYY-MM-DD".
 // Intl handles the EDT/EST boundary.
 function easternDateStr(offsetDays) {
-    var d = new Date();
-    if (offsetDays) { d = new Date(d.getTime() + offsetDays * 86400000); }
-    var p = new Intl.DateTimeFormat("en-CA", {
+    var today = new Intl.DateTimeFormat("en-CA", {
         timeZone: "America/New_York",
         year: "numeric", month: "2-digit", day: "2-digit"
-    }).format(d);
-    return p;   // en-CA formats as YYYY-MM-DD
+    }).format(new Date(Date.now()));   // en-CA formats as YYYY-MM-DD
+    if (!offsetDays) { return today; }
+    // Step the Eastern CALENDAR date, never 24 hour blocks: on a clock change
+    // day a day is 23 or 25 hours, and a negative offset must land on the
+    // right date too.
+    return new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1,
+        Number(today.slice(8, 10)) + offsetDays)).toISOString().slice(0, 10);
 }
 
 async function handleGetPortalNextMeeting(request, env) {
@@ -19520,16 +19523,23 @@ async function handleGetPortalNextMeeting(request, env) {
         // Admin preview-as: same rule as handleGetPortalMe.
         var previewId = previewClientId(user, request);
         if (!previewId && (!user || user.role !== "client" || !user.client_id)) { return jsonErr("Unauthorized", 401); }
+        var clientId = previewId || user.client_id;
+        // Sessions are stored on the Apex clock. The viewer sees them on THEIR
+        // clock, so the rows are fetched for the five Eastern dates around now
+        // (any zone's today and tomorrow falls inside that), converted, and
+        // then cut down to the viewer's own today and tomorrow.
+        var zone = await resolveRequestZone(request, env, clientId);
         var res = await env.DB.prepare(
             "SELECT date, time, end_time, session_type, location, google_meet_link, html_link FROM sessions " +
             "WHERE client_id = ? AND status != 'discarded' AND status != 'cancelled' " +
-            "AND date IN (?, ?) " +
+            "AND date IN (?, ?, ?, ?, ?) " +
             "ORDER BY date ASC, COALESCE(time,'99:99') ASC"
-        ).bind(previewId || user.client_id, easternDateStr(0), easternDateStr(1)).all();
-        var rows = (res && res.results) || [];
-        return jsonOk({ meetings: rows, meeting: rows[0] || null });
+        ).bind(clientId, easternDateStr(-2), easternDateStr(-1), easternDateStr(0), easternDateStr(1), easternDateStr(2)).all();
+        var rows = portalMeetingsForViewer((res && res.results) || [], zone);
+        return jsonOk({ meetings: rows, meeting: rows[0] || null, zone: zone });
     } catch (e) {
-        return jsonErr("Error fetching next meeting: " + e.message, 500);
+        console.error("next-meeting failed:", e && e.message);
+        return jsonErr("Could not load the next meeting", 500);
     }
 }
 
@@ -20445,12 +20455,70 @@ function tzSqlUtc(ms) {
 // offset is read at the guessed instant and corrected once, so a 23 or 25 hour
 // day (daylight saving) still lands on the real midnight.
 function tzMidnightUtcMs(y, m, d, tz) {
-    var guess = Date.UTC(y, m - 1, d, 0, 0, 0);
+    return tzWallToUtcMs(y, m, d, 0, 0, tz);
+}
+
+// UTC instant of the wall clock y-m-d hh:mm in tz. A time that happens twice
+// (clock goes back) takes the first one; a time that does not exist (clock goes
+// forward) lands one hour earlier, on the last real clock reading before the
+// gap. Never throws, and always gives the same answer for the same input.
+function tzWallToUtcMs(y, m, d, hh, mm, tz) {
+    var guess = Date.UTC(y, m - 1, d, hh, mm, 0);
     var off = tzOffsetMinutes(tz, guess);
     var t = guess - off * 60000;
     var off2 = tzOffsetMinutes(tz, t);
     if (off2 !== off) { t = guess - off2 * 60000; }
     return t;
+}
+
+// A session's stored date and "HH:MM" are wall clock on the Apex clock
+// (APEX_TIMEZONE). Returns the same moment as {date, time} on the clock in
+// `zone`. The Apex zone itself, and a row with no readable time, come back
+// untouched: no conversion, so no clock change day can move a stored value.
+function apexWallToZone(dateStr, hhmm, zone) {
+    var dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || ""));
+    var tm = /^(\d{1,2}):(\d{2})/.exec(String(hhmm == null ? "" : hhmm));
+    if (!dm || !tm || zone === APEX_TIMEZONE) { return { date: dateStr, time: hhmm }; }
+    var ms = tzWallToUtcMs(Number(dm[1]), Number(dm[2]), Number(dm[3]), Number(tm[1]), Number(tm[2]), APEX_TIMEZONE);
+    var p = tzParts(zone, ms);
+    return { date: p.year + "-" + tzPad2(p.month) + "-" + tzPad2(p.day), time: tzPad2(p.hour) + ":" + tzPad2(p.minute) };
+}
+
+// A session's end_time on the viewer's clock, as "HH:MM". It is stored as
+// "HH:MM" on the Apex clock, or as a full ISO value on Google synced rows: with
+// an offset or Z it is an exact instant, without one it is Apex clock. Null and
+// anything unreadable come back as they were.
+function apexEndToZone(dateStr, endRaw, zone) {
+    if (endRaw == null || endRaw === "") { return endRaw; }
+    var s = String(endRaw);
+    var iso = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/.exec(s);
+    if (iso) {
+        if (iso[3]) { var q = tzParts(zone, Date.parse(s)); return tzPad2(q.hour) + ":" + tzPad2(q.minute); }
+        return apexWallToZone(iso[1], iso[2], zone).time;
+    }
+    var hm = /^(\d{1,2}):(\d{2})/.exec(s);
+    if (hm) { return apexWallToZone(dateStr, s.slice(0, 5), zone).time; }
+    return endRaw;
+}
+
+// The portal card's meetings: session rows still on the Apex clock go in, rows
+// on the viewer's clock come out, kept only when the converted date is the
+// viewer's today or tomorrow in `zone`, sorted by converted date and time. A row
+// with no time keeps its date. `nowMs` is only passed by tests.
+function portalMeetingsForViewer(rows, zone, nowMs) {
+    var p = tzParts(zone, nowMs === undefined ? Date.now() : nowMs);
+    var today = p.year + "-" + tzPad2(p.month) + "-" + tzPad2(p.day);
+    var tomorrow = new Date(Date.UTC(p.year, p.month - 1, p.day + 1)).toISOString().slice(0, 10);
+    return (rows || []).map(function(r) {
+        var w = apexWallToZone(r.date, r.time, zone);
+        return Object.assign({}, r, { date: w.date, time: w.time, end_time: apexEndToZone(r.date, r.end_time, zone), zone: zone });
+    }).filter(function(r) {
+        return r.date === today || r.date === tomorrow;
+    }).sort(function(a, b) {
+        if (a.date !== b.date) { return a.date < b.date ? -1 : 1; }
+        var at = a.time || "99:99", bt = b.time || "99:99";
+        return at < bt ? -1 : at > bt ? 1 : 0;
+    });
 }
 
 // For calendar day "YYYY-MM-DD" in zone tz: {start, end} as UTC strings, start
@@ -54367,26 +54435,39 @@ async function handleGetSchedulingClientState(request, env) {
             "AND status IN ('waiting','none_work','booked') ORDER BY created_at DESC"
         ).bind(clientId).first();
 
-        // Today and tomorrow on APEX's clock -- the SAME window
+        // Today and tomorrow on the VIEWER's clock -- the SAME window
         // /api/portal/next-meeting uses to decide a meeting is joinable.
         // Computed here so the portal's merged card applies one rule from one
         // source instead of re-deriving "soon" in the browser, where the
         // viewer's timezone would answer a different question.
-        var joinFrom = easternDateStr(0);
-        var joinTo   = easternDateStr(1);
+        //
+        // The booked session is stored on the Apex clock and goes out on the
+        // VIEWER's clock (the same conversion next-meeting uses, so the card
+        // matches its rows by date and time), and the join window is the
+        // viewer's own today and tomorrow.
+        var zone = await resolveRequestZone(request, env, clientId);
+        var shown = null;
+        if (session) {
+            var w = apexWallToZone(session.date, session.time, zone);
+            shown = Object.assign({}, session, { date: w.date, time: w.time, end_time: apexEndToZone(session.date, session.end_time, zone), zone: zone });
+        }
+        var nowParts = tzParts(zone, Date.now());
+        var joinFrom = nowParts.year + "-" + tzPad2(nowParts.month) + "-" + tzPad2(nowParts.day);
+        var joinTo   = new Date(Date.UTC(nowParts.year, nowParts.month - 1, nowParts.day + 1)).toISOString().slice(0, 10);
 
         return jsonOk({
             scheduled: !!session,
-            session: session || null,
+            session: shown,
             booking_token: req ? req.token : null,
             request_status: req ? req.status : null,
             // True when the booked session falls in the join window, so the
             // card can show Entrar alongside Reagendar.
-            in_join_window: !!(session && session.date >= joinFrom && session.date <= joinTo),
+            in_join_window: !!(shown && shown.date >= joinFrom && shown.date <= joinTo),
             week_start: windowStart, week_end: windowEnd
         });
     } catch (e) {
-        return jsonErr("Error loading state: " + e.message, 500);
+        console.error("client-state failed:", e && e.message);
+        return jsonErr("Could not load the scheduling state", 500);
     }
 }
 

@@ -8495,7 +8495,7 @@ function gmWeatherTileToggle(key) {
 }
 
 function gmWeatherHoursButtonHtml(open) {
-  return '<button type="button" class="gm-wx-hours" aria-expanded="' + (open ? "true" : "false") + '" aria-label="' +
+  return '<button type="button" class="gm-wx-hours" data-help="projects#weather#' + (open ? "4" : "3") + '" aria-expanded="' + (open ? "true" : "false") + '" aria-label="' +
     escHtml(open ? gmT("Esconder horas", "Hide hours") : gmT("Mostrar horas", "Show hours")) + '">' +
     '<span>' + escHtml(gmT("Horas", "Hours")) + '</span>' + gmIcon("chevron") + '</button>';
 }
@@ -8513,8 +8513,8 @@ function gmWeatherCellsHtml(hours, isToday) {
 }
 
 // Back and forward arrows for the hourly strip, so nobody has to guess that it slides.
-function gmWeatherNavHtml() {
-  return '<div class="gm-wx-nav">' +
+function gmWeatherNavHtml(step) {
+  return '<div class="gm-wx-nav" data-help="projects#weather#' + (step || 1) + '">' +
     '<button type="button" class="gm-wx-nav-btn gm-wx-nav-prev" data-dir="-1" disabled aria-label="' + escHtml(gmT("Horas anteriores", "Earlier hours")) + '">' + gmIcon("chevron") + '</button>' +
     '<button type="button" class="gm-wx-nav-btn gm-wx-nav-next" data-dir="1" aria-label="' + escHtml(gmT("Próximas horas", "Later hours")) + '">' + gmIcon("chevron") + '</button>' +
     '</div>';
@@ -8590,7 +8590,7 @@ function gmWeatherOpenTileHtml(o) {
       '<div class="gm-wx-glass">' +
         '<div class="gm-wx-glass-head">' +
           '<div class="gm-wx-glass-title">' + escHtml(gmT("Previsão por hora", "Hourly forecast")) + '</div>' +
-          gmWeatherNavHtml() +
+          gmWeatherNavHtml(o.button ? 4 : 1) +
         '</div>' +
         '<div class="gm-wx-strip" tabindex="0" role="group" aria-label="' + escHtml(gmT("Previsão por hora, deslize para o lado", "Hourly forecast, slide sideways")) + '">' +
           gmWeatherCellsHtml(o.hours, o.isToday) +

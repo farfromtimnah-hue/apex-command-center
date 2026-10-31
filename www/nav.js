@@ -391,7 +391,7 @@ function navSvg(type) {
     html += '<div class="apex-nav-logo">';
     var logoImg = '<img src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png" alt="Apex" class="apex-nav-logo-img">';
     if (sideAllowed()) {
-      html += '<button type="button" class="apex-side-btn" id="apexSideBtn" aria-haspopup="menu" aria-expanded="false" onclick="apexSideMenuToggle(this)">' +
+      html += '<button type="button" class="apex-side-btn" id="apexSideBtn" data-help="admin-switch-consulting-business-system#switch#1" aria-haspopup="menu" aria-expanded="false" onclick="apexSideMenuToggle(this)">' +
         logoImg + sideNameSpan() + '</button>';
     } else {
       html += logoImg;
@@ -676,6 +676,7 @@ function navSvg(type) {
       var b = document.createElement("button");
       b.type = "button";
       b.setAttribute("role", "menuitem");
+      b.setAttribute("data-help", "admin-switch-consulting-business-system#switch#" + (side === "business_system" ? "2" : "4"));
       if (cur === side) { b.className = "apex-side-current"; }
       b.innerHTML = '<span><span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span></span>' +
         (cur === side ? '<span aria-hidden="true">&#10003;</span>' : '');

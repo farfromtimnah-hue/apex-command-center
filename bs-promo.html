@@ -381,9 +381,9 @@ function escHtml(str) {
         h += '<div class="video-box"><video controls playsinline preload="metadata" src="' + escHtml(en.video_src) + '"' +
           (en.poster_src ? ' poster="' + escHtml(en.poster_src) + '"' : '') + '></video></div>';
         h += '<div class="btn-row">' +
-          '<a class="btn-line" href="' + escHtml(downloadHref(en.video_src)) + '" download>' + t("Baixar vídeo", "Download video") + '</a>' +
-          '<a class="btn-line" href="' + escHtml(en.video_src) + '" target="_blank" rel="noopener">' + t("Abrir vídeo", "Open video") + '</a>' +
-          '<button type="button" class="btn-line" data-role="share-video" data-slug="' + slug + '" onclick="shareVideo(this)" hidden>' + t("Compartilhar vídeo", "Share video") + '</button></div>';
+          '<a class="btn-line" data-help="admin-promo-materials#promo#6" href="' + escHtml(downloadHref(en.video_src)) + '" download>' + t("Baixar vídeo", "Download video") + '</a>' +
+          '<a class="btn-line" data-help="admin-promo-materials#promo#6" href="' + escHtml(en.video_src) + '" target="_blank" rel="noopener">' + t("Abrir vídeo", "Open video") + '</a>' +
+          '<button type="button" class="btn-line" data-help="admin-promo-materials#promo#6" data-role="share-video" data-slug="' + slug + '" onclick="shareVideo(this)" hidden>' + t("Compartilhar vídeo", "Share video") + '</button></div>';
       } else {
         h += '<div class="video-empty">' + (promo.lang === "en"
           ? "No video in English yet for this promo"
@@ -391,15 +391,15 @@ function escHtml(str) {
       }
       h += '</div><div class="promo-body">';
       h += '<div><label class="field-label" for="post-' + slug + '">' + t("Texto do post (modelo)", "Post text (template)") + '</label>' +
-        '<textarea class="field-area" id="post-' + slug + '" maxlength="5000">' + escHtml(en ? en.post_text || "" : "") + '</textarea></div>';
+        '<textarea class="field-area" data-help="admin-promo-materials#promo#4" id="post-' + slug + '" maxlength="5000">' + escHtml(en ? en.post_text || "" : "") + '</textarea></div>';
       h += '<div class="btn-row">' +
-        '<button type="button" class="btn-gold" data-role="save" data-slug="' + slug + '" onclick="savePromo(this)"' + (en ? '' : ' disabled') + '>' + t("Salvar", "Save") + '</button>' +
-        '<button type="button" class="btn-line" data-slug="' + slug + '" onclick="copyPromoText(this)">' + t("Copiar texto", "Copy text") + '</button>' +
+        '<button type="button" class="btn-gold" data-help="admin-promo-materials#promo#4" data-role="save" data-slug="' + slug + '" onclick="savePromo(this)"' + (en ? '' : ' disabled') + '>' + t("Salvar", "Save") + '</button>' +
+        '<button type="button" class="btn-line" data-help="admin-promo-materials#promo#4" data-slug="' + slug + '" onclick="copyPromoText(this)">' + t("Copiar texto", "Copy text") + '</button>' +
         '<span class="inline-msg' + (msg.err ? " is-error" : "") + '" id="msg-' + slug + '" role="status">' + escHtml(msg.text) + '</span></div>';
       h += '<div class="btn-row">' +
-        '<a class="btn-line" href="#" target="_blank" rel="noopener" data-slug="' + slug + '" onclick="return openShare(\'fb\', this)">Facebook</a>' +
-        '<a class="btn-line" href="#" target="_blank" rel="noopener" data-slug="' + slug + '" onclick="return openShare(\'li\', this)">LinkedIn</a>' +
-        '<a class="btn-line" href="#" target="_blank" rel="noopener" data-slug="' + slug + '" onclick="return openShare(\'x\', this)">X</a></div>';
+        '<a class="btn-line" data-help="admin-promo-materials#promo#5" href="#" target="_blank" rel="noopener" data-slug="' + slug + '" onclick="return openShare(\'fb\', this)">Facebook</a>' +
+        '<a class="btn-line" data-help="admin-promo-materials#promo#5" href="#" target="_blank" rel="noopener" data-slug="' + slug + '" onclick="return openShare(\'li\', this)">LinkedIn</a>' +
+        '<a class="btn-line" data-help="admin-promo-materials#promo#5" href="#" target="_blank" rel="noopener" data-slug="' + slug + '" onclick="return openShare(\'x\', this)">X</a></div>';
       h += '</div></section>';
       return h;
     }

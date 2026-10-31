@@ -82,8 +82,8 @@ const day3 = [
 let EN = false;
 const C_FNS = ["gmWeatherClock", "gmWeatherIconName", "gmWeatherSkyName", "gmWeatherIconLabel", "gmWeatherIconHtml", "gmWeatherRepHour", "gmWeatherTileSky",
   "gmWeatherHourLabel", "gmWeatherRangeText", "gmWeatherHighLowText", "gmWeatherHighLowHtml", "gmWeatherCardTitle", "gmWeatherTileKey", "gmWeatherTileToggle",
-  "gmWeatherTileIsOpen", "gmWeatherHoursButtonHtml", "gmWeatherApproxHtml", "gmWeatherCellsHtml", "gmWeatherOpenTileHtml", "gmWeatherClosedTileHtml", "gmWeatherNoForecastTileHtml", "gmWeatherDayCardHtml", "gmWeatherJobCardHtml"];
-const C_VARS = ["GM_WEATHER_ICON_LABELS", "GM_WEATHER_RAIN_PCT_FRONTEND_THRESHOLD", "gmWeatherTileOpen"];
+  "gmWeatherTileIsOpen", "gmWeatherHoursButtonHtml", "gmWeatherApproxHtml", "gmWeatherCellsHtml", "gmWeatherOpenTileHtml", "gmWeatherClosedTileHtml", "gmWeatherNoForecastTileHtml", "gmWeatherWorkHours", "gmWeatherRainRange", "gmWeatherHighLow", "gmWeatherPeakRain", "gmWeatherPeakHtml", "gmWeatherDayCardHtml", "gmWeatherJobCardHtml"];
+const C_VARS = ["GM_WEATHER_ICON_LABELS", "GM_WEATHER_RAIN_PCT_FRONTEND_THRESHOLD", "GM_WEATHER_DAY_START", "gmWeatherTileOpen"];
 const C = build(C_FNS, C_VARS, {
   gmT: (pt, en) => (EN ? en : pt),
   isEn: () => EN,
@@ -94,8 +94,8 @@ const C = build(C_FNS, C_VARS, {
 // Icon names
 const icon = (c, d, p) => C.gmWeatherIconName(c, d, p);
 const iconCases = [
-  ["Showers And Thunderstorms", true, 90, "storm"], ["Slight Chance Thunderstorms", false, 10, "storm"], ["Rain", true, 0, "rain"], ["Light Drizzle", true, 0, "rain"], ["Chance Rain Showers", true, 0, "rain"],
-  ["Snow", true, 0, "snow"], ["Sleet", true, 0, "snow"], ["Flurries", true, 0, "snow"], ["Freezing Rain", true, 0, "rain"], ["Ice Pellets", true, 0, "snow"],
+  ["Showers And Thunderstorms", true, 90, "storm"], ["Slight Chance Thunderstorms", false, 40, "storm"], ["Rain", true, 70, "rain"], ["Light Drizzle", true, 70, "rain"], ["Chance Rain Showers", true, 70, "rain"],
+  ["Snow", true, 0, "snow"], ["Sleet", true, 0, "snow"], ["Flurries", true, 0, "snow"], ["Freezing Rain", true, 70, "rain"], ["Ice Pellets", true, 0, "snow"],
   ["Patchy Fog", true, 0, "fog"], ["Haze", true, 0, "fog"], ["Mist", false, 0, "fog"], ["Smoke", true, 0, "fog"],
   ["Mostly Cloudy", true, 0, "cloud"], ["Overcast", false, 0, "cloud"], ["Cloudy", true, 0, "cloud"],
   ["Partly Cloudy", true, 0, "partly-cloudy"], ["Partly Sunny", true, 0, "partly-cloudy"], ["Mostly Sunny", true, 0, "partly-cloudy"], ["Mostly Clear", false, 0, "partly-cloudy"], ["A Few Clouds", true, 0, "partly-cloudy"],
@@ -107,7 +107,7 @@ iconCases.forEach(([c, d, p, want]) => ok(icon(c, d, p) === want, "icon: " + JSO
 // Sky names
 const sky = (c, d, p) => C.gmWeatherSkyName(c, d, p);
 const skyCases = [
-  ["Showers And Thunderstorms", true, 90, "thunder"], ["Thunderstorms", false, 0, "thunder"], ["Rain", true, 0, "rain"], ["Drizzle", false, 0, "rain"],
+  ["Showers And Thunderstorms", true, 90, "thunder"], ["Thunderstorms", false, 80, "thunder"], ["Rain", true, 70, "rain"], ["Drizzle", false, 70, "rain"],
   ["Snow", true, 0, "cloudy"], ["Sleet", true, 0, "cloudy"], ["Fog", true, 0, "fog"], ["Haze", false, 0, "fog"], ["Smoke", true, 0, "fog"],
   ["Sunny", true, 0, "sunny"], ["Clear", true, 0, "sunny"], ["Partly Sunny", true, 0, "partly-cloudy"], ["Mostly Sunny", true, 0, "partly-cloudy"], ["Partly Cloudy", true, 0, "partly-cloudy"], ["A Few Clouds", true, 0, "partly-cloudy"],
   ["Mostly Cloudy", true, 0, "cloudy"], ["Overcast", true, 0, "cloudy"], ["Cloudy", true, 0, "cloudy"],
@@ -174,7 +174,7 @@ ok(/Rain by site today/.test(closed), "card title today");
 ok(/gm-wx-sky-rain/.test(closed), "collapsed tile: first hour is sunny but the verdict says rain, so the tile uses the rain photo");
 ok(/aria-expanded="false"/.test(closed) && /aria-label="Show hours"/.test(closed) && />Hours</.test(closed), "collapsed tile has the Hours button, aria-expanded false, accessible name Show hours");
 ok(/High 91°/.test(closed) && /gm-wx-hot/.test(closed), "collapsed tile shows the high and low, bold at 90 and above");
-ok(/Rain 1 PM to 6 PM/.test(closed), "collapsed tile rain text uses 12-hour times and the word to");
+ok(/Rain 1 PM to 8 PM/.test(closed), "collapsed tile rain text is built from the hours (first and last at 40 percent or more), in 12-hour times with the word to");
 ok(/Approximate location/.test(closed), "collapsed tile shows the approximate location note");
 ok(/Whitfield &lt;b&gt;x&lt;\/b&gt;/.test(closed) && closed.indexOf("<b>x</b>") < 0, "site name is escaped");
 ok(/No forecast/.test(closed) && /gm-wx-none/.test(closed), "site with no forecast: plain tile with No forecast");
@@ -213,6 +213,49 @@ ok(/gm-wx-open/.test(jc) && jc.indexOf("<button") < 0, "project card is the open
 ok(/Rain likely 1 PM to 6 PM/.test(jc) && /Tomorrow: rain likely 9 AM to 2 PM/.test(jc), "project card: rain line and tomorrow line in 12-hour with the word to");
 ok(/Approximate location/.test(jc) && /High 91°/.test(jc) && />Now</.test(jc), "project card: approximate note, high and low, Now first cell");
 ok(!/–/.test(jc), "project card has no en dash");
+
+// Rain icons agree with the rain window: a "chance of showers" hour below 40 percent is not a rain icon
+ok(icon("Chance Showers And Thunderstorms", false, 17) === "cloud", "storm text at 17 percent is a cloud, not a storm icon");
+ok(icon("Chance Showers And Thunderstorms", true, 39) === "cloud" && icon("Chance Showers And Thunderstorms", true, 40) === "storm", "storm text switches to the storm icon at exactly 40 percent");
+ok(icon("Rain Showers Likely", true, 39) === "cloud" && icon("Rain Showers Likely", true, 40) === "rain", "rain text switches to the rain icon at exactly 40 percent");
+ok(icon("Showers", true, null) === "rain" && icon("Showers", true, undefined) === "rain", "no percentage given: the text decides");
+ok(icon("Snow", true, 5) === "snow", "snow is not changed by the rain threshold");
+ok(sky("Chance Showers And Thunderstorms", true, 17) === "cloudy" && sky("Chance Showers And Thunderstorms", false, 17) === "cloudy-night", "tile photo: storm text at 17 percent is a cloudy photo");
+ok(sky("Chance Showers And Thunderstorms", true, 45) === "thunder" && sky("Rain Showers Likely", true, 40) === "rain", "tile photo: at 40 percent or more the text decides");
+ok(C.gmWeatherTileSky({ condition: "Chance Thunderstorms", is_day: true, rain_pct: 5 }, { rain: true }) === "thunder", "the rain verdict keeps a thunder hour as the thunder photo even at a low percent");
+const rr = C.gmWeatherRainRange([{ time: "10:00", rain_pct: 39 }, { time: "13:00", rain_pct: 40 }, { time: "15:00", rain_pct: 10 }, { time: "18:00", rain_pct: 80 }]);
+ok(rr && rr.from === "13:00" && rr.to === "18:00", "rain range is the first and last hour at 40 percent or more");
+ok(C.gmWeatherRainRange([{ time: "10:00", rain_pct: 39 }]) === null && C.gmWeatherRainRange([]) === null, "no rain hours: no range");
+
+// Peak rain chance on the collapsed tile, next to the icon and above the high and low
+ok(C.gmWeatherPeakRain([{ rain_pct: 5 }, { rain_pct: 62.4 }, { rain_pct: 30 }]) === 62 && C.gmWeatherPeakRain([]) === null && C.gmWeatherPeakRain(null) === null, "peak rain chance is the highest hour, rounded, or null");
+EN = true;
+ok(/up to 60%/.test(closed) && closed.indexOf("up to 60%") < closed.indexOf("High 91°"), "collapsed tile: peak chance sits above the high and low (English)");
+ok(/gm-wx-peak-on/.test(closed), "collapsed tile: a peak at 40 percent or more is bold");
+EN = false;
+ok(/até 60%/.test(C.gmWeatherDayCardHtml("2026-11-01", [ev], "2026-11-01")), "collapsed tile: peak chance in Portuguese (até 60%)");
+ok(C.gmWeatherPeakHtml([]) === "" && !/gm-wx-peak-on/.test(C.gmWeatherPeakHtml([{ rain_pct: 10 }])), "no hours: nothing printed; a low peak is not bold");
+
+// The hourly list starts at now for today and at 6 AM for any other date
+const allDay = [];
+for (let i = 0; i <= 23; i++) { allDay.push({ time: (i < 10 ? "0" : "") + i + ":00", temp_f: 70 + i, condition: "Cloudy", is_day: i >= 7 && i < 19, rain_pct: (i === 3 || i === 14) ? 60 : 5 }); }
+ok(C.gmWeatherWorkHours(allDay, true).length === 24, "today: the list is left as the server sent it (it already starts at the current hour)");
+const wk = C.gmWeatherWorkHours(allDay, false);
+ok(wk[0].time === "06:00" && wk[wk.length - 1].time === "23:00" && wk.length === 18, "another date: the list starts at 6 AM and runs to 11 PM");
+ok(C.gmWeatherWorkHours([{ time: "02:00" }, { time: "04:00" }], false).length === 2, "another date with only night hours: falls back to the full list, never empty");
+const hl = C.gmWeatherHighLow(wk);
+ok(hl.high === 93 && hl.low === 76, "high and low of the shown hours");
+ok(C.gmWeatherHighLow([]).high === null && C.gmWeatherHighLow([{}]).low === null, "no temperatures: null high and low");
+const tomorrowEv = { kind: "band", date: "2026-11-02", title: "Tomorrow site", rain_verdict: { rain: true, from: "03:00", to: "14:00", hours: allDay, high_f: 93, low_f: 70 }, approx_location: false };
+EN = true;
+const tm = C.gmWeatherDayCardHtml("2026-11-02", [tomorrowEv], "2026-11-01");
+ok(/Rain 2 PM to 2 PM/.test(tm) || /Rain 2 PM/.test(tm), "another date: the rain text ignores the 3 AM rain and uses the working hours (2 PM)");
+ok(!/Rain 3 AM/.test(tm) && !/Rain 12 AM/.test(tm), "another date: no night rain window printed");
+ok(/Low 76°/.test(tm) && !/Low 70°/.test(tm), "another date: the low comes from the shown hours (76), not the 12 AM hour (70)");
+C.gmWeatherTileToggle(C.gmWeatherTileKey("Tomorrow site", "2026-11-02"));
+const tmOpen = C.gmWeatherDayCardHtml("2026-11-02", [tomorrowEv], "2026-11-01");
+ok(!/(^|[^0-9])(12|1|2|3|4|5) AM/.test(tmOpen) && /6 AM/.test(tmOpen), "another date: the opened strip starts at 6 AM, no night hours");
+EN = true;
 const jcDry = C.gmWeatherJobCardHtml({ today: hours24, today_rain_window: null, tomorrow_rain_window: null, high_f: 91, low_f: 74 }, false);
 ok(/No rain today/.test(jcDry) && /No rain expected|no rain expected|Tomorrow: no rain/.test(jcDry) && !/Approximate/.test(jcDry), "project card dry: No rain today, no approximate note");
 

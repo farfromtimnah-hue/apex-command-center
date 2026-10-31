@@ -8385,8 +8385,11 @@ function gmWeatherClock(hhmm) {
 function gmWeatherIconName(condition, isDay, rainPct) {
   var c = String(condition == null ? "" : condition).toLowerCase();
   if (c) {
-    if (/thunder/.test(c)) { return "storm"; }
-    if (/rain|shower|drizzle/.test(c)) { return "rain"; }
+    // A "chance of showers" hour below the rain threshold is not shown as rain,
+    // so the hour icons agree with the rain window (hours at 40 percent or more).
+    var unlikely = typeof rainPct === "number" && rainPct < GM_WEATHER_RAIN_PCT_FRONTEND_THRESHOLD;
+    if (/thunder/.test(c)) { return unlikely ? "cloud" : "storm"; }
+    if (/rain|shower|drizzle/.test(c)) { return unlikely ? "cloud" : "rain"; }
     if (/snow|sleet|flurr|\bice\b/.test(c)) { return "snow"; }
     if (/fog|haze|mist|smoke/.test(c)) { return "fog"; }
     if (/partly|mostly sunny|mostly clear|few clouds/.test(c)) { return "partly-cloudy"; }
@@ -8401,8 +8404,9 @@ function gmWeatherSkyName(condition, isDay, rainPct) {
   var c = String(condition == null ? "" : condition).toLowerCase();
   var day = isDay !== false;
   if (!c) { return rainPct >= 60 ? "rain" : (day ? "cloudy" : "cloudy-night"); }
-  if (/thunder/.test(c)) { return "thunder"; }
-  if (/rain|shower|drizzle/.test(c)) { return "rain"; }
+  var unlikely = typeof rainPct === "number" && rainPct < GM_WEATHER_RAIN_PCT_FRONTEND_THRESHOLD;
+  if (/thunder/.test(c)) { return unlikely ? (day ? "cloudy" : "cloudy-night") : "thunder"; }
+  if (/rain|shower|drizzle/.test(c)) { return unlikely ? (day ? "cloudy" : "cloudy-night") : "rain"; }
   if (/snow|sleet|\bice\b/.test(c)) { return "cloudy"; }
   if (/fog|haze|mist|smoke/.test(c)) { return "fog"; }
   if (!day) {
@@ -8442,6 +8446,8 @@ function gmWeatherRepHour(hours, isToday) {
 // a dry sky, unless it is already rain or thunder.
 function gmWeatherTileSky(rep, verdict) {
   var sky = rep ? gmWeatherSkyName(rep.condition, rep.is_day, rep.rain_pct) : "cloudy";
+  var storm = rep && /thunder/i.test(String(rep.condition || ""));
+  if (verdict && verdict.rain && storm) { return "thunder"; }
   if (verdict && verdict.rain && sky !== "rain" && sky !== "thunder") { return "rain"; }
   return sky;
 }
@@ -8538,6 +8544,58 @@ function gmWeatherOpenTileHtml(o) {
     '</div>';
 }
 
+// Crews are not working at night. Today the list already starts at the current
+// hour; for any other date the list starts at 6 AM (GM_WEATHER_DAY_START) so it
+// shows the working day and not the hours people are asleep.
+var GM_WEATHER_DAY_START = "06:00";
+
+function gmWeatherWorkHours(hours, isToday) {
+  var list = hours || [];
+  if (isToday) { return list; }
+  var work = list.filter(function(h) { return h && String(h.time) >= GM_WEATHER_DAY_START; });
+  return work.length ? work : list;
+}
+
+// Rain window (first and last hour at the rain threshold or more) from a list of hours.
+function gmWeatherRainRange(hours) {
+  var from = null, to = null;
+  (hours || []).forEach(function(h) {
+    if (h && typeof h.rain_pct === "number" && h.rain_pct >= GM_WEATHER_RAIN_PCT_FRONTEND_THRESHOLD) {
+      if (from === null) { from = h.time; }
+      to = h.time;
+    }
+  });
+  return from === null ? null : { from: from, to: to };
+}
+
+// High and low (whole numbers) among the hours that have a temperature, or nulls.
+function gmWeatherHighLow(hours) {
+  var hi = null, lo = null;
+  (hours || []).forEach(function(h) {
+    if (h && typeof h.temp_f === "number") {
+      if (hi === null || h.temp_f > hi) { hi = h.temp_f; }
+      if (lo === null || h.temp_f < lo) { lo = h.temp_f; }
+    }
+  });
+  return { high: hi === null ? null : Math.round(hi), low: lo === null ? null : Math.round(lo) };
+}
+
+// The highest rain chance among the hours, as a whole number, or null.
+function gmWeatherPeakRain(hours) {
+  var best = null;
+  (hours || []).forEach(function(h) {
+    if (h && typeof h.rain_pct === "number" && (best === null || h.rain_pct > best)) { best = Math.round(h.rain_pct); }
+  });
+  return best;
+}
+
+function gmWeatherPeakHtml(hours) {
+  var peak = gmWeatherPeakRain(hours);
+  if (peak === null) { return ""; }
+  return '<span class="gm-wx-peak' + (peak >= GM_WEATHER_RAIN_PCT_FRONTEND_THRESHOLD ? ' gm-wx-peak-on' : '') + '">' +
+    escHtml(gmT("até ", "up to ") + peak + "%") + '</span>';
+}
+
 function gmWeatherClosedTileHtml(o) {
   var rep = gmWeatherRepHour(o.hours, o.isToday);
   var sky = gmWeatherTileSky(rep, { rain: o.rain });
@@ -8546,7 +8604,8 @@ function gmWeatherClosedTileHtml(o) {
   return '<div class="gm-wx-tile gm-wx-closed gm-wx-sky-' + sky + '" data-wx-key="' + escHtml(o.key) + '">' +
     '<div class="gm-wx-name">' + escHtml(o.name) + '</div>' +
     '<div class="gm-wx-info">' +
-      '<div class="gm-wx-line">' + gmWeatherIconHtml(iconName) + gmWeatherHighLowHtml(o.high_f, o.low_f) + '</div>' +
+      '<div class="gm-wx-line">' + gmWeatherIconHtml(iconName) + gmWeatherPeakHtml(o.hours) + '</div>' +
+      gmWeatherHighLowHtml(o.high_f, o.low_f) +
       '<div class="gm-wx-rain">' + escHtml(o.rainText) + '</div>' +
       gmWeatherApproxHtml(o.approx) +
     '</div>' +
@@ -8570,10 +8629,13 @@ function gmWeatherDayCardHtml(dateStr, events, todayStr) {
     var name = ev.title || "";
     if (!v || !v.hours || !v.hours.length) { return gmWeatherNoForecastTileHtml(name); }
     var key = gmWeatherTileKey(name, dateStr);
+    var work = gmWeatherWorkHours(v.hours, isToday);
+    var range = gmWeatherRainRange(work);
+    var hl = isToday ? { high: v.high_f, low: v.low_f } : gmWeatherHighLow(work);
     var o = {
-      key: key, name: name, hours: v.hours, high_f: v.high_f, low_f: v.low_f, isToday: isToday,
-      rain: v.rain === true,
-      rainText: v.rain ? gmT("Chuva ", "Rain ") + gmWeatherRangeText(v.from, v.to) : gmT("Sem chuva", "No rain"),
+      key: key, name: name, hours: work, high_f: hl.high, low_f: hl.low, isToday: isToday,
+      rain: !!range,
+      rainText: range ? gmT("Chuva ", "Rain ") + gmWeatherRangeText(range.from, range.to) : gmT("Sem chuva", "No rain"),
       approx: !!ev.approx_location, button: true
     };
     return gmWeatherTileIsOpen(key) ? gmWeatherOpenTileHtml(o) : gmWeatherClosedTileHtml(o);

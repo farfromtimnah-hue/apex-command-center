@@ -523,6 +523,8 @@
 .gm-wx-icon { display: inline-flex; flex: 0 0 auto; color: #fff; }
 .gm-wx-icon svg { width: 28px; height: 28px; }
 .gm-wx-hl { font-size: 14px; font-weight: 500; line-height: 1.25; }
+.gm-wx-peak { font-size: 14px; font-weight: 600; line-height: 1.25; }
+.gm-wx-peak-on { font-weight: 800; }
 .gm-wx-hot { font-weight: 800; }
 .gm-wx-rain { font-size: 13px; line-height: 1.25; }
 .gm-wx-approx { font-size: 12px; line-height: 1.25; }

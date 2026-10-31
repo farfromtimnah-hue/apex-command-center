@@ -311,5 +311,15 @@ ok(C.gmWeatherNavHtml().indexOf("gm-wx-nav") === 12, "arrows sit in their own gr
   ok(!!m && /overscroll-behavior-x:\s*contain/.test(m[0]), "the hourly strip has overscroll-behavior-x: contain");
 }
 
+
+// The hourly scroll bar is always visible: the styled bar is used, and the standard bar properties only as a Firefox fallback
+{
+  const css = readFileSync(new URL("../gm.css", import.meta.url), "utf8");
+  const base = /\.gm-wx-strip\s*\{[^}]*\}/.exec(css);
+  ok(!!base && !/scrollbar-width|scrollbar-color/.test(base[0]), "the strip rule itself sets no scrollbar-width or scrollbar-color (they would switch the styled bar off)");
+  ok(/@supports not selector\(::-webkit-scrollbar\)\s*\{[^}]*scrollbar-width: thin/.test(css), "Firefox fallback is inside @supports not selector(::-webkit-scrollbar)");
+  ok(/\.gm-wx-strip::-webkit-scrollbar\s*\{\s*height:\s*8px/.test(css) && /\.gm-wx-strip::-webkit-scrollbar-thumb/.test(css) && /\.gm-wx-strip::-webkit-scrollbar-track/.test(css), "styled scrollbar with a track and a thumb");
+}
+
 console.log("\n" + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);

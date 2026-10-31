@@ -8545,10 +8545,11 @@ function gmWeatherClosedTileHtml(o) {
   if (sky === "rain" && iconName !== "rain" && iconName !== "storm") { iconName = "rain"; }
   return '<div class="gm-wx-tile gm-wx-closed gm-wx-sky-' + sky + '" data-wx-key="' + escHtml(o.key) + '">' +
     '<div class="gm-wx-name">' + escHtml(o.name) + '</div>' +
-    gmWeatherIconHtml(iconName) +
-    gmWeatherHighLowHtml(o.high_f, o.low_f) +
-    '<div class="gm-wx-rain">' + escHtml(o.rainText) + '</div>' +
-    gmWeatherApproxHtml(o.approx) +
+    '<div class="gm-wx-info">' +
+      '<div class="gm-wx-line">' + gmWeatherIconHtml(iconName) + gmWeatherHighLowHtml(o.high_f, o.low_f) + '</div>' +
+      '<div class="gm-wx-rain">' + escHtml(o.rainText) + '</div>' +
+      gmWeatherApproxHtml(o.approx) +
+    '</div>' +
     gmWeatherHoursButtonHtml(false) +
     '</div>';
 }

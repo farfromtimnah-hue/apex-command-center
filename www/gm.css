@@ -481,31 +481,40 @@
 /* Weather tile (Apple Weather look, Nicole's exception: 24px corners, one
    frosted panel, a photo, one sideways strip). Used by the Calendar Day view
    and by the project weather card. Nothing moves: a working screen. */
-.gm-wx-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-@media (min-width: 640px) { .gm-wx-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (min-width: 960px) { .gm-wx-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.gm-wx-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+@media (min-width: 700px) { .gm-wx-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1000px) { .gm-wx-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .gm-wx-tile {
   position: relative; isolation: isolate; box-sizing: border-box;
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  aspect-ratio: 1 / 1; padding: 10px; border-radius: 24px;
+  padding: 10px 12px; border-radius: 24px;
   background-color: #2c3642; background-size: cover; background-position: center; background-repeat: no-repeat;
   color: #fff; font-family: 'Inter', sans-serif; text-align: left;
 }
 .gm-wx-tile::before { content: ""; position: absolute; inset: 0; z-index: 0; border-radius: inherit; background: rgba(0, 0, 0, 0.45); }
 .gm-wx-tile > * { position: relative; z-index: 1; max-width: 100%; flex-shrink: 0; }
-.gm-wx-closed { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.gm-wx-closed {
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name hours" "info hours";
+  column-gap: 10px; row-gap: 3px; align-items: center; border-radius: 20px;
+}
+.gm-wx-closed .gm-wx-name { grid-area: name; -webkit-line-clamp: 1; align-self: end; }
+.gm-wx-closed .gm-wx-info { grid-area: info; display: flex; flex-direction: column; gap: 2px; align-self: start; min-width: 0; }
+.gm-wx-closed .gm-wx-line { display: flex; align-items: center; gap: 8px; }
+.gm-wx-closed .gm-wx-icon svg { width: 22px; height: 22px; }
+.gm-wx-closed .gm-wx-hours { grid-area: hours; margin-top: 0; align-self: center; }
 .gm-wx-none { background-color: #2b2d31; background-image: none; }
 .gm-wx-none::before { display: none; }
 .gm-wx-open { grid-column: 1 / -1; aspect-ratio: auto; padding: 16px; gap: 8px; }
 .gm-wx-open .gm-wx-glass { align-self: stretch; }
-.gm-wx-sky-sunny { background-image: url(assets/weather/sunny.jpg); }
-.gm-wx-sky-partly-cloudy { background-image: url(assets/weather/partly-cloudy.jpg); }
-.gm-wx-sky-cloudy { background-image: url(assets/weather/cloudy.jpg); }
-.gm-wx-sky-rain { background-image: url(assets/weather/rain.jpg); }
-.gm-wx-sky-thunder { background-image: url(assets/weather/thunder.jpg); }
-.gm-wx-sky-fog { background-image: url(assets/weather/fog.jpg); }
-.gm-wx-sky-clear-night { background-image: url(assets/weather/clear-night.jpg); }
-.gm-wx-sky-cloudy-night { background-image: url(assets/weather/cloudy-night.jpg); }
+.gm-wx-sky-sunny { background-image: url(assets/weather/sunny.jpg); background-position: 78% 12%; }
+.gm-wx-sky-partly-cloudy { background-image: url(assets/weather/partly-cloudy.jpg); background-position: 50% 40%; }
+.gm-wx-sky-cloudy { background-image: url(assets/weather/cloudy.jpg); background-position: 50% 55%; }
+.gm-wx-sky-rain { background-image: url(assets/weather/rain.jpg); background-position: 70% 55%; }
+.gm-wx-sky-thunder { background-image: url(assets/weather/thunder.jpg); background-position: 60% 48%; }
+.gm-wx-sky-fog { background-image: url(assets/weather/fog.jpg); background-position: 50% 58%; }
+.gm-wx-sky-clear-night { background-image: url(assets/weather/clear-night.jpg); background-position: 55% 51%; }
+.gm-wx-sky-cloudy-night { background-image: url(assets/weather/cloudy-night.jpg); background-position: 52% 51%; }
 .gm-wx-name {
   font-size: 13px; line-height: 1.2; font-weight: 700; overflow: hidden;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;

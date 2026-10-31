@@ -303,5 +303,13 @@ ns = C.gmWeatherNavState(599.4, 300, 900);
 ok(ns.next === false || ns.next === true, "fractional scroll positions do not throw");
 ok(C.gmWeatherNavHtml().indexOf("gm-wx-nav") === 12, "arrows sit in their own group");
 
+
+// A sideways swipe past the last hour must not become the browser back gesture
+{
+  const css = readFileSync(new URL("../gm.css", import.meta.url), "utf8");
+  const m = /\.gm-wx-strip\s*\{[^}]*\}/.exec(css);
+  ok(!!m && /overscroll-behavior-x:\s*contain/.test(m[0]), "the hourly strip has overscroll-behavior-x: contain");
+}
+
 console.log("\n" + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);

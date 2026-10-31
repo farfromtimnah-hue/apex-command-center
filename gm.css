@@ -569,6 +569,7 @@
 .gm-wx-nav-btn:disabled { opacity: 0.35; cursor: default; }
 .gm-wx-strip {
   display: flex; gap: 6px; overflow-x: auto; padding: 0 12px 8px 0;
+  overscroll-behavior-x: contain; /* a swipe past the last hour must not trigger the browser back gesture */
   scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
   scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.8) rgba(255, 255, 255, 0.2);
 }

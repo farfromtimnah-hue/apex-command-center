@@ -6111,6 +6111,13 @@
                 "en": "help/img/guides/projects/weather-01.en.jpg",
                 "pt": "help/img/guides/projects/weather-01.pt.jpg"
               }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Se a previsão do tempo não aparecer em um projeto, confira como o endereço foi digitado. Alguns endereços antigos foram salvos sem o CEP, e sem o CEP o Apex pode não achar o local no mapa. Abra o lead do projeto, veja se a rua, a cidade, o estado e o CEP estão preenchidos e corrija o que faltar. Ao salvar, o Apex avisa se achou o endereço exato, um local aproximado pelo CEP ou pela cidade, ou nada. Quando o local é aproximado, o cartão mostra a nota Local aproximado.",
+                "en": "If the weather does not show on a project, double check how the address was entered. Some older addresses were saved without the ZIP code, and without the ZIP code Apex may not find the place on the map. Open the project's lead, check that the street, city, state and ZIP code are all filled in, and correct anything missing. When you save, Apex tells you if it found the exact address, an approximate place by ZIP code or by city, or nothing. When the place is approximate, the card shows the note Approximate location."
+              }
             }
           ]
         },

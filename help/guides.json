@@ -6126,8 +6126,8 @@
                 "en": "See the forecast for every site on one day. Open Calendar and tap Day. Each site that is active that day is a square tile with a sky photo, a weather icon, the highest chance of rain for the day, and the high and low. Tap Hours (1) on the tile to open it."
               },
               "image": {
-                "pt": "help/img/guides/projects/weather-12.pt.jpg",
-                "en": "help/img/guides/projects/weather-12.en.jpg"
+                "pt": "help/img/guides/projects/weather-14.pt.jpg",
+                "en": "help/img/guides/projects/weather-14.en.jpg"
               }
             },
             {
@@ -6137,8 +6137,8 @@
                 "en": "Use the hour strip. The open tile takes the whole line and shows the hour by hour forecast. Tap the back arrow or the forward arrow (1) to move through the hours, or slide sideways. The scroll bar (2) shows where you are in the strip. Each hour shows the time, the icon, the temperature and the chance of rain. Today the strip starts at Now; on other days it starts at 6 AM. Tap Hours again to close it."
               },
               "image": {
-                "pt": "help/img/guides/projects/weather-13.pt.jpg",
-                "en": "help/img/guides/projects/weather-13.en.jpg"
+                "pt": "help/img/guides/projects/weather-15.pt.jpg",
+                "en": "help/img/guides/projects/weather-15.en.jpg"
               }
             }
           ]

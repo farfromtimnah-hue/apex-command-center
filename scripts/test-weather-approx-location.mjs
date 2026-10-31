@@ -12,7 +12,7 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass
 {
   const row = {};
   const env = { DB: { prepare: () => ({ bind: () => ({ first: async () => row.lead }) }) } };
-  const F = build(["handleGetGmJobWeather", "gmLocationApprox", "gmWeatherZone", "tzIsValid"], [], Object.assign({}, baseStubs, {
+  const F = build(["handleGetGmJobWeather", "gmLocationApprox", "gmWeatherZone", "gmWeatherRequestZone", "resolveRequestZone", "clientZoneFor", "tzZoneForState", "tzIsValid"], ["TZ_STATE_ZONES", "TZ_STATE_NAMES"], Object.assign({}, baseStubs, {
     APEX_TIMEZONE: "America/New_York",
     requireClientAccess: () => true,
     gmOwnedRow: async () => ({ id: "j1", lead_id: "l1" }),

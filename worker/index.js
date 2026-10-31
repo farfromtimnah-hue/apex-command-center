@@ -27872,7 +27872,31 @@ function gmWeatherRainWindow(hours) {
     return { from: first, to: last };
 }
 
-// Returns { today: [{time,temp_f,condition,rain_pct}, ...], today_rain_window,
+// The outside forecast text is untrusted: trimmed, at most 60 characters, or
+// null. The screens use it only to pick an icon and a photo, never to print.
+function gmWeatherCondText(s) {
+    if (typeof s !== "string") { return null; }
+    var t = s.trim().slice(0, 60).trim();
+    return t ? t : null;
+}
+
+// A whole number from 0 to 100; a missing or odd value is 0.
+function gmWeatherPct(v) {
+    if (typeof v !== "number" || !isFinite(v)) { return 0; }
+    return Math.max(0, Math.min(100, Math.round(v)));
+}
+
+// Highest and lowest temp_f among the hours given, as whole numbers, or null
+// when no hour has a temperature. For today the hourly forecast starts at the
+// current hour, so the low covers the remaining hours only.
+function gmWeatherHighLow(hours) {
+    var temps = [];
+    (hours || []).forEach(function(h) { if (h && typeof h.temp_f === "number") { temps.push(h.temp_f); } });
+    if (!temps.length) { return { high_f: null, low_f: null }; }
+    return { high_f: Math.round(Math.max.apply(null, temps)), low_f: Math.round(Math.min.apply(null, temps)) };
+}
+
+// Returns { today: [{time,temp_f,condition,is_day,rain_pct}, ...], today_rain_window, high_f, low_f,
 // tomorrow_summary } for the remaining hours of the LOCAL day, or null if the
 // forecast could not be fetched (never throws -- a weather card that cannot
 // load simply does not render).
@@ -27899,8 +27923,9 @@ async function getHourlyForecast(lat, lon, env) {
             var entry = {
                 time: (hourLocal < 10 ? "0" + hourLocal : "" + hourLocal) + ":00",
                 temp_f: typeof p.temperature === "number" ? p.temperature : null,
-                condition: p.shortForecast || null,
-                rain_pct: (p.probabilityOfPrecipitation && typeof p.probabilityOfPrecipitation.value === "number") ? p.probabilityOfPrecipitation.value : 0
+                condition: gmWeatherCondText(p.shortForecast),
+                is_day: p.isDaytime !== false,
+                rain_pct: gmWeatherPct(p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value)
             };
             if (local === todayStr && hourLocal >= nowHour) { today.push(entry); }
             else if (local !== todayStr && tomorrowPeriods.length < 24 && today.length > 0) { tomorrowPeriods.push(entry); }
@@ -27909,10 +27934,13 @@ async function getHourlyForecast(lat, lon, env) {
         var rainWindow = gmWeatherRainWindow(today);
         var tomorrowRainWindow = gmWeatherRainWindow(tomorrowPeriods);
 
+        var todayHL = gmWeatherHighLow(today);
         return {
             today: today,
             today_rain_window: rainWindow,
-            tomorrow_rain_window: tomorrowRainWindow
+            tomorrow_rain_window: tomorrowRainWindow,
+            high_f: todayHL.high_f,
+            low_f: todayHL.low_f
         };
     } catch (e) {
         return null;
@@ -27950,12 +27978,20 @@ async function gmWeatherDayVerdict(lat, lon, dateStr) {
             var hourLocal = Number(new Intl.DateTimeFormat("en-US", { timeZone: APEX_TIMEZONE, hour: "numeric", hour12: false }).format(new Date(p.startTime)));
             dayHours.push({
                 time: (hourLocal < 10 ? "0" + hourLocal : "" + hourLocal) + ":00",
-                rain_pct: (p.probabilityOfPrecipitation && typeof p.probabilityOfPrecipitation.value === "number") ? p.probabilityOfPrecipitation.value : 0
+                temp_f: typeof p.temperature === "number" ? p.temperature : null,
+                condition: gmWeatherCondText(p.shortForecast),
+                is_day: p.isDaytime !== false,
+                rain_pct: gmWeatherPct(p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value)
             });
         });
         if (!dayHours.length) { return null; }
         var window = gmWeatherRainWindow(dayHours);
-        return window ? { rain: true, from: window.from, to: window.to } : { rain: false };
+        var hl = gmWeatherHighLow(dayHours);
+        var verdict = window ? { rain: true, from: window.from, to: window.to } : { rain: false };
+        verdict.hours = dayHours;
+        verdict.high_f = hl.high_f;
+        verdict.low_f = hl.low_f;
+        return verdict;
     } catch (e) {
         return null;
     }

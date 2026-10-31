@@ -4405,7 +4405,16 @@ var GM_ICONS = {
   edit:     '<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>',
   user:     '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   // Access notes row (gate code / entrance) on the structured address block.
-  key:      '<circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5L19 11"/><path d="M17 5l3 3"/>'
+  key:      '<circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5L19 11"/><path d="M17 5l3 3"/>',
+  // Weather tile icons (same 24 grid, same stroke as the rest of the set).
+  "wx-sun":           '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
+  "wx-moon":          '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  "wx-partly-cloudy": '<path d="M12 2v2M4.93 4.93l1.41 1.41M20 12h2M19.07 4.93l-1.41 1.41M2 12h2"/><path d="M15.95 12.65a4 4 0 0 0-5.93-4.13"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6z"/>',
+  "wx-cloud":         '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>',
+  "wx-rain":          '<path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"/><path d="M8 13v8M12 15v8M16 13v8"/>',
+  "wx-storm":         '<path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 9"/><polyline points="13 11 9 17 15 17 11 23"/>',
+  "wx-fog":           '<path d="M17 11a5 5 0 0 0-9.9-1A4 4 0 0 0 7 11"/><path d="M3 15h18M6 19h12"/>',
+  "wx-snow":          '<path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16h.01M8 20h.01M12 18h.01M12 22h.01M16 16h.01M16 20h.01"/>'
 };
 
 function gmIcon(name) {
@@ -8339,17 +8348,26 @@ function gmLoadJobWeather(jobId) {
     .catch(function() { /* the card just does not render */ });
 }
 
-function gmWeatherHourStripHtml(hours) {
-  return '<div class="gm-weather-strip">' +
-    hours.slice(0, 12).map(function(h) {
-      return '<div class="gm-weather-hour">' +
-        '<span class="gm-weather-hour-time">' + escHtml(gmWeatherClock(h.time)) + '</span>' +
-        '<span class="gm-weather-hour-temp">' + (h.temp_f !== null ? Math.round(h.temp_f) + '°' : '—') + '</span>' +
-        '<span class="gm-weather-hour-rain' + (h.rain_pct >= GM_WEATHER_RAIN_PCT_FRONTEND_THRESHOLD ? ' gm-weather-rain-on' : '') + '">' + h.rain_pct + '%</span>' +
-        '</div>';
-    }).join("") +
-    '</div>';
-}
+// Weather tiles (Apple Weather look, Nicole's exception to the generic card
+// rules): a sky photo tile per site in the Calendar Day view, opening to a
+// full width tile with an hourly strip, and the same open tile as the project
+// weather card. The condition text from the outside service is only used to
+// pick an icon and a photo; the screen prints the fixed names below.
+var GM_WEATHER_ICON_LABELS = {
+  "sun": ["Ensolarado", "Sunny"],
+  "moon": ["Noite limpa", "Clear night"],
+  "partly-cloudy": ["Parcialmente nublado", "Partly cloudy"],
+  "cloud": ["Nublado", "Cloudy"],
+  "rain": ["Chuva", "Rain"],
+  "storm": ["Tempestade", "Storm"],
+  "fog": ["Neblina", "Fog"],
+  "snow": ["Neve", "Snow"]
+};
+
+// Which tiles the person opened, keyed by site title plus date, so a refresh
+// or a change of day does not close them.
+var gmWeatherTileOpen = {};
+var gmWeatherLastDay = null;
 
 var GM_WEATHER_RAIN_PCT_FRONTEND_THRESHOLD = 40;
 
@@ -8363,13 +8381,222 @@ function gmWeatherClock(hhmm) {
   return h12 + (m[2] === "00" ? "" : ":" + m[2]) + " " + (h >= 12 ? "PM" : "AM");
 }
 
-function gmWeatherVerdictLineHtml(forecast) {
-  if (forecast.today_rain_window) {
-    var from = gmWeatherClock(forecast.today_rain_window.from), to = gmWeatherClock(forecast.today_rain_window.to);
-    return '<p class="gm-weather-verdict gm-warn">' +
-      gmT("Chuva provável " + from + "–" + to, "Rain likely " + from + "–" + to) + '</p>';
+// One of: sun, moon, partly-cloudy, cloud, rain, storm, fog, snow.
+function gmWeatherIconName(condition, isDay, rainPct) {
+  var c = String(condition == null ? "" : condition).toLowerCase();
+  if (c) {
+    if (/thunder/.test(c)) { return "storm"; }
+    if (/rain|shower|drizzle/.test(c)) { return "rain"; }
+    if (/snow|sleet|flurr|\bice\b/.test(c)) { return "snow"; }
+    if (/fog|haze|mist|smoke/.test(c)) { return "fog"; }
+    if (/partly|mostly sunny|mostly clear|few clouds/.test(c)) { return "partly-cloudy"; }
+    if (/overcast|cloudy/.test(c)) { return "cloud"; }
+    if (/sunny|clear/.test(c)) { return isDay === false ? "moon" : "sun"; }
   }
-  return '<p class="gm-weather-verdict gm-ok">' + gmT("Sem chuva hoje", "No rain today") + '</p>';
+  return rainPct >= 50 ? "rain" : "cloud";
+}
+
+// One of: sunny, partly-cloudy, cloudy, rain, thunder, fog, clear-night, cloudy-night.
+function gmWeatherSkyName(condition, isDay, rainPct) {
+  var c = String(condition == null ? "" : condition).toLowerCase();
+  var day = isDay !== false;
+  if (!c) { return rainPct >= 60 ? "rain" : (day ? "cloudy" : "cloudy-night"); }
+  if (/thunder/.test(c)) { return "thunder"; }
+  if (/rain|shower|drizzle/.test(c)) { return "rain"; }
+  if (/snow|sleet|\bice\b/.test(c)) { return "cloudy"; }
+  if (/fog|haze|mist|smoke/.test(c)) { return "fog"; }
+  if (!day) {
+    if (/partly|cloudy|overcast|few clouds/.test(c)) { return "cloudy-night"; }
+    if (/sunny|clear/.test(c)) { return "clear-night"; }
+    return "cloudy-night";
+  }
+  if (/partly|mostly sunny|few clouds/.test(c)) { return "partly-cloudy"; }
+  if (/cloudy|overcast/.test(c)) { return "cloudy"; }
+  if (/sunny|clear/.test(c)) { return "sunny"; }
+  return "cloudy";
+}
+
+function gmWeatherIconLabel(name) {
+  var l = GM_WEATHER_ICON_LABELS[name] || GM_WEATHER_ICON_LABELS["cloud"];
+  return gmT(l[0], l[1]);
+}
+
+function gmWeatherIconHtml(name) {
+  return '<span class="gm-wx-icon" role="img" aria-label="' + escHtml(gmWeatherIconLabel(name)) + '">' + gmIcon("wx-" + name) + '</span>';
+}
+
+// The hour that stands for the whole tile: the current hour for today, the
+// 12:00 hour (or the closest one) for any other date.
+function gmWeatherRepHour(hours, isToday) {
+  if (!hours || !hours.length) { return null; }
+  if (isToday) { return hours[0]; }
+  var best = hours[0], bestGap = 99;
+  hours.forEach(function(h) {
+    var gap = Math.abs(parseInt(String(h.time).slice(0, 2), 10) - 12);
+    if (gap < bestGap) { best = h; bestGap = gap; }
+  });
+  return best;
+}
+
+// The photo for a tile. When the rain verdict says rain, the tile never shows
+// a dry sky, unless it is already rain or thunder.
+function gmWeatherTileSky(rep, verdict) {
+  var sky = rep ? gmWeatherSkyName(rep.condition, rep.is_day, rep.rain_pct) : "cloudy";
+  if (verdict && verdict.rain && sky !== "rain" && sky !== "thunder") { return "rain"; }
+  return sky;
+}
+
+function gmWeatherHourLabel(hhmm, index, isToday) {
+  if (isToday && index === 0) { return gmT("Agora", "Now"); }
+  return gmWeatherClock(hhmm);
+}
+
+function gmWeatherRangeText(from, to) {
+  var f = gmWeatherClock(from), t = gmWeatherClock(to);
+  return gmT(f + " a " + t, f + " to " + t);
+}
+
+function gmWeatherHighLowText(high, low) {
+  var parts = [];
+  if (typeof high === "number") { parts.push(gmT("Máx ", "High ") + Math.round(high) + "°"); }
+  if (typeof low === "number") { parts.push(gmT("Mín ", "Low ") + Math.round(low) + "°"); }
+  return parts.join(" ");
+}
+
+function gmWeatherHighLowHtml(high, low) {
+  var parts = [];
+  if (typeof high === "number") {
+    parts.push('<span class="gm-wx-hi' + (Math.round(high) >= 90 ? ' gm-wx-hot' : '') + '">' + escHtml(gmT("Máx ", "High ") + Math.round(high) + "°") + '</span>');
+  }
+  if (typeof low === "number") { parts.push('<span class="gm-wx-lo">' + escHtml(gmT("Mín ", "Low ") + Math.round(low) + "°") + '</span>'); }
+  return parts.length ? '<div class="gm-wx-hl">' + parts.join(" ") + '</div>' : "";
+}
+
+function gmWeatherCardTitle(dateStr, todayStr) {
+  return dateStr === todayStr ? gmT("Chuva por obra hoje", "Rain by site today") : gmT("Chuva por obra", "Rain by site");
+}
+
+function gmWeatherTileKey(title, dateStr) {
+  return String(title == null ? "" : title) + "|" + dateStr;
+}
+
+function gmWeatherTileIsOpen(key) {
+  return gmWeatherTileOpen[key] === true;
+}
+
+function gmWeatherTileToggle(key) {
+  gmWeatherTileOpen[key] = !gmWeatherTileIsOpen(key);
+}
+
+function gmWeatherHoursButtonHtml(open) {
+  return '<button type="button" class="gm-wx-hours" aria-expanded="' + (open ? "true" : "false") + '" aria-label="' +
+    escHtml(open ? gmT("Esconder horas", "Hide hours") : gmT("Mostrar horas", "Show hours")) + '">' +
+    '<span>' + escHtml(gmT("Horas", "Hours")) + '</span>' + gmIcon("chevron") + '</button>';
+}
+
+function gmWeatherCellsHtml(hours, isToday) {
+  return hours.slice(0, 24).map(function(h, i) {
+    var pct = typeof h.rain_pct === "number" ? Math.round(h.rain_pct) : 0;
+    return '<div class="gm-wx-cell">' +
+      '<span class="gm-wx-cell-time">' + escHtml(gmWeatherHourLabel(h.time, i, isToday)) + '</span>' +
+      gmWeatherIconHtml(gmWeatherIconName(h.condition, h.is_day, pct)) +
+      '<span class="gm-wx-cell-temp">' + (typeof h.temp_f === "number" ? Math.round(h.temp_f) + "°" : escHtml(gmT("s/d", "n/a"))) + '</span>' +
+      '<span class="gm-wx-cell-rain' + (pct >= GM_WEATHER_RAIN_PCT_FRONTEND_THRESHOLD ? ' gm-wx-rain-on' : '') + '">' + pct + '%</span>' +
+      '</div>';
+  }).join("");
+}
+
+function gmWeatherApproxHtml(approx) {
+  return approx ? '<div class="gm-wx-approx">' + escHtml(gmT("Local aproximado", "Approximate location")) + '</div>' : "";
+}
+
+// o: { key, name, hours, high_f, low_f, isToday, rain, rainText, approx, button, extraHtml }
+function gmWeatherOpenTileHtml(o) {
+  var rep = gmWeatherRepHour(o.hours, o.isToday);
+  var sky = gmWeatherTileSky(rep, { rain: o.rain });
+  var iconName = rep ? gmWeatherIconName(rep.condition, rep.is_day, rep.rain_pct) : "cloud";
+  if (sky === "rain" && iconName !== "rain" && iconName !== "storm") { iconName = "rain"; }
+  var big = rep && typeof rep.temp_f === "number" ? Math.round(rep.temp_f) + "°" : "";
+  return '<div class="gm-wx-tile gm-wx-open gm-wx-sky-' + sky + '"' + (o.key != null ? ' data-wx-key="' + escHtml(o.key) + '"' : '') + '>' +
+    '<div class="gm-wx-head">' +
+      '<div class="gm-wx-name">' + escHtml(o.name) + '</div>' +
+      (big ? '<div class="gm-wx-big">' + big + '</div>' : '') +
+      '<div class="gm-wx-cond">' + gmWeatherIconHtml(iconName) + '<span>' + escHtml(gmWeatherIconLabel(iconName)) + '</span></div>' +
+      gmWeatherHighLowHtml(o.high_f, o.low_f) +
+      '<div class="gm-wx-rain">' + escHtml(o.rainText) + '</div>' +
+      gmWeatherApproxHtml(o.approx) +
+    '</div>' +
+    (o.hours.length ?
+      '<div class="gm-wx-glass">' +
+        '<div class="gm-wx-glass-title">' + escHtml(gmT("Previsão por hora", "Hourly forecast")) + '</div>' +
+        '<div class="gm-wx-strip" tabindex="0" role="group" aria-label="' + escHtml(gmT("Previsão por hora, deslize para o lado", "Hourly forecast, slide sideways")) + '">' +
+          gmWeatherCellsHtml(o.hours, o.isToday) +
+        '</div>' +
+      '</div>' : '') +
+    (o.extraHtml || '') +
+    (o.button ? gmWeatherHoursButtonHtml(true) : '') +
+    '</div>';
+}
+
+function gmWeatherClosedTileHtml(o) {
+  var rep = gmWeatherRepHour(o.hours, o.isToday);
+  var sky = gmWeatherTileSky(rep, { rain: o.rain });
+  var iconName = rep ? gmWeatherIconName(rep.condition, rep.is_day, rep.rain_pct) : "cloud";
+  if (sky === "rain" && iconName !== "rain" && iconName !== "storm") { iconName = "rain"; }
+  return '<div class="gm-wx-tile gm-wx-closed gm-wx-sky-' + sky + '" data-wx-key="' + escHtml(o.key) + '">' +
+    '<div class="gm-wx-name">' + escHtml(o.name) + '</div>' +
+    gmWeatherIconHtml(iconName) +
+    gmWeatherHighLowHtml(o.high_f, o.low_f) +
+    '<div class="gm-wx-rain">' + escHtml(o.rainText) + '</div>' +
+    gmWeatherApproxHtml(o.approx) +
+    gmWeatherHoursButtonHtml(false) +
+    '</div>';
+}
+
+function gmWeatherNoForecastTileHtml(name) {
+  return '<div class="gm-wx-tile gm-wx-none"><div class="gm-wx-name">' + escHtml(name) + '</div>' +
+    '<div class="gm-wx-rain">' + escHtml(gmT("Sem previsão", "No forecast")) + '</div></div>';
+}
+
+// The whole "Rain by site" card for one day. Pure: returns HTML, "" when no
+// site is banded on that date.
+function gmWeatherDayCardHtml(dateStr, events, todayStr) {
+  var isToday = dateStr === todayStr;
+  var sites = (events || []).filter(function(ev) { return ev.kind === "band" && ev.date === dateStr; });
+  if (!sites.length) { return ""; }
+  var tiles = sites.map(function(ev) {
+    var v = ev.rain_verdict;
+    var name = ev.title || "";
+    if (!v || !v.hours || !v.hours.length) { return gmWeatherNoForecastTileHtml(name); }
+    var key = gmWeatherTileKey(name, dateStr);
+    var o = {
+      key: key, name: name, hours: v.hours, high_f: v.high_f, low_f: v.low_f, isToday: isToday,
+      rain: v.rain === true,
+      rainText: v.rain ? gmT("Chuva ", "Rain ") + gmWeatherRangeText(v.from, v.to) : gmT("Sem chuva", "No rain"),
+      approx: !!ev.approx_location, button: true
+    };
+    return gmWeatherTileIsOpen(key) ? gmWeatherOpenTileHtml(o) : gmWeatherClosedTileHtml(o);
+  }).join("");
+  return '<div class="content-card gm-cal-day-weather">' +
+    '<div class="card-title">' + escHtml(gmWeatherCardTitle(dateStr, todayStr)) + '</div>' +
+    '<div class="gm-wx-grid">' + tiles + '</div>' +
+    '</div>';
+}
+
+// The project weather card: the open tile, always open, with no Hours button.
+function gmWeatherJobCardHtml(forecast, approx) {
+  var rain = !!forecast.today_rain_window;
+  var tw = forecast.tomorrow_rain_window;
+  var tomorrowLine = tw
+    ? gmT("Amanhã: chuva provável ", "Tomorrow: rain likely ") + gmWeatherRangeText(tw.from, tw.to)
+    : gmT("Amanhã: sem chuva prevista", "Tomorrow: no rain expected");
+  return gmWeatherOpenTileHtml({
+    key: null, name: gmT("Previsão do tempo", "Weather outlook"), hours: forecast.today || [],
+    high_f: forecast.high_f, low_f: forecast.low_f, isToday: true, rain: rain,
+    rainText: rain ? gmT("Chuva provável ", "Rain likely ") + gmWeatherRangeText(forecast.today_rain_window.from, forecast.today_rain_window.to) : gmT("Sem chuva hoje", "No rain today"),
+    approx: !!approx, button: false,
+    extraHtml: '<p class="gm-wx-tomorrow">' + escHtml(tomorrowLine) + '</p>'
+  });
 }
 
 function gmRenderJobWeather(jobId) {
@@ -8377,18 +8604,7 @@ function gmRenderJobWeather(jobId) {
   if (!box) { return; }
   var d = gmJobWeather[jobId];
   if (!d || !d.available || !d.forecast) { box.innerHTML = ""; return; }
-  var forecast = d.forecast;
-  var tomorrowLine = forecast.tomorrow_rain_window
-    ? gmT("Amanhã: chuva provável " + gmWeatherClock(forecast.tomorrow_rain_window.from) + "–" + gmWeatherClock(forecast.tomorrow_rain_window.to),
-          "Tomorrow: rain likely " + gmWeatherClock(forecast.tomorrow_rain_window.from) + "–" + gmWeatherClock(forecast.tomorrow_rain_window.to))
-    : gmT("Amanhã: sem chuva prevista", "Tomorrow: no rain expected");
-  box.innerHTML = '<div class="content-card">' +
-    '<div class="card-title">' + escHtml(gmT("Previsão do tempo", "Weather outlook")) + '</div>' +
-    gmWeatherVerdictLineHtml(forecast) +
-    (forecast.today.length ? gmWeatherHourStripHtml(forecast.today) : "") +
-    '<p class="muted" style="margin:8px 0 0;font-size:12px;">' + escHtml(tomorrowLine) + '</p>' +
-    (d.approx_location ? '<p class="muted" style="margin:4px 0 0;font-size:12px;">' + escHtml(gmT("Local aproximado", "Approximate location")) + '</p>' : "") +
-    '</div>';
+  box.innerHTML = gmWeatherJobCardHtml(d.forecast, d.approx_location);
 }
 
 function gmLoadJobPhotos(jobId) {
@@ -10084,24 +10300,31 @@ function gmCalChip(ev) {
 function gmCalRenderDayWeather(dateStr, events) {
   var host = document.getElementById("gmCalDayWeather");
   if (!host) { return; }
-  var sites = (events || []).filter(function(ev) { return ev.kind === "band" && ev.date === dateStr; });
-  if (!sites.length) { host.innerHTML = ""; return; }
-  host.innerHTML = '<div class="content-card gm-cal-day-weather">' +
-    '<div class="card-title">' + escHtml(gmT("Chuva por obra hoje", "Rain by site today")) + '</div>' +
-    sites.map(function(ev) {
-      var v = ev.rain_verdict;
-      var dotCls = v ? (v.rain ? "gm-cal-rain-dot-rain" : "gm-cal-rain-dot-clear") : "gm-cal-rain-dot-unknown";
-      var text = !v ? gmT("Sem previsão", "No forecast") :
-        v.rain ? gmT("Chuva " + gmWeatherClock(v.from) + "–" + gmWeatherClock(v.to), "Rain " + gmWeatherClock(v.from) + "–" + gmWeatherClock(v.to)) :
-        gmT("Sem chuva", "No rain");
-      return '<div class="gm-cal-rain-row">' +
-        '<span class="gm-cal-rain-dot ' + dotCls + '"></span>' +
-        '<span class="gm-cal-rain-name">' + escHtml(ev.title || "") + '</span>' +
-        '<span class="gm-cal-rain-text">' + escHtml(text) + '</span>' +
-        (v && ev.approx_location ? '<span class="gm-cal-rain-text">' + escHtml(gmT("Local aproximado", "Approximate location")) + '</span>' : "") +
-        '</div>';
-    }).join("") +
-    '</div>';
+  gmWeatherLastDay = { dateStr: dateStr, events: events };
+  host.innerHTML = gmWeatherDayCardHtml(dateStr, events, localDateStr());
+  host.onclick = gmCalWeatherClick;
+}
+
+// A tap on a tile (the Hours button or the tile itself) opens or closes it. A
+// tap inside the hourly panel does nothing, so sliding the strip never closes
+// the tile. Focus goes back to the Hours button after the redraw.
+function gmCalWeatherClick(e) {
+  var t = e && e.target;
+  if (!t || !t.closest || t.closest(".gm-wx-glass")) { return; }
+  var tile = t.closest(".gm-wx-tile");
+  var key = tile ? tile.getAttribute("data-wx-key") : null;
+  if (key === null || !gmWeatherLastDay) { return; }
+  gmWeatherTileToggle(key);
+  gmCalRenderDayWeather(gmWeatherLastDay.dateStr, gmWeatherLastDay.events);
+  var host = document.getElementById("gmCalDayWeather");
+  if (!host) { return; }
+  var tiles = host.querySelectorAll(".gm-wx-tile[data-wx-key]");
+  for (var i = 0; i < tiles.length; i++) {
+    if (tiles[i].getAttribute("data-wx-key") === key) {
+      var btn = tiles[i].querySelector(".gm-wx-hours");
+      if (btn) { btn.focus(); }
+    }
+  }
 }
 
 // A visit booked through the online booking page lands twice: as the calendar

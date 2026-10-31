@@ -6104,8 +6104,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Leia o cartão de previsão do tempo. Em um projeto Em andamento, role até Previsão do tempo. A linha (1) diz Chuva provável, com as horas, ou Sem chuva hoje. A faixa (2) mostra as próximas horas de hoje: a hora, a temperatura em graus Fahrenheit e a chance de chuva. Uma chance de 40 por cento ou mais aparece destacada. A linha (3) diz se é esperada chuva amanhã. O cartão só aparece em um projeto Em andamento cujo lead tem um endereço que o Apex achou no mapa. O vendedor não o vê.",
-                "en": "Read the weather card. On a project that is In progress, scroll down to Weather outlook. The line (1) says Rain likely, with the hours, or No rain today. The strip (2) shows the next hours of today: the time, the temperature in degrees Fahrenheit, and the chance of rain. A chance of 40 percent or more is highlighted. The line (3) says if rain is expected tomorrow. The card shows only for a project that is In progress and whose lead has an address that Apex found on the map. A salesperson does not see it."
+                "pt": "Leia o cartão de previsão do tempo. Em um projeto Em andamento, role até Previsão do tempo. O cartão tem uma foto do céu, a temperatura de agora grande, a máxima e a mínima do dia, e a linha (1) que diz Chuva provável, com as horas, ou Sem chuva hoje. Dentro do vidro (2) há uma faixa com as próximas horas de hoje, que você desliza para o lado: a hora, o ícone, a temperatura em graus Fahrenheit e a chance de chuva em cada hora. Uma chance de 40 por cento ou mais aparece em negrito. A linha (3) diz se é esperada chuva amanhã. O cartão só aparece em um projeto Em andamento cujo lead tem um endereço que o Apex achou no mapa. O vendedor não o vê.",
+                "en": "Read the weather card. On a project that is In progress, scroll down to Weather outlook. The card has a sky photo, a big temperature for now, the high and low for the day, and the line (1) that says Rain likely, with the hours, or No rain today. Inside the glass panel (2) there is a strip with the next hours of today, which you slide sideways: the time, the icon, the temperature in degrees Fahrenheit and the chance of rain for every hour. A chance of 40 percent or more is bold. The line (3) says if rain is expected tomorrow. The card shows only for a project that is In progress and whose lead has an address that Apex found on the map. A salesperson does not see it."
               },
               "image": {
                 "en": "help/img/guides/projects/weather-01.en.jpg",
@@ -6117,6 +6117,13 @@
               "text": {
                 "pt": "Se a previsão do tempo não aparecer em um projeto, confira como o endereço foi digitado. Alguns endereços antigos foram salvos sem o CEP, e sem o CEP o Apex pode não achar o local no mapa. Abra o lead do projeto, veja se a rua, a cidade, o estado e o CEP estão preenchidos e corrija o que faltar. Ao salvar, o Apex avisa se achou o endereço exato, um local aproximado pelo CEP ou pela cidade, ou nada. Quando o local é aproximado, o cartão mostra a nota Local aproximado.",
                 "en": "If the weather does not show on a project, double check how the address was entered. Some older addresses were saved without the ZIP code, and without the ZIP code Apex may not find the place on the map. Open the project's lead, check that the street, city, state and ZIP code are all filled in, and correct anything missing. When you save, Apex tells you if it found the exact address, an approximate place by ZIP code or by city, or nothing. When the place is approximate, the card shows the note Approximate location."
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Veja a previsão de todas as obras de um dia. Abra Agenda e toque em Dia. Cada obra ativa naquele dia é um quadrado com uma foto do céu, um ícone do tempo e a máxima e a mínima do dia. Toque em Horas (1) no quadrado para abrir. Ele ocupa a linha inteira e mostra a previsão por hora: deslize a faixa para o lado para ver o ícone, a temperatura e a chance de chuva de cada hora. Toque em Horas de novo para fechar.",
+                "en": "See the forecast for every site on one day. Open Calendar and tap Day. Each site that is active that day is a square tile with a sky photo, a weather icon, and the high and low for the day. Tap Hours (1) on the tile to open it. It takes the whole line and shows the hour by hour forecast: slide the strip sideways to see the icon, the temperature and the chance of rain for each hour. Tap Hours again to close it."
               }
             }
           ]

@@ -478,20 +478,89 @@
   font-size: 13px; font-weight: 800; color: var(--text);
   margin: 0 0 14px 2px;
 }
-/* Weather card (Job 4) -- today's hourly rain outlook per project. */
-.gm-weather-verdict { font-weight: 700; margin: 0 0 10px; }
-.gm-weather-strip {
-  display: flex; gap: 10px; overflow-x: auto; padding: 2px 0 6px;
-  -webkit-overflow-scrolling: touch;
+/* Weather tile (Apple Weather look, Nicole's exception: 24px corners, one
+   frosted panel, a photo, one sideways strip). Used by the Calendar Day view
+   and by the project weather card. Nothing moves: a working screen. */
+.gm-wx-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (min-width: 640px) { .gm-wx-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 960px) { .gm-wx-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.gm-wx-tile {
+  position: relative; isolation: isolate; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  aspect-ratio: 1 / 1; padding: 10px; border-radius: 24px;
+  background-color: #2c3642; background-size: cover; background-position: center; background-repeat: no-repeat;
+  color: #fff; font-family: 'Inter', sans-serif; text-align: left;
 }
-.gm-weather-hour {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  flex: 0 0 auto; min-width: 42px; font-size: 12px;
+.gm-wx-tile::before { content: ""; position: absolute; inset: 0; z-index: 0; border-radius: inherit; background: rgba(0, 0, 0, 0.45); }
+.gm-wx-tile > * { position: relative; z-index: 1; max-width: 100%; flex-shrink: 0; }
+.gm-wx-closed { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.gm-wx-none { background-color: #2b2d31; background-image: none; }
+.gm-wx-none::before { display: none; }
+.gm-wx-open { grid-column: 1 / -1; aspect-ratio: auto; padding: 16px; gap: 8px; }
+.gm-wx-open .gm-wx-glass { align-self: stretch; }
+.gm-wx-sky-sunny { background-image: url(assets/weather/sunny.jpg); }
+.gm-wx-sky-partly-cloudy { background-image: url(assets/weather/partly-cloudy.jpg); }
+.gm-wx-sky-cloudy { background-image: url(assets/weather/cloudy.jpg); }
+.gm-wx-sky-rain { background-image: url(assets/weather/rain.jpg); }
+.gm-wx-sky-thunder { background-image: url(assets/weather/thunder.jpg); }
+.gm-wx-sky-fog { background-image: url(assets/weather/fog.jpg); }
+.gm-wx-sky-clear-night { background-image: url(assets/weather/clear-night.jpg); }
+.gm-wx-sky-cloudy-night { background-image: url(assets/weather/cloudy-night.jpg); }
+.gm-wx-name {
+  font-size: 13px; line-height: 1.2; font-weight: 700; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
-.gm-weather-hour-time { color: var(--muted); font-size: 11px; }
-.gm-weather-hour-temp { font-weight: 700; }
-.gm-weather-hour-rain { color: var(--muted); font-size: 11px; }
-.gm-weather-hour-rain.gm-weather-rain-on { color: #1f6fd6; font-weight: 700; }
+.gm-wx-open .gm-wx-name { font-size: 15px; }
+.gm-wx-icon { display: inline-flex; flex: 0 0 auto; color: #fff; }
+.gm-wx-icon svg { width: 28px; height: 28px; }
+.gm-wx-hl { font-size: 14px; font-weight: 500; line-height: 1.25; }
+.gm-wx-hot { font-weight: 800; }
+.gm-wx-rain { font-size: 13px; line-height: 1.25; }
+.gm-wx-approx { font-size: 12px; line-height: 1.25; }
+.gm-wx-hours {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-width: 44px; min-height: 44px; margin-top: auto; padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.75); border-radius: 22px;
+  background: rgba(0, 0, 0, 0.3); color: #fff;
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.gm-wx-hours svg { width: 16px; height: 16px; transform: rotate(90deg); }
+.gm-wx-hours[aria-expanded="true"] svg { transform: rotate(-90deg); }
+.gm-wx-hours:hover { background: rgba(255, 255, 255, 0.22); }
+.gm-wx-hours:active { background: rgba(255, 255, 255, 0.34); }
+.gm-wx-hours:focus-visible, .gm-wx-strip:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.gm-wx-big { font-size: 64px; line-height: 1; font-weight: 200; letter-spacing: -1px; }
+.gm-wx-cond { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
+.gm-wx-cond .gm-wx-icon svg { width: 24px; height: 24px; }
+.gm-wx-tomorrow { margin: 0; font-size: 13px; line-height: 1.25; }
+.gm-wx-glass {
+  width: 100%; box-sizing: border-box; margin-top: 4px; padding: 12px 0 8px 12px; border-radius: 18px;
+  background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.28);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .gm-wx-glass { background: rgba(0, 0, 0, 0.55); }
+}
+.gm-wx-glass-title { padding-right: 12px; margin-bottom: 8px; font-size: 12px; font-weight: 700; }
+.gm-wx-strip {
+  display: flex; gap: 6px; overflow-x: auto; padding: 0 12px 8px 0;
+  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.8) rgba(255, 255, 255, 0.2);
+}
+.gm-wx-strip::-webkit-scrollbar { height: 6px; }
+.gm-wx-strip::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.2); border-radius: 3px; }
+.gm-wx-strip::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.8); border-radius: 3px; }
+.gm-wx-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  flex: 0 0 clamp(64px, calc((100% - 18px) / 3.5), 84px); min-width: 64px; scroll-snap-align: start; font-size: 12px;
+}
+.gm-wx-cell-time { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.gm-wx-cell .gm-wx-icon svg { width: 24px; height: 24px; }
+.gm-wx-cell-temp { font-size: 15px; font-weight: 600; }
+.gm-wx-cell-rain { font-size: 12px; }
+.gm-wx-cell-rain.gm-wx-rain-on { font-weight: 800; color: #b3d6ff; }
+/* End weather tile */
 .gm-sheet-row, .gm-partner-row {
   display: flex; align-items: center; gap: 12px;
   width: 100%; min-height: 56px; padding: 11px 13px;
@@ -823,21 +892,8 @@
 }
 .gm-cal-view-btn.active { border-color: var(--gold); background: var(--gold); color: #1a1a1a; }
 
-/* Per-site rain overview, Day view only (Job 4, piece B). */
+/* Per-site rain overview, Day view only (Job 4, piece B): see Weather tile below. */
 .gm-cal-day-weather { margin-top: 12px; }
-.gm-cal-rain-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 0; border-bottom: 1px solid var(--border);
-}
-.gm-cal-rain-row:last-child { border-bottom: none; }
-.gm-cal-rain-dot {
-  width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto;
-}
-.gm-cal-rain-dot-clear { background: #2e9e4f; }
-.gm-cal-rain-dot-rain { background: #1f6fd6; }
-.gm-cal-rain-dot-unknown { background: var(--border); }
-.gm-cal-rain-name { font-weight: 700; flex: 1; min-width: 0; }
-.gm-cal-rain-text { color: var(--muted); font-size: 13px; }
 
 /* Three chip styles carry three different meanings; say so once. */
 .gm-cal-legend {

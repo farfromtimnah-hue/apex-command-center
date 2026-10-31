@@ -23826,19 +23826,38 @@ async function geocodeOneLine(line) {
     if (!line) { return { lat: null, lon: null }; }
     var url = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?" +
         "address=" + encodeURIComponent(line) + "&benchmark=Public_AR_Current&format=json";
-    try {
-        var res = await fetch(url);
-        if (!res.ok) { return { lat: null, lon: null }; }
-        var data = await res.json();
-        var matches = data && data.result && data.result.addressMatches;
-        if (!matches || !matches.length) { return { lat: null, lon: null }; }
-        var coords = matches[0].coordinates;
-        if (!coords || typeof coords.y !== "number" || typeof coords.x !== "number") { return { lat: null, lon: null }; }
-        return { lat: coords.y, lon: coords.x };
-    } catch (e) {
-        return { lat: null, lon: null };
+    // One try, 5 seconds at most. A thrown error, a non-OK answer and an empty
+    // match list all count as "nothing" (null); the caller tries once more.
+    async function attempt() {
+        var ctl = new AbortController();
+        var timer = setTimeout(function() { ctl.abort(); }, GEO_CENSUS_TIMEOUT_MS);
+        try {
+            var res = await fetch(url, { signal: ctl.signal });
+            if (!res.ok) { return null; }
+            var data = await res.json();
+            var matches = data && data.result && data.result.addressMatches;
+            if (!matches || !matches.length) { return null; }
+            var coords = matches[0].coordinates;
+            if (!coords || typeof coords.y !== "number" || typeof coords.x !== "number") { return null; }
+            return { lat: coords.y, lon: coords.x };
+        } catch (e) {
+            return null;
+        } finally {
+            clearTimeout(timer);
+        }
     }
+    // Quick repeated edits sometimes get an empty answer from the Census
+    // service: wait a moment and ask once more, never a third time.
+    var found = await attempt();
+    if (!found) {
+        await new Promise(function(r) { setTimeout(r, GEO_CENSUS_RETRY_WAIT_MS); });
+        found = await attempt();
+    }
+    return found || { lat: null, lon: null };
 }
+
+var GEO_CENSUS_TIMEOUT_MS = 5000;
+var GEO_CENSUS_RETRY_WAIT_MS = 600;
 
 var GEO_FETCH_TIMEOUT_MS = 3000;
 var GEO_ZIP_MAP = null;
@@ -27896,11 +27915,34 @@ function gmWeatherHighLow(hours) {
     return { high_f: Math.round(Math.max.apply(null, temps)), low_f: Math.round(Math.min.apply(null, temps)) };
 }
 
+// The zone the weather is shown in is the VIEWER'S device zone, sent by the
+// browser as ?tz=. It is untrusted: a name shaped like an IANA name (letters,
+// digits, underscore, plus, minus, slash; 64 characters at most) that Intl
+// accepts. Anything else, or nothing, is the business zone. A bad value is
+// never an error and is never logged.
+function gmWeatherZone(tz) {
+    if (typeof tz === "string" && /^[A-Za-z0-9_+\-\/]{1,64}$/.test(tz) && tzIsValid(tz)) { return tz; }
+    return APEX_TIMEZONE;
+}
+
+// Today and the last day worth asking NOAA about (7 days on), as dates in the
+// viewer's zone. `now` is only passed by tests.
+function gmWeatherCalendarWindow(tz, now) {
+    var zone = gmWeatherZone(tz);
+    var today = new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(now || new Date());
+    var horizon = new Date(Date.UTC(
+        parseInt(today.slice(0, 4), 10),
+        parseInt(today.slice(5, 7), 10) - 1,
+        parseInt(today.slice(8, 10), 10) + 7
+    )).toISOString().slice(0, 10);
+    return { today: today, horizon: horizon };
+}
+
 // Returns { today: [{time,temp_f,condition,is_day,rain_pct}, ...], today_rain_window, high_f, low_f,
 // tomorrow_summary } for the remaining hours of the LOCAL day, or null if the
 // forecast could not be fetched (never throws -- a weather card that cannot
 // load simply does not render).
-async function getHourlyForecast(lat, lon, env) {
+async function getHourlyForecast(lat, lon, env, tz, now) {
     try {
         var pointsRes = await gmWeatherFetch("https://api.weather.gov/points/" + lat + "," + lon);
         if (!pointsRes.ok) { return null; }
@@ -27913,13 +27955,17 @@ async function getHourlyForecast(lat, lon, env) {
         var periods = (hourly && hourly.properties && hourly.properties.periods) || [];
         if (!periods.length) { return null; }
 
-        var todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: APEX_TIMEZONE }).format(new Date());
-        var nowHour = Number(new Intl.DateTimeFormat("en-US", { timeZone: APEX_TIMEZONE, hour: "numeric", hour12: false }).format(new Date()));
+        var zone = gmWeatherZone(tz);
+        var nowAt = now instanceof Date ? now : new Date();
+        var todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(nowAt);
 
         var today = [], tomorrowPeriods = [];
         periods.forEach(function(p) {
-            var local = new Intl.DateTimeFormat("en-CA", { timeZone: APEX_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(p.startTime));
-            var hourLocal = Number(new Intl.DateTimeFormat("en-US", { timeZone: APEX_TIMEZONE, hour: "numeric", hour12: false }).format(new Date(p.startTime)));
+            var local = new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(p.startTime));
+            var hourLocal = Number(new Intl.DateTimeFormat("en-US", { timeZone: zone, hour: "numeric", hourCycle: "h23" }).format(new Date(p.startTime)));
+            // From the current hour on, by the real instant: on the night the
+            // clocks go back, the same wall clock hour happens twice.
+            var notOver = new Date(p.startTime).getTime() + 3600000 > nowAt.getTime();
             var entry = {
                 time: (hourLocal < 10 ? "0" + hourLocal : "" + hourLocal) + ":00",
                 temp_f: typeof p.temperature === "number" ? p.temperature : null,
@@ -27927,7 +27973,7 @@ async function getHourlyForecast(lat, lon, env) {
                 is_day: p.isDaytime !== false,
                 rain_pct: gmWeatherPct(p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value)
             };
-            if (local === todayStr && hourLocal >= nowHour) { today.push(entry); }
+            if (local === todayStr && notOver) { today.push(entry); }
             else if (local !== todayStr && tomorrowPeriods.length < 24 && today.length > 0) { tomorrowPeriods.push(entry); }
         });
 
@@ -27958,7 +28004,7 @@ function gmWeatherVerdict(forecast) {
 // the NWS hourly window (today through ~6 days out). Past a date the hourly
 // forecast does not reach, returns null -- the day simply shows no
 // indicator rather than a stale or made-up one.
-async function gmWeatherDayVerdict(lat, lon, dateStr) {
+async function gmWeatherDayVerdict(lat, lon, dateStr, tz, now) {
     try {
         var pointsRes = await gmWeatherFetch("https://api.weather.gov/points/" + lat + "," + lon);
         if (!pointsRes.ok) { return null; }
@@ -27971,11 +28017,12 @@ async function gmWeatherDayVerdict(lat, lon, dateStr) {
         var periods = (hourly && hourly.properties && hourly.properties.periods) || [];
         if (!periods.length) { return null; }
 
+        var zone = gmWeatherZone(tz);
         var dayHours = [];
         periods.forEach(function(p) {
-            var local = new Intl.DateTimeFormat("en-CA", { timeZone: APEX_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(p.startTime));
+            var local = new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(p.startTime));
             if (local !== dateStr) { return; }
-            var hourLocal = Number(new Intl.DateTimeFormat("en-US", { timeZone: APEX_TIMEZONE, hour: "numeric", hour12: false }).format(new Date(p.startTime)));
+            var hourLocal = Number(new Intl.DateTimeFormat("en-US", { timeZone: zone, hour: "numeric", hourCycle: "h23" }).format(new Date(p.startTime)));
             dayHours.push({
                 time: (hourLocal < 10 ? "0" + hourLocal : "" + hourLocal) + ":00",
                 temp_f: typeof p.temperature === "number" ? p.temperature : null,
@@ -28015,7 +28062,7 @@ async function handleGetGmJobWeather(id, jobId, request, env) {
         if (!lead || typeof lead.addr_lat !== "number" || typeof lead.addr_lon !== "number") {
             return jsonOk({ available: false });
         }
-        var forecast = await getHourlyForecast(lead.addr_lat, lead.addr_lon, env);
+        var forecast = await getHourlyForecast(lead.addr_lat, lead.addr_lon, env, gmWeatherZone(new URL(request.url).searchParams.get("tz")));
         if (!forecast) { return jsonOk({ available: false }); }
         return jsonOk({ available: true, forecast: forecast, verdict: gmWeatherVerdict(forecast), approx_location: gmLocationApprox(lead.addr_located) });
     } catch (e) {
@@ -28501,12 +28548,9 @@ async function handleGetGmEvents(id, request, env) {
         // NWS hourly only reaches about a week out -- skip the request
         // entirely for a day past that instead of paying for a call that
         // will just come back null.
-        var weatherHorizon = new Date(Date.UTC(
-            parseInt(localDateStrForTZ().slice(0, 4), 10),
-            parseInt(localDateStrForTZ().slice(5, 7), 10) - 1,
-            parseInt(localDateStrForTZ().slice(8, 10), 10) + 7
-        )).toISOString().slice(0, 10);
-        var weatherToday = localDateStrForTZ();
+        var weatherTz = gmWeatherZone(url.searchParams.get("tz"));
+        var weatherWin = gmWeatherCalendarWindow(weatherTz);
+        var weatherToday = weatherWin.today, weatherHorizon = weatherWin.horizon;
         var weatherPairs = {};
         derived.forEach(function (ev) {
             if (ev.kind === "band" && typeof ev.addr_lat === "number" && typeof ev.addr_lon === "number" &&
@@ -28518,7 +28562,7 @@ async function handleGetGmEvents(id, request, env) {
         if (weatherKeys.length) {
             var verdicts = await Promise.all(weatherKeys.map(function (k) {
                 var p = weatherPairs[k];
-                return gmWeatherDayVerdict(p.lat, p.lon, p.date).catch(function () { return null; });
+                return gmWeatherDayVerdict(p.lat, p.lon, p.date, weatherTz).catch(function () { return null; });
             }));
             var verdictByKey = {};
             weatherKeys.forEach(function (k, i) { verdictByKey[k] = verdicts[i]; });

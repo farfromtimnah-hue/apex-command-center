@@ -13,7 +13,7 @@ const ZIP_CENTERS_V1 = JSON.parse(readFileSync(new URL("../data/geo/zip-centers-
 const TOWN_CENTERS_V1 = JSON.parse(readFileSync(new URL("../data/geo/town-centers-v1.json", import.meta.url), "utf8"));
 
 const FNS = ["geocodeOneLine", "geocodeAddress", "geoZip5", "geoState2", "geoCityClean", "geoLoadCenters", "geoFetchJson", "geoPlacesCenter", "geoZipCenter", "geoTownCenter"];
-const VARS = ["GEO_FETCH_TIMEOUT_MS", "GEO_ZIP_MAP", "GEO_TOWN_MAP"];
+const VARS = ["GEO_CENSUS_TIMEOUT_MS", "GEO_CENSUS_RETRY_WAIT_MS", "GEO_FETCH_TIMEOUT_MS", "GEO_ZIP_MAP", "GEO_TOWN_MAP"];
 
 // calls: every URL requested. census: what the Census one-line geocoder answers.
 // zippo: what api.zippopotam.us answers (a function of the URL) or "fail" modes.
@@ -46,7 +46,7 @@ const zippoCalls = (w) => w.calls.filter((c) => c.indexOf("zippopotam") >= 0).le
   const w = world({});
   const g = await w.F.geocodeAddress({ street: "999 Invented Ct", city: "Tampa", state: "FL", zip: "33647" });
   ok(g.located === "zip" && near(g.lat, 28.11, 0.1) && near(g.lon, -82.37, 0.1), "33647: street unmatched -> located zip near 28.11, -82.37 (got " + g.lat + ", " + g.lon + ")");
-  ok(census(w) === 1 && zippoCalls(w) === 0, "ZIP found in the bundled file: one Census call, no zippopotam call");
+  ok(census(w) === 2 && zippoCalls(w) === 0, "ZIP found in the bundled file: two Census calls (the street is retried once), no zippopotam call");
 }
 // 3. More Florida ZIPs resolve to the right area.
 {

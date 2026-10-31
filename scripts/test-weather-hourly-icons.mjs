@@ -12,7 +12,7 @@ const gmSrc = readFileSync(new URL("../gm.js", import.meta.url), "utf8");
 const cssSrc = readFileSync(new URL("../gm.css", import.meta.url), "utf8");
 
 // ── Worker: hours, high_f, low_f ────────────────────────────────────────────
-const W_FNS = ["gmWeatherRainWindow", "gmWeatherCondText", "gmWeatherPct", "gmWeatherHighLow", "gmWeatherDayVerdict", "getHourlyForecast", "gmWeatherVerdict"];
+const W_FNS = ["gmWeatherRainWindow", "gmWeatherCondText", "gmWeatherPct", "gmWeatherHighLow", "gmWeatherDayVerdict", "getHourlyForecast", "gmWeatherVerdict", "gmWeatherZone", "tzIsValid"];
 function period(iso, temp, cond, day, pct) {
   return { startTime: iso, temperature: temp, shortForecast: cond, isDaytime: day, probabilityOfPrecipitation: { value: pct } };
 }
@@ -150,10 +150,10 @@ ok(!/(\d)\s*(alert|warning|aviso)/i.test(C.gmWeatherHighLowHtml(99, 80)), "no wa
 
 // Card title: today versus another date
 EN = true;
-ok(C.gmWeatherCardTitle("2026-11-01", "2026-11-01") === "Rain by site today", "title today in English");
-ok(C.gmWeatherCardTitle("2026-11-02", "2026-11-01") === "Rain by site", "title another date in English, no word today");
+ok(C.gmWeatherCardTitle("2026-11-01", "2026-11-01") === "Weather today", "title today in English");
+ok(C.gmWeatherCardTitle("2026-11-02", "2026-11-01") === "Weather", "title another date in English, no word today");
 EN = false;
-ok(C.gmWeatherCardTitle("2026-11-01", "2026-11-01") === "Chuva por obra hoje" && C.gmWeatherCardTitle("2026-11-02", "2026-11-01") === "Chuva por obra", "titles in Portuguese");
+ok(C.gmWeatherCardTitle("2026-11-01", "2026-11-01") === "Previsão do tempo hoje" && C.gmWeatherCardTitle("2026-11-02", "2026-11-01") === "Previsão do tempo", "titles in Portuguese");
 
 // Accessible icon names are fixed, never the raw text
 ok(C.gmWeatherIconLabel("rain") === "Chuva" && C.gmWeatherIconLabel("moon") === "Noite limpa" && C.gmWeatherIconLabel("partly-cloudy") === "Parcialmente nublado", "icon labels in Portuguese");
@@ -170,7 +170,7 @@ const evNo = { kind: "band", date: "2026-11-01", title: "No data site", rain_ver
 const evEmpty = { kind: "band", date: "2026-11-01", title: "Empty site", rain_verdict: { rain: false, hours: [], high_f: null, low_f: null } };
 EN = true;
 const closed = C.gmWeatherDayCardHtml("2026-11-01", [ev, evNo, evEmpty], "2026-11-01");
-ok(/Rain by site today/.test(closed), "card title today");
+ok(/Weather today/.test(closed), "card title today");
 ok(/gm-wx-sky-rain/.test(closed), "collapsed tile: first hour is sunny but the verdict says rain, so the tile uses the rain photo");
 ok(/aria-expanded="false"/.test(closed) && /aria-label="Show hours"/.test(closed) && />Hours</.test(closed), "collapsed tile has the Hours button, aria-expanded false, accessible name Show hours");
 ok(/High 91°/.test(closed) && /gm-wx-hot/.test(closed), "collapsed tile shows the high and low, bold at 90 and above");
@@ -203,7 +203,7 @@ ok(open.indexOf("Showers And Thunderstorms") < 0 && open.indexOf("Sunny</") < 0,
 C.gmWeatherTileToggle(key);
 ok(C.gmWeatherTileIsOpen(key) === false, "toggle closes it again");
 const otherDay = C.gmWeatherDayCardHtml("2026-11-02", [Object.assign({}, ev, { date: "2026-11-02" })], "2026-11-01");
-ok(/Rain by site</.test(otherDay) && C.gmWeatherTileIsOpen(C.gmWeatherTileKey(ev.title, "2026-11-02")) === false, "another date: title without today, its own open state");
+ok(/Weather</.test(otherDay) && C.gmWeatherTileIsOpen(C.gmWeatherTileKey(ev.title, "2026-11-02")) === false, "another date: title without today, its own open state");
 ok(C.gmWeatherTileKey("A", "2026-11-01") !== C.gmWeatherTileKey("A", "2026-11-02"), "tile key depends on the date");
 
 // Project card

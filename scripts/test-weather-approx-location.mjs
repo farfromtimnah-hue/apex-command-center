@@ -1,4 +1,4 @@
-// The weather card and "Rain by site today" say so when the pin is a ZIP or
+// The weather card and "Weather today" say so when the pin is a ZIP or
 // town center (addr_located zip/town) rather than the street.
 //
 //   node scripts/test-weather-approx-location.mjs
@@ -12,7 +12,8 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass
 {
   const row = {};
   const env = { DB: { prepare: () => ({ bind: () => ({ first: async () => row.lead }) }) } };
-  const F = build(["handleGetGmJobWeather", "gmLocationApprox"], [], Object.assign({}, baseStubs, {
+  const F = build(["handleGetGmJobWeather", "gmLocationApprox", "gmWeatherZone", "tzIsValid"], [], Object.assign({}, baseStubs, {
+    APEX_TIMEZONE: "America/New_York",
     requireClientAccess: () => true,
     gmOwnedRow: async () => ({ id: "j1", lead_id: "l1" }),
     getHourlyForecast: async () => ({ today: [], today_rain_window: null }),
@@ -20,7 +21,7 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass
   }));
   for (const [located, want] of [["exact", false], ["zip", true], ["town", true], [null, false]]) {
     row.lead = { addr_lat: 28.1, addr_lon: -82.3, addr_located: located };
-    const r = await F.handleGetGmJobWeather("c1", "j1", {}, env);
+    const r = await F.handleGetGmJobWeather("c1", "j1", { url: "https://x.test/api/clients/c1/gm/jobs/j1/weather" }, env);
     ok(r.status === 200 && r.data.approx_location === want, "weather route: addr_located " + located + " -> approx_location " + want);
   }
 }
@@ -35,7 +36,7 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass
 {
   const gm = readFileSync(new URL("../gm.js", import.meta.url), "utf8");
   ok(/d\.approx_location/.test(gm) && /Local aproximado/.test(gm) && /Approximate location/.test(gm), "weather card shows the note in Portuguese and English");
-  ok(/ev\.approx_location/.test(gm), "Rain by site today shows the note for approximate sites");
+  ok(/ev\.approx_location/.test(gm), "Weather today shows the note for approximate sites");
 }
 
 console.log("\n" + pass + " passed, " + fail + " failed");

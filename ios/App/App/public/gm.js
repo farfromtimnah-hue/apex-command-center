@@ -8333,6 +8333,12 @@ function gmConNoticesCardHtml() {
 // re-fetching every image row.
 var gmJobPhotos = {};
 
+// The viewer's device time zone, for the weather requests. The Worker checks
+// it and falls back to its own zone when it is missing or not a real zone.
+function gmDeviceTz() {
+  try { return encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || ""); } catch (e) { return ""; }
+}
+
 // Today's hourly rain outlook (Job 4, piece A). Only renders for a job IN
 // PROGRESS with coordinates on its lead -- a job with neither simply shows
 // no card, and the GET route already answers { available: false } for both
@@ -8340,7 +8346,7 @@ var gmJobPhotos = {};
 var gmJobWeather = {};
 
 function gmLoadJobWeather(jobId) {
-  gmApi("jobs/" + encodeURIComponent(jobId) + "/weather")
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/weather?tz=" + gmDeviceTz())
     .then(function(d) {
       gmJobWeather[jobId] = d;
       gmRenderJobWeather(jobId);
@@ -8479,7 +8485,7 @@ function gmWeatherHighLowHtml(high, low) {
 }
 
 function gmWeatherCardTitle(dateStr, todayStr) {
-  return dateStr === todayStr ? gmT("Chuva por obra hoje", "Rain by site today") : gmT("Chuva por obra", "Rain by site");
+  return dateStr === todayStr ? gmT("Previsão do tempo hoje", "Weather today") : gmT("Previsão do tempo", "Weather");
 }
 
 function gmWeatherTileKey(title, dateStr) {
@@ -8675,7 +8681,7 @@ function gmWeatherNoForecastTileHtml(name) {
     '<div class="gm-wx-rain">' + escHtml(gmT("Sem previsão", "No forecast")) + '</div></div>';
 }
 
-// The whole "Rain by site" card for one day. Pure: returns HTML, "" when no
+// The whole "Weather" card for one day. Pure: returns HTML, "" when no
 // site is banded on that date.
 function gmWeatherDayCardHtml(dateStr, events, todayStr) {
   var isToday = dateStr === todayStr;
@@ -10284,7 +10290,7 @@ function gmLoadCalendar() {
   // not the calendar.
   Promise.all([
     gmLoadConfig(),
-    gmApi("events?month=" + gmCalMonthKey(gmCalMonth)),
+    gmApi("events?month=" + gmCalMonthKey(gmCalMonth) + "&tz=" + gmDeviceTz()),
     gmJobsData  ? Promise.resolve(gmJobsData)  : gmApi("jobs").catch(function() { return null; }),
     gmLeadsData ? Promise.resolve(gmLeadsData) : gmApi("leads").catch(function() { return null; })
   ])

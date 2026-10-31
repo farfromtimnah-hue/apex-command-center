@@ -20,7 +20,7 @@ const FNS = [
   "handlePostGmLead", "handlePutGmLead",
   "gmStr", "gmNum", "gmStageKey"
 ];
-const VARS = ["GEO_FETCH_TIMEOUT_MS", "GEO_ZIP_MAP", "GEO_TOWN_MAP", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "GM_STAGE_DEFS", "GM_STAGES", "GM_ORIGENS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS"];
+const VARS = ["GEO_CENSUS_TIMEOUT_MS", "GEO_CENSUS_RETRY_WAIT_MS", "GEO_FETCH_TIMEOUT_MS", "GEO_ZIP_MAP", "GEO_TOWN_MAP", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "GM_STAGE_DEFS", "GM_STAGES", "GM_ORIGENS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS"];
 
 const LEAD_MIGRATIONS = [
   "migrations/2026-10-14_client_owners_state_city.sql",   // clients.location_state, read for the viewer zone

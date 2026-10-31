@@ -8377,6 +8377,7 @@ function gmRenderJobWeather(jobId) {
     gmWeatherVerdictLineHtml(forecast) +
     (forecast.today.length ? gmWeatherHourStripHtml(forecast.today) : "") +
     '<p class="muted" style="margin:8px 0 0;font-size:12px;">' + escHtml(tomorrowLine) + '</p>' +
+    (d.approx_location ? '<p class="muted" style="margin:4px 0 0;font-size:12px;">' + escHtml(gmT("Local aproximado", "Approximate location")) + '</p>' : "") +
     '</div>';
 }
 
@@ -10087,6 +10088,7 @@ function gmCalRenderDayWeather(dateStr, events) {
         '<span class="gm-cal-rain-dot ' + dotCls + '"></span>' +
         '<span class="gm-cal-rain-name">' + escHtml(ev.title || "") + '</span>' +
         '<span class="gm-cal-rain-text">' + escHtml(text) + '</span>' +
+        (v && ev.approx_location ? '<span class="gm-cal-rain-text">' + escHtml(gmT("Local aproximado", "Approximate location")) + '</span>' : "") +
         '</div>';
     }).join("") +
     '</div>';

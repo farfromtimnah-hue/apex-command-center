@@ -6,6 +6,8 @@ import HERO_GALLERY_PRIVATE_V1 from "../data/hero-gallery-private-v1.json";
 import CONTRACT_STATE_RIDERS_V1 from "../data/contract-state-riders-v1.json";
 import CONTRACT_STATE_CHECKLIST_V1 from "../data/contract-state-checklist-v1.json";
 import HELP_GUIDES_V1 from "../help/guides.json";
+import ZIP_CENTERS_V1 from "../data/geo/zip-centers-v1.json";
+import TOWN_CENTERS_V1 from "../data/geo/town-centers-v1.json";
 import CITIES_BR_AC from "../data/places/cities/BR-AC.json";
 import CITIES_BR_AL from "../data/places/cities/BR-AL.json";
 import CITIES_BR_AM from "../data/places/cities/BR-AM.json";
@@ -23795,22 +23797,30 @@ async function handleGetGmLeads(id, request, env) {
 // Lead geocoding — addr_lat/addr_lon/addr_located (migrations/2026-10-13_lead_geocode.sql,
 // migrations/2026-10-19_lead_geocode_precision.sql).
 //
-// US-only, free, no API key: the Census Bureau's geocoder for every step of
-// the chain. Kept behind this one function so the provider can be swapped
-// later — Apex will need a GLOBAL geocoder once it serves Brazil, at which
-// point swap this to Open-Meteo's geocoding (free, no key, worldwide)
-// WITHOUT changing any caller. Do not wire a second provider now.
+// US-only, free, no API key, no per-request cost.
+//
+// Kept behind this one function so the provider can be swapped later — Apex
+// will need a GLOBAL geocoder once it serves Brazil, at which point swap this
+// to Open-Meteo's geocoding (free, no key, worldwide) WITHOUT changing any
+// caller. Do not wire a second provider now.
 //
 // Fallback chain, each step only tried when the one before it found nothing:
-//   1. "exact"  — the full street address, one-line geocoder.
-//   2. "zip"    — just the ZIP code, one-line geocoder. The Census one-line
-//                 endpoint accepts a bare ZIP and returns that ZCTA's
-//                 centroid, which is exactly "approximate, by ZIP" — no
-//                 separate ZIP-centroid table or service needed.
-//   3. "town"   — city + state, one-line geocoder (no street, no ZIP).
-// Never throws: a failed or no-match geocode returns
-// { lat: null, lon: null, located: null } at every step, and the chain moves
-// to the next one (or gives up) — geocoding must never block a lead save.
+//   1. "exact"  — the full street address, US Census one-line geocoder. That
+//                 endpoint NEEDS a street: a bare ZIP or a city + state makes
+//                 it answer with an empty addressMatches list (tested
+//                 10/31/2026), so it is used for this step only.
+//   2. "zip"    — the ZIP's center, from the bundled US Census ZCTA Gazetteer
+//                 (data/geo/zip-centers-v1.json, public domain). A ZIP missing
+//                 from that file (a newer one) gets one call to
+//                 api.zippopotam.us/us/<zip> (free, no key, 3 second timeout).
+//   3. "town"   — the town's center, from the bundled US Census Places
+//                 Gazetteer (data/geo/town-centers-v1.json, public domain),
+//                 else one call to api.zippopotam.us/us/<state>/<city>. A town
+//                 whose name is ambiguous or unknown gets no coordinates.
+// Steps 2 and 3 are approximate (the weather grid is about 1.5 miles wide, so
+// that is enough for rain timing). Never throws: a failed or no-match geocode
+// returns { lat: null, lon: null, located: null }, and geocoding must never
+// block a lead save. It reads no database and writes none.
 // ---------------------------------------------------------------------------
 async function geocodeOneLine(line) {
     if (!line) { return { lat: null, lon: null }; }
@@ -23830,6 +23840,100 @@ async function geocodeOneLine(line) {
     }
 }
 
+var GEO_FETCH_TIMEOUT_MS = 3000;
+var GEO_ZIP_MAP = null;
+var GEO_TOWN_MAP = null;
+
+// A ZIP is exactly 5 digits; a ZIP+4 is cut to its first 5. Anything else: null.
+function geoZip5(z) {
+    var m = /^(\d{5})(?:-\d{4})?$/.exec(String(z == null ? "" : z).trim());
+    return m ? m[1] : null;
+}
+
+// A state is a 2 letter code (upper-cased); a full name or anything else: null.
+function geoState2(s) {
+    var t = String(s == null ? "" : s).trim().toUpperCase();
+    return /^[A-Z]{2}$/.test(t) ? t : null;
+}
+
+// A city is letters, spaces, apostrophes, periods and hyphens, 60 characters
+// at most; returned lower-cased with single spaces. Anything else: null.
+function geoCityClean(c) {
+    var t = String(c == null ? "" : c).trim().replace(/\s+/g, " ").toLowerCase();
+    return t && t.length <= 60 && /^[\p{L} .'\-]+$/u.test(t) ? t : null;
+}
+
+// "key,lat,lon;key,lat,lon;..." -> Map(key -> [lat, lon]).
+function geoLoadCenters(rows) {
+    var m = new Map();
+    String(rows || "").split(";").forEach(function(r) {
+        var p = r.split(",");
+        var lat = Number(p[1]), lon = Number(p[2]);
+        if (p.length === 3 && isFinite(lat) && isFinite(lon)) { m.set(p[0], [lat, lon]); }
+    });
+    return m;
+}
+
+// The only outside host besides the Census geocoder. The caller builds the URL
+// from a validated ZIP, state and city; a URL for any other host is refused.
+async function geoFetchJson(url) {
+    if (String(url).indexOf("https://api.zippopotam.us/us/") !== 0) { return null; }
+    var ctrl = new AbortController();
+    var timer = setTimeout(function() { ctrl.abort(); }, GEO_FETCH_TIMEOUT_MS);
+    try {
+        var res = await fetch(url, { signal: ctrl.signal });
+        if (!res.ok) { return null; }
+        return await res.json();
+    } catch (e) {
+        return null;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+// The center of a zippopotam "places" list: one point, or the average of
+// several that sit within 0.3 degrees (about 20 miles) of each other. Points
+// further apart mean the name is ambiguous, so: null.
+function geoPlacesCenter(data) {
+    var places = data && Array.isArray(data.places) ? data.places : [];
+    var pts = [];
+    places.forEach(function(p) {
+        var lat = parseFloat(p && p.latitude), lon = parseFloat(p && p.longitude);
+        if (isFinite(lat) && isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) { pts.push([lat, lon]); }
+    });
+    if (!pts.length) { return null; }
+    var lats = pts.map(function(p) { return p[0]; }), lons = pts.map(function(p) { return p[1]; });
+    if (Math.max.apply(null, lats) - Math.min.apply(null, lats) > 0.3 || Math.max.apply(null, lons) - Math.min.apply(null, lons) > 0.3) { return null; }
+    var avg = function(a) { return a.reduce(function(x, y) { return x + y; }, 0) / a.length; };
+    return { lat: Math.round(avg(lats) * 10000) / 10000, lon: Math.round(avg(lons) * 10000) / 10000 };
+}
+
+async function geoZipCenter(zip) {
+    try {
+        var z = geoZip5(zip);
+        if (!z) { return null; }
+        if (!GEO_ZIP_MAP) { GEO_ZIP_MAP = geoLoadCenters(ZIP_CENTERS_V1 && ZIP_CENTERS_V1.rows); }
+        var hit = GEO_ZIP_MAP.get(z);
+        if (hit) { return { lat: hit[0], lon: hit[1] }; }
+        return geoPlacesCenter(await geoFetchJson("https://api.zippopotam.us/us/" + z));
+    } catch (e) {
+        return null;
+    }
+}
+
+async function geoTownCenter(city, state) {
+    try {
+        var c = geoCityClean(city), st = geoState2(state);
+        if (!c || !st) { return null; }
+        if (!GEO_TOWN_MAP) { GEO_TOWN_MAP = geoLoadCenters(TOWN_CENTERS_V1 && TOWN_CENTERS_V1.rows); }
+        var hit = GEO_TOWN_MAP.get(st + "|" + c);
+        if (hit) { return { lat: hit[0], lon: hit[1] }; }
+        return geoPlacesCenter(await geoFetchJson("https://api.zippopotam.us/us/" + st.toLowerCase() + "/" + encodeURIComponent(c)));
+    } catch (e) {
+        return null;
+    }
+}
+
 async function geocodeAddress(parts) {
     var street = parts.street && String(parts.street).trim();
     var city = parts.city && String(parts.city).trim();
@@ -23841,15 +23945,17 @@ async function geocodeAddress(parts) {
         var exact = await geocodeOneLine(full);
         if (exact.lat !== null) { return { lat: exact.lat, lon: exact.lon, located: "exact" }; }
     }
-    if (zip) {
-        var byZip = await geocodeOneLine(zip);
-        if (byZip.lat !== null) { return { lat: byZip.lat, lon: byZip.lon, located: "zip" }; }
-    }
-    if (city || state) {
-        var byTown = await geocodeOneLine([city, state].filter(function(s) { return s; }).join(", "));
-        if (byTown.lat !== null) { return { lat: byTown.lat, lon: byTown.lon, located: "town" }; }
-    }
+    var byZip = await geoZipCenter(zip);
+    if (byZip) { return { lat: byZip.lat, lon: byZip.lon, located: "zip" }; }
+    var byTown = await geoTownCenter(city, state);
+    if (byTown) { return { lat: byTown.lat, lon: byTown.lon, located: "town" }; }
     return { lat: null, lon: null, located: null };
+}
+
+// True when a lead's pin is a ZIP or town center rather than the street
+// (addr_located "zip" or "town"); the screens then say the place is approximate.
+function gmLocationApprox(located) {
+    return located === "zip" || located === "town";
 }
 
 // True when any of the structured address fields present in `f` differ from
@@ -27868,14 +27974,14 @@ async function handleGetGmJobWeather(id, jobId, request, env) {
         var job = await gmOwnedRow(env, "gm_jobs", jobId, id);
         if (!job) { return jsonErr("Job not found", 404); }
         if (!job.lead_id) { return jsonOk({ available: false }); }
-        var lead = await env.DB.prepare("SELECT addr_lat, addr_lon FROM gm_leads WHERE id = ? AND client_id = ?")
+        var lead = await env.DB.prepare("SELECT addr_lat, addr_lon, addr_located FROM gm_leads WHERE id = ? AND client_id = ?")
             .bind(job.lead_id, id).first();
         if (!lead || typeof lead.addr_lat !== "number" || typeof lead.addr_lon !== "number") {
             return jsonOk({ available: false });
         }
         var forecast = await getHourlyForecast(lead.addr_lat, lead.addr_lon, env);
         if (!forecast) { return jsonOk({ available: false }); }
-        return jsonOk({ available: true, forecast: forecast, verdict: gmWeatherVerdict(forecast) });
+        return jsonOk({ available: true, forecast: forecast, verdict: gmWeatherVerdict(forecast), approx_location: gmLocationApprox(lead.addr_located) });
     } catch (e) {
         return jsonErr("Error fetching weather: " + e.message, 500);
     }
@@ -27907,7 +28013,7 @@ async function gmDerivedJobEvents(env, clientId, fromDate, toDate) {
     // comes back -- just with null coordinates, same as before this join.
     var rows = await env.DB.prepare(
         "SELECT j.id, j.obra, j.inicio, j.prazo_previsto, j.entrega_real, j.status, " +
-        "l.addr_lat, l.addr_lon FROM gm_jobs j " +
+        "l.addr_lat, l.addr_lon, l.addr_located FROM gm_jobs j " +
         "LEFT JOIN gm_leads l ON l.id = j.lead_id AND l.client_id = j.client_id " +
         "WHERE j.client_id = ? AND (" +
         "  (j.inicio         IS NOT NULL AND j.inicio         <= ? AND (j.prazo_previsto IS NULL OR j.prazo_previsto >= ?)) OR " +
@@ -27960,7 +28066,9 @@ async function gmDerivedJobEvents(env, clientId, fromDate, toDate) {
                     // after this function returns. Null when the job has no
                     // lead or the lead has no geocoded address yet.
                     addr_lat: typeof j.addr_lat === "number" ? j.addr_lat : null,
-                    addr_lon: typeof j.addr_lon === "number" ? j.addr_lon : null
+                    addr_lon: typeof j.addr_lon === "number" ? j.addr_lon : null,
+                    // True when that pin is a ZIP or town center, not the street.
+                    approx_location: gmLocationApprox(j.addr_located)
                 });
                 // +1 day via plain ISO string arithmetic through a Date — the
                 // range is small (one project's active window) so this is cheap.

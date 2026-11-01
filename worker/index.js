@@ -34831,6 +34831,8 @@ function contractStateList() { return (CONTRACT_STATE_RIDERS_V1.states || []).ma
 // A real two-letter code (50 states or DC), upper case, or null.
 function contractStateCode(v) {
     var code = String(v === null || v === undefined ? "" : v).trim().toUpperCase();
+    // clients.location_state is stored as "US-FL"; take the code after the prefix.
+    if (/^US-/.test(code)) { code = code.slice(3); }
     if (!/^[A-Z]{2}$/.test(code)) { return null; }
     return (CONTRACT_STATE_RIDERS_V1.states || []).some(function(x) { return x.code === code; }) ? code : null;
 }

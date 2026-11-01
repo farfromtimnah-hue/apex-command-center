@@ -6149,7 +6149,7 @@ function gmConSettingsHtml() {
     var sel = opts.filter(function(o) { return o.id === cur; })[0] || null;
     h += '<label class="gm-field-label" for="gmConDef_' + a.id + '">' + escHtml(a.id + " · " + gmConAreaTitle(a)) + '</label>' +
       '<select id="gmConDef_' + a.id + '" class="gm-input" onchange="gmConDraft.defaults[\'' + a.id + '\'] = this.value; gmConRenderDesc(\'' + a.id + '\');">' +
-      '<option value="">' + gmT("— não usar esta área —", "— leave this area out —") + '</option>' +
+      '<option value="">' + gmT("— usar a escolha padrão da Apex —", "— use Apex's standard choice —") + '</option>' +
       opts.map(function(o) { return '<option value="' + escHtml(o.id) + '"' + (o.id === cur ? " selected" : "") + '>' + escHtml(o.id + " · " + gmConOptTitle(o)) + (o.private ? " · " + gmT("sua cláusula", "your clause") : "") + '</option>'; }).join("") + '</select>' +
       '<p class="muted" id="gmConDesc_' + a.id + '" style="margin:-4px 0 10px;font-size:13px;">' + escHtml(sel ? gmConOptDesc(sel) : "") + '</p>';
   });

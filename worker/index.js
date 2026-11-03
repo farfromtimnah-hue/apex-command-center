@@ -60380,10 +60380,13 @@ async function handlePostAdminSealTokens(request, env) {
 async function checkIntegrationHealth(env) {
     var failures = [];
 
+    // Zoho Books is retired (Nicole, 2026-11-03) and is no longer checked. Zoho
+    // Mail (the Resonate mailbox that reads forwarded bills) is in use and
+    // is the one Zoho connection worth an alert. It reuses the Books app keys.
     try {
-        await getZohoAccessToken(env);
+        await getZohoMailAccessToken(env);
     } catch (e) {
-        failures.push("Zoho Books: " + e.message);
+        failures.push("Zoho Mail: " + e.message);
     }
 
     try {

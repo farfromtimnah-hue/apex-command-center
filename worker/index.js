@@ -2,6 +2,9 @@
 import { DurableObject } from "cloudflare:workers";
 
 import HERO_GALLERY_V1 from "../data/hero-gallery-v1.json";
+import WIZARD_V1 from "../data/wizard-v1.json";
+import LICENSE_TABLE_V1 from "../data/license-table-v1.json";
+import { licenseResult, safeFetch, parseSite, sniffImage, normalizeTypedAddress } from "./wizard-core.js";
 import HERO_GALLERY_PRIVATE_V1 from "../data/hero-gallery-private-v1.json";
 import CONTRACT_STATE_RIDERS_V1 from "../data/contract-state-riders-v1.json";
 import CONTRACT_STATE_CHECKLIST_V1 from "../data/contract-state-checklist-v1.json";
@@ -16212,6 +16215,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "doc-settings" || gmRest === "doc-settings/history") { return true; }
                 // Online booking setup (owner only: handler refuses sellers).
                 if (gmRest === "booking-settings") { return true; }
+                if (gmRest === "wizard" || gmRest === "wizard/license" || gmRest === "wizard/logo-proxy") { return true; }
                 // A lead's booking block (the handler scopes a seller to their own leads).
                 if (/^leads\/[A-Za-z0-9-]+\/booking$/.test(gmRest)) { return true; }
                 // Card payments: the owner's own Stripe connection status
@@ -16296,6 +16300,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^contract-own-templates\/[A-Za-z0-9-]+\/reviewed$/.test(gmRest)) { return true; }
                 // Card payments: connect / disconnect the owner's Stripe account.
                 if (gmRest === "stripe/connect" || gmRest === "stripe/disconnect" || gmRest === "stripe/reaccept") { return true; }
+                if (/^wizard\/(website|other-work|finish)$/.test(gmRest)) { return true; }
                 // Tap to Pay (owner only): turn it on/off. The connection
                 // token, payment intent and shared-details routes are owner
                 // OR seller -- see sellerRequestAllowed below, which also
@@ -16376,6 +16381,7 @@ function clientRequestAllowed(path, method, clientId) {
                 // Document settings for the client's own estimates/invoices.
                 if (gmRest === "doc-settings") { return true; }
                 if (gmRest === "booking-settings") { return true; }
+                if (gmRest === "wizard" || /^wizard\/(business|work|hours|how)$/.test(gmRest)) { return true; }
                 // Hero build: pick a gallery hero, or frame an uploaded one
                 // (owner only; the handler refuses sellers too).
                 if (gmRest === "doc-hero-choice") { return true; }
@@ -19356,6 +19362,8 @@ var LOGIN_ROLE_DENY_SETTINGS = [
     { m: "POST", base: /^logo$/ },
     { m: "PUT", base: /^gm\/config$/ },
     { m: "PUT", base: /^gm\/booking-settings$/ },
+    { m: "PUT", base: /^gm\/wizard(\/(business|work|hours|how))?$/ },
+    { m: "POST", base: /^gm\/wizard\/(website|other-work|finish)$/ },
     // Estimates > Settings: document settings and branding, contract settings.
     { m: "PUT", base: /^gm\/doc-settings$/ },
     { m: "PUT", base: /^gm\/doc-hero-choice$/ },
@@ -30273,7 +30281,8 @@ async function handlePutGmDocSettings(id, request, env) {
             fieldErrors.license_not_required = { pt: GM_LICENSE_NEEDED_PT, en: GM_LICENSE_NEEDED_EN };
         }
         var licenseOk = licensesAfter.length > 0 || lnrAfter === 1;
-        var completing = !cur.setup_completed_at && licenseOk;
+        // The setup wizard saves as it goes; only its Start button completes setup (POST gm/wizard/finish).
+        var completing = !cur.setup_completed_at && licenseOk && body.wizard_draft !== true;
 
         var actor = actorName(user);
         var changes = [];
@@ -32550,7 +32559,7 @@ async function handlePostGmEstimateSignRequest(id, estId, request, env) {
         var body = {};
         try { body = await request.json(); } catch (e0) { body = {}; }
         var cs = await contractSettingsRow(env, id);
-        if (!cs.trades.length || !(cs.owner_signer_name || (cs.signers || []).length)) { return jsonErr2("Configure o contrato primeiro (ofícios e quem assina) em Estimates > Configurações.", "Set up the contract settings first (trades, signers) under Estimates > Settings", 400); }
+        if (!cs.trades.length || !(cs.owner_signer_name || (cs.signers || []).length)) { return jsonErr2("Configure o contrato primeiro (ofícios e quem assina) em Estimates > Configurações.", "Set up the contract settings first (trades, signers) under Estimates > Settings", 400, { code: "no_contract_settings" }); }
         var extra = gmEstFlowExtra(body);
         var plan = await gmEstContractPlan(env, id, est, extra);
         if (!plan.ready) { return await gmEstContractPrecheck(env, id, est, extra); }
@@ -56946,6 +56955,440 @@ function bsRoute(path, method, request, env) {
     return null;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SETUP WIZARD (branch setup-wizard). Guided setup, section by section.
+// Every answer is written to the place the app already keeps it (document
+// settings, contract settings, booking settings); the wizard keeps only its
+// own place (stage, version stamp, answers with no other home) in
+// gm_wizard_state. All routes are owner only. Nothing here locks anyone out:
+// the full wizard opens by itself only for a business whose row says auto = 1.
+// ═══════════════════════════════════════════════════════════════════════════
+var WIZ_STAGE_MAX = 11;
+var WIZ_ANSWER_KEYS = ["cat", "subs", "other_text", "website_url", "ref_lang", "team_mode", "lic_show", "booking_same", "blocks", "how", "pay_other", "tap_to_pay_seen"];
+
+async function wizOwner(request, env, id) {
+    var user = await authenticate(request, env);
+    var block = gmDocSettingsOwnerOnly(user, id);
+    return block ? { err: block } : { user: user };
+}
+
+async function wizStateRow(env, id) {
+    try { return await env.DB.prepare("SELECT * FROM gm_wizard_state WHERE client_id = ?").bind(id).first(); }
+    catch (e) { return undefined; }   // undefined = the table is not there yet
+}
+
+function wizAnswers(row) {
+    var a = {};
+    try { a = JSON.parse((row && row.answers_json) || "{}") || {}; } catch (e) { a = {}; }
+    return a;
+}
+
+function wizCatalog() {
+    var imgs = HERO_GALLERY_V1.images || [];
+    return (WIZARD_V1.categories || []).map(function(c) {
+        var lead = (WIZARD_V1.lead_photos && WIZARD_V1.lead_photos[c.key] && WIZARD_V1.lead_photos[c.key][0]) || null;
+        if (!lead) { var first = imgs.filter(function(im) { return im.category === c.key; }).sort(function(a, b) { return a.order - b.order; })[0]; lead = first ? first.key : null; }
+        if (!lead && WIZARD_V1.fallback_category && WIZARD_V1.fallback_category[c.key]) {
+            var fb = imgs.filter(function(im) { return im.category === WIZARD_V1.fallback_category[c.key]; })[0]; lead = fb ? fb.key : null;
+        }
+        if (!lead && imgs.length) { lead = imgs[0].key; }   // a required cover is never empty
+        return { key: c.key, label_en: c.label_en, label_pt: c.label_pt, photo_key: lead,
+            subtaps: c.subtaps.map(function(s) { return { key: s.key, en: s.en, pt: s.pt }; }) };
+    });
+}
+
+// Which stages already have their part stored. A stored stage opens filled in
+// and marked done; nothing here decides what anyone may do.
+async function wizStageStatus(env, id) {
+    var doc = await gmDocSettingsRow(env, id);
+    var cs = await contractSettingsRow(env, id);
+    var client = await env.DB.prepare("SELECT logo_url, language FROM clients WHERE id = ?").bind(id).first() || {};
+    var bk = await bkSettingsRow(env, id);
+    var st = await wizStateRow(env, id);
+    var ans = wizAnswers(st);
+    var done = {
+        brand: !!(client.logo_url && doc.brand_primary && (doc.hero_gallery_key || doc.hero_r2_key) && doc.legal_name),
+        business: !!(cs.values && cs.values.business_state && doc.phone && doc.address),
+        work: !!((ans.cat && ((ans.subs || []).length || ans.other_text)) || (cs.exists && cs.trades.length)),
+        license: gmLicenseSatisfied(doc),
+        hours: !!bk,
+        payments: Object.keys(doc.payment_methods || {}).length > 0,
+        how: !!cs.exists,
+        connections: true,
+        team: true
+    };
+    return { doc: doc, cs: cs, client: client, bk: bk, state: st, answers: ans, done: done };
+}
+
+async function handleGetGmWizard(id, request, env) {
+    try {
+        var a = await wizOwner(request, env, id);
+        if (a.err) { return a.err; }
+        var s = await wizStateRow(env, id);
+        var info = await wizStageStatus(env, id);
+        var missing = ["brand", "business", "work", "license", "hours", "payments", "how"].filter(function(k) { return !info.done[k]; });
+        return jsonOk({
+            ready: s !== undefined,
+            stage: (s && s.stage) || 1,
+            version: (s && s.version) || null,
+            auto: !!(s && s.auto === 1 && !s.completed_at),
+            completed_at: (s && s.completed_at) || null,
+            setup_completed_at: info.doc.setup_completed_at,
+            answers: info.answers,
+            done: info.done,
+            missing: missing,
+            catalog: wizCatalog(),
+            // The values the screens start from, read from the app's own code.
+            defaults: { work_days: [1, 2, 3, 4, 5], day_start: "09:00", day_end: "17:00", duration_min: 60, min_notice_hours: 24, estimate_valid_days: 30 }
+        });
+    } catch (e) {
+        return jsonErr("Error loading the setup wizard: " + e.message, 500);
+    }
+}
+
+// PUT gm/wizard   { stage?, answers? }. Stage resumes the same screen on any phone.
+async function handlePutGmWizard(id, request, env) {
+    try {
+        var a = await wizOwner(request, env, id);
+        if (a.err) { return a.err; }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var cur = await wizStateRow(env, id);
+        if (cur === undefined) { return jsonErr2("O assistente de configuração ainda não está pronto. Tente de novo mais tarde.", "The setup wizard is not ready yet. Try again later.", 503, { code: "wizard_not_ready" }); }
+        var stage = body.stage === undefined ? ((cur && cur.stage) || 1) : Math.round(Number(body.stage));
+        if (!(stage >= 1 && stage <= WIZ_STAGE_MAX)) { return jsonErr2("Etapa inválida.", "Invalid stage", 400); }
+        var ans = wizAnswers(cur);
+        var put = body.answers && typeof body.answers === "object" ? body.answers : {};
+        Object.keys(put).forEach(function(k) {
+            if (WIZ_ANSWER_KEYS.indexOf(k) === -1) { return; }
+            var v = put[k];
+            if (typeof v === "string") { v = v.slice(0, 400); }
+            if (Array.isArray(v)) { v = v.slice(0, 40); }
+            if (typeof v === "object" && v !== null && JSON.stringify(v).length > 4000) { return; }
+            ans[k] = v;
+        });
+        await env.DB.prepare(
+            "INSERT INTO gm_wizard_state (client_id, stage, answers_json, started_at, updated_at) VALUES (?, ?, ?, datetime('now'), datetime('now')) " +
+            "ON CONFLICT (client_id) DO UPDATE SET stage = excluded.stage, answers_json = excluded.answers_json, updated_at = datetime('now')"
+        ).bind(id, stage, JSON.stringify(ans)).run();
+        return jsonOk({ saved: true, stage: stage });
+    } catch (e) {
+        return jsonErr("Error saving the setup wizard: " + e.message, 500);
+    }
+}
+
+// An internal call to an existing save path, as the same signed in owner, so
+// the wizard never keeps a second copy of any fact and every validation the
+// normal screens have still runs.
+async function wizCallSave(handler, id, request, env, method, body) {
+    var headers = new Headers(request.headers);
+    headers.set("Content-Type", "application/json");
+    var req = new Request(request.url, { method: method, headers: headers, body: JSON.stringify(body) });
+    var res = await handler(id, req, env);
+    var out = null;
+    try { out = await res.clone().json(); } catch (e) { out = null; }
+    return { ok: res.status >= 200 && res.status < 300, status: res.status, body: out, res: res };
+}
+
+async function wizContractPatch(id, request, env, patch) {
+    var cur = await contractSettingsRow(env, id);
+    var body = { trades: cur.trades, builds_pools: cur.builds_pools, defaults: cur.defaults, signers: cur.signers,
+        owner_signer_name: cur.owner_signer_name, owner_signer_phone: cur.owner_signer_phone, source: cur.source, values: cur.values };
+    patch(body, cur);
+    return wizCallSave(handlePutContractSettings, id, request, env, "PUT", body);
+}
+
+// PUT gm/wizard/business { state, entity, dba, phone, address, name, language }
+// ONE answer, written to every place that keeps it: document settings (name,
+// phone, address), contract settings (state, entity, DBA, owner signer phone)
+// and the client record (language). The document settings save also copies
+// phone/address/name onto the client record, as it always has.
+async function handlePutGmWizardBusiness(id, request, env) {
+    try {
+        var a = await wizOwner(request, env, id);
+        if (a.err) { return a.err; }
+        var b = {};
+        try { b = await request.json(); } catch (e2) { b = {}; }
+        function has(k) { return Object.prototype.hasOwnProperty.call(b, k); }
+        var docBody = { wizard_draft: true };
+        ["phone", "address"].forEach(function(k) { if (has(k)) { docBody[k] = b[k] === null ? null : String(b[k]); } });
+        if (has("name")) { docBody.legal_name = b.name === null ? null : String(b.name); }
+        var errors = {};
+        if (Object.keys(docBody).length > 1) {
+            var r1 = await wizCallSave(handlePutGmDocSettings, id, request, env, "PUT", docBody);
+            if (!r1.ok) { return r1.res; }
+            if (r1.body && r1.body.field_errors) { errors = r1.body.field_errors; }
+        }
+        if (has("state") || has("entity") || has("dba") || has("phone")) {
+            var r2 = await wizContractPatch(id, request, env, function(body, cur) {
+                if (has("state")) { body.values.business_state = String(b.state || ""); }
+                if (has("entity")) { body.values.business_entity_type = b.entity === "llc" ? "limited liability company" : (b.entity === "sole" ? "sole proprietorship" : ""); }
+                if (has("dba")) { body.values.business_dba = String(b.dba || ""); }
+                if (has("phone") && b.phone && !cur.owner_signer_phone) { body.owner_signer_phone = String(b.phone); }
+            });
+            if (!r2.ok) { return r2.res; }
+        }
+        if (has("language") && (b.language === "pt" || b.language === "en")) {
+            await env.DB.prepare("UPDATE clients SET language = ? WHERE id = ?").bind(b.language, id).run();
+        }
+        return jsonOk({ saved: true, field_errors: errors });
+    } catch (e) {
+        return jsonErr("Error saving the business step: " + e.message, 500);
+    }
+}
+
+// PUT gm/wizard/work { cat, subs[], other_text } : the kinds of work. The
+// answer is kept, and the contract trades follow from the category.
+async function handlePutGmWizardWork(id, request, env) {
+    try {
+        var a = await wizOwner(request, env, id);
+        if (a.err) { return a.err; }
+        var b = {};
+        try { b = await request.json(); } catch (e2) { b = {}; }
+        var cat = String(b.cat || "");
+        var category = (WIZARD_V1.categories || []).filter(function(c) { return c.key === cat; })[0];
+        if (cat !== "other" && !category) { return jsonErr2("Escolha o seu ramo.", "Choose your kind of work.", 400); }
+        var subs = (Array.isArray(b.subs) ? b.subs : []).map(String).filter(function(s) { return category && category.subtaps.some(function(t) { return t.key === s; }); });
+        var cur = await wizStateRow(env, id);
+        if (cur === undefined) { return jsonErr2("O assistente ainda não está pronto.", "The setup wizard is not ready yet.", 503, { code: "wizard_not_ready" }); }
+        var ans = wizAnswers(cur);
+        ans.cat = cat; ans.subs = subs; ans.other_text = cat === "other" ? String(b.other_text || "").slice(0, 200) : "";
+        await env.DB.prepare(
+            "INSERT INTO gm_wizard_state (client_id, stage, answers_json, started_at, updated_at) VALUES (?, 3, ?, datetime('now'), datetime('now')) " +
+            "ON CONFLICT (client_id) DO UPDATE SET answers_json = excluded.answers_json, updated_at = datetime('now')"
+        ).bind(id, JSON.stringify(ans)).run();
+        if (category) {
+            var r = await wizContractPatch(id, request, env, function(body) {
+                body.trades = category.contract_trades.slice();
+                body.builds_pools = !!category.builds_pools;
+            });
+            if (!r.ok) { return r.res; }
+        }
+        return jsonOk({ saved: true });
+    } catch (e) {
+        return jsonErr("Error saving the kind of work: " + e.message, 500);
+    }
+}
+
+// "Something else": the typed text goes to the existing support ticket section
+// with the pill "needs to be added", the business name and its state.
+async function handlePostGmWizardOtherWork(id, request, env) {
+    try {
+        var a = await wizOwner(request, env, id);
+        if (a.err) { return a.err; }
+        var b = {};
+        try { b = await request.json(); } catch (e2) { b = {}; }
+        var text = String(b.text || "").replace(/\s+/g, " ").trim().slice(0, 200);
+        if (!text) { return jsonErr2("Escreva o que você faz.", "Type what you do.", 400); }
+        var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first() || {};
+        var cs = await contractSettingsRow(env, id);
+        var ticketId = "wiz-" + id + "-" + (await sha256Hex(text.toLowerCase())).slice(0, 12);
+        var summary = "Setup wizard: a kind of work to add\nBusiness: " + (client.name || id) + "\nState: " + ((cs.values && cs.values.business_state) || "not set yet") + "\nTyped: " + text;
+        var nowIso = new Date().toISOString().replace("T", " ").slice(0, 19);
+        await env.DB.prepare(
+            "INSERT OR IGNORE INTO support_tickets (id, created_at, reporter_email, reporter_name, language, kind, page, transcript_json, original_words, summary_en, guidance, status) " +
+            "VALUES (?, ?, ?, ?, ?, 'needs to be added', 'setup-wizard', '[]', ?, ?, NULL, 'open')"
+        ).bind(ticketId, nowIso, a.user.email || a.user.username || id, client.name || id, "en", text, summary).run();
+        return jsonOk({ logged: true });
+    } catch (e) {
+        return jsonErr("Error sending the request: " + e.message, 500);
+    }
+}
+
+// GET gm/wizard/license?state=FL&cat=pools&subs=a,b : the questions, defaults
+// and answer for the owner's state and taps. The app only draws it.
+async function handleGetGmWizardLicense(id, request, env) {
+    try {
+        var a = await wizOwner(request, env, id);
+        if (a.err) { return a.err; }
+        var q = new URL(request.url).searchParams;
+        var res = licenseResult(LICENSE_TABLE_V1, WIZARD_V1, q.get("state"), q.get("cat"), String(q.get("subs") || "").split(",").filter(Boolean));
+        return jsonOk(res);
+    } catch (e) {
+        return jsonErr("Error reading the license table: " + e.message, 500);
+    }
+}
+
+async function wizResolveHost(host) {
+    var out = [];
+    for (var t = 0; t < 2; t++) {
+        var type = t === 0 ? "A" : "AAAA";
+        var r = await fetch("https://cloudflare-dns.com/dns-query?name=" + encodeURIComponent(host) + "&type=" + type, { headers: { "Accept": "application/dns-json" } });
+        if (!r.ok) { throw new Error("dns"); }
+        var j = await r.json();
+        (j.Answer || []).forEach(function(x) { if (x.type === 1 || x.type === 28) { out.push(String(x.data)); } });
+    }
+    return out;
+}
+
+function wizSiteError(code) {
+    var m = {
+        bad_address: ["Esse endereço não parece certo.", "That address does not look right."],
+        bad_scheme: ["Use um endereço que comece com http ou https.", "Use an address that starts with http or https."],
+        bad_port: ["Esse endereço não pode ser lido.", "That address cannot be read."],
+        blocked_host: ["Esse endereço não pode ser lido.", "That address cannot be read."],
+        no_such_site: ["Não encontramos esse site. Confira o endereço.", "We could not find that site. Check the address."],
+        timeout: ["O site demorou demais para responder.", "The site took too long to answer."],
+        too_big: ["O site é grande demais para ler.", "The site is too big to read."],
+        wrong_type: ["Esse endereço não é uma página de site.", "That address is not a web page."],
+        too_many_redirects: ["O site redireciona demais.", "The site redirects too many times."]
+    };
+    var e = m[code] || ["O site não respondeu.", "The site did not answer."];
+    return { error: code, error_pt: e[0], error_en: e[1] };
+}
+
+// POST gm/wizard/website { url } : reads the site on the server. No AI, no
+// guessing: only what the page itself says comes back.
+async function handlePostGmWizardWebsite(id, request, env) {
+    try {
+        var a = await wizOwner(request, env, id);
+        if (a.err) { return a.err; }
+        if (publicReadRateLimited(request, "wizsite", a.user.username || id, 0, 10)) {
+            return jsonErr2("Muitas leituras seguidas. Tente de novo em alguns minutos.", "Too many reads in a row. Try again in a few minutes.", 429);
+        }
+        var b = {};
+        try { b = await request.json(); } catch (e2) { b = {}; }
+        var typed = normalizeTypedAddress(b.url);
+        if (!typed) { return jsonErr2("Digite o endereço do seu site.", "Type your website address.", 400); }
+        var page = await safeFetch(typed, { doFetch: fetch, resolveHost: wizResolveHost, contentType: /text\/html|application\/xhtml/ });
+        if (page.error) { var se = wizSiteError(page.error); return new Response(JSON.stringify(se), { status: 422, headers: { "Content-Type": "application/json" } }); }
+        var html = new TextDecoder("utf-8").decode(page.bytes);
+        var parsed = parseSite(html, page.finalUrl, WIZARD_V1.categories);
+        var found = parsed.found;
+        if (parsed.logoCandidate) {
+            var img = await safeFetch(parsed.logoCandidate, { doFetch: fetch, resolveHost: wizResolveHost, maxBytes: 3 * 1024 * 1024, contentType: /^image\// });
+            if (!img.error && sniffImage(img.bytes)) { found.logo = parsed.logoCandidate; }
+        }
+        var missing = ["name", "logo", "phone", "addr", "review", "cat"].filter(function(k) { return !found[k]; });
+        return jsonOk({ url: page.finalUrl, found: found, missing: missing, several_kinds: !!(found.cat && found.cat.length > 1) });
+    } catch (e) {
+        return jsonErr("Error reading the website: " + e.message, 500);
+    }
+}
+
+// GET gm/wizard/logo-proxy?u=... : the logo found on the owner's site, served
+// from here so the page can show it and read its colors. Same protections.
+async function handleGetGmWizardLogo(id, request, env) {
+    try {
+        var a = await wizOwner(request, env, id);
+        if (a.err) { return a.err; }
+        if (publicReadRateLimited(request, "wizlogo", a.user.username || id, 0, 30)) { return jsonErr("Too many requests", 429); }
+        var u = new URL(request.url).searchParams.get("u");
+        var img = await safeFetch(String(u || ""), { doFetch: fetch, resolveHost: wizResolveHost, maxBytes: 5 * 1024 * 1024, contentType: /^image\// });
+        if (img.error) { return jsonErr("Image not available", 404); }
+        var type = sniffImage(img.bytes);
+        if (!type) { return jsonErr("Image not available", 404); }
+        return new Response(img.bytes, { status: 200, headers: { "Content-Type": type, "Cache-Control": "private, max-age=300", "X-Content-Type-Options": "nosniff" } });
+    } catch (e) {
+        return jsonErr("Error loading the logo: " + e.message, 500);
+    }
+}
+
+// PUT gm/wizard/hours { work_days[0..6], day_start, day_end, same, duration_min, min_notice_hours }
+// Days and hours go to the booking settings and the contract's own work days
+// and hours (contract settings values), from this one answer.
+async function handlePutGmWizardHours(id, request, env) {
+    try {
+        var a = await wizOwner(request, env, id);
+        if (a.err) { return a.err; }
+        var b = {};
+        try { b = await request.json(); } catch (e2) { b = {}; }
+        var days = bkWorkDays(Array.isArray(b.work_days) ? b.work_days.join(",") : "");
+        if (!days.length) { return jsonErr2("Escolha pelo menos um dia de trabalho.", "Choose at least one working day", 400); }
+        var start = gmTimeStr(b.day_start), end = gmTimeStr(b.day_end);
+        if (!start || !end || schedMinutes(end) <= schedMinutes(start)) { return jsonErr2("O fim precisa ser depois do início.", "The end time must be after the start time", 400); }
+        var cur = bkNormSettings(await bkSettingsRow(env, id));
+        var bk = await wizCallSave(handlePutGmBookingSettings, id, request, env, "PUT", {
+            enabled: cur.exists ? cur.enabled : true,
+            work_days: days, day_start: start, day_end: end,
+            duration_min: b.duration_min === undefined ? cur.duration_min : b.duration_min,
+            min_notice_hours: b.min_notice_hours === undefined ? cur.min_notice_hours : b.min_notice_hours
+        });
+        if (!bk.ok) { return bk.res; }
+        var NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        function pretty(t) { var h = parseInt(t.slice(0, 2), 10), m = t.slice(3, 5); return (h % 12 === 0 ? 12 : h % 12) + ":" + m + " " + (h < 12 ? "AM" : "PM"); }
+        var dayText = days.length === 7 ? "every day" : days.map(function(d) { return NAMES[d]; }).join(", ");
+        var cr = await wizContractPatch(id, request, env, function(body) {
+            body.values.work_days = dayText;
+            body.values.work_hours_start = pretty(start);
+            body.values.work_hours_end = pretty(end);
+        });
+        if (!cr.ok) { return cr.res; }
+        return jsonOk({ saved: true });
+    } catch (e) {
+        return jsonErr("Error saving the hours: " + e.message, 500);
+    }
+}
+
+// PUT gm/wizard/how { warranty_months: 12|24, holdback_pct, permits, debris, materials, photos, signer_title, source, insurance:{key:value} }
+// The sentences of "how you work" map to contract areas. The map lives here, so a
+// new option needs only a Worker deploy. Only the areas the owner touched change.
+var WIZ_HOW = {
+    permits: { "include": { C09: "C09-A", value: { permit_fee_treatment: "are included in the Contract Price" } },
+               "bill":    { C09: "C09-A", value: { permit_fee_treatment: "will be charged at the actual amount" } } },
+    photos:  { "yes": { C18: "C18-B" }, "ask": { C18: "C18-A" } },
+    materials: { "mine": { C10: "C10-A" }, "choose": { C10: "C10-A" }, "customer": { C10: "C10-D" } },
+    debris:  { "daily": "at the end of each work day", "weekly": "weekly", "end": "when the job is finished" }
+};
+async function handlePutGmWizardHow(id, request, env) {
+    try {
+        var a = await wizOwner(request, env, id);
+        if (a.err) { return a.err; }
+        var b = {};
+        try { b = await request.json(); } catch (e2) { b = {}; }
+        function has(k) { return Object.prototype.hasOwnProperty.call(b, k); }
+        if (has("warranty_months") && [12, 24].indexOf(Number(b.warranty_months)) === -1) { return jsonErr2("A garantia é de 12 ou 24 meses.", "The warranty is 12 or 24 months.", 400); }
+        if (has("holdback_pct") && !(Number(b.holdback_pct) >= 0 && Number(b.holdback_pct) <= 10)) { return jsonErr2("A retenção vai de 0 a 10 por cento.", "The holdback is 0 to 10 percent.", 400); }
+        var r = await wizContractPatch(id, request, env, function(body) {
+            var d = body.defaults, v = body.values;
+            if (has("warranty_months")) { d.C11 = Number(b.warranty_months) === 24 ? "C11-B" : "C11-A"; }
+            if (has("holdback_pct")) {
+                var pct = Math.round(Number(b.holdback_pct));
+                if (pct > 0) { d.C12 = "C12-C"; v.retainage_percent = String(pct); } else { d.C12 = "C12-B"; delete v.retainage_percent; }
+            }
+            if (has("permits") && WIZ_HOW.permits[b.permits]) { d.C09 = WIZ_HOW.permits[b.permits].C09; Object.keys(WIZ_HOW.permits[b.permits].value).forEach(function(k) { v[k] = WIZ_HOW.permits[b.permits].value[k]; }); }
+            if (has("photos") && WIZ_HOW.photos[b.photos]) { d.C18 = WIZ_HOW.photos[b.photos].C18; }
+            if (has("materials") && WIZ_HOW.materials[b.materials]) {
+                // "I supply the materials" keeps the trade's own materials clause the business already had.
+                if (b.materials === "mine" && /^C10-[ABC]$/.test(d.C10 || "")) { /* unchanged */ } else { d.C10 = WIZ_HOW.materials[b.materials].C10; }
+            }
+            if (has("debris") && WIZ_HOW.debris[b.debris]) { v.debris_frequency = WIZ_HOW.debris[b.debris]; }
+            if (has("signer_title")) { v.company_signer_title = String(b.signer_title || "").slice(0, 80); }
+            if (b.insurance && typeof b.insurance === "object") { Object.keys(b.insurance).forEach(function(k) { if (/^[a-z0-9_]{1,60}$/.test(k)) { v[k] = String(b.insurance[k] || "").slice(0, 200); } }); }
+            if (has("source") && (b.source === "apex" || b.source === "client")) { body.source = b.source; }
+            if (!body.trades.length) { body.trades = ["general"]; }
+        });
+        if (!r.ok) { return r.res; }
+        return jsonOk({ saved: true, settings: r.body && r.body.settings });
+    } catch (e) {
+        return jsonErr("Error saving how you work: " + e.message, 500);
+    }
+}
+
+// POST gm/wizard/finish : the owner tapped Start. Only here does setup complete,
+// and only if the existing license rule is met. A half finished wizard never gets here.
+async function handlePostGmWizardFinish(id, request, env) {
+    try {
+        var a = await wizOwner(request, env, id);
+        if (a.err) { return a.err; }
+        var doc = await gmDocSettingsRow(env, id);
+        if (!gmLicenseSatisfied(doc)) {
+            return jsonErr2("Falta o número da licença, ou marcar que o seu trabalho não precisa de licença estadual.", "A license number is needed, or tick that your work does not need a state license.", 409, { code: "license_needed" });
+        }
+        if (!doc.exists) { return jsonErr2("Preencha a etapa da marca primeiro.", "Fill in the brand stage first.", 409, { code: "brand_needed" }); }
+        var cur = await wizStateRow(env, id);
+        if (cur === undefined) { return jsonErr2("O assistente ainda não está pronto.", "The setup wizard is not ready yet.", 503, { code: "wizard_not_ready" }); }
+        await env.DB.prepare("UPDATE gm_doc_settings SET setup_completed_at = datetime('now') WHERE client_id = ? AND setup_completed_at IS NULL").bind(id).run();
+        await env.DB.prepare(
+            "INSERT INTO gm_wizard_state (client_id, stage, version, completed_at, started_at, updated_at) VALUES (?, 11, 1, datetime('now'), datetime('now'), datetime('now')) " +
+            "ON CONFLICT (client_id) DO UPDATE SET stage = 11, version = 1, completed_at = datetime('now'), updated_at = datetime('now')"
+        ).bind(id).run();
+        return jsonOk({ completed: true, version: 1 });
+    } catch (e) {
+        return jsonErr("Error finishing the setup: " + e.message, 500);
+    }
+}
+
 // Test runs only (wrangler dev --remote --var BLOCK_SENDS:1). The test copy
 // shares the live secrets, so every call that could reach a real person or a
 // real outside account is answered locally and never leaves. Inert in
@@ -58308,6 +58751,25 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 9 && gmCol === "leads" && segs[6] === "files" &&
                     segs[8] === "file" && method === "GET") {
                     return handleGetGmLeadFileContent(cid, segs[5], segs[7], request, env);
+                }
+                // Setup wizard (owner only; handlers check).
+                if (gmCol === "wizard") {
+                    if (segs.length === 5) {
+                        if (method === "GET") { return handleGetGmWizard(cid, request, env); }
+                        if (method === "PUT") { return handlePutGmWizard(cid, request, env); }
+                    }
+                    if (segs.length === 6) {
+                        var wizSub = segs[5];
+                        if (method === "GET" && wizSub === "license") { return handleGetGmWizardLicense(cid, request, env); }
+                        if (method === "GET" && wizSub === "logo-proxy") { return handleGetGmWizardLogo(cid, request, env); }
+                        if (method === "PUT" && wizSub === "business") { return handlePutGmWizardBusiness(cid, request, env); }
+                        if (method === "PUT" && wizSub === "work") { return handlePutGmWizardWork(cid, request, env); }
+                        if (method === "PUT" && wizSub === "hours") { return handlePutGmWizardHours(cid, request, env); }
+                        if (method === "PUT" && wizSub === "how") { return handlePutGmWizardHow(cid, request, env); }
+                        if (method === "POST" && wizSub === "website") { return handlePostGmWizardWebsite(cid, request, env); }
+                        if (method === "POST" && wizSub === "other-work") { return handlePostGmWizardOtherWork(cid, request, env); }
+                        if (method === "POST" && wizSub === "finish") { return handlePostGmWizardFinish(cid, request, env); }
+                    }
                 }
                 // Online booking (bk* block above "Enviar horarios").
                 if (segs.length === 5 && gmCol === "booking-settings") {

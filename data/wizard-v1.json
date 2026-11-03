@@ -1,0 +1,699 @@
+{
+ "version": 1,
+ "note": "Setup wizard data (2026-11-02). Served by GET gm/wizard. Industries, subtaps, the per-tile lead photos and the subtap to license work type map all live here so they can change with a Worker deploy and no app update. The work type map is a DRAFT for the 13 categories. A subtap with work_type null has no license row yet and is reported to the owner as 'Apex could not confirm'.",
+ "lead_photos": {
+  "tile": [
+   "tile-6",
+   "tile-4",
+   "tile-5"
+  ]
+ },
+ "fallback_category": {},
+ "categories": [
+  {
+   "key": "pools",
+   "label_en": "Pools",
+   "label_pt": "Piscinas",
+   "subtaps": [
+    {
+     "key": "new_pools_and_spas",
+     "en": "New pools and spas",
+     "pt": "Piscinas e spas novos",
+     "work_type": "pool and spa building"
+    },
+    {
+     "key": "resurfacing",
+     "en": "Resurfacing",
+     "pt": "Reforma do revestimento",
+     "work_type": "pool and spa building"
+    },
+    {
+     "key": "repairs",
+     "en": "Repairs",
+     "pt": "Reparos",
+     "work_type": "pool and spa building"
+    },
+    {
+     "key": "tile_and_coping",
+     "en": "Tile and coping",
+     "pt": "Azulejo e borda",
+     "work_type": "tile"
+    },
+    {
+     "key": "equipment",
+     "en": "Equipment",
+     "pt": "Equipamentos",
+     "work_type": "pool and spa building"
+    },
+    {
+     "key": "weekly_service",
+     "en": "Weekly service",
+     "pt": "Serviço semanal",
+     "work_type": "pool cleaning and service"
+    }
+   ],
+   "contract_trades": [
+    "pools"
+   ],
+   "builds_pools": true,
+   "keywords": [
+    "pool",
+    "swimming pool",
+    "spa"
+   ]
+  },
+  {
+   "key": "pavers",
+   "label_en": "Pavers",
+   "label_pt": "Pavers",
+   "subtaps": [
+    {
+     "key": "driveways",
+     "en": "Driveways",
+     "pt": "Entradas de garagem",
+     "work_type": "pavers, patios, hardscape"
+    },
+    {
+     "key": "patios",
+     "en": "Patios",
+     "pt": "Pátios",
+     "work_type": "pavers, patios, hardscape"
+    },
+    {
+     "key": "walkways",
+     "en": "Walkways",
+     "pt": "Calçadas",
+     "work_type": "pavers, patios, hardscape"
+    },
+    {
+     "key": "pool_decks",
+     "en": "Pool decks",
+     "pt": "Decks de piscina",
+     "work_type": "pavers, patios, hardscape"
+    },
+    {
+     "key": "repairs_and_sealing",
+     "en": "Repairs and sealing",
+     "pt": "Reparos e selagem",
+     "work_type": "pavers, patios, hardscape"
+    }
+   ],
+   "contract_trades": [
+    "hardscape"
+   ],
+   "builds_pools": false,
+   "keywords": [
+    "paver",
+    "hardscape",
+    "hardscaping"
+   ]
+  },
+  {
+   "key": "outdoor_living",
+   "label_en": "Outdoor living",
+   "label_pt": "Área externa",
+   "subtaps": [
+    {
+     "key": "outdoor_kitchens",
+     "en": "Outdoor kitchens",
+     "pt": "Cozinhas externas",
+     "work_type": "pavers, patios, hardscape"
+    },
+    {
+     "key": "pergolas",
+     "en": "Pergolas",
+     "pt": "Pérgolas",
+     "work_type": "fences and decks"
+    },
+    {
+     "key": "decks",
+     "en": "Decks",
+     "pt": "Decks",
+     "work_type": "fences and decks"
+    },
+    {
+     "key": "fire_features",
+     "en": "Fire features",
+     "pt": "Lareiras e fogueiras",
+     "work_type": "pavers, patios, hardscape"
+    },
+    {
+     "key": "fences",
+     "en": "Fences",
+     "pt": "Cercas",
+     "work_type": "fences and decks"
+    }
+   ],
+   "contract_trades": [
+    "hardscape"
+   ],
+   "builds_pools": false,
+   "keywords": [
+    "outdoor kitchen",
+    "pergola",
+    "outdoor living",
+    "deck",
+    "fence"
+   ]
+  },
+  {
+   "key": "tile",
+   "label_en": "Tile",
+   "label_pt": "Porcelanato e cerâmica",
+   "subtaps": [
+    {
+     "key": "floors",
+     "en": "Floors",
+     "pt": "Pisos",
+     "work_type": "tile"
+    },
+    {
+     "key": "showers_and_baths",
+     "en": "Showers and baths",
+     "pt": "Chuveiros e banheiros",
+     "work_type": "tile"
+    },
+    {
+     "key": "kitchen_backsplash",
+     "en": "Kitchen backsplash",
+     "pt": "Revestimento de parede da cozinha",
+     "work_type": "tile"
+    },
+    {
+     "key": "outdoor_tile",
+     "en": "Outdoor tile",
+     "pt": "Revestimento externo",
+     "work_type": "tile"
+    },
+    {
+     "key": "repairs",
+     "en": "Repairs",
+     "pt": "Reparos",
+     "work_type": "tile"
+    }
+   ],
+   "contract_trades": [
+    "tile"
+   ],
+   "builds_pools": false,
+   "keywords": [
+    "tile"
+   ]
+  },
+  {
+   "key": "flooring",
+   "label_en": "Wood flooring",
+   "label_pt": "Pisos de madeira",
+   "subtaps": [
+    {
+     "key": "installation",
+     "en": "Installation",
+     "pt": "Instalação",
+     "work_type": "flooring"
+    },
+    {
+     "key": "refinishing",
+     "en": "Refinishing",
+     "pt": "Restauração",
+     "work_type": "flooring"
+    },
+    {
+     "key": "repairs",
+     "en": "Repairs",
+     "pt": "Reparos",
+     "work_type": "flooring"
+    },
+    {
+     "key": "laminate_and_vinyl",
+     "en": "Laminate and vinyl",
+     "pt": "Laminado e vinílico",
+     "work_type": "flooring"
+    }
+   ],
+   "contract_trades": [
+    "tile"
+   ],
+   "builds_pools": false,
+   "keywords": [
+    "flooring",
+    "hardwood"
+   ]
+  },
+  {
+   "key": "home_exterior",
+   "label_en": "Home exteriors",
+   "label_pt": "Fachadas",
+   "subtaps": [
+    {
+     "key": "painting",
+     "en": "Painting",
+     "pt": "Pintura",
+     "work_type": "painting"
+    },
+    {
+     "key": "roofing",
+     "en": "Roofing",
+     "pt": "Telhados",
+     "work_type": "roofing"
+    },
+    {
+     "key": "windows_and_doors",
+     "en": "Windows and doors",
+     "pt": "Janelas e portas",
+     "work_type": "windows and doors"
+    },
+    {
+     "key": "siding",
+     "en": "Siding",
+     "pt": "Revestimento externo",
+     "work_type": "siding"
+    },
+    {
+     "key": "pressure_washing",
+     "en": "Pressure washing",
+     "pt": "Lavagem de alta pressão",
+     "work_type": "pressure washing"
+    }
+   ],
+   "contract_trades": [
+    "general"
+   ],
+   "builds_pools": false,
+   "keywords": [
+    "roofing",
+    "roof",
+    "siding",
+    "exterior painting"
+   ]
+  },
+  {
+   "key": "interiors",
+   "label_en": "Drywall and interiors",
+   "label_pt": "Drywall e interiores",
+   "subtaps": [
+    {
+     "key": "drywall",
+     "en": "Drywall",
+     "pt": "Drywall",
+     "work_type": "drywall and plaster"
+    },
+    {
+     "key": "painting",
+     "en": "Painting",
+     "pt": "Pintura",
+     "work_type": "painting"
+    },
+    {
+     "key": "trim_and_carpentry",
+     "en": "Trim and carpentry",
+     "pt": "Acabamentos e carpintaria",
+     "work_type": "cabinets and finish carpentry"
+    },
+    {
+     "key": "cabinets",
+     "en": "Cabinets",
+     "pt": "Armários",
+     "work_type": "cabinets and finish carpentry"
+    },
+    {
+     "key": "demolition",
+     "en": "Demolition",
+     "pt": "Demolição",
+     "work_type": "demolition"
+    }
+   ],
+   "contract_trades": [
+    "general"
+   ],
+   "builds_pools": false,
+   "keywords": [
+    "drywall",
+    "interior painting",
+    "cabinetry"
+   ]
+  },
+  {
+   "key": "stone",
+   "label_en": "Stone and marble",
+   "label_pt": "Pedras e mármore",
+   "subtaps": [
+    {
+     "key": "countertops",
+     "en": "Countertops",
+     "pt": "Bancadas",
+     "work_type": "stone and countertop install"
+    },
+    {
+     "key": "floors",
+     "en": "Floors",
+     "pt": "Pisos",
+     "work_type": "stone and countertop install"
+    },
+    {
+     "key": "showers",
+     "en": "Showers",
+     "pt": "Chuveiros",
+     "work_type": "stone and countertop install"
+    },
+    {
+     "key": "fireplaces",
+     "en": "Fireplaces",
+     "pt": "Lareiras",
+     "work_type": "stone and countertop install"
+    },
+    {
+     "key": "repairs",
+     "en": "Repairs",
+     "pt": "Reparos",
+     "work_type": "stone and countertop install"
+    }
+   ],
+   "contract_trades": [
+    "tile"
+   ],
+   "builds_pools": false,
+   "keywords": [
+    "countertop",
+    "granite",
+    "marble",
+    "quartz"
+   ]
+  },
+  {
+   "key": "construction",
+   "label_en": "General construction",
+   "label_pt": "Construção geral",
+   "subtaps": [
+    {
+     "key": "kitchens_and_baths",
+     "en": "Kitchens and baths",
+     "pt": "Cozinhas e banheiros",
+     "work_type": "general contracting, remodeling, kitchens and baths, additions"
+    },
+    {
+     "key": "additions",
+     "en": "Additions",
+     "pt": "Ampliações",
+     "work_type": "general contracting, remodeling, kitchens and baths, additions"
+    },
+    {
+     "key": "framing",
+     "en": "Framing",
+     "pt": "Estrutura de madeira",
+     "work_type": "framing"
+    },
+    {
+     "key": "demolition",
+     "en": "Demolition",
+     "pt": "Demolição",
+     "work_type": "demolition"
+    },
+    {
+     "key": "plumbing",
+     "en": "Plumbing",
+     "pt": "Hidráulica",
+     "work_type": "plumbing"
+    },
+    {
+     "key": "electrical",
+     "en": "Electrical",
+     "pt": "Elétrica",
+     "work_type": "electrical"
+    }
+   ],
+   "contract_trades": [
+    "remodeling",
+    "general"
+   ],
+   "builds_pools": false,
+   "keywords": [
+    "construction",
+    "remodel",
+    "remodeling",
+    "renovation",
+    "general contractor",
+    "contractor"
+   ]
+  },
+  {
+   "key": "cakes",
+   "label_en": "Cakes and bakery",
+   "label_pt": "Bolos e confeitaria",
+   "subtaps": [
+    {
+     "key": "cakes",
+     "en": "Cakes",
+     "pt": "Bolos",
+     "work_type": "food_cottage"
+    },
+    {
+     "key": "catering",
+     "en": "Catering",
+     "pt": "Buffet",
+     "work_type": "food_caterer"
+    },
+    {
+     "key": "cookies_and_sweets",
+     "en": "Cookies and sweets",
+     "pt": "Biscoitos e doces",
+     "work_type": "food_cottage"
+    },
+    {
+     "key": "events",
+     "en": "Events",
+     "pt": "Eventos",
+     "work_type": "events"
+    }
+   ],
+   "contract_trades": [
+    "general"
+   ],
+   "builds_pools": false,
+   "keywords": [
+    "cake",
+    "bakery",
+    "catering"
+   ]
+  },
+  {
+   "key": "boutique",
+   "label_en": "Boutique and fashion",
+   "label_pt": "Moda e tecidos",
+   "subtaps": [
+    {
+     "key": "clothing",
+     "en": "Clothing",
+     "pt": "Roupas",
+     "work_type": null
+    },
+    {
+     "key": "accessories",
+     "en": "Accessories",
+     "pt": "Acessórios",
+     "work_type": null
+    },
+    {
+     "key": "fabric_and_sewing",
+     "en": "Fabric and sewing",
+     "pt": "Tecidos e costura",
+     "work_type": null
+    },
+    {
+     "key": "online_orders",
+     "en": "Online orders",
+     "pt": "Pedidos online",
+     "work_type": null
+    }
+   ],
+   "contract_trades": [
+    "general"
+   ],
+   "builds_pools": false,
+   "keywords": [
+    "boutique",
+    "apparel",
+    "clothing"
+   ]
+  },
+  {
+   "key": "water",
+   "label_en": "Water filters",
+   "label_pt": "Filtros de água",
+   "subtaps": [
+    {
+     "key": "home_filters",
+     "en": "Home filters",
+     "pt": "Filtros residenciais",
+     "work_type": "water_treatment"
+    },
+    {
+     "key": "business_filters",
+     "en": "Business filters",
+     "pt": "Filtros comerciais",
+     "work_type": "water_treatment"
+    },
+    {
+     "key": "service_and_repairs",
+     "en": "Service and repairs",
+     "pt": "Manutenção e reparos",
+     "work_type": "water_treatment"
+    }
+   ],
+   "contract_trades": [
+    "general"
+   ],
+   "builds_pools": false,
+   "keywords": [
+    "water filter",
+    "water treatment",
+    "water softener"
+   ]
+  },
+  {
+   "key": "cleaning",
+   "label_en": "Cleaning",
+   "label_pt": "Limpeza",
+   "subtaps": [
+    {
+     "key": "homes",
+     "en": "Homes",
+     "pt": "Residências",
+     "work_type": "house cleaning and janitorial"
+    },
+    {
+     "key": "offices",
+     "en": "Offices",
+     "pt": "Escritórios",
+     "work_type": "house cleaning and janitorial"
+    },
+    {
+     "key": "rentals_and_turnovers",
+     "en": "Rentals and turnovers",
+     "pt": "Aluguéis e trocas de hóspedes",
+     "work_type": "house cleaning and janitorial"
+    },
+    {
+     "key": "after_construction",
+     "en": "After construction",
+     "pt": "Pós-obra",
+     "work_type": "house cleaning and janitorial"
+    },
+    {
+     "key": "move_out",
+     "en": "Move out",
+     "pt": "Limpeza de mudança",
+     "work_type": "house cleaning and janitorial"
+    }
+   ],
+   "contract_trades": [
+    "cleaning"
+   ],
+   "builds_pools": false,
+   "keywords": [
+    "cleaning",
+    "maid",
+    "janitorial",
+    "housekeeping"
+   ]
+  }
+ ],
+ "work_type_names": {
+  "pavers, patios, hardscape": [
+   "pavers, patios and hardscape",
+   "pavers, pátios e áreas externas de pedra"
+  ],
+  "general contracting, remodeling, kitchens and baths, additions": [
+   "general contracting, remodeling, kitchens, baths and additions",
+   "obras gerais, reformas, cozinhas, banheiros e ampliações"
+  ],
+  "food_cottage": [
+   "home baking and cottage food",
+   "doces e bolos caseiros"
+  ],
+  "food_caterer": [
+   "catering",
+   "buffet e eventos"
+  ],
+  "water_treatment": [
+   "water treatment",
+   "tratamento de água"
+  ],
+  "house cleaning and janitorial": [
+   "house cleaning",
+   "limpeza residencial e comercial"
+  ],
+  "cabinets and finish carpentry": [
+   "cabinets and finish carpentry",
+   "armários e carpintaria de acabamento"
+  ],
+  "pool and spa building": [
+   "pool and spa building",
+   "construção de piscinas e spas"
+  ],
+  "pool cleaning and service": [
+   "pool cleaning and service",
+   "limpeza e manutenção de piscinas"
+  ],
+  "tile": [
+   "tile",
+   "azulejo e revestimentos"
+  ],
+  "fences and decks": [
+   "fences and decks",
+   "cercas e decks"
+  ],
+  "flooring": [
+   "flooring",
+   "pisos"
+  ],
+  "painting": [
+   "painting",
+   "pintura"
+  ],
+  "roofing": [
+   "roofing",
+   "telhados"
+  ],
+  "windows and doors": [
+   "windows and doors",
+   "janelas e portas"
+  ],
+  "siding": [
+   "siding",
+   "revestimento externo"
+  ],
+  "pressure washing": [
+   "pressure washing",
+   "lavagem de alta pressão"
+  ],
+  "drywall and plaster": [
+   "drywall and plaster",
+   "drywall e reboco"
+  ],
+  "demolition": [
+   "demolition",
+   "demolição"
+  ],
+  "stone and countertop install": [
+   "stone and countertop install",
+   "instalação de pedras e bancadas"
+  ],
+  "framing": [
+   "framing",
+   "estrutura de madeira"
+  ],
+  "plumbing": [
+   "plumbing",
+   "hidráulica"
+  ],
+  "electrical": [
+   "electrical",
+   "elétrica"
+  ],
+  "events": [
+   "events",
+   "eventos"
+  ]
+ },
+ "materials_note": "Stage 7 maps to contract areas: warranty C11-A (12 months) or C11-B (24), holdback C12-B (none) or C12-C (percent), permits C09-A with permit_fee_treatment, materials C10-A or C10-D, photos C18-B or C18-A."
+}

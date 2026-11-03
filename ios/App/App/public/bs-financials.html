@@ -310,8 +310,8 @@
                     <textarea id="fNote" rows="2" maxlength="1000"></textarea></label>
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap;">
-                  <button type="button" class="btn-gold" id="fSave" onclick="saveEntry()"></button>
-                  <button type="button" class="btn-line" id="fCancel" onclick="cancelEdit()" hidden><span class="show-pt">Cancelar edi&ccedil;&atilde;o</span><span class="show-en">Cancel edit</span></button>
+                  <button type="button" class="btn-gold" id="fSave" data-help="admin-bs-financials#costs#2" onclick="saveEntry()"></button>
+                  <button type="button" class="btn-line" id="fCancel" data-help="admin-bs-financials#costs#4" onclick="cancelEdit()" hidden><span class="show-pt">Cancelar edi&ccedil;&atilde;o</span><span class="show-en">Cancel edit</span></button>
                   <span id="fMsg" class="ok-msg"></span>
                 </div>
               </div>
@@ -564,12 +564,12 @@ function escHtml(str) {
           var e = list[j];
           h += '<div class="entry-row"><div class="entry-main"><div class="entry-desc">' + escHtml(e.description) + '</div><div class="entry-meta">' + entryMeta(e) + '</div></div>' +
             '<div class="entry-amt">' + amountWord(e) + '</div>' +
-            '<div class="entry-actions"><button type="button" class="btn-line" onclick="startEdit(\'' + e.id + '\')">' + t("Editar", "Edit") + '</button>' +
-            '<button type="button" class="btn-line danger" onclick="askDelete(\'' + e.id + '\')">' + t("Excluir", "Delete") + '</button></div>';
+            '<div class="entry-actions"><button type="button" class="btn-line" data-help="admin-bs-financials#costs#3" onclick="startEdit(\'' + e.id + '\')">' + t("Editar", "Edit") + '</button>' +
+            '<button type="button" class="btn-line danger" data-help="admin-bs-financials#costs#5" onclick="askDelete(\'' + e.id + '\')">' + t("Excluir", "Delete") + '</button></div>';
           if (state.confirmId === e.id) {
             h += '<div class="confirm-row"><span>' + t("Excluir este lançamento? Ele sai das contas.", "Delete this entry? It leaves the figures.") + '</span>' +
-              '<button type="button" class="btn-gold" onclick="doDelete(\'' + e.id + '\')">' + t("Sim, excluir", "Yes, delete") + '</button>' +
-              '<button type="button" class="btn-line" onclick="state.confirmId=\'\';renderLedger();">' + t("Cancelar", "Cancel") + '</button></div>';
+              '<button type="button" class="btn-gold" data-help="admin-bs-financials#costs#5" onclick="doDelete(\'' + e.id + '\')">' + t("Sim, excluir", "Yes, delete") + '</button>' +
+              '<button type="button" class="btn-line" data-help="admin-bs-financials#costs#5" onclick="state.confirmId=\'\';renderLedger();">' + t("Cancelar", "Cancel") + '</button></div>';
           }
           h += '</div>';
         }

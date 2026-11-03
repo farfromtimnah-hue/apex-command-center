@@ -4709,15 +4709,15 @@
             : '<span class="show-pt">Voltar este cliente para a Consultoria? Nenhum outro dado muda; o registro di&aacute;rio continua como est&aacute;.</span>' +
               '<span class="show-en">Move this client back to Consulting? No other data changes; the daily log stays as it is.</span>') +
           '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">' +
-          '<button class="btn-primary"' + (bsPlan.busy ? " disabled" : "") + ' onclick="bsChangePlan(\'' + bsPlan.confirm + '\')">' +
+          '<button class="btn-primary" data-help="admin-switch-consulting-business-system#plan#2"' + (bsPlan.busy ? " disabled" : "") + ' onclick="bsChangePlan(\'' + bsPlan.confirm + '\')">' +
           '<span class="show-pt">Sim, mudar</span><span class="show-en">Yes, move</span></button>' +
-          '<button class="btn-add" onclick="bsPlan.confirm=\'\';renderBsPlanCard();">' +
+          '<button class="btn-add" data-help="admin-switch-consulting-business-system#plan#2" onclick="bsPlan.confirm=\'\';renderBsPlanCard();">' +
           '<span class="show-pt">Cancelar</span><span class="show-en">Cancel</span></button></div></div>';
       } else {
         html += isBs
-          ? '<button class="btn-add" onclick="bsPlan.confirm=\'consulting\';bsPlan.msg=\'\';bsPlan.err=\'\';renderBsPlanCard();">' +
+          ? '<button class="btn-add" data-help="admin-switch-consulting-business-system#plan#3" onclick="bsPlan.confirm=\'consulting\';bsPlan.msg=\'\';bsPlan.err=\'\';renderBsPlanCard();">' +
             '<span class="show-pt">Voltar para Consultoria</span><span class="show-en">Back to Consulting</span></button>'
-          : '<button class="btn-add" onclick="bsPlan.confirm=\'business_system\';bsPlan.msg=\'\';bsPlan.err=\'\';renderBsPlanCard();">' +
+          : '<button class="btn-add" data-help="admin-switch-consulting-business-system#plan#1" onclick="bsPlan.confirm=\'business_system\';bsPlan.msg=\'\';bsPlan.err=\'\';renderBsPlanCard();">' +
             '<span class="show-pt">Passar para o Business System</span><span class="show-en">Graduate to Business System</span></button>';
       }
       if (isBs) {

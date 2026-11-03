@@ -73,7 +73,9 @@ function extract(text, file) {
     const close = tag === "button" ? "</button>" : "</a>";
     const end = text.indexOf(close, m.index);
     const inner = end === -1 || end - m.index > 900 ? "" : text.slice(m.index + m[0].length, end);
-    const dataHelp = (/data-help\s*=\s*["']([^"']+)["']/.exec(attrs) || [])[1] || null;
+    // setup-wizard.js writes the attribute with swH("section", step) outside the string: that is data-help="setup-wizard#section#step".
+    const swh = /swH\(\s*"([a-z]+)"\s*,\s*(\d+)\s*\)/.exec(attrs);
+    const dataHelp = (/data-help\s*=\s*["']([^"']+)["']/.exec(attrs) || [])[1] || (swh ? "setup-wizard#" + swh[1] + "#" + swh[2] : null);
     const noHelp = /data-no-help/.test(attrs);
     const aria = (/aria-label\s*=\s*["']([^"']*)["']/.exec(attrs) || [])[1] || "";
     let label = readLabel(inner);

@@ -30786,8 +30786,8 @@
         "en": "Switch between Consulting and Business System"
       },
       "summary": {
-        "pt": "Troque o lado do sistema: Consultoria ou Business System, e veja o que muda no menu.",
-        "en": "Change the side of the system, Consulting or Business System, and see what changes in the menu."
+        "pt": "Troque o lado do sistema e mova um cliente entre Consultoria e Business System, com a confirmação.",
+        "en": "Change the side of the system and move a client between Consulting and Business System, with the confirmation."
       },
       "keywords": {
         "pt": [
@@ -30798,7 +30798,10 @@
           "logo",
           "lado do sistema",
           "promo",
-          "materiais de divulgação"
+          "materiais de divulgação",
+          "plano do cliente",
+          "passar para o business system",
+          "voltar para consultoria"
         ],
         "en": [
           "switch side",
@@ -30808,7 +30811,10 @@
           "logo",
           "side of the system",
           "promo",
-          "promo materials"
+          "promo materials",
+          "client plan",
+          "graduate to business system",
+          "back to consulting"
         ]
       },
       "video": null,
@@ -30865,9 +30871,88 @@
               }
             }
           ]
+        },
+        {
+          "id": "plan",
+          "title": {
+            "pt": "Mover um cliente de lado",
+            "en": "Move one client to the other side"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "en": "Open a client's record and find the Plan card. It shows the side the client is on. To start the move, tap Graduate to Business System (1). Nothing changes yet.",
+                "pt": "Abra o registro de um cliente e ache o cartão Plano. Ele mostra o lado em que o cliente está. Para começar a mudança, toque em Passar para o Business System (1). Nada muda ainda."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-switch-consulting-business-system/plan-01.pt.jpg",
+                "en": "help/img/guides/admin-switch-consulting-business-system/plan-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "en": "A box asks you to confirm. Tap Yes, move (1) to move the client. Tap Cancel (2) to change nothing. No data is deleted, and the daily log is turned off.",
+                "pt": "Uma caixa pede a sua confirmação. Toque em Sim, mudar (1) para mover o cliente. Toque em Cancelar (2) para não mudar nada. Nenhum dado é apagado, e o registro diário é desligado."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-switch-consulting-business-system/plan-02.pt.jpg",
+                "en": "help/img/guides/admin-switch-consulting-business-system/plan-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "en": "A client on Business System shows Back to Consulting (1) on the same card. Tap it, then Yes, move, to send the client back. No other data changes.",
+                "pt": "Um cliente no Business System mostra Voltar para Consultoria (1) no mesmo cartão. Toque nele e depois em Sim, mudar para devolver o cliente. Nenhum outro dado muda."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-switch-consulting-business-system/plan-03.pt.jpg",
+                "en": "help/img/guides/admin-switch-consulting-business-system/plan-03.en.jpg"
+              }
+            }
+          ]
         }
       ],
-      "buttons": []
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Passar para o Business System"
+            ],
+            "en": [
+              "Graduate to Business System"
+            ]
+          },
+          "section": "plan",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Sim, mudar"
+            ],
+            "en": [
+              "Yes, move"
+            ]
+          },
+          "section": "plan",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Voltar para Consultoria"
+            ],
+            "en": [
+              "Back to Consulting"
+            ]
+          },
+          "section": "plan",
+          "step": 3
+        }
+      ]
     },
     {
       "id": "admin-promo-materials",
@@ -31929,6 +32014,134 @@
           "step": 2
         }
       ]
+    },
+    {
+      "id": "admin-bs-financials",
+      "audience": "admin",
+      "title": {
+        "pt": "Financeiro do Business System: lançar, editar e excluir custos",
+        "en": "Business System Financials: add, edit and delete cost entries"
+      },
+      "summary": {
+        "pt": "Abra o Financeiro do Business System, lance um custo, edite, cancele a edição ou exclua.",
+        "en": "Open Business System Financials, add a cost entry, edit it, cancel an edit or delete it."
+      },
+      "keywords": {
+        "pt": [
+          "financeiro",
+          "business system",
+          "custos",
+          "lançamento",
+          "editar",
+          "excluir",
+          "cancelar edição",
+          "cobranças"
+        ],
+        "en": [
+          "financials",
+          "business system",
+          "costs",
+          "entry",
+          "edit",
+          "delete",
+          "cancel edit",
+          "charges"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "costs",
+          "title": {
+            "pt": "Lançamentos de custos",
+            "en": "Cost entries"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "en": "On the Business System side, tap Financials (1) in the menu. The page shows the Business System clients, a summary and the cost entries.",
+                "pt": "No lado Business System, toque em Financeiro (1) no menu. A página mostra os clientes do Business System, um resumo e os lançamentos de custos."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-bs-financials/costs-01.pt.jpg",
+                "en": "help/img/guides/admin-bs-financials/costs-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "en": "To add an entry, fill in Kind, Description, Amount and Start date in the form, then tap Add entry (1). The entry appears in its list below.",
+                "pt": "Para lançar um custo, preencha Tipo, Descrição, Valor e Data de início no formulário e toque em Adicionar (1). O lançamento aparece na lista dele, abaixo."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-bs-financials/costs-02.pt.jpg",
+                "en": "help/img/guides/admin-bs-financials/costs-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "en": "Each entry sits in its list with its amount. Tap Edit (1) to change it, or Delete (2) to remove it from the figures.",
+                "pt": "Cada lançamento fica na sua lista, com o valor. Toque em Editar (1) para mudar, ou em Excluir (2) para tirá-lo das contas."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-bs-financials/costs-03.pt.jpg",
+                "en": "help/img/guides/admin-bs-financials/costs-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "en": "After Edit, the form fills with the entry. Change it and tap Save changes (2), or tap Cancel edit (1) to leave without saving anything.",
+                "pt": "Depois de Editar, o formulário se enche com o lançamento. Mude e toque em Salvar alterações (2), ou toque em Cancelar edição (1) para sair sem salvar nada."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-bs-financials/costs-04.pt.jpg",
+                "en": "help/img/guides/admin-bs-financials/costs-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "en": "After Delete, a line asks \"Delete this entry? It leaves the figures.\" Tap Yes, delete (1) to remove it for good, or Cancel (2) to keep it.",
+                "pt": "Depois de Excluir, uma linha pergunta \"Excluir este lançamento? Ele sai das contas.\" Toque em Sim, excluir (1) para remover de vez, ou em Cancelar (2) para manter."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-bs-financials/costs-05.pt.jpg",
+                "en": "help/img/guides/admin-bs-financials/costs-05.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Salvar alterações"
+            ],
+            "en": [
+              "Cancel edit",
+              "Save changes"
+            ]
+          },
+          "section": "costs",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Sim, excluir"
+            ],
+            "en": [
+              "Yes, delete"
+            ]
+          },
+          "section": "costs",
+          "step": 5
+        }
+      ]
     }
   ],
   "pages": {
@@ -32224,7 +32437,8 @@
         "en": "Client record"
       },
       "guides": [
-        "admin-client-record"
+        "admin-client-record",
+        "admin-switch-consulting-business-system"
       ],
       "overview": {
         "pt": "Aqui está tudo sobre um cliente: contatos, notas, acesso ao portal, financeiro e trabalho da Apex.",
@@ -32502,6 +32716,19 @@
       "overview": {
         "pt": "Aqui ficam os vídeos de divulgação do Business System, cada um em português e em inglês, com o texto do post e os botões para baixar e compartilhar.",
         "en": "Here are the Business System promo videos, each in Portuguese and English, with the post text and the buttons to download and share."
+      }
+    },
+    "bs-financials": {
+      "title": {
+        "pt": "Financeiro do Business System",
+        "en": "Business System Financials"
+      },
+      "guides": [
+        "admin-bs-financials"
+      ],
+      "overview": {
+        "pt": "Aqui você vê os clientes do Business System, o resumo do dinheiro e os lançamentos de custos, e lança, edita ou exclui um custo.",
+        "en": "Here you see the Business System clients, the money summary and the cost entries, and you add, edit or delete a cost."
       }
     }
   }

@@ -11,6 +11,8 @@
 #swRoot[hidden] { display: none; }
 #swRoot * { box-sizing: border-box; }
 #swRoot button, #swRoot .sw-tile, #swRoot label.sw-file { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+/* A label or row heading carries the help of its field (the field itself ignores press and hold so typing keeps its text menu). No iOS callout, so the hold reaches the help. Text stays selectable and a tap on a label still focuses or ticks its field. */
+#swRoot label[data-help], #swRoot .sw-l[data-help], #swRoot .sw-sent[data-help], #swRoot b[data-help] { -webkit-touch-callout: none; }
 #swRoot button { font-family: inherit; color: inherit; }
 .sw-shell { max-width: 480px; margin: 0 auto; min-height: 100%; padding: 14px 16px 190px; }
 .sw-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }

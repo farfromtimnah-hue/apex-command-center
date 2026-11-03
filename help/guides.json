@@ -31031,8 +31031,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Esta etapa define como os seus orçamentos, contratos e faturas aparecem. A prévia do orçamento (1) muda enquanto você escolhe. Toque em Continuar (2) quando tudo estiver preenchido.",
-                "en": "This stage sets how your estimates, contracts and invoices look. The estimate preview (1) changes as you choose. Tap Continue (2) when everything is filled in."
+                "pt": "A prévia (1) muda enquanto você escolhe. Toque em Continuar quando a etapa estiver pronta (em Como você trabalha: Isto parece o meu negócio). Voltar volta uma etapa, Fechar sai e Tentar de novo repete um salvamento.",
+                "en": "The estimate preview (1) changes as you choose. Tap Continue when the stage is done (on How you work it reads This sounds like my business). Back goes one stage back, Close leaves setup, Try again repeats a failed save."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/brand-01.pt.jpg",
@@ -31064,8 +31064,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Desmarque (1) o que você não quiser e toque em Usar os itens marcados (2). Só depois disso o que a Apex achou é salvo.",
-                "en": "Untick (1) anything you do not want, then tap Use the ticked items (2). Only after that is what Apex found saved."
+                "pt": "Toque em Usar os itens marcados (2) para salvar o que a Apex achou. O que você desmarcou (1) fica de fora, e nada é salvo antes desse toque.",
+                "en": "Tap Use the ticked items (2) to save what Apex found. Anything you unticked (1) is left out, and nothing is saved before this tap."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/brand-04.pt.jpg",
@@ -31214,8 +31214,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em tudo o que você faz (1). A Apex só pergunta sobre o que serve para você.",
-                "en": "Tap everything you do (1). Apex only asks about what applies to you."
+                "pt": "Toque em tudo o que você faz, como Piscinas e spas novos (1) e Reparos (2). A Apex só pergunta sobre o que serve para você.",
+                "en": "Tap everything you do, such as New pools and spas (1) and Repairs (2). Apex only asks about what applies to you."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/work-01.pt.jpg",
@@ -31225,8 +31225,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Se o seu trabalho não está na lista, escreva o que você faz. A equipe da Apex é avisada e adiciona para você.",
-                "en": "If your work is not on the list, type what you do. The Apex team is alerted and adds it for you."
+                "pt": "Se o seu trabalho não está na lista, escolha Outro na etapa da marca e escreva o que você faz. A Apex envia o seu texto à equipe como um pedido para incluir o seu tipo de trabalho.",
+                "en": "If your work is not on the list, choose Something else on the brand stage and type what you do. Apex sends your words to its team as a request to add your kind of work."
               }
             }
           ]
@@ -31252,8 +31252,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Toque em Adicionar outra licença (1) para incluir mais números. Com dois ou mais, aparece Remover ao lado de cada um.",
-                "en": "Tap Add another license (1) to add more numbers. With two or more, a Remove button appears next to each one."
+                "pt": "Toque em Adicionar outra licença (1) para incluir mais números. Com dois ou mais, aparece Remover (2) ao lado de cada um.",
+                "en": "Tap Add another license (1) to add more numbers. With two or more, a Remove button (2) appears next to each one."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/license-02.pt.jpg",
@@ -31274,8 +31274,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Se o estado não exige licença mas você tem uma, toque em Eu tenho uma licença mesmo assim e escreva o número.",
-                "en": "If the state does not require a license but you hold one, tap I hold a license anyway and type the number."
+                "pt": "Se o estado não exige licença mas você tem uma, toque em \"Eu tenho uma licença mesmo assim. Adicionar.\" e escreva o número.",
+                "en": "If the state does not require a license but you hold one, tap \"I hold a license anyway. Add it.\" and type the number."
               }
             }
           ]
@@ -31405,8 +31405,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Se o Stripe ainda não está conectado, marque a caixa de concordância (1) com os Termos e a Política de Privacidade. Só depois o botão de conectar liga.",
-                "en": "If Stripe is not connected yet, tick the agreement box (1) for the Terms and the Privacy Policy. Only then does the connect button turn on."
+                "pt": "Se o Stripe ainda não está conectado, marque a caixa de concordância (1) com os Termos e a Política de Privacidade. A imagem é o mesmo bloco do Stripe das configurações do Negócio.",
+                "en": "If Stripe is not connected yet, tick the agreement box (1) for the Terms and the Privacy Policy. The picture is the same Stripe block as in Business settings."
               },
               "image": {
                 "pt": "help/img/guides/card-payments-setup/connect-07.pt.jpg",
@@ -31416,8 +31416,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Toque em Conectar o Stripe (2). O Stripe abre em outra janela. Tudo o que você respondeu já foi salvo, e você volta para esta mesma etapa. O guia Configurar pagamentos por cartão mostra cada tela do Stripe.",
-                "en": "Tap Connect Stripe (2). Stripe opens in another window. Everything you answered is already saved, and you come back to this same stage. The guide Set up card payments shows every Stripe screen."
+                "pt": "Toque em Conectar o Stripe (2), o mesmo bloco das configurações do Negócio. Na web esta janela vai para o Stripe; no app do iPhone ele abre em uma janela separada. Suas respostas são salvas antes.",
+                "en": "Tap Connect Stripe (2), the same block as in Business settings. On the web this window goes to Stripe; in the iPhone app it opens in a separate window. Your answers are saved first."
               },
               "image": {
                 "pt": "help/img/guides/card-payments-setup/connect-07.pt.jpg",
@@ -31461,8 +31461,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Leia cada linha (1). Já vem preenchido com o padrão da Apex. Mude a escolha ou o número se não estiver certo.",
-                "en": "Read each line (1). It is filled in with Apex's standard. Change the choice or number if it is not right."
+                "pt": "Leia cada linha, começando pela da garantia (1). Todas já vêm preenchidas com o padrão da Apex. Mude a escolha ou o número se não estiver certo.",
+                "en": "Read each line, starting with the warranty line (1). Every line is filled in with Apex's standard. Change the choice or number if it is not right."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/how-01.pt.jpg",
@@ -31505,8 +31505,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Para usar o seu próprio contrato: responda se um advogado já revisou, toque em Enviar o PDF do meu contrato e escolha o arquivo.",
-                "en": "To use your own contract: answer whether a lawyer reviewed it, tap Upload my contract PDF and choose the file."
+                "pt": "Com Meu próprio contrato escolhido na lista e a pergunta sobre o advogado respondida, toque em Enviar o PDF do meu contrato e escolha o arquivo.",
+                "en": "With My own contract chosen in the list and the lawyer question answered, tap Upload my contract PDF and choose your file."
               }
             },
             {
@@ -31528,8 +31528,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em Conectar para ligar o Thumbtack. O Thumbtack abre em outra janela e as suas respostas já estão salvas. O guia Conectar o Thumbtack mostra cada tela.",
-                "en": "Tap Connect to link Thumbtack. Thumbtack opens in another window and your answers are already saved. The guide Connect Thumbtack shows every screen."
+                "pt": "Toque em Conectar para ligar o Thumbtack. Na web esta janela vai para o Thumbtack; no app do iPhone ele abre em uma janela separada. Suas respostas já estão salvas. O guia Conectar o Thumbtack mostra cada tela.",
+                "en": "Tap Connect to link Thumbtack. On the web this window goes to Thumbtack; in the iPhone app it opens in a separate window. Your answers are already saved. The guide Connect Thumbtack shows every screen."
               }
             },
             {
@@ -31566,8 +31566,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em Sozinho(a) (1) ou Com uma equipe (2). Com equipe, você adiciona as pessoas aqui mesmo: nome, acesso e celular, e envia o link privado por WhatsApp ou mensagem.",
-                "en": "Tap Alone (1) or With a team (2). With a team, you add people right here: name, access and mobile, and send the private link by WhatsApp or text."
+                "pt": "Toque em Sozinho(a) (1) ou Com uma equipe (2). Com equipe, adicione cada pessoa aqui com nome, acesso e celular, e envie o link de convite pelo WhatsApp ou copie o link.",
+                "en": "Tap Alone (1) or With a team (2). With a team, add each person here with name, access and mobile, then send the invite link on WhatsApp or copy it."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/team-01.pt.jpg",
@@ -31597,8 +31597,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "O seu link (1) abre a página que o cliente vê. Toque em Copiar link (2) e cole no perfil do Instagram.",
-                "en": "Your link (1) opens the page customers see. Tap Copy link (2) and paste it into your Instagram profile."
+                "pt": "O seu link (1) abre a página que o cliente vê. Toque em Copiar link (2); o botão passa a dizer Copiado. Cole o link no perfil do Instagram.",
+                "en": "Your link (1) opens the page customers see. Tap Copy link (2); the button then reads Copied. Paste the link into your Instagram profile."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/bio-01.pt.jpg",
@@ -31628,8 +31628,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Toque em Revisar cláusula por cláusula (1). A configuração fecha e abre a tela Negócio, em Orçamentos. Os passos 5 e 6 mostram como chegar às cláusulas daí.",
-                "en": "Tap Review clause by clause (1). Setup closes and opens the Business screen, on Estimates. Steps 5 and 6 show how to reach the clauses from there."
+                "pt": "Toque em Revisar cláusula por cláusula (1). A configuração fecha e abre Negócio, Configurações, com o cartão Contrato à vista e com contorno por alguns segundos.",
+                "en": "Tap Review clause by clause (1). Setup closes and opens Business, Settings, with the Contract card in view and outlined for a few seconds."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/review-02.pt.jpg",
@@ -31650,15 +31650,15 @@
             {
               "n": 4,
               "text": {
-                "pt": "Se faltar o número da licença, o botão Começar avisa o que falta. Começar nunca é bloqueado pela conferência do contrato.",
-                "en": "If the license number is missing, Start tells you what is missing. Start is never blocked by the contract check."
+                "pt": "Se faltar algo, uma caixa chamada Não deu para começar diz o quê, como o número da licença. A revisão do contrato não impede o Começar.",
+                "en": "If something is missing, a box called Could not start says what, such as the license number. The contract review does not stop Start."
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Na tela Negócio, toque em Configurações (1). A tela de configurações dos documentos abre.",
-                "en": "On the Business screen, tap Settings (1). The document settings screen opens."
+                "pt": "Depois você chega ao mesmo lugar por conta própria: toque em Negócio e depois em Configurações (1). A tela de configurações dos documentos abre.",
+                "en": "Later you can reach the same place yourself: tap Business, then Settings (1). The document settings screen opens."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/review-05.pt.jpg",
@@ -31668,8 +31668,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Role até o cartão Contrato. Em Opção padrão por área (1), cada área mostra a escolha padrão, e você abre a lista para ver as outras opções.",
-                "en": "Scroll to the Contract card. Under Default option per clause area (1), each area shows the standard choice, and you can open the list to see the other options."
+                "pt": "No cartão Contrato, leia Opção padrão por área (1). Cada área mostra a escolha padrão, e você abre a lista para ver as outras opções.",
+                "en": "On the Contract card, read Default option per clause area (1). Each area shows the standard choice, and you can open its list to see the other options."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/review-06.pt.jpg",
@@ -31717,7 +31717,178 @@
           ]
         }
       ],
-      "buttons": []
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Preencher o que der"
+            ],
+            "en": [
+              "Fill in what you can"
+            ]
+          },
+          "section": "brand",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Usar os itens marcados"
+            ],
+            "en": [
+              "Use the ticked items"
+            ]
+          },
+          "section": "brand",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Escolher um arquivo",
+              "Escolher outro arquivo"
+            ],
+            "en": [
+              "Choose a file",
+              "Choose a different file"
+            ]
+          },
+          "section": "brand",
+          "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Isto parece o meu negócio"
+            ],
+            "en": [
+              "This sounds like my business"
+            ]
+          },
+          "section": "brand",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Adicionar outra licença"
+            ],
+            "en": [
+              "Add another license"
+            ]
+          },
+          "section": "license",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Eu tenho uma licença mesmo assim. Adicionar."
+            ],
+            "en": [
+              "I hold a license anyway. Add it."
+            ]
+          },
+          "section": "license",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Concordo"
+            ],
+            "en": [
+              "I agree"
+            ]
+          },
+          "section": "payments",
+          "step": 10
+        },
+        {
+          "labels": {
+            "pt": [
+              "Abrir o Aprenda"
+            ],
+            "en": [
+              "Open Aprenda"
+            ]
+          },
+          "section": "payments",
+          "step": 11
+        },
+        {
+          "labels": {
+            "pt": [
+              "Com uma equipe"
+            ],
+            "en": [
+              "With a team"
+            ]
+          },
+          "section": "team",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Adicionar quem assina"
+            ],
+            "en": [
+              "Add a signer"
+            ]
+          },
+          "section": "team",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Revisar cláusula por cláusula"
+            ],
+            "en": [
+              "Review clause by clause"
+            ]
+          },
+          "section": "review",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Exportar um PDF para o meu advogado"
+            ],
+            "en": [
+              "Export a PDF for my lawyer"
+            ]
+          },
+          "section": "review",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Pedir à Apex um contrato para o meu negócio"
+            ],
+            "en": [
+              "Ask Apex for a contract for my business"
+            ]
+          },
+          "section": "nocontract",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar o pedido"
+            ],
+            "en": [
+              "Send the request"
+            ]
+          },
+          "section": "nocontract",
+          "step": 2
+        }
+      ]
     }
   ],
   "pages": {
@@ -31881,7 +32052,8 @@
         "job-notes",
         "contracts-that-need-you",
         "contract-price-values-and-clauses",
-        "contract-other-states"
+        "contract-other-states",
+        "setup-wizard"
       ],
       "overview": {
         "pt": "Aqui ficam os seus projetos, com os números de margem. Toque em um projeto para abrir a ficha dele.",
@@ -32160,6 +32332,7 @@
         "en": "Home"
       },
       "guides": [
+        "setup-wizard",
         "home-alerts"
       ],
       "overview": {

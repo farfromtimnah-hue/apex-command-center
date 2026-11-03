@@ -121,6 +121,53 @@ const imgPaths = []; (guide ? guide.sections : []).forEach(s => s.steps.forEach(
 ok(imgPaths.every(p => /^help\/img\/guides\/[a-z0-9-]+\/[a-z0-9-]+-\d+\.(pt|en)\.jpg$/.test(p)), "Every picture path in the guide has the standard shape (the files live in help-private and are never committed)");
 ok(!existsSync(new URL("../help/img/guides/setup-wizard", import.meta.url).pathname), "No wizard picture file is committed under help/img (pictures are never committed)");
 
+// ── 7b. Fields cannot open help (the widget skips input, textarea and select on purpose), so each
+// field's visible label or row heading carries the help of the same step ──────────────────────────
+const labelHelp = [
+  ['for="swWebUrl"', "brand", 2], ['for="swName"', "brand", 6], ['for="swReview"', "brand", 9], ['for="swState"', "business", 1],
+  ['for="swOther"', "work", 2], ['for="swTerms"', "payments", 3], ['for="swSched"', "payments", 3], ['for="swBioLink"', "bio", 1], ['for="swReqNote"', "nocontract", 2],
+  ['<label class="sw-tick"', "license", 3], ['<div class="sw-l"\' + swH("license", 1)', "license", 1], ['<div class="sw-l"\' + swH("team", 2)', "team", 2]
+];
+labelHelp.forEach(([anchor, st, n]) => {
+  const a = anchor.replace(/\\'/g, "'");
+  const i = SRC.indexOf(a);
+  const near = i < 0 ? "" : SRC.slice(i, i + a.length + 60);
+  ok(i >= 0 && (a.indexOf("swH(") > -1 || near.indexOf('swH("' + st + '", ' + n + ')') > -1), "Label or heading of " + st + "#" + n + " carries its data-help (" + anchor.slice(0, 28) + ")");
+});
+ok(/swH\(extra\.stage, n\) \+ '>' \+ label/.test(SRC) || /for="swf-' \+ bind \+ '"' \+ swH\(extra\.stage, n\)/.test(SRC), "The label of the phone, address and doing business as boxes carries the step of its box");
+ok((SRC.match(/<label class="sw-agree"' \+ swH\("payments", (7|10)\)/g) || []).length === 2, "Both Stripe agreement labels carry payments 7 and 10");
+ok(/<label class="sw-wrow"' \+ swH\("brand", 4\)/.test(SRC), "The website result tick labels carry brand 4");
+ok(/class="sw-sent"' \+ swH\("how", 4\) \+ '>' \+ swT\("O seu contrato: "/.test(SRC) && /id === "source" \? 4 : 2/.test(SRC), "Your contract list and its sentence open how 4, the other lists how 2");
+ok(!/oncontextmenu|stopPropagation|preventDefault\(\)[^;]{0,40}contextmenu/.test(SRC), "The wizard never blocks right click or touch events");
+ok(/#swRoot label\[data-help\]/.test(css) && !/user-select\s*:\s*none/.test(css), "Labels with help keep the text selectable and lose only the iOS callout");
+// Every label help resolves to a real step in both languages
+const HCm = (await import("node:module")).createRequire(import.meta.url)("../help-core.js");
+const labRefs = [...SRC.matchAll(/(?:<label|<div class="sw-l"|<b)[^>]*?\' \+ swH\("([a-z]+)", (\d+)\)/g)].map(x => x[1] + "#" + x[2]);
+ok(labRefs.length >= 10 && labRefs.every(r => HCm.resolveTarget({ dataHelp: "setup-wizard#" + r.replace(/#(\d+)$/, "#$1"), texts: [] }, GUIDES) !== null), "Every label help resolves to a guide step (" + labRefs.length + " found)");
+
+// ── 7c. Continue, Back, Close and Try again open one step that is about them ──
+ok(/data-act="next"' \+ \(SW\.stage === 11 \? swH\("review", 1\) : swH\("brand", 1\)\)/.test(SRC), "Continue on every stage opens brand 1, and Start opens review 1");
+ok(/data-act="back"' \+ swH\("brand", 1\)/.test(SRC) && (SRC.match(/data-act="close"' \+ swH\("brand", 1\)/g) || []).length === 2 && /data-act="retry-save"' \+ swH\("brand", 1\)/.test(SRC) && /data-act="reload"' \+ swH\("brand", 1\)/.test(SRC), "Back, Close and both Try again buttons open brand 1");
+const b1 = guide.sections.find(x => x.id === "brand").steps.find(x => x.n === 1).text;
+ok(/Continue/.test(b1.en) && /Back/.test(b1.en) && /Close/.test(b1.en) && /Try again/.test(b1.en), "Brand 1 (EN) says what Continue, Back, Close and Try again do");
+ok(/Continuar/.test(b1.pt) && /Voltar/.test(b1.pt) && /Fechar/.test(b1.pt) && /Tentar de novo/.test(b1.pt), "Brand 1 (PT) says what Continuar, Voltar, Fechar and Tentar de novo do");
+ok(/swCallout\(swT\("Você pode mudar tudo depois"[^\n]*"brand", 1\)/.test(SRC) && /swCallout\(swT\("A Apex não conseguiu ler esse site"[^\n]*"brand", 3, true\)/.test(SRC), "The change-later and could-not-read callouts open the brand step about them");
+const gmSrc = read("gm.js");
+ok(/data-help="cover-image#cover#5"[^>]*onclick="gmHeroStep\(-1\)"/.test(gmSrc) && /data-help="cover-image#cover#5"[^>]*onclick="gmHeroStep\(1\)"/.test(gmSrc), "The cover photo Previous and Next buttons open the Next or Previous step");
+ok(!/uma janela separada|separate window|another window/.test(SRC), "The wizard screen does not say Stripe opens in another window (on the web the same window goes to Stripe)");
+
+// ── 7d. Guide shape: buttons and pages overview ──────────────────────────
+ok(guide.buttons.length >= 10, "The setup-wizard guide lists its real buttons (" + guide.buttons.length + ")");
+const swPairs = new Set([...SRC.matchAll(/swT\("((?:[^"\\]|\\.)*)", "((?:[^"\\]|\\.)*)"\)/g)].map(x => x[1] + "|" + x[2]));
+const badBtn = [];
+guide.buttons.forEach(b => b.labels.pt.forEach((pt, i) => { const en = b.labels.en[i]; if (!swPairs.has(pt + "|" + en) && !swPairs.has(pt + "|" + en + ".")) { badBtn.push(pt + "|" + en); } }));
+ok(badBtn.length === 0, "Every button label in the guide is printed by the wizard in both languages" + (badBtn.length ? " (not found: " + badBtn.join("; ") + ")" : ""));
+ok(guide.buttons.every(b => sections[b.section] >= b.step), "Every button points at a real step");
+ok(GUIDES.pages.home.guides.includes("setup-wizard") && GUIDES.pages.gmjobs.guides.includes("setup-wizard") && GUIDES.pages.gmestimates.guides.includes("setup-wizard"), "The wizard guide is in the pages overview of Home, Projects and Estimates");
+const lenBad = []; guide.sections.forEach(sec => sec.steps.forEach(st => ["pt", "en"].forEach(l => { if (st.text[l].length < 55 || st.text[l].length > 230) { lenBad.push(sec.id + "#" + st.n + l); } })));
+ok(lenBad.length === 0, "Every wizard guide step is 55 to 230 characters" + (lenBad.length ? " (" + lenBad.join(", ") + ")" : ""));
+ok(!/Review clause by clause \(1\)[^.]*Business screen, on Estimates/.test(JSON.stringify(guide)) && !/Steps 5 and 6/.test(JSON.stringify(guide)), "Review 2 no longer describes the old clause link");
+
 // ── 8. Website reader: address safety ────────────────────────────────────
 ["127.0.0.1", "10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.1.1", "169.254.169.254", "0.0.0.0", "100.64.0.1", "::1", "fe80::1", "fd00::1", "::ffff:127.0.0.1", "::ffff:7f00:1", "224.0.0.1"].forEach(ip => {
   ok(core.isBlockedIp(ip) === true, "Blocked address: " + ip);

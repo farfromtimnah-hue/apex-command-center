@@ -12733,9 +12733,9 @@ function gmHeroPickerHtml() {
       var inUse = st.hero_gallery_key === im.key;
       html += gmHeroPreviewHtml(im.url, im);
       html += '<div class="gm-hero-shuffle">' +
-        '<button data-help="cover-image#cover#6" type="button" class="gm-btn-secondary" onclick="gmHeroStep(-1)" aria-label="' + gmT("Anterior", "Previous") + '">‹ ' + gmT("Anterior", "Previous") + '</button>' +
+        '<button data-help="cover-image#cover#5" type="button" class="gm-btn-secondary" onclick="gmHeroStep(-1)" aria-label="' + gmT("Anterior", "Previous") + '">‹ ' + gmT("Anterior", "Previous") + '</button>' +
         '<span class="gm-hero-count">' + (ui.idx + 1) + ' / ' + list.length + '</span>' +
-        '<button data-help="cover-image#cover#6" type="button" class="gm-btn-secondary" onclick="gmHeroStep(1)" aria-label="' + gmT("Próxima", "Next") + '">' + gmT("Próxima", "Next") + ' ›</button>' +
+        '<button data-help="cover-image#cover#5" type="button" class="gm-btn-secondary" onclick="gmHeroStep(1)" aria-label="' + gmT("Próxima", "Next") + '">' + gmT("Próxima", "Next") + ' ›</button>' +
         '</div>' +
         '<button data-help="cover-image#cover#6" type="button" class="gm-btn-primary" onclick="gmHeroSelect(\'' + im.key + '\')"' + ((inUse || ui.saving) ? " disabled" : "") + '>' +
           (inUse ? gmT("Em uso nos seus documentos ✓", "In use on your documents ✓") : gmT("Usar esta imagem", "Use this image")) + '</button>';

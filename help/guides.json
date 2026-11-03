@@ -2993,8 +2993,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Se o Apex disser que o cadastro não terminou, toque em Atualizar status. De volta ao Apex, o Stripe pode levar um minuto para ligar a sua conta. O Apex mostra que o cadastro no Stripe ainda não terminou, com dois botões. Toque em Atualizar status depois de um minuto. Se o Stripe ainda precisar de algo, por exemplo o número completo de identificação, toque em Continuar no Stripe para voltar à página dele.",
-                "en": "If Apex says the sign up is not finished, tap Refresh status. Back in Apex, Stripe can take a minute to switch your account on. Apex then says Stripe setup is not finished yet, with two buttons. Tap Refresh status after a minute. If Stripe still needs something, for example the full ID number, tap Continue on Stripe to go back to its page. (Apex screen · Portuguese)"
+                "pt": "Se o Apex disser que o cadastro não terminou (1), toque em Atualizar status (2). De volta ao Apex, o Stripe pode levar um minuto para ligar a sua conta. Toque em Atualizar status depois de um minuto. Se o Stripe ainda precisar de algo, por exemplo o número completo de identificação, toque em Continuar no Stripe para voltar à página dele.",
+                "en": "If Apex says the sign up is not finished (1), tap Refresh status (2). Back in Apex, Stripe can take a minute to switch your account on. Tap Refresh status after a minute. If Stripe still needs something, for example the full ID number, tap Continue on Stripe to go back to its page."
               },
               "image": {
                 "pt": "help/img/guides/card-payments-setup/back-01.pt.jpg",

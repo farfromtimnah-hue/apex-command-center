@@ -939,7 +939,8 @@ function swBind(root) {
     if (act === "stripe-reaccept") {
       swSaveQuiet("reaccept", function() { return gmApi("stripe/reaccept", { method: "POST", body: { accepted: true, language: isEn() ? "en" : "pt" } }).then(function() { SW.reaccept = false; swLoadStripe(true); }); }); return;
     }
-    if (act === "tap-help") { swFlush(); swSaveQuiet("stage", function() { return swStageSave(6); }).then(function() { window.location.href = "help.html"; }); return; }
+    // The Aprenda sheet opens on top of the wizard, at the Payments guide; the wizard stays open underneath.
+    if (act === "tap-help") { swFlush(); swSaveQuiet("stage", function() { return swStageSave(6); }); if (typeof window.apexHelpOpen === "function") { window.apexHelpOpen("setup-wizard", "payments", 11); } return; }
     if (act === "ins") { var iv = swCs().values; iv[el.getAttribute("data-k")] = v; var ib = {}; ib[el.getAttribute("data-k")] = v; swHowSave({ local: {}, server: { insurance: ib } }); swRender(); return; }
     if (act === "lawyer") { SW.lawyer = v; swRender(); return; }
     if (act === "own-confirm") {
@@ -989,7 +990,15 @@ function swBind(root) {
     if (bind === "dba") { swCs().values.business_dba = t.value; var dv = t.value; swTyped("dba", function() { swSaveQuiet("dba", function() { return gmApi("wizard/business", { method: "PUT", body: { dba: dv } }); }); }); return; }
     if (bind === "other") { a.other_text = t.value; var ov = t.value; swTyped("other", function() { swSaveQuiet("other", function() { return gmApi("wizard/work", { method: "PUT", body: { cat: "other", subs: [], other_text: ov } }).then(function() { if (ov.trim().length > 2) { return gmApi("wizard/other-work", { method: "POST", body: { text: ov } }); } }); }); }); swGate(); return; }
     if (bind === "lic") { var li = parseInt(t.getAttribute("data-i"), 10), L = (d.license_numbers && d.license_numbers.length) ? d.license_numbers.slice() : [""]; L[li] = t.value; d.license_numbers = L; swTyped("lic", swSaveLic); swGate(); return; }
-    if (bind === "nolic") { d.license_not_required = t.checked; var nb = { license_not_required: t.checked }; swSaveQuiet("nolic", function() { return swDocPut(nb); }).then(function() { swRefreshStatus(); }); swRender(); return; }
+    if (bind === "nolic") {
+      // The Worker clears the saved numbers when "no license needed" is ticked (the two answers exclude each other). So the numbers are kept
+      // here when it is ticked and sent back with the untick, in the same save: a tick by mistake never costs a saved number.
+      var held = swLicNums(d.license_numbers), nb = { license_not_required: t.checked };
+      if (t.checked) { if (held.length) { SW.licHeld = held; } }
+      else if (!held.length && SW.licHeld && SW.licHeld.length) { d.license_numbers = SW.licHeld.slice(); nb.license_numbers = SW.licHeld.slice(); SW.licHeld = null; }
+      d.license_not_required = t.checked;
+      swSaveQuiet("nolic", function() { return swDocPut(nb); }).then(function() { swRefreshStatus(); }); swRender(); return;
+    }
     if (bind === "terms") { d.default_terms_days = parseInt(t.value, 10); var tv = d.default_terms_days; swSaveQuiet("terms", function() { return swDocPut({ default_terms_days: tv }); }); return; }
     if (bind === "sched") { a.schedule_pick = t.value; swAnswer({ schedule_pick: t.value }).catch(function() {}); return; }
     if (bind === "cardlink") { var pm = Object.assign({}, d.payment_methods || {}); pm.card_link = t.value; d.payment_methods = pm; swPaySave(); return; }
@@ -1001,8 +1010,10 @@ function swBind(root) {
   root.addEventListener("input", onField);
   root.addEventListener("change", onField);
 }
+function swLicNums(list) { return (list || []).map(function(x) { return String(x).trim(); }).filter(Boolean); }
 function swSaveLic() {
-  var L = (SW.doc.license_numbers || []).map(function(x) { return String(x).trim(); }).filter(Boolean);
+  var L = swLicNums(SW.doc.license_numbers);
+  if (L.length) { SW.licHeld = null; }
   swSaveQuiet("license", function() { return swDocPut({ license_numbers: L }); }).then(function() { swRefreshStatus(); });
 }
 function swHowChange(id, val) {
@@ -1043,12 +1054,20 @@ function swOpenClauses() {
   swFlush();
   swSaveQuiet("stage", function() { return swStageSave(11); }).then(function() {
     swClose();
+    // The clause card only draws on the Settings sub tab of Estimates, so open that sub tab the way the app's own links do
+    // (gm.js sets gmEstimatesSection before switchTab; gmLoadEstimates reads it and draws Settings once the data is in).
+    try { if (typeof gmEstimatesSection !== "undefined") { gmEstimatesSection = "settings"; } } catch (e0) {}
     if (typeof switchTab === "function") { try { switchTab("gmestimates"); } catch (e) {} }
-    // The clause screen draws after its data loads, so look for it for a few seconds.
+    // The card draws after its data loads, so look for it for up to ten seconds; scroll to it once and mark it.
     var tries = 0, look = setInterval(function() {
       var c = document.getElementById("gmConCleaningAreas") || document.getElementById("gmConSettingsCard"); tries++;
-      if (c && c.scrollIntoView) { c.scrollIntoView({ block: "start" }); }
-      if ((c && tries > 3) || tries > 20) { clearInterval(look); }
+      if (c) {
+        clearInterval(look);
+        if (c.scrollIntoView) { try { c.scrollIntoView({ block: "start" }); } catch (e2) { c.scrollIntoView(); } }
+        var card = document.getElementById("gmConSettingsCard") || c;
+        card.style.transition = "box-shadow 400ms ease-out"; card.style.boxShadow = "0 0 0 3px #c9a45c";
+        setTimeout(function() { card.style.boxShadow = ""; }, 4000);
+      } else if (tries > 20) { clearInterval(look); }
     }, 500);
   });
 }

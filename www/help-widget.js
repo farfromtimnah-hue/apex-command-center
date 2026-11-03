@@ -1200,6 +1200,9 @@
     }, 1500);
   }
 
+  // Open the sheet on a guide step from page code (the setup wizard stays open underneath).
+  window.apexHelpOpen = function (guide, section, step) { openSheet({ guide: guide, section: section, step: step }); };
+
   // ---- start -------------------------------------------------------------
   function init() {
     injectStyles();

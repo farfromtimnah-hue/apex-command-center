@@ -209,6 +209,41 @@ const LINKHTML = read("link.html");
 ok(!/apex-logo|LogoApex/i.test(LINKHTML) && /d\.has_logo && d\.logo_url/.test(LINKHTML) && /bizMark/.test(LINKHTML), "Link in bio: the owner's logo only, and the owner's name when there is none (no Apex logo fallback)");
 
 // ── 10. Live checks on the test client (only with a branch Worker) ───────
+// ── Three fixes: clause link, license untick, Aprenda over the wizard ─────
+{
+  const GM = read("gm.js"), HW = read("help-widget.js");
+  const fnBody = (src, name) => { const i = src.indexOf("function " + name + "("); return i < 0 ? "" : src.slice(i, i + 1800); };
+  const oc = fnBody(SRC, "swOpenClauses");
+  ok(/gmEstimatesSection\s*=\s*"settings"/.test(oc) && oc.indexOf("gmEstimatesSection") < oc.indexOf('switchTab("gmestimates")'), "Review clause by clause: the Estimates Settings sub tab is chosen before the tab opens");
+  ok(/var gmEstimatesSection = "list"/.test(GM) && /if \(gmEstimatesSection === "settings"\) \{ gmDocDraftFromSettings\(\); \}/.test(GM), "gm.js keeps the chosen sub tab through the Estimates load");
+  ok(oc.indexOf("gmConCleaningAreas") > 0 && oc.indexOf("gmConSettingsCard") > 0 && /boxShadow/.test(oc) && /swSaveQuiet\("stage"/.test(oc) && /swClose\(\)/.test(oc), "The link scrolls to and marks the clause card (pools, construction, cleaning) and keeps the stage save and close");
+  // Run the untick logic against a small copy of the handler.
+  const lic = SRC.slice(SRC.indexOf('if (bind === "nolic") {'), SRC.indexOf("swRender(); return;", SRC.indexOf('if (bind === "nolic") {')));
+  ok(/SW\.licHeld = held/.test(lic) && /nb\.license_numbers = SW\.licHeld\.slice\(\)/.test(lic), "License: ticking keeps the numbers and unticking sends them back in the same save");
+  const sandbox = (checked, docNums, heldIn) => {
+    const SWx = { licHeld: heldIn || null }, d = { license_numbers: docNums }, t = { checked }, calls = [];
+    const swLicNums = (l) => (l || []).map(x => String(x).trim()).filter(Boolean);
+    const swSaveQuiet = (k, f) => { calls.push(f()); return { then() {} }; };
+    const swDocPut = (b) => b; const swRefreshStatus = () => {}; const swRender = () => {};
+    const bind = "nolic";
+    const code = lic.replace(/^if \(bind === "nolic"\) \{/, "").replace(/swRender\(\); return;\s*$/, "");
+    new Function("SW", "d", "t", "swLicNums", "swSaveQuiet", "swDocPut", "swRefreshStatus", "swRender", code)(SWx, d, t, swLicNums, swSaveQuiet, swDocPut, swRefreshStatus, swRender);
+    return { SWx, d, calls };
+  };
+  const a = sandbox(true, ["CPC123"]);
+  ok(a.SWx.licHeld[0] === "CPC123" && a.calls[0].license_not_required === true, "License tick: the number is held in the page");
+  const b = sandbox(false, [], ["CPC123"]);
+  ok(b.calls[0].license_not_required === false && b.calls[0].license_numbers[0] === "CPC123" && b.d.license_numbers[0] === "CPC123" && b.SWx.licHeld === null, "License untick: the saved number goes back to the server and the screen");
+  const c = sandbox(false, ["NEW1"], ["CPC123"]);
+  ok(c.calls[0].license_numbers === undefined, "License untick: a number the owner typed meanwhile is not overwritten");
+  ok(/if \(lnrAfter === 1 && licensesAfter\.length > 0\) \{\s*if \(has\("license_not_required"\) && lnrWant === 1\) \{\s*licensesAfter = \[\];/.test(WORKER), "Cause on record: the Worker clears the numbers when the box is ticked (page restores them; no Worker change needed)");
+  const th = SRC.slice(SRC.indexOf('act === "tap-help"'), SRC.indexOf('act === "tap-help"') + 420);
+  ok(/apexHelpOpen\("setup-wizard", "payments", 11\)/.test(th) && th.indexOf("help.html") < 0 && th.indexOf("swClose") < 0, "Open Aprenda: the sheet opens over the wizard at Payments step 11, no navigation, no close");
+  ok(/window\.apexHelpOpen = function \(guide, section, step\) \{ openSheet\(\{ guide: guide, section: section, step: step \}\); \}/.test(HW), "help-widget.js exposes apexHelpOpen");
+  const payG = GUIDES.guides.find(g => g.id === "setup-wizard").sections.find(x => x.id === "payments");
+  ok(payG && payG.steps.some(x => x.n === 11), "The setup-wizard guide has a Payments section with step 11");
+}
+
 const API = process.env.APEX_TEST_API, TOKEN = process.env.APEX_TEST_TOKEN;
 if (API && TOKEN) {
   const B = API + "/api/clients/test-client-temp-001/gm/";

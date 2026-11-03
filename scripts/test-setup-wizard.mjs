@@ -151,7 +151,7 @@ ok(/data-act="back"' \+ swH\("brand", 1\)/.test(SRC) && (SRC.match(/data-act="cl
 const b1 = guide.sections.find(x => x.id === "brand").steps.find(x => x.n === 1).text;
 ok(/Continue/.test(b1.en) && /Back/.test(b1.en) && /Close/.test(b1.en) && /Try again/.test(b1.en), "Brand 1 (EN) says what Continue, Back, Close and Try again do");
 ok(/Continuar/.test(b1.pt) && /Voltar/.test(b1.pt) && /Fechar/.test(b1.pt) && /Tentar de novo/.test(b1.pt), "Brand 1 (PT) says what Continuar, Voltar, Fechar and Tentar de novo do");
-ok(/swCallout\(swT\("Você pode mudar tudo depois"[^\n]*"brand", 1\)/.test(SRC) && /swCallout\(swT\("A Apex não conseguiu ler esse site"[^\n]*"brand", 3, true\)/.test(SRC), "The change-later and could-not-read callouts open the brand step about them");
+ok(/swCallout\(swT\("Você pode mudar tudo depois"[^\n]*"brand", 9\)/.test(SRC) && /swCallout\(swT\("A Apex não conseguiu ler esse site"[^\n]*"brand", 3, true\)/.test(SRC), "The change-later and could-not-read callouts open the brand step about them");
 const gmSrc = read("gm.js");
 ok(/data-help="cover-image#cover#5"[^>]*onclick="gmHeroStep\(-1\)"/.test(gmSrc) && /data-help="cover-image#cover#5"[^>]*onclick="gmHeroStep\(1\)"/.test(gmSrc), "The cover photo Previous and Next buttons open the Next or Previous step");
 ok(!/uma janela separada|separate window|another window/.test(SRC), "The wizard screen does not say Stripe opens in another window (on the web the same window goes to Stripe)");

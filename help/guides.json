@@ -31119,8 +31119,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Opcional: cole o seu link de avaliação do Google (1). Os clientes tocam nele para avaliar você.",
-                "en": "Optional: paste your Google review link (1). Customers tap it to review you."
+                "pt": "Opcional: cole o seu link de avaliação do Google (1). Os clientes tocam nele para avaliar você. Tudo nesta etapa pode ser mudado depois em Configurações, a qualquer hora.",
+                "en": "Optional: paste your Google review link (1). Customers tap it to review you. Everything in this stage can be changed later in Settings, any time."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/brand-09.pt.jpg",
@@ -31323,8 +31323,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Escolha a antecedência mínima (1): com quanto tempo de aviso os clientes podem agendar. O link de agendamento usa estes mesmos dias e horários.",
-                "en": "Choose the minimum notice (1): how far ahead customers must book. Your booking link uses these same days and hours."
+                "pt": "Escolha a antecedência mínima (1): com quanto tempo de aviso os clientes precisam agendar. Horários bloqueados ainda não existem: para fechar um horário, tire o dia ou mude a hora.",
+                "en": "Choose the minimum notice (1): how far ahead customers must book. Blocked time is not available yet: to close a time, take the day off or change the hours."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/hours-04.pt.jpg",

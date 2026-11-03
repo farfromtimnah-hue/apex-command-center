@@ -31405,8 +31405,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Se o Stripe ainda não está conectado, marque a caixa de concordância (1) com os Termos e a Política de Privacidade. A imagem é o mesmo bloco do Stripe das configurações do Negócio.",
-                "en": "If Stripe is not connected yet, tick the agreement box (1) for the Terms and the Privacy Policy. The picture is the same Stripe block as in Business settings."
+                "pt": "Se o Stripe ainda não está conectado, marque a caixa de concordância (1) com os Termos e a Política de Privacidade. Só depois o botão Conectar o Stripe liga.",
+                "en": "If Stripe is not connected yet, tick the agreement box (1) for the Terms and the Privacy Policy. Only then does the Connect Stripe button turn on."
               },
               "image": {
                 "pt": "help/img/guides/card-payments-setup/connect-07.pt.jpg",
@@ -31706,8 +31706,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Sem contrato, orçamentos, faturas e pagamentos funcionam do mesmo jeito, e Começar nunca é bloqueado. A Apex não dá aconselhamento jurídico.",
-                "en": "Without a contract, estimates, invoices and payments work the same, and Start is never blocked. Apex does not give legal advice."
+                "pt": "Sem contrato, orçamentos, faturas e pagamentos funcionam do mesmo jeito, e não ter contrato não impede o Começar. A Apex não dá aconselhamento jurídico.",
+                "en": "Without a contract, estimates, invoices and payments work the same, and having no contract does not stop Start. Apex does not give legal advice."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/nocontract-03.pt.jpg",

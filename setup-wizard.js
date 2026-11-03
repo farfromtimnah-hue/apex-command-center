@@ -119,7 +119,7 @@ function swLoad() {
   return Promise.all([gmApi("wizard"), gmApi("doc-settings"), gmApi("contract-settings"), gmApi("booking-settings")]).then(function(r) {
     SW.d = r[0]; SW.doc = r[1].settings; SW.cs = r[2]; SW.bk = r[3].settings || r[3];
     gmDocSettings = SW.doc;
-    SW.ready = true; SW.contractFresh = true;
+    SW.ready = true; SW.contractFresh = true; swNoneFlag(SW.d.contract);
     if (!SW.d.ready) { throw new Error(swT("O assistente ainda não está pronto.", "The setup wizard is not ready yet.")); }
     SW.web.url = (SW.d.answers && SW.d.answers.website_url) || SW.web.url;
   }).catch(function(e) {
@@ -130,7 +130,27 @@ function swLoad() {
 // The answer comes from the server, fresh each time Review opens (the kind of work may have just changed).
 function swContractRefresh() {
   SW.contractFresh = false;
-  return gmApi("wizard").then(function(d) { SW.d.contract = d.contract; SW.contractFresh = true; if (SW.stage === 11) { swRender(); } }).catch(function() { SW.contractFresh = true; if (SW.stage === 11) { swRender(); } });
+  function done() { SW.contractFresh = true; if (SW.open && (SW.stage === 7 || SW.stage === 9 || SW.stage === 11)) { swRender(); } }
+  // After every save in line, so a kind of work just tapped is already stored when this asks.
+  return SW.queue.then(function() { return gmApi("wizard"); }).then(function(d) { SW.d.contract = d.contract; swNoneFlag(d.contract); if (d.answers) { SW.d.answers.contract_requested = d.answers.contract_requested; } done(); }).catch(done);
+}
+// Kinds of work with no Apex contract (cakes, boutique, water, Something else): "none". "own": the owner chose their own contract.
+function swNoneFlag(c) { if (typeof gmContractNoneSet === "function") { gmContractNoneSet(!!(c && c.none)); } }
+function swCMode() { var c = SW.d && SW.d.contract; return c && c.mode ? c.mode : ""; }
+// The honest line and the two small actions. Used on How you work, Team and Review.
+function swContractActions() {
+  var sent = !!((SW.d.answers && SW.d.answers.contract_requested) || SW.reqDone);
+  var h = '<div class="sw-row" id="swContractActions"><p class="sw-lead" id="swNoContract" style="margin:0 0 6px">' +
+    swT("Um contrato para este tipo de trabalho ainda não está disponível na Apex. Orçamentos, faturas e pagamentos funcionam do mesmo jeito. Você pode começar agora.", "A contract for this kind of work is not available in Apex yet. Estimates, invoices and payments work the same for you. You can start now.") + '</p>';
+  h += '<div class="sw-chips"><button type="button" class="sw-btn" data-act="cn-ask"' + swH("nocontract", 1) + (sent ? " disabled" : "") + '>' + swT("Pedir à Apex um contrato para o meu negócio", "Ask Apex for a contract for my business") + '</button></div>';
+  if (sent) { h += '<p class="sw-fine" id="swReqSent">' + swT("Pedido enviado. A Apex vai ver o seu pedido.", "Request sent. Apex will see your request.") + '</p>'; }
+  else if (SW.reqOpen) {
+    h += '<label class="sw-l" for="swReqNote" style="margin-top:10px">' + swT("Uma linha sobre o contrato que você quer", "One line about the contract you want") + '</label>' +
+      '<input id="swReqNote" type="text" maxlength="200" data-bind="reqnote" value="' + swEsc(SW.reqNote || "") + '"' + swH("nocontract", 2) + '>' +
+      '<button type="button" class="sw-btn solid" style="margin-top:8px" data-act="cn-send"' + swH("nocontract", 2) + (SW.reqBusy ? " disabled" : "") + '>' + (SW.reqBusy ? swT("Enviando…", "Sending…") : swT("Enviar o pedido", "Send the request")) + '</button>';
+    if (SW.reqErr) { h += '<p class="sw-fine" style="color:var(--sw-err)">' + swEsc(SW.reqErr) + '</p>'; }
+  }
+  return h + '</div>';
 }
 function swRefreshStatus() {
   return gmApi("wizard").then(function(d) { SW.d.done = d.done; SW.d.missing = d.missing; SW.d.setup_completed_at = d.setup_completed_at; });
@@ -171,7 +191,7 @@ function swRenderError() {
 function swGo(n, noSave) {
   swFlush();
   SW.stage = Math.max(1, Math.min(11, n));
-  if (SW.stage === 11) { swContractRefresh(); }
+  if (SW.stage === 7 || SW.stage === 9 || SW.stage === 11) { swContractRefresh(); }
   if (!noSave) { swSaveQuiet("stage", function() { return swStageSave(SW.stage); }); }
   swRender();
   var root = swEl("swRoot"); if (root) { root.scrollTop = 0; }
@@ -519,6 +539,8 @@ function swLicense() {
     h += swCallout(swT("A Apex não conseguiu confirmar tudo", "Apex could not confirm every item"), swT("A regra não está clara. Confirme com o conselho do seu estado. Informe o número se você tiver.", "The rule is not clear. Check with your state board. Add your number if you hold one."), "license", 1) + list + swLicNumbersHtml();
   } else {
     h += swCallout(swT("Não precisa de licença estadual", "No state license needed"), swT("Para o que você tocou, este estado não tem licença estadual.", "For what you tapped, this state has no state license.") + local, "license", 1) + list + link;
+    // No state license for this work: Continue is the owner's statement of it, so Start is never stopped later for a missing license answer.
+    if (!okLic) { h += '<p class="sw-fine" id="swLicAuto">' + swT("Ao tocar em Continuar, você diz que o seu trabalho não precisa de licença estadual.", "By tapping Continue, you say your work does not need a state license.") + '</p>'; SW.licAutoTick = true; } else { SW.licAutoTick = false; }
   }
   if (r.unmapped && r.unmapped.length) { h += '<p class="sw-fine">' + swT("A Apex ainda não tem regra de licença para parte do que você tocou.", "Apex has no license rule yet for part of what you tapped.") + '</p>'; }
   return { html: h, need: need, ok: ok };
@@ -648,6 +670,10 @@ function swSelHow(id, opts, val) {
   return h + '</select>';
 }
 function swHow() {
+  if (swCMode()) {
+    var hn = '<h1>' + swT("O seu contrato", "Your contract") + '</h1>';
+    return { html: hn + swContractActions(), need: [], ok: true };
+  }
   var w = swHowGet(), cs = swCs(), v = cs.values || {};
   var h = '<h1>' + swT("É assim que você trabalha", "This is how you work") + '</h1><p class="sw-lead">' + swT("Leia cada linha. Mude um número ou uma escolha se não estiver certo. Já vem preenchido.", "Read each line. Change a number or choice if it is not right. It is already filled in.") + '</p>';
   h += '<div class="sw-sent">' + swT("O seu trabalho tem garantia de ", "Your work is under warranty for ") + swSelHow("warranty", [["12", "12 meses", "12 months"], ["24", "24 meses", "24 months"]], w.warranty) + '.</div>';
@@ -683,6 +709,7 @@ function swOwnContractHtml() {
   }
   if (!tpl) { swLoadOwnTemplates(); return h + '<p class="sw-fine">' + swT("Carregando…", "Loading…") + '</p></div>'; }
   var last = tpl[0];
+  h += '<p class="sw-fine" id="swOwnAi">' + swT("Um sistema de inteligência artificial (Claude, da Anthropic) lê este arquivo para organizar as cláusulas. Você revisa o resultado e confirma que ele corresponde ao seu contrato original.", "An artificial intelligence system (Claude, by Anthropic) reads this file to organize the clauses. You review the result and confirm it matches your original contract.") + '</p>';
   h += '<div class="sw-l">' + swT("Um advogado já revisou este contrato?", "Has a lawyer reviewed this contract?") + '</div><div class="sw-chips"><button type="button" class="sw-chip" data-act="lawyer" data-v="yes" aria-pressed="' + (SW.lawyer === "yes") + '"' + swH("how", 5) + '>' + swT("Sim", "Yes") + '</button><button type="button" class="sw-chip" data-act="lawyer" data-v="no" aria-pressed="' + (SW.lawyer === "no") + '"' + swH("how", 5) + '>' + swT("Não", "No") + '</button></div>';
   h += '<input id="swOwnFile" type="file" accept="application/pdf" hidden data-bind="ownfile"' + swH("how", 5) + '><label class="sw-file" for="swOwnFile"' + swH("how", 5) + (SW.lawyer && !SW.ownBusy ? "" : ' style="opacity:.4"') + '>' + (SW.ownBusy ? swT("Lendo o contrato…", "Reading the contract…") : swT("Enviar o PDF do meu contrato", "Upload my contract PDF")) + '</label>';
   if (!SW.lawyer) { h += '<p class="sw-fine">' + swT("Responda a pergunta acima primeiro.", "Answer the question above first.") + '</p>'; }
@@ -743,11 +770,11 @@ function swTeam() {
   var a = SW.d.answers, mode = a.team_mode || "";
   var h = '<h1>' + swT("Sua equipe", "Your team") + '</h1><p class="sw-lead">' + swT("Você trabalha sozinho ou com pessoas que ajudam?", "Do you work alone, or with people who help you?") + '</p>';
   h += '<div class="sw-row"><div class="sw-l">' + swT("Eu trabalho", "I work") + '</div><div class="sw-chips"><button type="button" class="sw-chip" data-act="team" data-v="alone" aria-pressed="' + (mode === "alone") + '"' + swH("team", 1) + '>' + swT("Sozinho(a)", "Alone") + '</button><button type="button" class="sw-chip" data-act="team" data-v="team" aria-pressed="' + (mode === "team") + '"' + swH("team", 1) + '>' + swT("Com uma equipe", "With a team") + '</button></div></div>';
-  if (mode === "alone") { h += swCallout(swT("Você assina os seus contratos", "You sign your own contracts"), swT("Você pode adicionar pessoas a qualquer hora em Configurações, Pessoas e acessos.", "You can add people any time in Settings, People and access."), "team", 1); }
+  if (mode === "alone" && !swCMode()) { h += swCallout(swT("Você assina os seus contratos", "You sign your own contracts"), swT("Você pode adicionar pessoas a qualquer hora em Configurações, Pessoas e acessos.", "You can add people any time in Settings, People and access."), "team", 1); }
   var after = null;
   if (mode === "team") {
     h += '<div id="swPeopleWrap" data-sw="1" data-help-default="setup-wizard#team"><p class="sw-fine">' + swT("Carregando…", "Loading…") + '</p></div>';
-    h += '<div id="swSigners">' + swSignersHtml() + '</div>';
+    if (!swCMode()) { h += '<div id="swSigners">' + swSignersHtml() + '</div>'; }
     after = function() {
       swSwapPeopleWrap(true); var w = swEl("peopleCardWrap"); if (w) { w.setAttribute("data-sw", "1"); }
       // The signer chips list the people the card shows, so they are drawn again once the card has loaded.
@@ -812,6 +839,7 @@ function swReviewStage() {
     [swT("Dias e horários", "Work days and hours"), days + ", " + swFmtHHMM(b.start) + " " + swT("às", "to") + " " + swFmtHHMM(b.end), 5],
     [swT("Pagamentos", "Payments"), (pm.join(", ") || swT("Nenhum", "None")) + (SW.stripe && SW.stripe.connected && Object.prototype.hasOwnProperty.call(d.payment_methods || {}, "card_link") ? swT(", Stripe conectado", ", Stripe connected") : ""), 6],
     [swT("Orçamentos valem", "Estimates valid"), (d.estimate_valid_days || SW.d.defaults.estimate_valid_days) + " " + swT("dias", "days"), 6],
+    swCMode() ? [swT("Contrato", "Contract"), swT("Ainda não disponível na Apex", "Not available in Apex yet"), 7] :
     [swT("Como você trabalha", "How you work"), w.warranty + " " + swT("meses de garantia", "month warranty") + ", " + swT("juros por atraso ", "late fee ") + (d.late_fee_annual_pct || 0) + swT("% ao ano", " percent a year"), 7],
     [swT("Equipe", "Team"), a.team_mode === "team" ? swT("Com uma equipe", "With a team") : (a.team_mode === "alone" ? swT("Sozinho(a)", "Alone") : swT("Não preenchido", "Not set")), 9],
     [swT("Link na bio", "Link in bio"), d.link_slug ? swT("Pronto para copiar", "Ready to copy") : swT("Ainda não criado", "Not made yet"), 10]
@@ -819,9 +847,9 @@ function swReviewStage() {
   var h = '<h1>' + swT("Revisão", "Review") + '</h1><p class="sw-lead">' + swT("Leia tudo. Toque em Mudar no que não estiver certo.", "Read it over. Tap Change on anything that is not right.") + '</p><div>';
   lines.forEach(function(l) { h += '<div class="sw-rl"><div><span class="sw-rk">' + swEsc(l[0]) + '</span><span class="sw-rv">' + swEsc(l[1]) + '</span></div><button type="button" class="sw-link" data-act="jump" data-i="' + l[2] + '"' + swH("review", 1) + '>' + swT("Mudar", "Change") + '</button></div>'; });
   h += '</div>';
-  var noContract = SW.d.contract && SW.d.contract.available === false;
+  var noContract = !!swCMode() || (SW.d.contract && SW.d.contract.available === false);
   if (noContract) {
-    h += '<div style="margin-top:26px"><p class="sw-lead" style="margin:0" id="swNoContract">' + swT("Um contrato para este tipo de trabalho ainda não está disponível na Apex. Você pode começar agora.", "A contract for this kind of work is not available in Apex yet. You can start now.") + '</p></div>';
+    h += '<div style="margin-top:26px">' + swContractActions() + '</div>';
   } else if (SW.contractFresh) {
     h += '<div style="margin-top:26px"><p class="sw-lead" style="margin:0 0 6px">' + swT("Recomendamos que um advogado confira o seu contrato antes de você usá-lo. A Apex não dá aconselhamento jurídico. Você pode começar agora.", "We recommend that a lawyer checks your contract before you use it. Apex does not give legal advice. You can start now.") + '</p>' +
       '<div class="sw-chips"><button type="button" class="sw-link" data-act="clauses"' + swH("review", 2) + '>' + swT("Revisar cláusula por cláusula", "Review clause by clause") + '</button><button type="button" class="sw-link" data-act="lawyer-pdf"' + swH("review", 3) + (SW.pdfBusy ? " disabled" : "") + '>' + (SW.pdfBusy ? swT("Preparando o PDF…", "Preparing the PDF…") : swT("Exportar um PDF para o meu advogado", "Export a PDF for my lawyer")) + '</button></div>' +
@@ -849,6 +877,10 @@ function swSetStep(id, dir) {
 function swNext() {
   swFlush();
   if (SW.stage === 11) { swFinish(); return; }
+  if (SW.stage === 4 && SW.licAutoTick && SW.doc && SW.doc.license_not_required !== true && !((SW.doc.license_numbers || []).filter(function(x) { return String(x).trim(); }).length)) {
+    SW.doc.license_not_required = true;
+    swSaveQuiet("nolic", function() { return swDocPut({ license_not_required: true }); }).then(function() { swRefreshStatus(); });
+  }
   swGo(SW.stage + 1);
 }
 function swFinish() {
@@ -910,7 +942,7 @@ function swBind(root) {
     if (act === "lawyer") { SW.lawyer = v; swRender(); return; }
     if (act === "own-confirm") {
       var tpl = (SW.ownTpl || [])[0]; if (!tpl) { return; }
-      swSaveQuiet("own-confirm", function() { return gmApi("contract-own-templates/" + encodeURIComponent(tpl.id) + "/reviewed", { method: "POST" }).then(function() { SW.ownTpl = null; return gmApi("contract-settings").then(function(d) { SW.cs = d; }); }); }).then(function() { swRender(); }); return;
+      swSaveQuiet("own-confirm", function() { return gmApi("contract-own-templates/" + encodeURIComponent(tpl.id) + "/reviewed", { method: "POST" }).then(function() { SW.ownTpl = null; return gmApi("contract-settings").then(function(d) { SW.cs = d; }); })}).then(function() { swRender(); }); return;
     }
     if (act === "tt-connect") { SW.ttBusy = true; swFlush(); swSave("before-thumbtack", function() { return swStageSave(8); }).then(function() { return gmApi("thumbtack/connect", { method: "POST", body: {} }); }).then(function(d) { if (!d || !d.url || String(d.url).indexOf("https://") !== 0) { throw new Error(swT("O Thumbtack não respondeu.", "Thumbtack did not answer.")); } if (gmInApp()) { apexOpenExternal(d.url); SW.ttBusy = false; swRender(); } else { window.location.href = d.url; } }).catch(function(e) { SW.ttBusy = false; SW.saveErr = e.message; swStatusRender(); swRender(); }); return; }
     if (act === "booking") { var bk = SW.bk || {}, cur = bk.exists !== undefined ? !!bk.enabled : true; SW.bk = Object.assign({}, bk, { enabled: !cur, exists: true }); swSaveQuiet("booking", function() { return gmApi("booking-settings", { method: "PUT", body: { enabled: !cur } }); }); swRender(); return; }
@@ -925,6 +957,16 @@ function swBind(root) {
       var nl = (swCs().signers || []).slice(); nl.push({ name: String(sd.name).trim(), phone: String(sd.phone).trim() }); SW.signerDraft = { name: "", phone: "" }; SW.signerErr = ""; swSignersSave(nl); return;
     }
     if (act === "copybio") { var inp = swEl("swBioLink"); try { navigator.clipboard.writeText(inp.value); SW.copied = true; } catch (e) { if (inp) { inp.select(); } } swRender(); return; }
+    if (act === "cn-ask") { SW.reqOpen = true; SW.reqErr = ""; swRender(); var rn = swEl("swReqNote"); if (rn && rn.focus) { rn.focus(); } return; }
+    if (act === "cn-send") {
+      if (SW.reqBusy) { return; }
+      SW.reqBusy = true; SW.reqErr = ""; swRender();
+      gmApi("wizard/contract-request", { method: "POST", body: { note: SW.reqNote || "" } }).then(function(d) {
+        SW.reqDone = true; SW.reqOpen = false;
+        if (d && d.would_send) { console.log("[test run] would send: " + JSON.stringify(d.would_send)); }
+      }).catch(function(e) { SW.reqErr = e.message; }).then(function() { SW.reqBusy = false; swRender(); });
+      return;
+    }
     if (act === "clauses") { swOpenClauses(); return; }
     if (act === "lawyer-pdf") { swLawyerPdf(); return; }
   });
@@ -932,6 +974,7 @@ function swBind(root) {
     var t = ev.target; if (!t || !t.getAttribute) { return; }
     var bind = t.getAttribute("data-bind"); if (!bind) { return; }
     var d = SW.doc, a = SW.d ? SW.d.answers : null;
+    if (bind === "reqnote") { SW.reqNote = t.value; return; }
     if (bind === "weburl") { SW.web.url = t.value; return; }
     if (bind === "sname" || bind === "sphone") { SW.signerDraft = SW.signerDraft || { name: "", phone: "" }; SW.signerDraft[bind === "sname" ? "name" : "phone"] = t.value; return; }
     if (bind === "webuse") { SW.web.use[t.getAttribute("data-k")] = t.checked ? 1 : 0; return; }
@@ -1042,7 +1085,7 @@ function swInit() {
   var qs = (window.location.search || "");
   var fromStripe = /[?&]stripe=(return|refresh)/.test(qs);
   gmApi("wizard").then(function(d) {
-    SW.summary = d;
+    SW.summary = d; swNoneFlag(d.contract);
     swFinishCardRender();
     if (fromStripe) {
       try { history.replaceState(null, "", window.location.pathname); } catch (e) {}

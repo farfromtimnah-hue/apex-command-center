@@ -6016,7 +6016,7 @@ var gmConSettings = null;   // GET gm/contract-settings payload
 var gmConDraft = null;      // settings being edited
 
 function gmConLoadSettings() {
-  return gmApi("contract-settings").then(function(d) { gmConSettings = d; gmConDraftFromSettings(); return d; });
+  return gmApi("contract-settings").then(function(d) { gmConSettings = d; if (d.contract) { gmContractNoneSet(d.contract.none); } gmConDraftFromSettings(); return d; });
 }
 function gmConDraftFromSettings() {
   var s = (gmConSettings && gmConSettings.settings) || {};
@@ -6132,7 +6132,8 @@ function gmConOwnTemplateMarkReviewed(id) {
       // The confirmed reading is now the owner's own clause options; reload what
       // the settings screen knows about them (the draft the owner is typing stays).
       return gmApi("contract-settings").then(function(d) {
-        if (gmConSettings) { gmConSettings.own_contract = d.own_contract; gmConSettings.options = d.options; }
+        if (gmConSettings) { gmConSettings.own_contract = d.own_contract; gmConSettings.options = d.options; gmConSettings.contract = d.contract; gmContractNoneSet(d.contract && d.contract.none);
+        }
         gmToast(gmT("Contrato confirmado. Agora toque em Salvar contrato.", "Contract confirmed. Now tap Save contract settings."));
         gmRenderEstimatesTab();
       });
@@ -6141,6 +6142,33 @@ function gmConOwnTemplateMarkReviewed(id) {
 }
 
 // Settings card, rendered under the document settings form.
+// Kinds of work with no Apex contract: the honest line and two small actions.
+var gmConReq = { open: false, note: "", busy: false, err: "", done: false };
+function gmContractNoneSet(v) { window.GM_CONTRACT_NONE = !!v; }
+// Contract screens on projects and estimates are off for a business that needs none.
+function gmContractsActive() { return gmContractsEnabled() && window.GM_CONTRACT_NONE !== true; }
+function gmConNoContractHtml() {
+  var sent = gmConReq.done || !!(gmConSettings && gmConSettings.contract && gmConSettings.contract.requested);
+  var h = '<div class="gm-sheet-section"><p class="gm-derived-note" id="gmConNoContract">' +
+    gmT("Um contrato para este tipo de trabalho ainda não está disponível na Apex. Orçamentos, faturas e pagamentos funcionam do mesmo jeito.", "A contract for this kind of work is not available in Apex yet. Estimates, invoices and payments work the same for you.") + '</p>' +
+    '<div class="gm-est-actions"><button type="button" class="gm-btn-secondary" id="gmConAskBtn" style="min-height:44px;" data-help="setup-wizard#nocontract#1"' + (sent ? " disabled" : "") + ' onclick="gmConReq.open = true; gmConReq.err = \'\'; gmRenderEstimatesTab();">' + gmT("Pedir à Apex um contrato para o meu negócio", "Ask Apex for a contract for my business") + '</button></div>';
+  if (sent) { h += '<p class="muted" id="gmConReqSent" style="font-size:13px;">' + gmT("Pedido enviado. A Apex vai ver o seu pedido.", "Request sent. Apex will see your request.") + '</p>'; }
+  else if (gmConReq.open) {
+    h += '<label class="gm-field-label" for="gmConReqNote">' + gmT("Uma linha sobre o contrato que você quer", "One line about the contract you want") + '</label>' +
+      '<input type="text" id="gmConReqNote" class="gm-input" maxlength="200" data-help="setup-wizard#nocontract#2" value="' + escHtml(gmConReq.note) + '" oninput="gmConReq.note = this.value">' +
+      '<button type="button" class="gm-btn-primary" id="gmConReqSend" style="min-height:44px;margin-top:8px;" data-help="setup-wizard#nocontract#2"' + (gmConReq.busy ? " disabled" : "") + ' onclick="gmConRequestSend()">' + (gmConReq.busy ? gmT("Enviando…", "Sending…") : gmT("Enviar o pedido", "Send the request")) + '</button>' +
+      (gmConReq.err ? '<p class="gm-warn">' + escHtml(gmConReq.err) + '</p>' : '');
+  }
+  return h + '</div>';
+}
+function gmConRequestSend() {
+  if (gmConReq.busy) { return; }
+  gmConReq.busy = true; gmConReq.err = ""; gmRenderEstimatesTab();
+  gmApi("wizard/contract-request", { method: "POST", body: { note: gmConReq.note || "" } }).then(function(d) {
+    gmConReq.done = true; gmConReq.open = false;
+    if (d && d.would_send) { console.log("[test run] would send: " + JSON.stringify(d.would_send)); }
+  }).catch(function(e) { gmConReq.err = e.message; }).then(function() { gmConReq.busy = false; gmRenderEstimatesTab(); });
+}
 function gmConSettingsHtml() {
   if (!gmContractsEnabled()) { return ""; }
   if (!gmConSettings) {
@@ -6148,11 +6176,15 @@ function gmConSettingsHtml() {
     return '<div class="content-card"><div class="card-title">' + gmT("Contrato", "Contract") + '</div><p class="muted">' + gmT("Carregando…", "Loading…") + '</p></div>';
   }
   var d = gmConDraft, S = gmConSettings;
+  // A kind of work with no Apex contract (set by the wizard): the card holds the honest line and the request, nothing to configure.
+  if (S.contract && S.contract.none === true) {
+    return '<div class="content-card" id="gmConSettingsCard"><div class="card-title">' + gmT("Contrato", "Contract") + '</div>' + gmConNoContractHtml() + '</div>';
+  }
   var h = '<div class="content-card" id="gmConSettingsCard"><div class="card-title">' + gmT("Contrato", "Contract") + '</div>' +
     '<p class="muted" style="margin-bottom:8px;">' + gmT("O que entra no contrato que fica entre o orçamento aceito e a obra. Marca, logo, imagem, licença, nome legal e formas de pagamento vêm das configurações dos documentos acima; nada é pedido duas vezes.",
       "What goes into the contract that sits between the accepted estimate and the work. Brand, logo, hero, license, legal name and payment methods come from the document settings above; nothing is asked twice.") + '</p>';
   var noContract = !!(S.contract && S.contract.available === false);
-  if (noContract) { h += '<p class="gm-derived-note" id="gmConNoContract">' + gmT("Um contrato para este tipo de trabalho ainda não está disponível na Apex.", "A contract for this kind of work is not available in Apex yet.") + '</p>'; }
+  if (noContract) { h += gmConNoContractHtml(); }
   if (S.library && !noContract) { h += '<p class="gm-derived-note">' + gmT("Biblioteca de cláusulas v" + S.library.version + ": ", "Clause library v" + S.library.version + ": ") + (S.library.status === "attorney_reviewed" ? gmT("revisada por " + S.library.attorney_name, "reviewed by " + S.library.attorney_name) : gmT("rascunho, ainda não revisada por advogado. Cada contrato diz isso até a revisão ser registrada.", "draft, not yet reviewed by an attorney. Every contract says so until the review is recorded.")) + '</p>'; }
   // Trades
   h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Ofícios da empresa", "Trades the business does") + '</p><div class="gm-chip-set">' +
@@ -6183,7 +6215,8 @@ function gmConSettingsHtml() {
     '<div id="gmConSigners">' + gmConSignersHtml() + '</div>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmConDraft.signers.push({name:\'\',phone:\'\'}); var b = document.getElementById(\'gmConSigners\'); if (b) { b.innerHTML = gmConSignersHtml(); }">' + gmT("+ Pessoa autorizada", "+ Authorized person") + '</button>' +
     '<p class="muted" style="font-size:13px;">' + gmT("Telefone obrigatório: quando o contrato precisa da assinatura dessa pessoa, quem envia abre uma mensagem para esse número.", "Phone required: when the contract needs this person's signature, the sender opens a message to this number.") + '</p></div>';
-  // Source
+  // Source (a business that needs no contract picks its own contract from the line above instead)
+  if (!noContract) {
   h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Origem do contrato", "Contract source") + '</p><div class="gm-chip-set">' +
     '<button data-help="contract-settings#csettings#12" type="button" class="gm-choice-chip' + (d.source === "apex" ? " gm-chip-sel" : "") + '" onclick="gmConDraft.source = \'apex\'; gmRenderEstimatesTab();">' + gmT("Modelo padrão Apex", "Apex standard template") + '</button>' +
     '<button type="button" class="gm-choice-chip' + (d.source === "client" ? " gm-chip-sel" : "") + '"' + (gmConOwnAvailable() ? "" : " disabled") + ' onclick="gmConDraft.source = \'client\'; gmRenderEstimatesTab();">' + gmT("Meu próprio contrato", "My own contract") + '</button></div>' +
@@ -6191,6 +6224,7 @@ function gmConSettingsHtml() {
     '<p class="muted" style="font-size:13px;">' + gmT("O seu próprio contrato é convertido uma vez pela Apex em um modelo limpo; o texto nunca é editado aqui.", "Your own contract is converted once by Apex into a clean template; the text is never edited here.") + '</p>' +
     (d.source === "client" ? gmConOwnTemplateHtml() : "") +
     '</div>';
+  }
   // Settings-source values (short list of the most used)
   var vals = [["business_dba", "Nome fantasia (DBA)", "Doing business as (DBA)"], ["business_entity_type", "Tipo de empresa (ex.: limited liability company)", "Entity type (e.g. limited liability company)"], ["license_type", "Tipo de licença (ex.: Certified Pool Contractor)", "License type (e.g. Certified Pool Contractor)"], ["qualifier_name", "Qualificador (qualifying agent)", "Qualifying agent"],
     ["work_hours_start", "Início do expediente (ex.: 8:00 AM)", "Work hours start (e.g. 8:00 AM)"], ["work_hours_end", "Fim do expediente (ex.: 5:00 PM)", "Work hours end (e.g. 5:00 PM)"], ["work_days", "Dias de trabalho (ex.: Monday through Friday)", "Work days (e.g. Monday through Friday)"],
@@ -6535,7 +6569,7 @@ function gmConCleaningSettingsHtml(d) {
 // ── Project sheet: the Contract section ─────────────────────────────────
 var gmJobContracts = {};
 function gmLoadJobContracts(jobId) {
-  if (!gmContractsEnabled()) { return; }
+  if (!gmContractsActive()) { return; }
   gmLoadJobAcceptedEsts(jobId);
   gmApi("contracts?job_id=" + encodeURIComponent(jobId))
     .then(function(d) { gmJobContracts[jobId] = d.contracts || []; gmRenderJobContracts(jobId); })
@@ -7520,7 +7554,7 @@ function gmConAwaitingCardHtml() {
 // ═════════════════════════════════════════════════════════════════════════
 var gmDTools = {};
 function gmDLoadJobTools(jobId) {
-  if (!gmContractsEnabled()) { return; }
+  if (!gmContractsActive()) { return; }
   gmDTools[jobId] = gmDTools[jobId] || {};
   gmApi("jobs/" + encodeURIComponent(jobId) + "/condition-photos").then(function(d) { gmDTools[jobId].cond = d; gmDRenderConditions(jobId); }).catch(function(e) { gmDTools[jobId].cond = { error: e.message }; gmDRenderConditions(jobId); console.error(e); });
   gmApi("jobs/" + encodeURIComponent(jobId) + "/punch").then(function(d) { gmDTools[jobId].punch = d; gmDRenderPunch(jobId); }).catch(function(e) { gmDTools[jobId].punch = { error: e.message }; gmDRenderPunch(jobId); console.error(e); });
@@ -8002,7 +8036,7 @@ function gmDSubMsg(code) {
 function gmDSubMsgs(codes) { return (codes || []).map(gmDSubMsg); }
 // Estimates > Settings: the subcontractor list for the whole company.
 function gmDSubsSettingsHtml() {
-  if (!gmContractsEnabled() || gmIsSeller()) { return ""; }
+  if (!gmContractsActive() || gmIsSeller()) { return ""; }
   if (!gmDSubs) { gmDSubsReload().then(function() { gmRenderEstimatesTab(); }).catch(function(e) { console.error(e); }); return ""; }
   var rows = (gmDSubs.subcontractors || []).map(function(s) {
     return gmSheetRowHtml("user", escHtml(s.name), (s.warnings && s.warnings.length ? '<span class="gm-pill gm-red">! ' + s.warnings.length + '</span>' : '<span class="gm-pill gm-green">✓</span>'), "gmDSubOpen(" + JSON.stringify(s.id).replace(/"/g, "&quot;") + ")", null, escHtml(gmDSubMsgs((s.expiring_codes || []).concat(s.warning_codes || [])).join("; ")));
@@ -8078,7 +8112,7 @@ function gmLoadValueHistory(kind, rowId, boxId) {
 
 var gmJobCOs = {};
 function gmLoadJobChangeOrders(jobId) {
-  if (!gmContractsEnabled()) { return; }
+  if (!gmContractsActive()) { return; }
   gmApi("change-orders?job_id=" + encodeURIComponent(jobId))
     .then(function(d) { gmJobCOs[jobId] = d.change_orders || []; gmRenderJobChangeOrders(jobId); })
     .catch(function(e) { gmJobCOs[jobId] = []; gmRenderJobChangeOrders(jobId, e.message); console.error(e); });
@@ -8277,7 +8311,7 @@ function gmCOVoid() {
 // Called before progress photos, a status change and a second invoice send.
 // The action runs after the owner continues (or the seller notifies the owner).
 function gmContractGuard(jobId, trigger, proceed) {
-  if (!gmContractsEnabled() || !jobId) { proceed(); return; }
+  if (!gmContractsActive() || !jobId) { proceed(); return; }
   gmApi("jobs/" + encodeURIComponent(jobId) + "/contract-status")
     .then(function(st) {
       if (!st.needs_warning) { proceed(); return; }
@@ -9180,6 +9214,12 @@ function gmThreePricesHtml(row) {
           : (row.valor !== null && row.valor !== undefined ? Math.round(Number(row.valor) * 100) : null);
   if ((est === null || est === undefined) && (con === null || con === undefined)) { return ""; }
   var dash = '<span class="muted">—</span>';
+  // A business that needs no contract has no contract price and no change orders: the estimate price and the total only.
+  if (window.GM_CONTRACT_NONE === true) {
+    return gmSheetSection(gmT("Preços", "Prices"),
+      gmSheetRowHtml("file", gmT("Preço do orçamento", "Estimate price"), est !== null && est !== undefined ? gmMoney(est) : dash, null, null, gmT("orçamentos aceitos", "accepted estimates")) +
+      gmSheetRowHtml("dollar", gmT("Total final", "Final total"), fin !== null ? "<strong>" + gmMoney(fin) + "</strong>" : dash, null, null, gmT("orçamentos aceitos", "accepted estimates")));
+  }
   return gmSheetSection(gmT("Preços", "Prices"),
     gmSheetRowHtml("file", gmT("Preço do orçamento", "Estimate price"), est !== null && est !== undefined ? gmMoney(est) : dash, null, null, gmT("orçamentos aceitos", "accepted estimates")) +
     gmSheetRowHtml("edit", gmT("Preço do contrato", "Contract price"), con !== null && con !== undefined ? gmMoney(con) : dash, null, null, gmT("negociado no contrato", "negotiated on the contract")) +
@@ -9528,7 +9568,7 @@ function gmRenderSimpleSheet(kind) {
     // them); filled by gmLoadJobInvoices().
     if (row.id) { body += '<div id="gmJobInvoicesSection"></div>'; }
     // Contract (contracts build): built from the accepted estimate; gated.
-    if (row.id && gmContractsEnabled()) { body += '<div id="gmJobContractSection"></div><div id="gmJobCOSection"></div><div id="gmJobConditionSection"></div><div id="gmJobPunchSection"></div>' + (gmIsSeller() ? "" : '<div id="gmJobLienorSection"></div><div id="gmJobSubsSection"></div>'); }
+    if (row.id && gmContractsActive()) { body += '<div id="gmJobContractSection"></div><div id="gmJobCOSection"></div><div id="gmJobConditionSection"></div><div id="gmJobPunchSection"></div>' + (gmIsSeller() ? "" : '<div id="gmJobLienorSection"></div><div id="gmJobSubsSection"></div>'); }
 
     // ── Weather (Job 4) ──────────────────────────────────────────────────
     // Only worth asking for on an active site; the GET route itself answers
@@ -11153,6 +11193,10 @@ var gmDocServicosDraft = null;
 // statute. d is gmDocDraft (business_state/business_state_name/
 // license_statute_text, read-only fields set from the server).
 function gmDocLicenseHelpHtml(d) {
+  // A kind of work with no Apex contract (a bakery, a boutique) is not told about contractor bid and contract law.
+  if (window.GM_CONTRACT_NONE === true) {
+    return gmT("Informe o número se você tiver uma licença. Se o seu trabalho não precisa de licença estadual, use a caixa abaixo.", "Add your number if you hold a license. If your work needs no state license, use the box below.");
+  }
   var st = (d && d.business_state) || null;
   if (!st || st === "FL") {
     return gmT("A lei da Flórida (§489.119) exige o número da sua licença em toda proposta e contrato.",
@@ -13112,7 +13156,7 @@ function gmRenderEstimateSheet() {
 
   body += gmSheetSection(gmT("Pagamento e termos", "Payment and terms"),
     gmSheetRowHtml("dollar", gmT("Parcelas", "Schedule"), (head ? head.schedule : []).map(function(st) { return escHtml(st.label) + " " + escHtml(String(st.pct)) + "% · " + gmMoney(st.amount_cents); }).join("<br>")) +
-    (est.deposit_over_ten ? '<p class="gm-derived-note">' + gmT(GM_EST_DEPOSIT_LAW_PT, GM_EST_DEPOSIT_LAW_EN) + '</p>' : "") +
+    (est.deposit_over_ten && window.GM_CONTRACT_NONE !== true ? '<p class="gm-derived-note">' + gmT(GM_EST_DEPOSIT_LAW_PT, GM_EST_DEPOSIT_LAW_EN) + '</p>' : "") +
     gmSheetRowHtml("check", gmT("Incluído", "Included"), escHtml(est.terms_included || "")) +
     gmSheetRowHtml("tag", gmT("Não incluído", "Excluded"), escHtml(est.terms_excluded || "")) +
     gmSheetRowHtml("sms", gmT("Notas ao cliente", "Notes to customer"), escHtml(est.customer_notes || "")) +
@@ -13231,7 +13275,7 @@ function gmEstRevise() {
 // ── Send (2e): Text message or WhatsApp, message from the template ──────
 
 function gmDocMsgLoad() {
-  return gmApi("doc-messages").then(function(d) { gmDocMessages = d; return d; });
+  return gmApi("doc-messages").then(function(d) { gmDocMessages = d; if (d.settings_lite && d.settings_lite.contract_none !== undefined) { gmContractNoneSet(d.settings_lite.contract_none); } return d; });
 }
 
 function gmDocFillMessage(tpl, vars) {
@@ -13300,7 +13344,7 @@ function gmEstMessageVars(est) {
 function gmEstFlowFresh() { return { mode: "", loaded: false, plan: null, answers: {}, flags: {}, kind: null, tpl: null, remember: {}, name: "", consent: false, errs: {}, busy: false, poolTouched: false, show: false, estimateOnly: false }; }
 var gmEstFlow = gmEstFlowFresh();
 function gmEstFlowMode() {
-  if (!gmContractsEnabled()) { return ""; }
+  if (!gmContractsActive()) { return ""; }
   var lite = (gmDocMessages && gmDocMessages.settings_lite) || {};
   return lite.full_flow_signer ? "sign" : (lite.full_flow_requestable ? "ask" : "");
 }
@@ -14223,7 +14267,7 @@ function gmEstWizStep6() {
   h += '<button type="button" class="gm-btn-secondary" onclick="gmEstWizStepAdd()">' + gmT("+ Etapa", "+ Step") + '</button>' +
     '<p class="' + (sum === 100 ? "gm-ok" : "gm-warn") + '">' + gmT("Total: ", "Total: ") + fmtNum(sum, "percent") + (sum === 100 ? " ✓" : " — " + gmT("precisa ser 100%", "must be 100%")) + '</p>';
   // One step "due on completion" is no deposit (C8).
-  if (w.schedule.length > 1 && (Number(String(w.schedule[0].pct).replace(",", ".")) || 0) > 10) {
+  if (window.GM_CONTRACT_NONE !== true && w.schedule.length > 1 && (Number(String(w.schedule[0].pct).replace(",", ".")) || 0) > 10) {
     h += '<p class="gm-derived-note">' + gmT(GM_EST_DEPOSIT_LAW_PT, GM_EST_DEPOSIT_LAW_EN) + '</p>';
   }
   h += '</div>';
@@ -14316,7 +14360,7 @@ function gmEstWizStep8() {
   } else if (gmIsSeller()) {
     h += '<p class="muted"><small>' + gmT("Juros de atraso: conforme as configurações do dono.", "Late payment terms: as set by the owner.") + '</small></p>';
   }
-  if (w.schedule.length > 1 && (Number(String(w.schedule[0].pct).replace(",", ".")) || 0) > 10) {
+  if (window.GM_CONTRACT_NONE !== true && w.schedule.length > 1 && (Number(String(w.schedule[0].pct).replace(",", ".")) || 0) > 10) {
     h += '<p class="muted"><small>' + escHtml(GM_EST_DEPOSIT_LAW_EN) + '</small></p>';
   }
   h += '<div class="gm-est-preview-cat">Accept this estimate</div>' +
@@ -14549,14 +14593,14 @@ function gmRenderInvoiceSheet() {
 
   // Money lines (3c): separate labelled lines, so a big job never reads as overdue.
   body += gmSheetSection(gmT("Valores", "Amounts"),
-    gmSheetRowHtml("dollar", gmT("Total do contrato", "Contract total"), gmMoney(c.total_cents)) +
+    gmSheetRowHtml("dollar", window.GM_CONTRACT_NONE === true ? gmT("Total", "Total") : gmT("Total do contrato", "Contract total"), gmMoney(c.total_cents)) +
     (c.late_fee_cents ? gmSheetRowHtml("tag", gmT("Juros por atraso", "Late fees"), gmMoney(c.late_fee_cents)) : "") +
     gmSheetRowHtml("check", gmT("Recebido até agora (verificado)", "Paid to date (verified)"), gmMoney(c.paid_cents)) +
     ((c.credit_cents || c.refund_cents) ? gmSheetRowHtml("tag", gmT("Créditos e reembolsos", "Credits and refunds"), gmT("créditos ", "credits ") + gmMoney(c.credit_cents) + " · " + gmT("reembolsos ", "refunds ") + gmMoney(c.refund_cents)) : "") +
     gmSheetRowHtml("dollar", gmT("Esta fatura", "This invoice"), gmMoney(inv.amount_cents) + (inv.step_label ? ' <span class="muted">' + escHtml(gmStepLabel(inv.step_label)) + (inv.step_pct ? " " + inv.step_pct + "%" : "") + '</span>' : "")) +
     gmSheetRowHtml("dollar", gmT("Saldo desta fatura", "Balance due now for this invoice"), "<strong>" + gmMoney(inv.balance_cents) + "</strong>", null, null,
       inv.pending_cents ? gmT("mais ", "plus ") + gmMoney(inv.pending_cents) + gmT(" informados, aguardando verificação", " reported, awaiting verification") : "") +
-    gmSheetRowHtml("compass", gmT("Saldo restante do contrato", "Remaining contract balance"), gmMoney(c.remaining_cents)),
+    gmSheetRowHtml("compass", window.GM_CONTRACT_NONE === true ? gmT("Saldo restante", "Remaining balance") : gmT("Saldo restante do contrato", "Remaining contract balance"), gmMoney(c.remaining_cents)),
     gmT("calculado automaticamente", "calculated automatically"));
 
   body += gmSheetSection(gmT("Dados", "Details"),

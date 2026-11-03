@@ -141,7 +141,7 @@
       <div class="card" id="cardLines"><h2>This invoice</h2><div id="lines"></div></div>
       <div class="card" id="totals"><h2>Balance</h2><div class="totals" id="balance"></div></div>
       <div class="card hidden" id="cardPayments"><h2>Payments received</h2><div id="payments"></div></div>
-      <div class="card hidden" id="cardScope"><h2>Contract scope</h2><p class="muted small" id="scopeNote"></p><div id="scope"></div></div>
+      <div class="card hidden" id="cardScope"><h2 id="scopeTitle">Contract scope</h2><p class="muted small" id="scopeNote"></p><div id="scope"></div></div>
       <div class="card hidden" id="cardPay"><h2>How to pay</h2><div id="payMethods"></div></div>
       <div class="card" id="cardTerms"><h2>Terms</h2><div class="terms" id="terms"></div></div>
       <div class="card"><button type="button" class="btn secondary" id="btnPdf">Download your invoice (PDF)</button></div>
@@ -294,7 +294,7 @@
       if (inv.customer_address) { whoLines.push(inv.customer_address); }
       var rows = [["Issued", escHtml(fmtDate(inv.issue_date))], ["Due", escHtml(fmtDate(inv.due_date))], ["Terms", b.terms_days ? "Net " + escHtml(String(b.terms_days)) + " days" : "Due on receipt"], ["Job", escHtml(inv.job_name || "")]];
       if (inv.completion_signed_at) { rows.push(["Completion signed", escHtml((inv.completion_signer || "") + " on " + (typeof fmtDateTime === "function" ? fmtDateTime(inv.completion_signed_at) : fmtDate(inv.completion_signed_at)))]); }
-      if (inv.step_label) { rows.push(["Step", escHtml(inv.step_label) + (inv.step_pct ? " (" + escHtml(String(inv.step_pct)) + "% of contract)" : "")]); }
+      if (inv.step_label) { rows.push(["Step", escHtml(inv.step_label) + (inv.step_pct ? " (" + escHtml(String(inv.step_pct)) + (inv.no_contract ? "% of total)" : "% of contract)") : "")]); }
       var stamp = inv.status === "paid" ? '<span class="stamp ok">PAID</span>' : (inv.status === "overdue" ? '<span class="stamp bad">PAST DUE</span>' : "");
       var tile = { label: inv.status === "paid" ? "Paid in full" : "Balance due now", value: money(inv.balance_cents) };
       var meta = byId("cardMeta");
@@ -315,7 +315,7 @@
       var bal = byId("balance");
       if (bal) {
         bal.innerHTML =
-          '<div class="row"><span>Contract total</span><span>' + money(c.total_cents) + '</span></div>' +
+          '<div class="row"><span>' + (inv.no_contract ? "Estimate total" : "Contract total") + '</span><span>' + money(c.total_cents) + '</span></div>' +
           (c.late_fee_cents ? '<div class="row"><span>Late fees</span><span>' + money(c.late_fee_cents) + '</span></div>' : "") +
           '<div class="row"><span>Paid to date</span><span>' + money(c.paid_cents) + '</span></div>' +
           ((c.credit_cents || c.refund_cents) ? '<div class="row"><span>Credits / refunds</span><span>' + money(c.credit_cents) + ' / ' + money(c.refund_cents) + '</span></div>' : "") +
@@ -323,7 +323,7 @@
           (inv.paid_cents ? '<div class="row"><span>Paid on this invoice</span><span>-' + money(inv.paid_cents) + '</span></div>' : "") +
           (inv.credit_cents ? '<div class="row"><span>Credits on this invoice</span><span>-' + money(inv.credit_cents) + '</span></div>' : "") +
           '<div class="row grand"><span>Balance due now</span><span>' + money(inv.balance_cents) + '</span></div>' +
-          '<div class="row"><span>Remaining contract balance</span><span>' + money(c.remaining_cents) + '</span></div>';
+          '<div class="row"><span>' + (inv.no_contract ? "Remaining balance" : "Remaining contract balance") + '</span><span>' + money(c.remaining_cents) + '</span></div>';
       }
       if ((inv.payments || []).length || (inv.credits || []).length) {
         var pays = byId("payments");
@@ -341,7 +341,7 @@
       var sc = inv.scope;
       if (sc && sc.sections && sc.sections.length) {
         var note = byId("scopeNote");
-        if (note) { note.textContent = "From accepted estimate " + sc.estimate_number + " (contract total " + money(sc.total_cents) + "). For reference; the amount due is above."; }
+        if (note) { note.textContent = "From accepted estimate " + sc.estimate_number + (inv.no_contract ? " (estimate total " : " (contract total ") + money(sc.total_cents) + "). For reference; the amount due is above."; }
         var groups = sc.sections.filter(function(s) { return s.lines && s.lines.length; });
         var multi = groups.length > 1;
         var sum = 0;
@@ -362,9 +362,9 @@
         var discount = (sc.discount_cents !== null && sc.discount_cents !== undefined) ? sc.discount_cents : Math.max(0, subtotal - (sc.total_cents || 0));
         h += '<div class="totals">' + ((multi || discount) ? '<div class="row"><span>Subtotal</span><span>' + money(subtotal) + '</span></div>' : "") +
           (discount ? '<div class="row"><span>Discount' + (sc.discount_type === "pct" && sc.discount_value ? " (" + escHtml(String(sc.discount_value)) + "%)" : "") + '</span><span>-' + money(discount) + '</span></div>' : "") +
-          '<div class="row grand"><span>Contract total</span><span>' + money(sc.total_cents) + '</span></div></div>';
+          '<div class="row grand"><span>' + (inv.no_contract ? "Estimate total" : "Contract total") + '</span><span>' + money(sc.total_cents) + '</span></div></div>';
         var scopeEl = byId("scope"); if (scopeEl) { scopeEl.innerHTML = h; }
-        var scard = byId("cardScope"); if (scard) { scard.classList.remove("hidden"); }
+        var scard = byId("cardScope"); if (scard) { scard.classList.remove("hidden"); var stt = byId("scopeTitle"); if (stt && inv.no_contract) { stt.textContent = "Scope of work"; } }
       }
       var pm = b.payment_methods || [];
       // Pay by card (Stripe): the business connected its own Stripe account,

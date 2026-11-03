@@ -297,7 +297,7 @@
           '<div class="row"><span>Invoice balance before this payment</span><span>' + money(r.balance_before_cents) + '</span></div>' +
           '<div class="row"><span>This payment</span><span>-' + money(r.amount_cents) + '</span></div>' +
           '<div class="row grand"><span>Invoice balance after</span><span>' + money(r.balance_after_cents) + '</span></div>' +
-          '<div class="row"><span>Remaining contract balance</span><span>' + money(r.contract ? r.contract.remaining_cents : 0) + '</span></div>';
+          '<div class="row"><span>' + (r.no_contract ? "Remaining balance" : "Remaining contract balance") + '</span><span>' + money(r.contract ? r.contract.remaining_cents : 0) + '</span></div>';
       }
       var pdf = byId("btnPdf"); if (pdf) { pdf.onclick = function() { openPdf("receipt"); }; }
     }

@@ -2,7 +2,7 @@
 // APEX_TEST_API and APEX_TEST_TOKEN are set (the branch Worker in `wrangler dev
 // --remote`, and a test client session). They only ever touch test-client-temp-001.
 //   node scripts/test-setup-wizard.mjs
-import { readFileSync, readdirSync, writeFileSync, mkdtempSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync, mkdtempSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -117,7 +117,9 @@ ok(badRefs.length === 0, "Every data-help points at a real guide section and ste
 ok(["brand", "business", "work", "license", "hours", "payments", "how", "connections", "team", "bio", "review"].every(k => sections[k] > 0), "A guide section for each of the 11 stages");
 const noPt = (guide ? guide.sections : []).some(s => s.steps.some(st => !st.text.pt || !st.text.en)) ;
 ok(!noPt, "Every guide step has Portuguese and English");
-ok(!/image/.test(JSON.stringify(guide || {})), "The draft guide holds no picture paths (pictures are never committed)");
+const imgPaths = []; (guide ? guide.sections : []).forEach(s => s.steps.forEach(st => { if (st.image) { imgPaths.push(st.image.pt, st.image.en); } }));
+ok(imgPaths.every(p => /^help\/img\/guides\/[a-z0-9-]+\/[a-z0-9-]+-\d+\.(pt|en)\.jpg$/.test(p)), "Every picture path in the guide has the standard shape (the files live in help-private and are never committed)");
+ok(!existsSync(new URL("../help/img/guides/setup-wizard", import.meta.url).pathname), "No wizard picture file is committed under help/img (pictures are never committed)");
 
 // ── 8. Website reader: address safety ────────────────────────────────────
 ["127.0.0.1", "10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.1.1", "169.254.169.254", "0.0.0.0", "100.64.0.1", "::1", "fe80::1", "fd00::1", "::ffff:127.0.0.1", "::ffff:7f00:1", "224.0.0.1"].forEach(ip => {

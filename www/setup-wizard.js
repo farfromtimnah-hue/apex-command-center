@@ -749,7 +749,7 @@ function swLogoTile(brand, letter) {
 }
 function swConnections() {
   swLoadTt();
-  var bk = SW.bk || {}, on = bk.enabled !== false && bk.exists !== undefined ? !!bk.enabled : true;
+  var bk = SW.bk || {}, on = bk.exists !== undefined ? !!bk.enabled : true;
   var lang = (SW.d.answers.ref_lang) || (isEn() ? "en" : "pt");
   var h = '<h1>' + swT("Conexões", "Connections") + '</h1><p class="sw-lead">' + swT("Opcional. Conecte agora ou depois em Configurações.", "Optional. Connect now or later in Settings.") + '</p>';
   var tt = SW.tt;

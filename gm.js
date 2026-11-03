@@ -6118,9 +6118,25 @@ function gmConOwnTemplateUpload(file) {
     if (msgEl3) { msgEl3.textContent = e.message || gmT("Não foi possível ler o contrato.", "Could not read the contract."); }
   });
 }
+// The first step of the own contract flow checks the last: the Worker says
+// whether the reader is set up, so the owner is told "not available yet" before
+// choosing it, not after finishing every step.
+function gmConOwnAvailable() {
+  var o = gmConSettings && gmConSettings.own_contract;
+  return !o || o.available !== false;
+}
 function gmConOwnTemplateMarkReviewed(id) {
   gmApi("contract-own-templates/" + encodeURIComponent(id) + "/reviewed", { method: "POST" })
-    .then(function() { gmConOwnTemplates = null; gmRenderEstimatesTab(); })
+    .then(function() {
+      gmConOwnTemplates = null;
+      // The confirmed reading is now the owner's own clause options; reload what
+      // the settings screen knows about them (the draft the owner is typing stays).
+      return gmApi("contract-settings").then(function(d) {
+        if (gmConSettings) { gmConSettings.own_contract = d.own_contract; gmConSettings.options = d.options; }
+        gmToast(gmT("Contrato confirmado. Agora toque em Salvar contrato.", "Contract confirmed. Now tap Save contract settings."));
+        gmRenderEstimatesTab();
+      });
+    })
     .catch(function(e) { gmToast(e.message); });
 }
 
@@ -6168,7 +6184,8 @@ function gmConSettingsHtml() {
   // Source
   h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Origem do contrato", "Contract source") + '</p><div class="gm-chip-set">' +
     '<button data-help="contract-settings#csettings#12" type="button" class="gm-choice-chip' + (d.source === "apex" ? " gm-chip-sel" : "") + '" onclick="gmConDraft.source = \'apex\'; gmRenderEstimatesTab();">' + gmT("Modelo padrão Apex", "Apex standard template") + '</button>' +
-    '<button type="button" class="gm-choice-chip' + (d.source === "client" ? " gm-chip-sel" : "") + '" onclick="gmConDraft.source = \'client\'; gmRenderEstimatesTab();">' + gmT("Meu próprio contrato", "My own contract") + '</button></div>' +
+    '<button type="button" class="gm-choice-chip' + (d.source === "client" ? " gm-chip-sel" : "") + '"' + (gmConOwnAvailable() ? "" : " disabled") + ' onclick="gmConDraft.source = \'client\'; gmRenderEstimatesTab();">' + gmT("Meu próprio contrato", "My own contract") + '</button></div>' +
+    (gmConOwnAvailable() ? "" : '<p class="gm-warn" id="gmConOwnUnavailable">' + gmT("Meu próprio contrato ainda não está disponível. Use o modelo padrão Apex por enquanto.", "My own contract is not available yet. Use the Apex standard template for now.") + '</p>') +
     '<p class="muted" style="font-size:13px;">' + gmT("O seu próprio contrato é convertido uma vez pela Apex em um modelo limpo; o texto nunca é editado aqui.", "Your own contract is converted once by Apex into a clean template; the text is never edited here.") + '</p>' +
     (d.source === "client" ? gmConOwnTemplateHtml() : "") +
     '</div>';

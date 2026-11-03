@@ -35843,6 +35843,22 @@ function contractOptionTrades(tradesLine) {
     return out.length ? out : CONTRACT_CONSTRUCTION_TRADE_KEYS.slice();
 }
 
+// A contract that uses clauses from the business's own uploaded contract says
+// so, and says whether the business told Apex a lawyer reviewed that wording.
+// Apex never claims its own review covers it. The template-reviewed line is
+// replaced, since that review does not cover the owner's wording.
+function contractOwnWordingNote(disclaimer, selections, optionsById) {
+    var own = null;
+    Object.keys(selections || {}).forEach(function(a) {
+        var o = optionsById && optionsById[selections[a]];
+        if (o && o.origin === "own_upload") { own = o; }
+    });
+    if (!own) { return disclaimer; }
+    var base = disclaimer.indexOf("Template reviewed by") === 0 ? CONTRACT_DISCLAIMER_UNREVIEWED : disclaimer;
+    var lawyer = /lawyer_reviewed:yes/.test(own.text_note || "");
+    return base + " Some clauses are the business's own wording, taken from its own contract. " + (lawyer ? "The business says a lawyer reviewed that wording; Apex has not checked this." : "That wording was not reviewed by a lawyer.");
+}
+
 async function contractSettingsRow(env, clientId) {
     var r = await env.DB.prepare("SELECT * FROM contract_client_settings WHERE client_id = ?").bind(clientId).first();
     r = r || {};
@@ -36549,6 +36565,7 @@ function contractCompose(ctx, c, today, mode) {
     // reviews that state (the library's Florida review never counts here).
     if (outFl) { disclaimer = contractStateDisclaimer(st, hasCustom); }
     if (hasCustom) { disclaimer += " This contract contains a custom clause that was not reviewed by an attorney."; }
+    disclaimer = contractOwnWordingNote(disclaimer, c.selections, byId);
     return {
         sections: sections, notice_form_text: noticeForm, rules: rules, missing: missingList, blockers: blockers, fields: fields,
         amount_cents: amount, vars: v, sums: built.sums, disclaimer_line: disclaimer,
@@ -37215,6 +37232,7 @@ function contractCleaningCompose(ctx, c, today, mode) {
     var disclaimer = (reviewed && !hasCustom) ? ("Template reviewed by " + ctx.lib.version.attorney_name + ", Florida Bar #" + ctx.lib.version.attorney_bar_number + ", on " + contractFmtDate(ctx.lib.version.attorney_review_date) + ".") : CONTRACT_DISCLAIMER_UNREVIEWED;
     if (outFl) { disclaimer = contractStateDisclaimer(st, hasCustom); }
     if (hasCustom) { disclaimer += " This contract contains a custom clause that was not reviewed by an attorney."; }
+    disclaimer = contractOwnWordingNote(disclaimer, sel, ctx.lib.optionsById);
     var job = { amount_cents: built.sums.total_cents, sold_in_home: rules.LC2.on, is_pool: false, residential: home, selections: {}, license_number: "", has_deposit: false, first_payment_cents: 0,
                 auto_renews: picked("CL09-B"), template: tpl };
     var cancels = rules.LC1.on || rules.LC2.on;
@@ -37602,6 +37620,7 @@ async function handleGetContractSettings(id, request, env) {
             exclusion_checklists: lib ? lib.exclusion_checklists : [],
             library: lib ? { version: lib.version.version, status: lib.version.status, attorney_name: lib.version.attorney_name } : null,
             admin_ready: { recovery_fund: !!admin.recovery_fund_contact_block, pool_docs: !!(admin.ch515_doc_r2_key && admin.drowning_pub_r2_key) },
+            own_contract: { available: !!env.CLAUDE_API_KEY, in_use: (await env.DB.prepare("SELECT COUNT(*) AS c FROM contract_clause_options WHERE scope = ? AND status = 'approved' AND origin = 'own_upload'").bind(id).first() || {}).c || 0 },
             doc_ready: { license: gmLicenseSatisfied(doc), legal_name: !!doc.legal_name, payment_methods: Object.keys(doc.payment_methods || {}).length > 0 }
         });
     } catch (e) {
@@ -37645,8 +37664,13 @@ async function handlePutContractSettings(id, request, env) {
         if (source === "client") {
             // F41: only a full client template loaded by Apex unlocks "my own
             // contract"; one approved custom clause does not (origin marker).
-            var privCount = await env.DB.prepare("SELECT COUNT(*) AS c FROM contract_clause_options WHERE scope = ? AND status = 'approved' AND origin = 'apex_template'").bind(id).first();
-            if (!privCount || !privCount.c) { return jsonErr2("A Apex ainda não carregou o seu próprio modelo de contrato. Fale com a Apex.", "Apex has not loaded your own contract template yet. Contact Apex.", 409); }
+            // Either a full template Apex loaded, or the owner's own upload that
+            // the owner confirmed (its clauses were made on confirmation).
+            var privCount = await env.DB.prepare("SELECT COUNT(*) AS c FROM contract_clause_options WHERE scope = ? AND status = 'approved' AND origin IN ('apex_template', 'own_upload')").bind(id).first();
+            if (!privCount || !privCount.c) { return jsonErr2("Envie o seu contrato e confirme a leitura antes de usá-lo.", "Upload your contract and confirm the reading before you use it.", 409, { code: "own_contract_not_confirmed" }); }
+            // The owner's own wording is the default for every area it covers.
+            var ownRows = (await env.DB.prepare("SELECT id, area_id FROM contract_clause_options WHERE scope = ? AND status = 'approved' AND origin = 'own_upload'").bind(id).all()).results || [];
+            ownRows.forEach(function(o) { if (/^C\d\d$/.test(o.area_id)) { cleanDefaults[o.area_id] = o.id; } });
         }
         var actor = actorName(user);
         await env.DB.prepare(
@@ -62184,6 +62208,34 @@ async function handlePostGmContractOwnTemplate(clientId, request, env) {
     }
 }
 
+// Turns a confirmed own-contract reading into client-private clause options
+// (scope = client id, origin 'own_upload'). One option per area the reading
+// found; an area it did not find keeps Apex's standard choice. An older
+// upload's options are withdrawn first, so only the newest confirmed upload
+// is in use. Returns the number of areas now using the owner's own wording.
+async function gmContractOwnTemplateMaterialize(env, clientId, templateId, actor) {
+    var t = await env.DB.prepare("SELECT id, original_name, mapping_json, lawyer_reviewed FROM gm_contract_own_templates WHERE id = ? AND client_id = ?").bind(templateId, clientId).first();
+    if (!t) { return 0; }
+    var mapping = {};
+    try { mapping = JSON.parse(t.mapping_json || "{}"); } catch (e0) { mapping = {}; }
+    var known = {};
+    (await gmContractOwnTemplateAreas(env)).forEach(function(a) { known[a.key] = a.name; });
+    var stmts = [env.DB.prepare("UPDATE contract_clause_options SET status = 'withdrawn' WHERE scope = ? AND origin = 'own_upload' AND status = 'approved'").bind(clientId)];
+    var count = 0, short = String(templateId).replace(/-/g, "").slice(0, 8);
+    (mapping.areas || []).forEach(function(a) {
+        if (!a || !known[a.key] || !a.excerpt || !String(a.excerpt).trim()) { return; }
+        count++;
+        stmts.push(env.DB.prepare(
+            "INSERT OR REPLACE INTO contract_clause_options (id, version, scope, area_id, title, trades, owner_description, clause_text, text_note, status, created_by, sort_order, origin) " +
+            "VALUES (?, 1, ?, ?, ?, 'all', ?, ?, ?, 'approved', ?, 900, 'own_upload')"
+        ).bind("OWN-" + short + "-" + a.key, clientId, a.key, "Your own contract: " + known[a.key],
+            "Your own wording for this area, read from " + String(t.original_name || "your contract").slice(0, 120) + " and confirmed by you.",
+            String(a.excerpt), t.lawyer_reviewed === 1 ? "lawyer_reviewed:yes" : "lawyer_reviewed:no", actor));
+    });
+    await env.DB.batch(stmts);
+    return count;
+}
+
 async function handleGetGmContractOwnTemplates(clientId, request, env) {
     try {
         var a = await apxAuthOwnOrStaff(request, env, clientId);
@@ -62218,7 +62270,11 @@ async function handlePostGmContractOwnTemplateReviewed(clientId, templateId, req
             "WHERE id = ? AND client_id = ? AND status = 'pending_review'"
         ).bind(actorName(user), templateId, clientId).run();
         if (!res.meta || !res.meta.changes) { return jsonErr("Template not found or already reviewed", 404); }
-        return jsonOk({ reviewed: true });
+        // The last step: the confirmed reading becomes this business's own
+        // clause options, so saving "my own contract" and making contracts
+        // from it needs no Apex staff.
+        var made = await gmContractOwnTemplateMaterialize(env, clientId, templateId, actorName(user));
+        return jsonOk({ reviewed: true, clauses: made });
     } catch (e) {
         return jsonErr("Error marking reviewed: " + e.message, 500);
     }

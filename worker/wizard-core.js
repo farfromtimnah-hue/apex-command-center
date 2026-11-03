@@ -267,4 +267,15 @@ function sniffImage(bytes) {
     return null;
 }
 
-export { licenseResult, isBlockedIp, checkWebAddress, normalizeTypedAddress, safeFetch, parseSite, sniffImage, kindOf };
+// Who is shown the full wizard on their own. ONLY a business created after the
+// cutoff (one value in contract_admin_settings, wizard_auto_open_after, set at
+// the moment of the Worker deploy). An unset cutoff means nobody. An existing
+// owner is never auto opened: their missing parts show as a card instead.
+function wizardAutoOpen(cutoff, createdAt, completedAt, setupCompletedAt) {
+    var c = String(cutoff || "").trim(), t = String(createdAt || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(c) || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(t)) { return false; }
+    if (completedAt || setupCompletedAt) { return false; }
+    return t > c;
+}
+
+export { wizardAutoOpen, licenseResult, isBlockedIp, checkWebAddress, normalizeTypedAddress, safeFetch, parseSite, sniffImage, kindOf };

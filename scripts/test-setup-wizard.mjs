@@ -69,6 +69,15 @@ ok(cols.every(c => /PRIMARY KEY/i.test(c) || !/NOT NULL/i.test(c) || /DEFAULT/i.
 // ── 5. A partial wizard never completes setup ────────────────────────────
 ok(/var completing = !cur\.setup_completed_at && licenseOk && body\.wizard_draft !== true;/.test(WORKER), "Saving with wizard_draft never sets setup_completed_at");
 ok(/function swDocPut\(body\) \{\s*body\.wizard_draft = true;/.test(SRC), "Every wizard document save is marked wizard_draft");
+// ── 5b. Who the wizard opens for on its own ─────────────────────────────
+ok(core.wizardAutoOpen("2026-11-03 00:00:00", "2026-11-04 10:00:00", null, null) === true, "Auto open: a business created after the cutoff, not finished");
+ok(core.wizardAutoOpen("2026-11-03 00:00:00", "2026-07-11 00:00:00", null, null) === false, "Auto open: an existing owner (created before the cutoff) never opens it");
+ok(core.wizardAutoOpen("", "2026-11-04 10:00:00", null, null) === false && core.wizardAutoOpen(null, "2026-11-04 10:00:00", null, null) === false, "Auto open: no cutoff set means nobody opens it");
+ok(core.wizardAutoOpen("2026-11-03 00:00:00", "2026-11-04 10:00:00", "2026-11-04 11:00:00", null) === false && core.wizardAutoOpen("2026-11-03 00:00:00", "2026-11-04 10:00:00", null, "2026-11-04 11:00:00") === false, "Auto open: stops once the business has finished");
+ok(core.wizardAutoOpen("garbage", "2026-11-04 10:00:00", null, null) === false, "Auto open: a bad cutoff value opens nothing");
+ok(/auto: wizardAutoOpen\(admin\.wizard_auto_open_after/.test(WORKER) && !/auto = 1/.test(wizSection), "The Worker decides auto open only from the cutoff");
+ok(/key === "wizard_auto_open_after"[\s\S]{0,200}contractIsDeveloper/.test(WORKER), "Only the developer can set the cutoff");
+ok(/Blocked time is not available yet/.test(SRC) && !/data-act="block/.test(SRC), "Blocked time is not offered, and the screen says so");
 const finish = WORKER.slice(WORKER.indexOf("async function handlePostGmWizardFinish"), WORKER.indexOf("async function handlePostGmWizardFinish") + 1800);
 ok(/gmLicenseSatisfied\(doc\)/.test(finish) && /setup_completed_at = datetime/.test(finish), "Start completes setup, and only when the license rule is met");
 ok(!/setup_completed_at/.test(wizSection.replace(finish, "")) || true, "Only the finish route sets setup_completed_at");

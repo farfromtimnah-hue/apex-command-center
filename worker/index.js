@@ -4,7 +4,7 @@ import { DurableObject } from "cloudflare:workers";
 import HERO_GALLERY_V1 from "../data/hero-gallery-v1.json";
 import WIZARD_V1 from "../data/wizard-v1.json";
 import LICENSE_TABLE_V1 from "../data/license-table-v1.json";
-import { licenseResult, safeFetch, parseSite, sniffImage, normalizeTypedAddress } from "./wizard-core.js";
+import { wizardAutoOpen, licenseResult, safeFetch, parseSite, sniffImage, normalizeTypedAddress } from "./wizard-core.js";
 import HERO_GALLERY_PRIVATE_V1 from "../data/hero-gallery-private-v1.json";
 import CONTRACT_STATE_RIDERS_V1 from "../data/contract-state-riders-v1.json";
 import CONTRACT_STATE_CHECKLIST_V1 from "../data/contract-state-checklist-v1.json";
@@ -34446,7 +34446,7 @@ async function handleGetPublicReceipt(token, request, env) {
 //   POST /api/contracts/transcribe                multipart "audio" -> {transcript} (Deepgram Nova-3)
 // ---------------------------------------------------------------------------
 
-var CONTRACT_ADMIN_SETTING_KEYS = ["review_released_to_rafa", "recovery_fund_contact_block",
+var CONTRACT_ADMIN_SETTING_KEYS = ["wizard_auto_open_after", "review_released_to_rafa", "recovery_fund_contact_block",
     "ch515_doc_r2_key", "ch515_doc_version", "drowning_pub_r2_key", "drowning_pub_version",
     "affidavit_written_declaration",
     // Cleaning library: values only Apex sets (attorney-approved lists, the
@@ -34652,6 +34652,15 @@ async function handlePutContractAdminSettings(request, env) {
         // The release switch and the affidavit mode are the developer's alone.
         if ((key === "review_released_to_rafa" || key === "affidavit_written_declaration") && !contractIsDeveloper(user)) { return jsonErr("Forbidden", 403); }
         if (key === "ch515_doc_r2_key" || key === "drowning_pub_r2_key") { return jsonErr("Upload the document instead", 400); }
+        // The setup wizard's one cutoff (developer only): a business created AFTER this moment is shown the
+        // full wizard on its own. "now" sets the current moment (UTC), null clears it (nobody auto opens).
+        if (key === "wizard_auto_open_after") {
+            if (!contractIsDeveloper(user)) { return jsonErr("Forbidden", 403); }
+            var wv = body.value === null || body.value === undefined || body.value === "" ? null : String(body.value).trim();
+            if (wv === "now") { wv = new Date().toISOString().replace("T", " ").slice(0, 19); }
+            if (wv !== null && !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(wv)) { return jsonErr("Use now, empty, or YYYY-MM-DD HH:MM:SS (UTC)", 400); }
+            body.value = wv === null ? "" : wv;
+        }
         var value = body.value === null || body.value === undefined ? null : String(body.value).slice(0, 2000);
         if (key === "review_released_to_rafa" || key === "affidavit_written_declaration") { value = value === "1" || value === "true" ? "1" : "0"; }
         await env.DB.prepare(
@@ -56961,7 +56970,7 @@ function bsRoute(path, method, request, env) {
 // settings, contract settings, booking settings); the wizard keeps only its
 // own place (stage, version stamp, answers with no other home) in
 // gm_wizard_state. All routes are owner only. Nothing here locks anyone out:
-// the full wizard opens by itself only for a business whose row says auto = 1.
+// the full wizard opens by itself only for a business created after the cutoff (wizard_auto_open_after).
 // ═══════════════════════════════════════════════════════════════════════════
 var WIZ_STAGE_MAX = 11;
 var WIZ_ANSWER_KEYS = ["cat", "subs", "other_text", "website_url", "ref_lang", "team_mode", "lic_show", "booking_same", "blocks", "how", "pay_other", "tap_to_pay_seen"];
@@ -57002,7 +57011,7 @@ function wizCatalog() {
 async function wizStageStatus(env, id) {
     var doc = await gmDocSettingsRow(env, id);
     var cs = await contractSettingsRow(env, id);
-    var client = await env.DB.prepare("SELECT logo_url, language FROM clients WHERE id = ?").bind(id).first() || {};
+    var client = await env.DB.prepare("SELECT logo_url, language, created_at FROM clients WHERE id = ?").bind(id).first() || {};
     var bk = await bkSettingsRow(env, id);
     var st = await wizStateRow(env, id);
     var ans = wizAnswers(st);
@@ -57017,7 +57026,7 @@ async function wizStageStatus(env, id) {
         connections: true,
         team: true
     };
-    return { doc: doc, cs: cs, client: client, bk: bk, state: st, answers: ans, done: done };
+    return { doc: doc, cs: cs, client: client, bk: bk, state: st, answers: ans, done: done, created_at: client.created_at };
 }
 
 async function handleGetGmWizard(id, request, env) {
@@ -57026,12 +57035,13 @@ async function handleGetGmWizard(id, request, env) {
         if (a.err) { return a.err; }
         var s = await wizStateRow(env, id);
         var info = await wizStageStatus(env, id);
+        var admin = await contractAdminSettings(env);
         var missing = ["brand", "business", "work", "license", "hours", "payments", "how"].filter(function(k) { return !info.done[k]; });
         return jsonOk({
             ready: s !== undefined,
             stage: (s && s.stage) || 1,
             version: (s && s.version) || null,
-            auto: !!(s && s.auto === 1 && !s.completed_at),
+            auto: wizardAutoOpen(admin.wizard_auto_open_after, info.created_at, s && s.completed_at, info.doc.setup_completed_at),
             completed_at: (s && s.completed_at) || null,
             setup_completed_at: info.doc.setup_completed_at,
             answers: info.answers,

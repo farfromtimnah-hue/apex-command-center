@@ -31420,6 +31420,36 @@
               }
             }
           ]
+        },
+        {
+          "id": "nocontract",
+          "title": {
+            "pt": "Se o seu trabalho não tem contrato na Apex",
+            "en": "If your kind of work has no contract in Apex"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Toque em Pedir à Apex um contrato para o meu negócio se você quer um contrato que a Apex ainda não tem para o seu tipo de trabalho. O pedido é registrado uma vez só, mesmo que você toque de novo.",
+                "en": "Tap Ask Apex for a contract for my business if you want a contract Apex does not have yet for your kind of work. The request is recorded once, even if you tap again."
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Escreva uma linha sobre o contrato que você quer e toque em Enviar o pedido. A Apex recebe o nome do seu negócio, o seu tipo de trabalho, o estado e a sua linha.",
+                "en": "Type one line about the contract you want and tap Send the request. Apex receives your business name, your kind of work, your state and your line."
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Sem contrato, orçamentos, faturas e pagamentos funcionam do mesmo jeito, e Começar nunca é bloqueado. A Apex não dá aconselhamento jurídico.",
+                "en": "Without a contract, estimates, invoices and payments work the same, and Start is never blocked. Apex does not give legal advice."
+              }
+            }
+          ]
         }
       ],
       "buttons": []

@@ -16301,7 +16301,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^contract-own-templates\/[A-Za-z0-9-]+\/reviewed$/.test(gmRest)) { return true; }
                 // Card payments: connect / disconnect the owner's Stripe account.
                 if (gmRest === "stripe/connect" || gmRest === "stripe/disconnect" || gmRest === "stripe/reaccept") { return true; }
-                if (/^wizard\/(website|other-work|finish|lawyer-pdf)$/.test(gmRest)) { return true; }
+                if (/^wizard\/(website|other-work|contract-request|finish|lawyer-pdf)$/.test(gmRest)) { return true; }
                 // Tap to Pay (owner only): turn it on/off. The connection
                 // token, payment intent and shared-details routes are owner
                 // OR seller -- see sellerRequestAllowed below, which also
@@ -19364,7 +19364,7 @@ var LOGIN_ROLE_DENY_SETTINGS = [
     { m: "PUT", base: /^gm\/config$/ },
     { m: "PUT", base: /^gm\/booking-settings$/ },
     { m: "PUT", base: /^gm\/wizard(\/(business|work|hours|how))?$/ },
-    { m: "POST", base: /^gm\/wizard\/(website|other-work|finish|lawyer-pdf)$/ },
+    { m: "POST", base: /^gm\/wizard\/(website|other-work|contract-request|finish|lawyer-pdf)$/ },
     // Estimates > Settings: document settings and branding, contract settings.
     { m: "PUT", base: /^gm\/doc-settings$/ },
     { m: "PUT", base: /^gm\/doc-hero-choice$/ },
@@ -31732,7 +31732,10 @@ async function handlePostGmEstimateSend(id, estId, request, env) {
         var flow = null;
         var flowBody = null;
         try { flowBody = await request.json(); } catch (eFlowBody) { flowBody = null; }
-        if (flowBody && flowBody.full_flow === true) {
+        var sendNone = flowBody && flowBody.full_flow === true ? await wizContractNone(env, id) : false;
+        if (sendNone && flowBody.check_only === true) { return jsonOk({ ok: true, check_only: true, not_offered: true, ready: true, questions: [], blockers: [], contract_needed: false, can_sign: false }); }
+        // A business that needs no contract sends the plain estimate, whatever an old page asked for.
+        if (flowBody && flowBody.full_flow === true && !sendNone) {
             flow = await gmEstFullFlowCheck(env, user, id, est, flowBody, flowBody.check_only === true);
             if (flow instanceof Response) { return flow; }
             if (flowBody.check_only === true) {
@@ -32157,7 +32160,8 @@ async function handleGetGmDocMessages(id, request, env) {
         // Send with contract (one link) is offered only to a person who may sign for the
         // company, at a business whose contract settings name the trades and the signers.
         var ffSettings = await contractSettingsRow(env, id);
-        var ffSigner = (ffSettings.trades.length && (ffSettings.owner_signer_name || (ffSettings.signers || []).length)) ? contractSignerAllowed(user, ffSettings, client) : null;
+        var ffNone = await wizContractNone(env, id);
+        var ffSigner = (!ffNone && ffSettings.trades.length && (ffSettings.owner_signer_name || (ffSettings.signers || []).length)) ? contractSignerAllowed(user, ffSettings, client) : null;
         return jsonOk({
         // The non-sensitive slice a seller's estimate wizard needs. No
         // payment details, no license, no late-fee terms.
@@ -32168,6 +32172,7 @@ async function handleGetGmDocMessages(id, request, env) {
             sender_first_name: await gmDocSenderFirstName(env, user, id, client, s),
             estimate_valid_days: s.estimate_valid_days, schedule_presets: s.schedule_presets,
             min_margin_pct: s.min_margin_pct, setup_completed_at: s.setup_completed_at,
+            contract_none: ffNone,
             full_flow_signer: ffSigner && ffSigner.ok ? ffSigner.name : null,
             full_flow_requestable: !!(ffSigner && !ffSigner.ok)
         },
@@ -32559,6 +32564,7 @@ async function handlePostGmEstimateSignRequest(id, estId, request, env) {
         if (est.status !== "draft") { return jsonErr("Only a draft estimate can be sent for signature", 409); }
         var body = {};
         try { body = await request.json(); } catch (e0) { body = {}; }
+        if (await wizContractNone(env, id)) { return wizNotOffered(); }
         var cs = await contractSettingsRow(env, id);
         if (!cs.trades.length || !(cs.owner_signer_name || (cs.signers || []).length)) { return jsonErr2("Configure o contrato primeiro (ofícios e quem assina) em Estimates > Configurações.", "Set up the contract settings first (trades, signers) under Estimates > Settings", 400, { code: "no_contract_settings" }); }
         var extra = gmEstFlowExtra(body);
@@ -33511,6 +33517,8 @@ async function gmInvPublicPayload(env, inv, origin) {
         credits: inv.credits.map(function(c) { return { kind: c.kind, number: c.number, amount_cents: c.amount_cents, reason: c.reason, created_at: c.created_at }; }),
         contract: { total_cents: contract.contract_total_cents, late_fee_cents: contract.late_fee_cents, paid_cents: contract.paid_cents, credit_cents: contract.credit_cents, refund_cents: contract.refund_cents, remaining_cents: contract.remaining_contract_cents },
         scope: scope,
+        // A business that needs no contract: the customer's page says estimate total, not contract total.
+        no_contract: await wizContractNone(env, inv.client_id),
         business: {
             name: settings.legal_name || (client && client.name) || "", address: settings.address || null, phone: settings.phone || null, email: settings.email || null,
             license_numbers: settings.license_numbers || [],
@@ -34416,7 +34424,7 @@ async function handleGetPublicReceipt(token, request, env) {
             amount_cents: p.amount_cents, method: p.method, reference: p.reference, paid_date: p.paid_date, verified_at: p.verified_at,
             reversed: p.state === "reversed", reverse_reason: p.state === "reversed" ? p.reverse_reason : null, reversed_at: p.state === "reversed" ? p.reversed_at : null,
             balance_before_cents: beforeCents, balance_after_cents: afterCents,
-            contract: contract, business: pub.business
+            contract: contract, no_contract: !!pub.no_contract, business: pub.business
         } });
     } catch (e) {
         return jsonErr("Error loading receipt: " + e.message, 500);
@@ -37755,6 +37763,7 @@ var GM_PROPERTY_TYPE_KEYS = ["single_family", "townhouse", "duplex", "triplex", 
 async function gmContractCreateCore(env, id, job, body, actor, opts) {
     opts = opts || {};
     body = body || {};
+    if (await wizContractNone(env, id)) { return wizNotOffered(); }
         // F12: a project made by hand has no accepted estimate to build from.
         if (!job.lead_id) { return jsonErr2("Este projeto não veio de um lead com estimate aceito; o contrato é montado a partir do estimate.", "This project did not come from a lead with an accepted estimate; the contract is built from the estimate.", 400, { code: "no_estimate" }); }
         var settings = await contractSettingsRow(env, id);
@@ -41372,7 +41381,8 @@ async function coJobContractStatus(env, clientId, jobId) {
         over = th.crosses;
         threshold = th.clean ? { cents: rider.written_contract.threshold_cents, compare: rider.written_contract.compare } : null;
     }
-    var needs = over && !signed && !resolvedByOwner && job.status !== "Concluída";
+    // A business whose kind of work needs no contract is never warned about a missing one.
+    var needs = over && !signed && !resolvedByOwner && job.status !== "Concluída" && !(await wizContractNone(env, clientId));
     // Cleaning: a cleaning job (its newest contract is a service agreement, or
     // the business does cleaning only) is warned in plain words, with no
     // construction law quoted. Absent for every other job.
@@ -57168,21 +57178,69 @@ async function handlePutGmWizardWork(id, request, env) {
         var cur = await wizStateRow(env, id);
         if (cur === undefined) { return jsonErr2("O assistente ainda não está pronto.", "The setup wizard is not ready yet.", 503, { code: "wizard_not_ready" }); }
         var ans = wizAnswers(cur);
+        // The contract mode is decided here and nowhere else: a kind of work Apex has no contract for
+        // (or Something else) is "none".
         ans.cat = cat; ans.subs = subs; ans.other_text = cat === "other" ? String(b.other_text || "").slice(0, 200) : "";
+        if (wizNoContractCat(cat)) { ans.contract_mode = "none"; } else { delete ans.contract_mode; }
         await env.DB.prepare(
             "INSERT INTO gm_wizard_state (client_id, stage, answers_json, started_at, updated_at) VALUES (?, 3, ?, datetime('now'), datetime('now')) " +
             "ON CONFLICT (client_id) DO UPDATE SET answers_json = excluded.answers_json, updated_at = datetime('now')"
         ).bind(id, JSON.stringify(ans)).run();
-        // "Something else" has no trade of its own: it clears the trades of an earlier pick and stores
-        // "general" (the same as the other kinds without a contract yet), so the estimate screens keep working.
+        // Trades are the trades of the work and nothing else: a kind with no contract stores none.
         var r = await wizContractPatch(id, request, env, function(body) {
-            body.trades = category ? category.contract_trades.slice() : ["general"];
+            body.trades = category && !wizNoContractCat(cat) ? category.contract_trades.slice() : [];
             body.builds_pools = category ? !!category.builds_pools : false;
         });
         if (!r.ok) { return r.res; }
         return jsonOk({ saved: true });
     } catch (e) {
         return jsonErr("Error saving the kind of work: " + e.message, 500);
+    }
+}
+
+// POST gm/wizard/contract-request { note } : "Ask Apex for a contract for my business". One support ticket
+// per business with the pill "needs to be added" (the same section the Something else request uses), so a second
+// tap never makes a second ticket. The ticket carries the business name, the kind of work, the state and the
+// owner's one line. Apex staff are told by the same push every support ticket sends. In a test run
+// (BLOCK_SENDS) nothing leaves and the answer shows what would have been sent.
+async function handlePostGmWizardContractRequest(id, request, env) {
+    try {
+        var a = await wizOwner(request, env, id);
+        if (a.err) { return a.err; }
+        var b = {};
+        try { b = await request.json(); } catch (e2) { b = {}; }
+        var note = String(b.note || "").replace(/\s+/g, " ").trim().slice(0, 200);
+        var st = await wizStateRow(env, id);
+        if (st === undefined) { return jsonErr2("O assistente ainda não está pronto.", "The setup wizard is not ready yet.", 503, { code: "wizard_not_ready" }); }
+        var ans = wizAnswers(st);
+        var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first() || {};
+        var cs = await contractSettingsRow(env, id);
+        var cat = (WIZARD_V1.categories || []).filter(function(c) { return c.key === ans.cat; })[0];
+        var kindText = cat ? cat.label_en : (ans.other_text || "not set yet");
+        var summary = "Setup wizard: a contract is wanted for this business\nBusiness: " + (client.name || id) + "\nKind of work: " + kindText +
+            "\nState: " + ((cs.values && cs.values.business_state) || "not set yet") + "\nOwner's note: " + (note || "(none)");
+        var ticketId = "wizc-" + id;
+        var nowIso = new Date().toISOString().replace("T", " ").slice(0, 19);
+        var ins = await env.DB.prepare(
+            "INSERT OR IGNORE INTO support_tickets (id, created_at, reporter_email, reporter_name, language, kind, page, transcript_json, original_words, summary_en, guidance, status) " +
+            "VALUES (?, ?, ?, ?, ?, 'needs to be added', 'setup-wizard', '[]', ?, ?, NULL, 'open')"
+        ).bind(ticketId, nowIso, a.user.email || a.user.username || id, client.name || id, "en", note || kindText, summary).run();
+        var created = !!(ins.meta && ins.meta.changes);
+        var push = { title: "Apex support: needs to be added from " + String(client.name || id).split(" ")[0] + ": contract wanted", body: (kindText + (note ? ". " + note : "")).slice(0, 140), url: "/dashboard.html" };
+        if (created) {
+            try {
+                var devRows = (await env.DB.prepare("SELECT email FROM users WHERE role = 'developer'").all()).results || [];
+                var devEmails = devRows.map(function(r) { return r.email; }).filter(Boolean);
+                if (devEmails.length) { await pushToUsers(env, devEmails, push); }
+            } catch (eP) { /* the ticket is saved; a push failure must not undo it */ }
+            ans.contract_requested = nowIso;
+            await env.DB.prepare("UPDATE gm_wizard_state SET answers_json = ?, updated_at = datetime('now') WHERE client_id = ?").bind(JSON.stringify(ans), id).run();
+        }
+        var out = { requested: true, already: !created, ticket_id: ticketId };
+        if (String(env.BLOCK_SENDS || "") === "1") { out.would_send = { sent_now: created, ticket_summary: summary, push: push }; }
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr2("Não foi possível enviar o pedido.", "Could not send the request: " + e.message, 500);
     }
 }
 
@@ -57358,6 +57416,7 @@ async function handlePutGmWizardHow(id, request, env) {
         function has(k) { return Object.prototype.hasOwnProperty.call(b, k); }
         if (has("warranty_months") && [12, 24].indexOf(Number(b.warranty_months)) === -1) { return jsonErr2("A garantia é de 12 ou 24 meses.", "The warranty is 12 or 24 months.", 400); }
         if (has("holdback_pct") && !(Number(b.holdback_pct) >= 0 && Number(b.holdback_pct) <= 10)) { return jsonErr2("A retenção vai de 0 a 10 por cento.", "The holdback is 0 to 10 percent.", 400); }
+        var howNone = await wizContractNone(env, id);
         var r = await wizContractPatch(id, request, env, function(body) {
             var d = body.defaults, v = body.values;
             if (has("warranty_months")) { d.C11 = Number(b.warranty_months) === 24 ? "C11-B" : "C11-A"; }
@@ -57375,7 +57434,7 @@ async function handlePutGmWizardHow(id, request, env) {
             if (has("signer_title")) { v.company_signer_title = String(b.signer_title || "").slice(0, 80); }
             if (b.insurance && typeof b.insurance === "object") { Object.keys(b.insurance).forEach(function(k) { if (/^[a-z0-9_]{1,60}$/.test(k)) { v[k] = String(b.insurance[k] || "").slice(0, 200); } }); }
             if (has("source") && (b.source === "apex" || b.source === "client")) { body.source = b.source; }
-            if (!body.trades.length) { body.trades = ["general"]; }
+            if (!body.trades.length && !howNone) { body.trades = ["general"]; }
         });
         if (!r.ok) { return r.res; }
         return jsonOk({ saved: true, settings: r.body && r.body.settings });
@@ -57475,12 +57534,26 @@ function wizLawyerKinds(trades, cat) {
     return out;
 }
 // What the Review stage and Settings, Contracts show about the contract.
+// mode "none" = the owner's kind of work has no contract in Apex (set only by the wizard's work save, so a
+// business with no wizard record, and every business set up before this, is never "none").
+async function wizContractMode(env, id) {
+    var st = null;
+    try { st = await wizStateRow(env, id); } catch (e) { st = null; }
+    return wizAnswers(st).contract_mode === "none" ? "none" : null;
+}
+async function wizContractNone(env, id) { return (await wizContractMode(env, id)) === "none"; }
 async function wizContractInfo(env, id, cs) {
     var st = null;
     try { st = await wizStateRow(env, id); } catch (e) { st = null; }
-    var cat = wizAnswers(st).cat;
+    var ans = wizAnswers(st), cat = ans.cat;
     var kinds = wizLawyerKinds((cs || await contractSettingsRow(env, id)).trades, cat);
-    return { kinds: kinds, available: kinds.length > 0 };
+    var mode = ans.contract_mode === "none" ? "none" : null;
+    return { kinds: kinds, available: kinds.length > 0, mode: mode, none: mode === "none", requested: !!ans.contract_requested };
+}
+// The plain answer a "create a contract" action gives a business that needs none: not an error.
+function wizNotOffered() {
+    return jsonOk({ created: false, requested: false, not_offered: true,
+        message_pt: "Um contrato para este tipo de trabalho não é oferecido na Apex.", message_en: "A contract for this kind of work is not offered in Apex." });
 }
 
 function wizMd(text) { return wizEsc(text).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>"); }
@@ -59128,6 +59201,7 @@ async function handleFetch(request, env, ctx) {
                         if (method === "PUT" && wizSub === "how") { return handlePutGmWizardHow(cid, request, env); }
                         if (method === "POST" && wizSub === "website") { return handlePostGmWizardWebsite(cid, request, env); }
                         if (method === "POST" && wizSub === "other-work") { return handlePostGmWizardOtherWork(cid, request, env); }
+                        if (method === "POST" && wizSub === "contract-request") { return handlePostGmWizardContractRequest(cid, request, env); }
                         if (method === "POST" && wizSub === "finish") { return handlePostGmWizardFinish(cid, request, env); }
                         if (method === "POST" && wizSub === "lawyer-pdf") { return handlePostGmWizardLawyerPdf(cid, request, env); }
                     }

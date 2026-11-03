@@ -223,6 +223,8 @@ var ALLOWED_ORIGINS = [
 // The default origin for any caller not on the allowlist. Also the value the
 // static CORS_HEADERS below carries, so a response built anywhere in this file
 // is locked down until withCorsOrigin() rewrites it at the fetch boundary.
+// Filled only by installSendBlock() in a test run (BLOCK_SENDS=1): the localhost page that drives the test copy.
+var DEV_TEST_ORIGINS = [];
 var DEFAULT_ORIGIN = "https://apex.resonateai.online";
 
 // The customer pages are also served on doc.resonateai.online (see
@@ -234,7 +236,7 @@ var DOC_PAGE_ORIGIN = "https://doc.resonateai.online";
 
 function corsOriginFor(request) {
     var origin = request && request.headers ? request.headers.get("Origin") : null;
-    if (origin && ALLOWED_ORIGINS.indexOf(origin) !== -1) { return origin; }
+    if (origin && (ALLOWED_ORIGINS.indexOf(origin) !== -1 || DEV_TEST_ORIGINS.indexOf(origin) !== -1)) { return origin; }
     if (origin === DOC_PAGE_ORIGIN) {
         try { if (PUBLIC_DOC_PATH_RE.test(new URL(request.url).pathname)) { return origin; } } catch (e) {}
     }
@@ -56944,6 +56946,33 @@ function bsRoute(path, method, request, env) {
     return null;
 }
 
+// Test runs only (wrangler dev --remote --var BLOCK_SENDS:1). The test copy
+// shares the live secrets, so every call that could reach a real person or a
+// real outside account is answered locally and never leaves. Inert in
+// production: BLOCK_SENDS is not set there.
+var SEND_BLOCK_HOSTS = /(^|\.)(twilio\.com|api\.telegram\.org|graph\.facebook\.com|zohoapis\.com|zoho\.com|googleapis\.com|api\.openphone\.com|push\.apple\.com|fcm\.googleapis\.com|sendgrid\.com|resend\.com|mailgun\.net|api\.fireflies\.ai|stytch\.com|plaid\.com)$/;
+var sendBlockInstalled = false;
+function installSendBlock(env) {
+    if (sendBlockInstalled || !env || String(env.BLOCK_SENDS || "") !== "1") { return; }
+    sendBlockInstalled = true;
+    DEV_TEST_ORIGINS.push("http://localhost:8800");
+    var realFetch = globalThis.fetch;
+    globalThis.fetch = function(input, init) {
+        var url, method;
+        try {
+            url = new URL(typeof input === "string" ? input : (input && input.url) || String(input));
+            method = String((init && init.method) || (input && input.method) || "GET").toUpperCase();
+        } catch (e) { return realFetch(input, init); }
+        // Reads are harmless, except Stytch and Plaid which also carry sign in and bank calls.
+        var readOnlyOk = method === "GET" && !/stytch\.com$|plaid\.com$|twilio\.com$|telegram\.org$/.test(url.hostname);
+        if (SEND_BLOCK_HOSTS.test(url.hostname) && !readOnlyOk && !/stytch\.com$/.test(url.hostname)) {
+            console.log("BLOCKED outbound " + method + " " + url.hostname + url.pathname);
+            return Promise.resolve(new Response(JSON.stringify({ ok: true, blocked: true, sid: "BLOCKED", message_id: 0 }), { status: 200, headers: { "Content-Type": "application/json" } }));
+        }
+        return realFetch(input, init);
+    };
+}
+
 export default {
     // Thin wrapper over the real handler. Every response leaving this Worker
     // passes through withCorsOrigin(), so the allowlisted Origin is echoed
@@ -56953,6 +56982,7 @@ export default {
     // since an exception response with the wrong origin is just as unreadable
     // to the app as a rejected one.
     fetch: async function(request, env, ctx) {
+        installSendBlock(env);
         try {
             if (new URL(request.url).hostname === "doc.resonateai.online") {
                 var docPath = new URL(request.url).pathname.toLowerCase();
@@ -57019,6 +57049,7 @@ export default {
     // API on any failure. Successes are silent (no daily "all good" noise).
     // -------------------------------------------------------------------
     scheduled: async function(event, env, ctx) {
+        installSendBlock(env);
         // The cron now ticks every 5 minutes (appointment reminders need it). The
         // reminder job runs on EVERY tick; everything else below keeps its old
         // 4-hourly cadence (the tick at UTC 00:00, 04:00, 08:00 ...).

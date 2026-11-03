@@ -101,6 +101,9 @@
   <!-- Hero build: the customer-document header, shared with the homeowner
        pages and PDF templates, for the hero picker preview in Estimates > Settings. -->
   <link rel="stylesheet" href="doc-hero.css?v=1790541646">
+  <link rel="stylesheet" href="setup-wizard.css?v=3">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="doc-hero.js?v=1790547506"></script>
   <!-- The send-message editor on Estimates reuses template-edit.js's modal
        styling (estimates build, phase 2). -->
@@ -5091,6 +5094,7 @@
         loadMeetings();
       }
       applyPortalShape();
+      if (typeof swInit === "function") { swInit(); }
       // Owner attention (A9 / A2) exists only where the Faturas tab does.
       var invTab = null;
       PORTAL_TABS.forEach(function(t) { if (t.tab === "gminvoices") { invTab = t; } });
@@ -8440,11 +8444,12 @@
 
     init();
   </script>
-  <script src="gm.js?v=1793667852"></script>
+  <script src="gm.js?v=1793669796"></script>
   <script src="nav.js"></script>
   <script src="help-config.js"></script>
   <script src="help-core.js"></script>
   <script src="help-widget.js"></script>
+  <script src="setup-wizard.js?v=3"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav
        previously broke desktop layout. mobile.css alone controls visibility/

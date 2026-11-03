@@ -6346,7 +6346,11 @@ function gmJobCreateContractKindDo(jobId) {
   }
   gmApi("jobs/" + encodeURIComponent(jobId) + "/contracts", { method: "POST", body: body })
     .then(function(r) { gmToast(gmT("Contrato criado: ", "Contract created: ") + r.number); gmLoadJobContracts(jobId); gmOpenContract(r.contract_id); })
-    .catch(function(e) { say(e.message); console.error(e); });
+    .catch(function(e) {
+      // No contract settings yet: send the owner to that step of the setup, never just a refusal.
+      if (e && e.data && e.data.code === "no_contract_settings" && typeof swNeedContractSettings === "function") { swNeedContractSettings(); return; }
+      say(e.message); console.error(e);
+    });
 }
 // The kind chips on the builder, for a business that does both kinds.
 function gmConKindChipsHtml(c) {
@@ -6708,7 +6712,10 @@ function gmJobCreateContractPicked(jobId) {
 function gmJobCreateContractDo(jobId, ids) {
   gmApi("jobs/" + encodeURIComponent(jobId) + "/contracts", { method: "POST", body: ids ? { estimate_ids: ids } : {} })
     .then(function(d) { gmToast(gmT("Contrato criado: ", "Contract created: ") + d.number); gmLoadJobContracts(jobId); gmOpenContract(d.contract_id); })
-    .catch(function(e) { gmToast(e.message); console.error(e); });
+    .catch(function(e) {
+      if (e && e.data && e.data.code === "no_contract_settings" && typeof swNeedContractSettings === "function") { swNeedContractSettings(); return; }
+      gmToast(e.message); console.error(e);
+    });
 }
 
 // ── Contract sheet (the builder) ────────────────────────────────────────

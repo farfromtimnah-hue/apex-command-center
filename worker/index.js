@@ -16300,7 +16300,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^contract-own-templates\/[A-Za-z0-9-]+\/reviewed$/.test(gmRest)) { return true; }
                 // Card payments: connect / disconnect the owner's Stripe account.
                 if (gmRest === "stripe/connect" || gmRest === "stripe/disconnect" || gmRest === "stripe/reaccept") { return true; }
-                if (/^wizard\/(website|other-work|finish)$/.test(gmRest)) { return true; }
+                if (/^wizard\/(website|other-work|finish|lawyer-pdf)$/.test(gmRest)) { return true; }
                 // Tap to Pay (owner only): turn it on/off. The connection
                 // token, payment intent and shared-details routes are owner
                 // OR seller -- see sellerRequestAllowed below, which also
@@ -19363,7 +19363,7 @@ var LOGIN_ROLE_DENY_SETTINGS = [
     { m: "PUT", base: /^gm\/config$/ },
     { m: "PUT", base: /^gm\/booking-settings$/ },
     { m: "PUT", base: /^gm\/wizard(\/(business|work|hours|how))?$/ },
-    { m: "POST", base: /^gm\/wizard\/(website|other-work|finish)$/ },
+    { m: "POST", base: /^gm\/wizard\/(website|other-work|finish|lawyer-pdf)$/ },
     // Estimates > Settings: document settings and branding, contract settings.
     { m: "PUT", base: /^gm\/doc-settings$/ },
     { m: "PUT", base: /^gm\/doc-hero-choice$/ },
@@ -57389,6 +57389,106 @@ async function handlePostGmWizardFinish(id, request, env) {
     }
 }
 
+// ── Review stage: the lawyer PDF ───────────────────────────────────────────
+// The existing document PDFs print ONE contract that belongs to a project.
+// There was no output for "the whole standard contract with my own values", so
+// this builds only that: the owner's chosen clauses (or Apex's standard choice
+// where none is chosen), the owner's values filled in, every blank left visible
+// in brackets. It goes through the same headless browser PDF path as every
+// other document. The file is kept in storage and the link is signed, 10 minutes.
+function wizEsc(s) { return String(s === null || s === undefined ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+async function wizLawyerHtml(env, id) {
+    var cs = await contractSettingsRow(env, id);
+    var doc = await gmDocSettingsRow(env, id);
+    var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first() || {};
+    var lib = await contractLibraryForClient(env, id, 1, cs.trades.length ? cs.trades : null);
+    if (!lib) { return null; }
+    if (cs.trades.length && cs.trades.every(function(t) { return t === "cleaning"; })) { return { notYet: true }; }
+    var v = Object.assign({}, cs.values || {});
+    v.business_legal_name = doc.legal_name || client.name || "";
+    v.business_name = v.business_legal_name;
+    v.business_address = doc.address || "";
+    v.business_phone = doc.phone || "";
+    v.license_numbers = (doc.license_numbers || []).join(", ");
+    v.grace_period_days = doc.late_fee_grace_days !== null && doc.late_fee_grace_days !== undefined ? String(doc.late_fee_grace_days) : (v.grace_period_days || "");
+    v.late_interest_rate = doc.late_fee_annual_pct !== null && doc.late_fee_annual_pct !== undefined ? String(doc.late_fee_annual_pct) : (v.late_interest_rate || "");
+    if (v.warranty_months_workmanship === undefined) { v.warranty_months_workmanship = (cs.defaults.C11 === "C11-B") ? "24" : "12"; }
+    var byId = lib.optionsById, parts = [], blanks = {};
+    function fill(text) {
+        return String(text || "").replace(/\{([a-z0-9_]+)\}/g, function(m, k) { if (v[k] !== undefined && v[k] !== "") { return String(v[k]); } blanks[k] = 1; return "[" + k.replace(/_/g, " ") + "]"; });
+    }
+    CONTRACT_AREA_ORDER.forEach(function(a) {
+        var area = lib.clause_areas.filter(function(x) { return x.id === a; })[0];
+        var chosen = cs.defaults[a] && byId[cs.defaults[a]] ? byId[cs.defaults[a]] : lib.optionsForClient.filter(function(o) { return o.area_id === a; })[0];
+        if (!area || !chosen) { return; }
+        var own = chosen.origin === "own_upload";
+        var text = fill(contractOptionText(chosen, byId));
+        var html = wizEsc(text).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
+        parts.push('<section><h2>' + wizEsc(a + " " + (area.title || "")) + '</h2><p class="src">' + (own ? "Your own wording, from your uploaded contract." : "Apex standard choice: " + wizEsc(chosen.id) + (cs.defaults[a] === chosen.id ? "" : " (not changed by you)")) + '</p><p>' + html + '</p></section>');
+    });
+    var blankList = Object.keys(blanks).map(function(k) { return k.replace(/_/g, " "); }).sort().join(", ");
+    return { html: '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Contract for lawyer review</title><style>' +
+        '@page{size:letter;margin:0.8in}body{font:11pt/1.45 Georgia,serif;color:#111}h1{font-size:20pt;margin:0 0 4pt}h2{font-size:12.5pt;margin:16pt 0 2pt}' +
+        '.note{border:1px solid #999;padding:8pt;font:9.5pt/1.4 Helvetica,Arial,sans-serif;margin:8pt 0 14pt}.src{font:9pt Helvetica,Arial,sans-serif;color:#555;margin:0 0 4pt}section{break-inside:avoid-page}p{margin:0 0 6pt}</style></head><body data-render-done="1">' +
+        '<h1>' + wizEsc(v.business_legal_name || "Your business") + '</h1><div>Standard contract, for review by your lawyer</div>' +
+        '<div class="note"><b>Please read.</b> This is the Apex standard contract with your own values filled in. Anything in [brackets] is filled in for each job. ' +
+        'Required legal notices and state forms are added automatically to each real contract and are not shown here. Apex is not a law firm and gives no legal advice. This template has ' +
+        (lib.version.status === "attorney_reviewed" ? "been reviewed by an attorney for Florida." : "not been reviewed by an attorney.") + '</div>' +
+        parts.join("") + (blankList ? '<p class="src" style="margin-top:14pt">Filled in for each job: ' + wizEsc(blankList) + '.</p>' : '') + '</body></html>', areas: parts.length };
+}
+
+async function handlePostGmWizardLawyerPdf(id, request, env) {
+    try {
+        var a = await wizOwner(request, env, id);
+        if (a.err) { return a.err; }
+        var built = await wizLawyerHtml(env, id);
+        if (!built) { return jsonErr2("A biblioteca de cláusulas não está disponível.", "The clause library is not available.", 503); }
+        if (built.notYet) { return jsonErr2("O PDF para o advogado ainda não existe para contratos de limpeza.", "The lawyer PDF is not available for cleaning contracts yet.", 422, { code: "not_available" }); }
+        var puppeteer = (await import("@cloudflare/puppeteer")).default;
+        var browser = await docPdfLaunch(puppeteer, env), bytes;
+        try {
+            var page = await browser.newPage();
+            await page.setContent(built.html, { waitUntil: "load", timeout: 30000 });
+            var pdf = await page.pdf({ format: "letter", printBackground: true, preferCSSPageSize: true });
+            bytes = pdf instanceof Uint8Array ? pdf : new Uint8Array(pdf);
+        } finally { try { await browser.close(); } catch (e2) {} }
+        var key = "lawyer-pdfs/" + id + "/" + Date.now() + ".pdf";
+        await env.ASSETS.put(key, bytes, { httpMetadata: { contentType: "application/pdf" } });
+        var body = docPdfB64url(new TextEncoder().encode(JSON.stringify({ c: id, f: key, x: Date.now() + DOC_PDF_TOKEN_TTL_MS })));
+        var token = "lwyr_" + body + "." + (await docPdfHmac(env, body));
+        return jsonOk({ url: new URL(request.url).origin + "/api/pdf/lawyer/" + token, areas: built.areas, pages: (new TextDecoder().decode(bytes).match(/\/Type\s*\/Page[^s]/g) || []).length });
+    } catch (e) {
+        return jsonErr2("Não foi possível preparar o PDF.", "Could not prepare the PDF: " + e.message, 500);
+    }
+}
+
+// GET /api/pdf/lawyer/:token : the signed link is the credential (10 minutes).
+async function handleGetLawyerPdf(token, env) {
+    var m = /^lwyr_([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(token || "");
+    if (!m) { return new Response("Not found", { status: 404 }); }
+    var expect = await docPdfHmac(env, m[1]);
+    if (expect.length !== m[2].length) { return new Response("Link expired", { status: 403 }); }
+    var diff = 0;
+    for (var i = 0; i < expect.length; i++) { diff |= expect.charCodeAt(i) ^ m[2].charCodeAt(i); }
+    if (diff !== 0) { return new Response("Link expired", { status: 403 }); }
+    var claims;
+    try { claims = JSON.parse(atob(m[1].replace(/-/g, "+").replace(/_/g, "/"))); } catch (e) { return new Response("Link expired", { status: 403 }); }
+    if (!claims || !(claims.x > Date.now()) || !/^lawyer-pdfs\/[A-Za-z0-9_-]+\/\d+\.pdf$/.test(String(claims.f))) { return new Response("Link expired", { status: 403 }); }
+    var obj = await env.ASSETS.get(claims.f);
+    if (!obj) { return new Response("Not found", { status: 404 }); }
+    return new Response(obj.body, { status: 200, headers: { "Content-Type": "application/pdf", "Content-Disposition": "inline; filename=\"contract-for-lawyer.pdf\"", "Cache-Control": "private, no-store" } });
+}
+
+// GET /api/brand-logo/:name : a logo for the Connections cards, kept in storage
+// (never bundled in the app). A missing logo is a 404 and the page shows a letter tile.
+async function handleGetBrandLogo(name, env) {
+    if (!/^[a-z0-9-]{1,30}$/.test(name)) { return new Response("Not found", { status: 404 }); }
+    var obj = await env.ASSETS.get("brand-logos/" + name + ".png");
+    if (!obj) { return new Response("Not found", { status: 404, headers: CORS_HEADERS }); }
+    return new Response(obj.body, { status: 200, headers: Object.assign({}, CORS_HEADERS, { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" }) });
+}
+
 // Test runs only (wrangler dev --remote --var BLOCK_SENDS:1). The test copy
 // shares the live secrets, so every call that could reach a real person or a
 // real outside account is answered locally and never leaves. Inert in
@@ -57761,6 +57861,10 @@ async function handleFetch(request, env, ctx) {
         if (pubPdf && method === "GET") { return handleGetPublicDocPdf(pubPdf[1], pubPdf[2], request, env); }
         var rndrPdf = path.match(/^\/api\/pdf\/r\/(rndr_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/);
         if (rndrPdf && method === "GET") { return handleGetRenderTokenPdf(rndrPdf[1], request, env); }
+        var lwyrPdf = path.match(/^\/api\/pdf\/lawyer\/(lwyr_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/);
+        if (lwyrPdf && method === "GET") { return handleGetLawyerPdf(lwyrPdf[1], env); }
+        var brandLogo = path.match(/^\/api\/brand-logo\/([a-z0-9-]+)$/);
+        if (brandLogo && method === "GET") { return handleGetBrandLogo(brandLogo[1], env); }
 
         // PUBLIC customer-facing estimate (estimates build, 2f). The token is
         // the credential; rate limited in the handlers; 404 for unknown.
@@ -58769,6 +58873,7 @@ async function handleFetch(request, env, ctx) {
                         if (method === "POST" && wizSub === "website") { return handlePostGmWizardWebsite(cid, request, env); }
                         if (method === "POST" && wizSub === "other-work") { return handlePostGmWizardOtherWork(cid, request, env); }
                         if (method === "POST" && wizSub === "finish") { return handlePostGmWizardFinish(cid, request, env); }
+                        if (method === "POST" && wizSub === "lawyer-pdf") { return handlePostGmWizardLawyerPdf(cid, request, env); }
                     }
                 }
                 // Online booking (bk* block above "Enviar horarios").

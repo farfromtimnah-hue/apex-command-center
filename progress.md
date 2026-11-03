@@ -1,3 +1,50 @@
+# Setup Wizard build (branch setup-wizard), 2026-11-02
+
+Written for Nicole. Plain words. Nothing here is merged or deployed.
+
+## Where things are
+- Branch: setup-wizard (pushed). Commits: 474c590c (own contract last step), 71536a7b (test run guard), 4c92ab2a (server side and data), and the final commit that holds this file.
+- Migration: migrations/2026-11-02_setup_wizard.sql. Time before applying: 8:19 PM Eastern, November 2, 2026 (01:19 UTC). Local dry run passed first. Applied once to the live database. Result: success, 1 query, 3 rows written. It adds ONE new table, gm_wizard_state. It changes no existing table or row.
+- Why a table and not columns: a gm_doc_settings row with empty presets reads as "no presets" instead of the defaults, so writing a wizard row there early would change a new business's documents. The stage and the version stamp are nullable columns of the new table.
+- Worker: three NON DEPLOYED versions were uploaded (9d6c2cfb-ad74-4609-8c8a-2878b5b75fb8, 63d42eba-f1c4-4d43-942d-8dc5bb9c39d8, eb9fb36d-7121-4510-a089-511d687a965e). None has a preview address: Cloudflare reports has_preview false, probably because this Worker has a Durable Object. Production is still on version c3fb5af2 at 100 percent.
+- Testing used wrangler dev --remote on localhost:8799 with the real database and the test client only. Real sends were blocked by a guard (BLOCK_SENDS=1) that is inert in production. The page copy was served from localhost:8800 with the Worker address swapped in the COPY only. The Pages test project was not used: a page on the internet cannot reach a Worker on this computer.
+
+## Feasibility check you asked for
+- Secrets in remote dev: yes. The Claude key read a real contract. Stripe test mode answered. Stytch was not needed.
+- Sign in from a localhost page: yes, with a short lived test client token (a test only allowance for http://localhost:8800 was added, active only when BLOCK_SENDS=1).
+
+## Part 1, own contract (verified on the test client with real calls)
+Real PDF uploaded, Claude read it (6 areas found), save before confirming was refused with a clear message, confirm made 6 clauses, save then worked, a contract (CON-0026, a draft on the test client) was created and its text holds the owner's own wording and the lawyer notice. Files: part1-upload-response.json, part1-contract-preview.json.
+
+## Tests
+- scripts/test-setup-wizard.mjs: 85 offline checks and 12 live checks, all pass. They cover: license answers (Florida cleaning none, Florida pool required, California painting threshold, New York cottage baking registration, Alaska siding unconfirmed), no license data in page code, wizard cannot reach Stripe disconnect, additive migration, partial wizard never completes setup, address safety, redirects, size cap, time limit, website reader, style rules, a guide for every control, and OLD page requests against the NEW Worker.
+- scripts/test-help-system.mjs: 1053 passed, 0 failed. check-no-popups: clean. check-ios-drift: clean.
+
+## What was verified in Chrome (localhost, test client)
+All 11 stages draw. Kind of work saved and read back from the server. Typed phone saved after the pause and was read back. Reopening resumed on the saved stage. The five Stripe states draw correctly (not available, not connected, unfinished, connected, terms updated) and no Disconnect button exists anywhere. A return from Stripe (?stripe=return) opens stage 6 filled in. Right click on a chip opened the Aprenda guide at the right section. The lawyer PDF was made through the real headless browser path and the file was opened (8 pages, 19 clause areas). Screenshots: ~/code-reports/wizard-test/.
+Two real bugs were found and fixed during this: the top bar nested wrongly, and the wizard sat above the Aprenda panel.
+
+## NOT verified (say so plainly)
+- iOS Simulator: not run. Taps, 0.5 second hold, keyboard over the Continue bar, file picker and Stripe return in the app: all unverified.
+- A brand new owner from a blank business: the test client is already complete, so the full new owner path was not walked. Stage by stage Portuguese click through not done. Only the sampled stages were looked at by eye.
+- Website box in the browser (the API was tested: bergaminisolutions.com gives name Bergamini Solutions, the logo, cleaning and construction, no phone, address or review link, following its redirect to www.bergamini.solutions).
+- Stripe Connect click and Thumbtack Connect click were not pressed. Returning from Stripe was simulated with the address.
+- People and access card inside stage 9, the signer chips, the clause by clause link, the Finish your setup card and a Gator shaped business were not exercised in a browser. No real client was read or written.
+- Partial wizard never sets setup_completed_at: checked in code and by test, not on a blank business.
+- Pictures for the guides were not captured. The guide text is a draft in help/guides.json (Portuguese and English).
+- A Pages test deploy was not done.
+
+## Surprises and gaps
+- The table has a status NO_STATE_LICENSE (139 rows) that your list did not name. It is treated like NO STATE LICENSE.
+- Four boutique taps have no license work type (clothing, accessories, fabric and sewing, online orders). They show "Apex could not confirm". No other tap is unmapped.
+- Blocked time: no booking code reads a weekly blocked time, so that control was left out rather than shown and not enforced.
+- How you work: the library has only 12 or 24 month warranties, holdback maps to C12-B (none) or C12-C (percent), permits has two options (customer pulls permits has no clause), and debris is a frequency value, not the three sentences in the design. Materials map to C10-A and C10-D.
+- Brand logo route /api/brand-logo/:name reads brand-logos/<name>.png in storage. None are uploaded, so letter tiles show.
+- New sign ups: the Worker reads auto = 1 on gm_wizard_state to open the full wizard by itself. Nothing sets it yet. Setting it at sign up and the backfill are the later separate step.
+- The lawyer PDF link is signed for 10 minutes and made from the Worker's own address. In remote dev that address is the live one, so the test fetched it from localhost.
+- Test client leftovers: draft contract CON-0026, own contract clauses OWN-34c1b21e-*, wizard answers (kind of work and taps), one test session token (expired at the end). Contract settings, phone and trades were put back.
+- Controls with no Aprenda guide: none found by the test. Sub taps not mapped: the four boutique taps above.
+
 # Apex Command Center — Build Progress
 
 ## Business System pipeline and payment hook

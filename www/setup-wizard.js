@@ -27,15 +27,17 @@ var SW_PAY = [["zelle", "Zelle", "Zelle"], ["check", "Cheque", "Check"], ["cash"
 var SW_TERMS = [["0", "Pagamento na hora", "Due on receipt"], ["7", "7 dias", "Net 7"], ["15", "15 dias", "Net 15"], ["30", "30 dias", "Net 30"]];
 var SW_DAYS_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 var SW_DAYS_PT = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-var SW_DAY_LETTER = ["D", "S", "T", "Q", "Q", "S", "S"];
+var SW_DAY_LETTER_PT = ["D", "S", "T", "Q", "Q", "S", "S"];
+var SW_DAY_LETTER_EN = ["S", "M", "T", "W", "T", "F", "S"];
 
-var SW = { open: false, stage: 1, ready: false, loadErr: "", d: null, doc: null, cs: null, bk: null, lic: null, licKey: "", licBusy: false, stripe: null,
+var SW = { queue: Promise.resolve(), open: false, stage: 1, ready: false, loadErr: "", d: null, doc: null, cs: null, bk: null, lic: null, licKey: "", licBusy: false, stripe: null,
   pending: 0, saveErr: "", saveRetry: null, savedAt: 0, timers: {}, web: { url: "", st: "idle", res: null, use: {}, err: "" },
   swatches: [], logoTs: 0, upErr: "", people: false, tt: null, ttBusy: false, confirmSave: false, finishing: false, finishErr: "", copied: false, ownBusy: false };
 
 function swEl(id) { return document.getElementById(id); }
 function swT(pt, en) { return isEn() ? en : pt; }
 function swH(stage, n) { return ' data-help="setup-wizard#' + stage + '#' + n + '"'; }
+function swCap(s) { s = String(s || ""); return s.charAt(0).toUpperCase() + s.slice(1); }
 function swEsc(s) { return escHtml(String(s === null || s === undefined ? "" : s)); }
 function swFmtHour(h) { var n = h % 12 === 0 ? 12 : h % 12; return n + ":00 " + (h < 12 ? "AM" : "PM"); }
 function swFmtHHMM(t) { var h = parseInt(String(t).slice(0, 2), 10); return swFmtHour(h); }
@@ -65,8 +67,11 @@ function swStatusRender() {
 // Runs a save. On failure the screen says so in words and keeps the value.
 function swSave(label, fn) {
   SW.pending++; SW.saveErr = ""; swStatusRender();
-  var p;
-  try { p = fn(); } catch (e) { p = Promise.reject(e); }
+  // One save at a time, in order. A blank business has no settings row yet, and two saves
+  // racing to make it fail with a database error (found on the first brand new owner test).
+  var run = function() { try { return fn(); } catch (e) { return Promise.reject(e); } };
+  var p = SW.queue.then(run, run);
+  SW.queue = p.then(function() {}, function() {});
   return Promise.resolve(p).then(function(r) {
     SW.pending--; SW.savedAt = Date.now(); SW.saveRetry = null; swStatusRender(); return r;
   }).catch(function(e) {
@@ -113,7 +118,7 @@ function swLoad() {
   SW.ready = false; SW.loadErr = "";
   return Promise.all([gmApi("wizard"), gmApi("doc-settings"), gmApi("contract-settings"), gmApi("booking-settings")]).then(function(r) {
     SW.d = r[0]; SW.doc = r[1].settings; SW.cs = r[2]; SW.bk = r[3].settings || r[3];
-    gmDocSettings = SW.doc; gmDocDraft = { brand_primary: SW.doc.brand_primary, brand_accent: SW.doc.brand_accent, legal_name: SW.doc.legal_name };
+    gmDocSettings = SW.doc;
     SW.ready = true;
     if (!SW.d.ready) { throw new Error(swT("O assistente ainda não está pronto.", "The setup wizard is not ready yet.")); }
     SW.web.url = (SW.d.answers && SW.d.answers.website_url) || SW.web.url;
@@ -146,6 +151,8 @@ function swClose() {
   swFlush();
   var root = swEl("swRoot"); if (root) { root.hidden = true; root.innerHTML = ""; }
   document.body.style.overflow = ""; SW.open = false;
+  // Hand the estimate screens back clean: they load their own settings and draft when opened.
+  gmDocSettings = null; gmDocDraft = null; if (typeof gmHeroUi !== "undefined") { gmHeroUi = null; }
   swRestorePeopleWrap();
   swFinishCardRender();
 }
@@ -205,6 +212,7 @@ function swGate() {
 // The estimate preview is the app's real one. Nothing here redraws it.
 function swHeroHtml() {
   var s = SW.doc || {}, url = "", hero = null;
+  var keepDraft = gmDocDraft;   // the real estimate settings form keeps its own draft; only borrow it for the preview
   gmDocDraft = { brand_primary: s.brand_primary, brand_accent: s.brand_accent, legal_name: s.legal_name };
   gmDocSettings = s;
   if (s.hero_gallery_key && gmHeroGallery) {
@@ -215,7 +223,9 @@ function swHeroHtml() {
     hero = { focus_x: s.hero_focus_x === null || s.hero_focus_x === undefined ? 50 : s.hero_focus_x, focus_y: s.hero_focus_y === null || s.hero_focus_y === undefined ? 50 : s.hero_focus_y,
       zoom: s.hero_zoom || 100, slide: 0, fill: null, tone: s.hero_tone || "dark", flip: !!s.hero_flip };
   }
-  return '<div class="sw-hero" id="swHero">' + gmHeroPreviewHtml(url, hero || {}) + '</div>';
+  var html = '<div class="sw-hero" id="swHero">' + gmHeroPreviewHtml(url, hero || {}) + '</div>';
+  gmDocDraft = keepDraft;
+  return html;
 }
 function swRefreshHero() { var h = swEl("swHero"); if (h) { h.outerHTML = swHeroHtml(); } }
 var swHeroRepaintPatched = false;
@@ -346,7 +356,7 @@ function swUploadLogo(file) {
     var url = URL.createObjectURL(file);
     swColorsFrom(url, function(c) {
       SW.swatches = c;
-      var p = SW.doc.brand_primary ? Promise.resolve() : swDocPut({ brand_primary: c[0], brand_accent: c[0] }).then(function() { SW.doc.brand_primary = c[0]; SW.doc.brand_accent = c[0]; });
+      var p = SW.doc.brand_primary ? Promise.resolve() : swSaveQuiet("colors", function() { return swDocPut({ brand_primary: c[0], brand_accent: c[0] }); }).then(function() { SW.doc.brand_primary = c[0]; SW.doc.brand_accent = c[0]; });
       Promise.resolve(p).catch(function() {}).then(function() { SW.doc.brand_primary = SW.doc.brand_primary || c[0]; SW.doc.brand_accent = SW.doc.brand_accent || c[0]; swRender(); });
     });
   }).catch(function(e) { SW.upErr = e.message; swRender(); });
@@ -406,7 +416,7 @@ function swBusiness() {
   h += '<div class="sw-row"><label class="sw-l" for="swState">' + swT("Em que estado você trabalha?", "Where do you work?") + '</label><select id="swState" data-bind="state"' + swH("business", 1) + '><option value="">' + swT("Escolha o estado", "Choose your state") + '</option>';
   ((SW.cs && SW.cs.states) || []).forEach(function(s) { h += '<option value="' + swEsc(s.code) + '"' + (s.code === v.business_state ? " selected" : "") + '>' + swEsc(s.name) + '</option>'; });
   h += '</select></div>';
-  h += '<div class="sw-row"><div class="sw-l">' + swT("Como o seu negócio é registrado?", "How is your business set up?") + '</div><div class="sw-chips"><button type="button" class="sw-chip" data-act="entity" data-v="llc" aria-pressed="' + (entity === "llc") + '"' + swH("business", 2) + '>LLC</button><button type="button" class="sw-chip" data-act="entity" data-v="sole" aria-pressed="' + (entity === "sole") + '"' + swH("business", 2) + '>' + swT("Empresário individual", "Sole owner") + '</button></div></div>';
+  h += '<div class="sw-row"><div class="sw-l">' + swT("Como o seu negócio é registrado?", "How is your business set up?") + '</div><div class="sw-chips"><button type="button" class="sw-chip" data-act="entity" data-v="llc" aria-pressed="' + (entity === "llc") + '"' + swH("business", 2) + '>LLC</button><button type="button" class="sw-chip" data-act="entity" data-v="sole" aria-pressed="' + (entity === "sole") + '"' + swH("business", 2) + '>' + swT("Empresário(a) individual", "Sole owner") + '</button></div></div>';
   h += swField(swT("Telefone ou WhatsApp", "Phone or WhatsApp number"), "phone", "tel", swT("Por exemplo, 813 555 0123", "For example, 813 555 0123"), d.phone || "", { stage: "business", attr: 'autocomplete="tel"' }, 3);
   h += swField(swT("Endereço do negócio", "Business address"), "address", "text", swT("Rua, cidade, estado e CEP", "Street, city, state and zip"), d.address || "", { stage: "business", attr: 'autocomplete="street-address"' }, 4);
   h += swField(swT("Nome fantasia (opcional)", "Doing business as (optional)"), "dba", "text", swT("Só se os clientes conhecem você por outro nome", "Only if your customers know you by another name"), v.business_dba || "", { stage: "business", attr: "" }, 5);
@@ -477,7 +487,7 @@ function swLicense() {
   var names = r.items.filter(function(x) { return x.kind === "need"; }).map(function(x) { return isEn() ? x.name_en : x.name_pt; }).join(", ");
   var list = '<div>';
   r.items.forEach(function(x) {
-    list += '<div class="sw-lt"><b>' + swEsc(isEn() ? x.name_en : x.name_pt) + '</b><span class="sw-ls ' + (x.kind === "need" || x.kind === "threshold" ? "need" : x.kind === "unsure" ? "unsure" : "") + '">' + swEsc(isEn() ? x.label_en : x.label_pt) + '</span>' +
+    list += '<div class="sw-lt"><b>' + swEsc(swCap(isEn() ? x.name_en : x.name_pt)) + '</b><span class="sw-ls ' + (x.kind === "need" || x.kind === "threshold" ? "need" : x.kind === "unsure" ? "unsure" : "") + '">' + swEsc(isEn() ? x.label_en : x.label_pt) + '</span>' +
       (x.note ? '<p>' + swEsc(x.note) + '</p>' : '') + ((x.confidence === "LOW" || x.confidence === "MEDIUM") ? '<p>' + swT("Confiança: ", "Confidence: ") + (x.confidence === "LOW" ? swT("baixa", "low") : swT("média", "medium")) + swT(". Confirme com o conselho do seu estado.", ". Check with your state board.") + '</p>' : '') + '</div>';
   });
   list += '</div>';
@@ -508,7 +518,7 @@ function swHours() {
   var b = swBk(), s = swHour(b.start), e = swHour(b.end);
   var h = '<h1>' + swT("Seus horários", "Your hours") + '</h1><p class="sw-lead">' + swT("Perguntamos uma vez. A Apex usa nos contratos, no link de agendamento e no diário.", "Asked once. Apex uses it for your contracts, your booking link and your daily log.") + '</p>';
   h += '<div class="sw-row"><div class="sw-l">' + swT("Dias em que você trabalha", "Days you work") + '</div><div class="sw-days" role="group" aria-label="' + swT("Dias de trabalho", "Work days") + '">';
-  for (var i = 0; i < 7; i++) { var order = [1, 2, 3, 4, 5, 6, 0][i]; h += '<button type="button" class="sw-day" data-act="day" data-v="' + order + '" aria-pressed="' + (b.days.indexOf(order) > -1) + '" aria-label="' + (isEn() ? SW_DAYS_EN[order] : SW_DAYS_PT[order]) + '"' + swH("hours", 1) + '>' + SW_DAY_LETTER[order] + '</button>'; }
+  for (var i = 0; i < 7; i++) { var order = [1, 2, 3, 4, 5, 6, 0][i]; h += '<button type="button" class="sw-day" data-act="day" data-v="' + order + '" aria-pressed="' + (b.days.indexOf(order) > -1) + '" aria-label="' + (isEn() ? SW_DAYS_EN[order] : SW_DAYS_PT[order]) + '"' + swH("hours", 1) + '>' + (isEn() ? SW_DAY_LETTER_EN : SW_DAY_LETTER_PT)[order] + '</button>'; }
   h += '</div></div>';
   h += '<div class="sw-row sw-sentr"><span>' + swT("Das", "From") + '</span>' + swStepper("start", swFmtHour(s), 5, 12, s <= 5, s >= 12) + '<span>' + swT("às", "to") + '</span>' + swStepper("end", swFmtHour(e), 13, 22, e <= 13, e >= 22) + '</div>';
   h += '<div class="sw-row"><div class="sw-l">' + swT("Duração de cada agendamento", "Length of each booking") + '</div>' + swStepper("dur", b.dur + " " + swT("minutos", "minutes"), 30, 240, b.dur <= 30, b.dur >= 240) + '</div>';
@@ -722,20 +732,28 @@ function swTeam() {
   var after = null;
   if (mode === "team") {
     h += '<div id="swPeopleWrap" data-sw="1" data-help-default="setup-wizard#team"><p class="sw-fine">' + swT("Carregando…", "Loading…") + '</p></div>';
-    h += swSignersHtml();
-    after = function() { swSwapPeopleWrap(true); var w = swEl("peopleCardWrap"); if (w) { w.setAttribute("data-sw", "1"); } if (typeof portalPeopleLoad === "function") { portalPeopleLoad(); } };
+    h += '<div id="swSigners">' + swSignersHtml() + '</div>';
+    after = function() {
+      swSwapPeopleWrap(true); var w = swEl("peopleCardWrap"); if (w) { w.setAttribute("data-sw", "1"); }
+      // The signer chips list the people the card shows, so they are drawn again once the card has loaded.
+      if (typeof portalPeopleLoad === "function") { portalPeopleLoad().then(function() { var sg = swEl("swSigners"); if (sg && SW.stage === 9) { sg.innerHTML = swSignersHtml(); } }); }
+    };
   }
   return { html: h, need: [swT("se você trabalha sozinho ou com equipe", "whether you work alone or with a team")], ok: !!mode, after: after };
 }
 function swSignersHtml() {
-  var cs = SW.cs, s = swCs(), people = (cs && cs.salespeople) || [];
-  var h = '<div class="sw-row"><div class="sw-l">' + swT("Quem pode assinar contratos", "Who can sign contracts") + '</div><p class="sw-fine" style="margin:-4px 0 10px">' + swT("Você pode assinar sozinho, ou deixar a sua equipe assinar para você não precisar.", "You can sign yourself, or allow your people to sign so you do not have to.") + '</p><div class="sw-chips">';
+  var cs = swCs(), list = cs.signers || [], d = SW.signerDraft || { name: "", phone: "" };
+  var people = (typeof peopleState !== "undefined" && peopleState.list) ? peopleState.list.filter(function(p) { return p.role !== "client"; }) : [];
+  var h = '<div class="sw-row"><div class="sw-l">' + swT("Quem pode assinar contratos", "Who can sign contracts") + '</div><p class="sw-fine" style="margin:-4px 0 10px">' + swT("Você pode assinar sozinho, ou deixar a sua equipe assinar para você não precisar. Cada pessoa que assina precisa de um telefone.", "You can sign yourself, or allow your people to sign so you do not have to. Each person who signs needs a phone number.") + '</p><div class="sw-chips">';
   h += '<button type="button" class="sw-chip" aria-pressed="true" disabled' + swH("team", 2) + '>' + swT("Eu", "Me") + '</button>';
+  list.forEach(function(x, i) { h += '<button type="button" class="sw-chip" data-act="signer-rm" data-i="' + i + '" aria-pressed="true"' + swH("team", 2) + '>' + swEsc(x.name) + ' ×</button>'; });
   people.forEach(function(p) {
-    var on = (s.signers || []).some(function(x) { return (p.username && x.username === p.username) || x.name === p.name; });
-    h += '<button type="button" class="sw-chip" data-act="signer" data-n="' + swEsc(p.name) + '" aria-pressed="' + on + '"' + swH("team", 2) + '>' + swEsc(p.name) + '</button>';
+    if (list.some(function(x) { return x.name === p.name; })) { return; }
+    h += '<button type="button" class="sw-chip" data-act="signer-pick" data-n="' + swEsc(p.name) + '" aria-pressed="false"' + swH("team", 2) + '>' + swEsc(p.name) + '</button>';
   });
-  h += '</div>' + (people.length ? '' : '<p class="sw-fine">' + swT("Quando você adicionar uma pessoa com o acesso Vendedor(a), ela aparece aqui.", "When you add a person with the Salesperson access, they show here.") + '</p>') + '</div>';
+  h += '</div><div class="sw-licrow" style="margin-top:12px"><input type="text" data-bind="sname" value="' + swEsc(d.name) + '" placeholder="' + swT("Nome", "Name") + '" aria-label="' + swT("Nome de quem assina", "Name of the signer") + '"' + swH("team", 2) + '>' +
+    '<input type="tel" data-bind="sphone" value="' + swEsc(d.phone) + '" placeholder="' + swT("Telefone", "Phone") + '" aria-label="' + swT("Telefone de quem assina", "Signer phone") + '"' + swH("team", 2) + '></div>' +
+    '<button type="button" class="sw-btn" data-act="signer-add"' + swH("team", 2) + '>' + swT("Adicionar quem assina", "Add a signer") + '</button>' + (SW.signerErr ? '<p class="sw-fine" style="color:var(--sw-err)">' + swEsc(SW.signerErr) + '</p>' : '') + '</div>';
   return h;
 }
 
@@ -826,7 +844,12 @@ function swBind(root) {
     if (act === "cat") { swPickCat(v, false).then(function() { swRender(); }); swRender(); return; }
     if (act === "sw") { var c = el.getAttribute("data-c") || null, k = el.getAttribute("data-k"); SW.doc[k] = c; var body = {}; body[k] = c; swSaveQuiet("color", function() { return swDocPut(body); }); swRender(); return; }
     if (act === "entity") { var vv = swCs().values; vv.business_entity_type = v === "llc" ? "limited liability company" : "sole proprietorship"; swSaveQuiet("entity", function() { return gmApi("wizard/business", { method: "PUT", body: { entity: v } }); }); swRender(); return; }
-    if (act === "lang") { if ((v === "en") !== isEn() && typeof toggleLang === "function") { toggleLang(); } swSaveQuiet("language", function() { return gmApi("wizard/business", { method: "PUT", body: { language: v } }); }); swRender(); return; }
+    if (act === "lang") { if ((v === "en") !== isEn() && typeof toggleLang === "function") {
+        // The estimate screens redraw on a language change. Give them back their own state first, take ours after.
+        var keepS = gmDocSettings, keepD = gmDocDraft; gmDocSettings = null; gmDocDraft = null;
+        try { toggleLang(); } catch (eL) { console.error("language switch: " + eL.message); }
+        gmDocSettings = keepS; gmDocDraft = keepD;
+      } swSaveQuiet("language", function() { return gmApi("wizard/business", { method: "PUT", body: { language: v } }); }); swRender(); return; }
     if (act === "sub") {
       var i = a.subs.indexOf(v); if (i > -1) { a.subs.splice(i, 1); } else { a.subs.push(v); }
       SW.licKey = ""; swSaveQuiet("work", function() { return gmApi("wizard/work", { method: "PUT", body: { cat: a.cat, subs: a.subs } }); }); swRender(); return;
@@ -861,7 +884,14 @@ function swBind(root) {
     if (act === "booking") { var bk = SW.bk || {}, cur = bk.exists !== undefined ? !!bk.enabled : true; SW.bk = Object.assign({}, bk, { enabled: !cur, exists: true }); swSaveQuiet("booking", function() { return gmApi("booking-settings", { method: "PUT", body: { enabled: !cur } }); }); swRender(); return; }
     if (act === "reflang") { a.ref_lang = v; swSaveQuiet("reflang", function() { return apiFetch("/api/clients/" + clientId + "/referral-settings", { method: "PUT", body: { language: v } }).then(function(r) { if (!r.ok) { throw new Error("HTTP " + r.status); } return gmApi("wizard", { method: "PUT", body: { answers: { ref_lang: v } } }); }); }); swRender(); return; }
     if (act === "team") { a.team_mode = v; swAnswer({ team_mode: v }).catch(function() {}); swRender(); return; }
-    if (act === "signer") { swToggleSigner(el.getAttribute("data-n")); return; }
+    if (act === "signer-pick") { SW.signerDraft = { name: el.getAttribute("data-n"), phone: "" }; SW.signerErr = ""; swRender(); return; }
+    if (act === "signer-rm") { var sl = (swCs().signers || []).slice(); sl.splice(parseInt(el.getAttribute("data-i"), 10), 1); swSignersSave(sl); return; }
+    if (act === "signer-add") {
+      var sd = SW.signerDraft || { name: "", phone: "" };
+      if (!String(sd.name).trim()) { SW.signerErr = swT("Escreva o nome.", "Type the name."); swRender(); return; }
+      if (String(sd.phone).replace(/\D/g, "").length < 10) { SW.signerErr = swT("Escreva o telefone com 10 números.", "Type the phone number with 10 digits."); swRender(); return; }
+      var nl = (swCs().signers || []).slice(); nl.push({ name: String(sd.name).trim(), phone: String(sd.phone).trim() }); SW.signerDraft = { name: "", phone: "" }; SW.signerErr = ""; swSignersSave(nl); return;
+    }
     if (act === "copybio") { var inp = swEl("swBioLink"); try { navigator.clipboard.writeText(inp.value); SW.copied = true; } catch (e) { if (inp) { inp.select(); } } swRender(); return; }
     if (act === "clauses") { swOpenClauses(); return; }
     if (act === "lawyer-pdf") { swLawyerPdf(); return; }
@@ -871,6 +901,7 @@ function swBind(root) {
     var bind = t.getAttribute("data-bind"); if (!bind) { return; }
     var d = SW.doc, a = SW.d ? SW.d.answers : null;
     if (bind === "weburl") { SW.web.url = t.value; return; }
+    if (bind === "sname" || bind === "sphone") { SW.signerDraft = SW.signerDraft || { name: "", phone: "" }; SW.signerDraft[bind === "sname" ? "name" : "phone"] = t.value; return; }
     if (bind === "webuse") { SW.web.use[t.getAttribute("data-k")] = t.checked ? 1 : 0; return; }
     if (bind === "logofile") { if (t.files && t.files[0]) { swUploadLogo(t.files[0]); t.value = ""; } return; }
     if (bind === "name") { d.legal_name = t.value; var nv = t.value; swTyped("name", function() { swSaveQuiet("name", function() { return swDocPut({ legal_name: nv }); }); }); swRefreshHero(); swGate(); return; }
@@ -924,18 +955,9 @@ function swOwnUpload(file) {
   var fd = new FormData(); fd.append("file", file); fd.append("lawyer_reviewed", SW.lawyer);
   gmApi("contract-own-templates", { method: "POST", formData: fd }).then(function() { SW.ownTpl = null; }).catch(function(e) { SW.ownErr = e.message; }).then(function() { SW.ownBusy = false; swRender(); });
 }
-function swToggleSigner(name) {
-  var cs = swCs(), people = (SW.cs && SW.cs.salespeople) || [], p = people.filter(function(x) { return x.name === name; })[0];
-  if (!p) { return; }
-  var signers = (cs.signers || []).slice(), ix = -1;
-  signers.forEach(function(x, i) { if ((p.username && x.username === p.username) || x.name === p.name) { ix = i; } });
-  if (ix > -1) { signers.splice(ix, 1); }
-  else {
-    if (!p.phone) { SW.saveErr = swT("Essa pessoa precisa de um telefone para assinar.", "That person needs a phone number to sign."); swStatusRender(); return; }
-    signers.push(p.username ? { name: p.name, phone: p.phone, username: p.username } : { name: p.name, phone: p.phone });
-  }
-  cs.signers = signers;
-  swSaveQuiet("signers", function() { return gmApi("contract-settings", { method: "PUT", body: { signers: signers } }); });
+function swSignersSave(list) {
+  swCs().signers = list;
+  swSaveQuiet("signers", function() { return gmApi("contract-settings", { method: "PUT", body: { signers: list } }); });
   swRender();
 }
 // The existing contract clause screen: Settings, Contracts. The standard choice
@@ -945,7 +967,12 @@ function swOpenClauses() {
   swSaveQuiet("stage", function() { return swStageSave(11); }).then(function() {
     swClose();
     if (typeof switchTab === "function") { try { switchTab("gmestimates"); } catch (e) {} }
-    setTimeout(function() { var c = document.getElementById("gmConSettingsCard"); if (c && c.scrollIntoView) { c.scrollIntoView({ block: "start" }); } }, 600);
+    // The clause screen draws after its data loads, so look for it for a few seconds.
+    var tries = 0, look = setInterval(function() {
+      var c = document.getElementById("gmConSettingsCard"); tries++;
+      if (c && c.scrollIntoView) { c.scrollIntoView({ block: "start" }); }
+      if ((c && tries > 3) || tries > 20) { clearInterval(look); }
+    }, 500);
   });
 }
 // The lawyer PDF: the whole standard contract with the owner's own values

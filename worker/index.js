@@ -57324,6 +57324,9 @@ async function handlePutGmWizardHours(id, request, env) {
             body.values.work_hours_end = pretty(end);
         });
         if (!cr.ok) { return cr.res; }
+        // The third place the working days live: the daily log's schedule on the owner login (0 = Sunday, like booking).
+        var ws = await wizCallSave(handlePutWorkSettings, id, request, env, "PUT", { work_schedule: days });
+        if (!ws.ok && ws.status !== 404) { return ws.res; }
         return jsonOk({ saved: true });
     } catch (e) {
         return jsonErr("Error saving the hours: " + e.message, 500);

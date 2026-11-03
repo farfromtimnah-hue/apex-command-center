@@ -146,3 +146,24 @@
 .sw-finish-card p { margin: 4px 0 10px; font-size: 14px; color: var(--muted, #666); }
 .sw-finish-card button { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #1a1405; color: #f3efe8; font-weight: 700; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { #swRoot * { animation: none !important; transition: none !important; } }
+/* The cover picker is the app's own (gm.js). Its buttons are drawn for the light portal, so inside the dark wizard they get the wizard's colors. */
+.sw-pick { color: var(--sw-text); }
+.sw-pick .gm-field-label, .sw-pick .gm-hero-count { color: var(--sw-text); }
+.sw-pick .muted { color: var(--sw-muted); }
+.sw-pick .gm-warn { color: var(--sw-err); }
+.sw-pick .gm-hero-cats { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+.sw-pick .gm-stage-chip, .sw-pick .gm-hero-seg button { background: var(--sw-surface); border: 1px solid var(--sw-field); color: var(--sw-text); border-radius: 999px; padding: 0 14px; min-height: 44px; font: 600 14px "Manrope", system-ui, sans-serif; cursor: pointer; }
+.sw-pick .gm-stage-chip.gm-chip-active { background: var(--sw-gold); border-color: var(--sw-gold); color: var(--sw-ink); }
+.sw-pick .gm-btn-secondary { background: none; border: 1px solid var(--sw-gold); color: var(--sw-gold); border-radius: 12px; padding: 0 14px; min-height: 44px; font: 600 14px "Manrope", system-ui, sans-serif; cursor: pointer; }
+.sw-pick .gm-btn-secondary.gm-chip-active { background: var(--sw-gold); color: var(--sw-ink); }
+.sw-pick .gm-btn-primary { background: var(--sw-gold); border: 0; color: var(--sw-ink); border-radius: 12px; padding: 0 16px; min-height: 48px; font: 700 15px "Manrope", system-ui, sans-serif; cursor: pointer; width: 100%; margin-top: 8px; }
+.sw-pick .gm-btn-primary[disabled], .sw-pick .gm-btn-secondary[disabled] { opacity: .45; cursor: not-allowed; }
+.sw-pick .gm-hero-shuffle, .sw-pick .gm-hero-nudge, .sw-pick .gm-hero-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin: 8px 0; }
+.sw-pick .gm-doc-image-row { display: flex; flex-wrap: wrap; gap: 8px; }
+/* The People and access card is the portal's own, drawn on a light card. Inside the dark wizard it keeps its light card and dark text. */
+[data-sw="1"] .content-card { background: #faf8f3; color: #1a1a1d; border-radius: 14px; padding: 14px; }
+[data-sw="1"] .card-title, [data-sw="1"] .list-title, [data-sw="1"] .field-label { color: #1a1a1d; }
+[data-sw="1"] .muted, [data-sw="1"] .list-sub { color: #5a564e; }
+#swRoot [data-sw="1"] input[type=text], #swRoot [data-sw="1"] input[type=tel], #swRoot [data-sw="1"] select { background: #fff; color: #1a1a1d; border: 1px solid #c9c4b8; }
+#swRoot [data-sw="1"] #peoplePhone { min-width: 0; flex: 1; min-height: 48px; }
+#swRoot [data-sw="1"] select { background-color: #fff; color: #1a1a1d; max-width: 100%; }

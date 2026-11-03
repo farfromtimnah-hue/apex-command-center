@@ -31401,15 +31401,23 @@
             {
               "n": 7,
               "text": {
-                "pt": "Se o Stripe ainda não está conectado, marque a caixa para concordar com os Termos e a Política de Privacidade. Só depois o botão de conectar liga.",
-                "en": "If Stripe is not connected yet, tick the box to agree to the Terms and the Privacy Policy. Only then does the connect button turn on."
+                "pt": "Se o Stripe ainda não está conectado, marque a caixa de concordância (1) com os Termos e a Política de Privacidade. Só depois o botão de conectar liga.",
+                "en": "If Stripe is not connected yet, tick the agreement box (1) for the Terms and the Privacy Policy. Only then does the connect button turn on."
+              },
+              "image": {
+                "pt": "help/img/guides/card-payments-setup/connect-07.pt.jpg",
+                "en": "help/img/guides/card-payments-setup/connect-07.en.jpg"
               }
             },
             {
               "n": 8,
               "text": {
-                "pt": "Toque em Conectar o Stripe. O Stripe abre em outra janela. Tudo o que você respondeu já foi salvo, e você volta para esta mesma etapa.",
-                "en": "Tap Connect Stripe. Stripe opens in another window. Everything you answered is already saved, and you come back to this same stage."
+                "pt": "Toque em Conectar o Stripe (2). O Stripe abre em outra janela. Tudo o que você respondeu já foi salvo, e você volta para esta mesma etapa. O guia Configurar pagamentos por cartão mostra cada tela do Stripe.",
+                "en": "Tap Connect Stripe (2). Stripe opens in another window. Everything you answered is already saved, and you come back to this same stage. The guide Set up card payments shows every Stripe screen."
+              },
+              "image": {
+                "pt": "help/img/guides/card-payments-setup/connect-07.pt.jpg",
+                "en": "help/img/guides/card-payments-setup/connect-07.en.jpg"
               }
             },
             {
@@ -31516,8 +31524,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em Conectar para ligar o Thumbtack. O Thumbtack abre em outra janela e as suas respostas já estão salvas.",
-                "en": "Tap Connect to link Thumbtack. Thumbtack opens in another window and your answers are already saved."
+                "pt": "Toque em Conectar para ligar o Thumbtack. O Thumbtack abre em outra janela e as suas respostas já estão salvas. O guia Conectar o Thumbtack mostra cada tela.",
+                "en": "Tap Connect to link Thumbtack. Thumbtack opens in another window and your answers are already saved. The guide Connect Thumbtack shows every screen."
               }
             },
             {

@@ -239,7 +239,7 @@ var DOC_PAGE_ORIGIN = "https://doc.resonateai.online";
 
 function corsOriginFor(request) {
     var origin = request && request.headers ? request.headers.get("Origin") : null;
-    if (origin && (ALLOWED_ORIGINS.indexOf(origin) !== -1 || DEV_TEST_ORIGINS.indexOf(origin) !== -1)) { return origin; }
+    if (origin && (ALLOWED_ORIGINS.indexOf(origin) !== -1 || (typeof DEV_TEST_ORIGINS !== "undefined" && DEV_TEST_ORIGINS.indexOf(origin) !== -1))) { return origin; }
     if (origin === DOC_PAGE_ORIGIN) {
         try { if (PUBLIC_DOC_PATH_RE.test(new URL(request.url).pathname)) { return origin; } } catch (e) {}
     }

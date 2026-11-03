@@ -1,3 +1,48 @@
+# Setup Wizard, round 2 (branch setup-wizard), 2026-11-02 evening
+
+Nothing merged, deployed or uploaded. Test business only. Real sends blocked.
+
+## Done
+1. help/guides.json: diff against main is 439 added lines and 0 removed lines (same indent as the original file).
+2. Auto open: one server value, contract_admin_settings key wizard_auto_open_after (developer only, PUT /api/contracts/admin-settings, value now, a UTC time, or empty). It is EMPTY, so nothing auto opens in this build. A business created after the cutoff, not finished, opens it. An existing owner never does. Existing owners with missing parts get the Finish your setup card only. Tested live (cutoff set for about 3 minutes, then cleared) and by 5 unit checks.
+3. Blocked time: the screen now says in plain words that it is not available yet. Differences from the approved design (warranty, permits, debris), exactly:
+   - Warranty: design had a number stepper (0 to 60 months). Built: a list of 12 or 24 months, because the contract library has only those two options (C11-A, C11-B).
+   - Permits: design had three choices. Built: two (I pull permits and include the fees, I pull permits and bill the fees). "The customer pulls permits" has no clause in the library.
+   - Debris: design had three sentences (I haul it away, the customer hauls it, dumpster is extra). Built: how often I remove it (end of each work day, every week, when the job is finished), because the library stores debris as a frequency value only.
+   - Also: holdback maps to none (C12-B) or a percent (C12-C); materials map to C10-A or C10-D; "My own contract" only takes effect after the owner confirms the reading.
+
+## Brand new owner walk (second throwaway business, English, then Portuguese)
+Business wizard-throwaway-001 (created 8:42 PM Eastern). Walked all 11 stages with real handlers: website box on bergaminisolutions.com, brand, business, work, license (Florida: license needed only above $2,500 for general contracting, required for plumbing), hours, payments, how you work, connections, team (added a person, set a signer), link in bio, review, clause by clause screen, lawyer PDF, Start. A partial wizard did NOT complete setup (license and payments were saved and setup_completed_at stayed empty until Start). Start set setup_completed_at and version 1.
+Portuguese: every Portuguese string was checked by script for missing accents (none) and read for gender agreement; the stages draw in Portuguese. The sample estimate preview text (Prepared for, Estimate total) is the app's own and is English only.
+Gator shape: on the same throwaway business, contract settings were deleted and a Stripe row (fake account id, test mode) was added. It shows the Finish your setup card listing "Your business" and "How you work" (the state lives in contract settings, so both show). Never done on Gator.
+
+## Bugs found and fixed
+- Two saves racing on a blank business gave a database error. All wizard saves now run one at a time in order.
+- The wizard replaced the estimate settings form's draft, which broke the Estimates tab after switching language. It now borrows and gives back.
+- Cover picker buttons were light on dark. Themed.
+- People and access card text was faint. Fixed.
+- English day letters were Portuguese (S T Q Q S S D). Fixed (M T W T F S S).
+- Who can sign contracts used a list that never held new people and had no phone. Now chips for the people added plus name and phone boxes.
+- The daily log working days (third place) were not written by the hours stage. Now written.
+- Clause by clause link did not scroll to the screen. Fixed.
+- Work type names started in lower case. Capitalised. "Empresario individual" now has the (a).
+- Four older tests broke because of my changes (own contract test, address stays test, two flow tests). Fixed (test setup only).
+
+## Right click on every control (programmatic sweep, every stage)
+Every button, chip, tile, stepper, link, file picker and colour picker opens its Aprenda guide. Text boxes, drop down lists and tick boxes do NOT, because the app's own help-widget.js skips input, select and textarea so the phone's copy and paste still works. That is the widget's rule, not the wizard's. Tick boxes could be rebuilt as buttons if you want them covered.
+
+## NOT done / could not verify
+- iOS Simulator: built a simulator app pointed at the localhost Worker (copy outside the repo, nothing uploaded), installed it on the iPhone 17 simulator and launched it. I seeded the throwaway session into the app's storage and the app then showed its own device passcode lock screen ("Enter iPhone Passcode"). I could not get past it, and I have no tool here that sends 0.2 second taps or a held press into the simulator. So NO tap, hold, keyboard, file picker or Stripe return check was done in the app. Screenshots: ios-01-app-launch.png, ios-02-after-seed.png.
+- Stripe: not connected, unfinished, connected and re accept were checked on the test client by drawing each state (no screenshots of all four), and the return (?stripe=return) opens stage 6. Connect and Continue on Stripe were never pressed.
+- Aprenda pictures: captured 6 for the throwaway business (neutral name and logo): brand, hours and review, English and Portuguese, in help-private/img/guides/setup-wizard/ (git ignored, not committed). The other 8 stages are not captured. NOT uploaded: scripts/help-media-upload.mjs has no test path option (it writes to the one live storage bucket under help/), so I stopped. The guide steps carry no picture paths yet.
+- New sign ups first meet the monthly goals form, then the daily log days screen, then the wizard: those are existing app gates the wizard does not replace.
+- Test run of all scripts/test-*.mjs: 120 pass, 45 fail. The same 45 fail on main (checked), so none are mine.
+
+## Test data left in place
+- Business wizard-throwaway-001 ("WIZARD THROWAWAY TEST - DO NOT USE"): clients row, login wizardthrowaway001, its wizard state, doc settings, booking settings, work schedule, one invited person (Test Helper, seller), a fake Stripe test row (acct_wizard_throwaway_fake), a logo, a cover pick. Its session tokens are expired.
+- Test client: contract CON-0026, own clauses OWN-34c1b21e-*, wizard answers.
+- contract_admin_settings: wizard_auto_open_after is set to an empty value.
+
 # Setup Wizard build (branch setup-wizard), 2026-11-02
 
 Written for Nicole. Plain words. Nothing here is merged or deployed.

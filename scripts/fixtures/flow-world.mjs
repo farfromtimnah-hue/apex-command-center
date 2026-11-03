@@ -22,6 +22,10 @@ export function loadWorker() {
   let src = readFileSync(new URL("worker/index.js", root), "utf8");
   const real = ["hero-gallery-v1", "hero-gallery-private-v1", "contract-state-riders-v1", "contract-state-checklist-v1"];
   src = src.replace(/^import \{ DurableObject \} from "cloudflare:workers";$/m, "var DurableObject = class DurableObject { constructor(s, e) { this.ctx = s; this.env = e; } };");
+  // The wizard's pure logic is its own file; fold it in so the Worker still loads as one body.
+  src = src.replace(/^import \{[^}]*\} from "\.\/wizard-core\.js";$/m, function () {
+    return readFileSync(new URL("worker/wizard-core.js", root), "utf8").replace(/^export \{[^}]*\};\s*$/m, "");
+  });
   src = src.replace(/^import (\w+) from "([^"]+\.json)";$/gm, function (m, name, rel) {
     const base = rel.replace(/^.*\//, "").replace(/\.json$/, "");
     if (real.indexOf(base) !== -1) { return "var " + name + " = __json(" + JSON.stringify(rel) + ");"; }

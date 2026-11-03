@@ -11,7 +11,7 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass
 
 const FNS = [
   "handlePostGmContractOwnTemplate", "handleGetGmContractOwnTemplates", "handlePostGmContractOwnTemplateReviewed",
-  "gmContractOwnTemplateAreas", "gmContractOwnTemplateAskClaude", "gmContractOwnTemplateModel",
+  "gmContractOwnTemplateAreas", "gmContractOwnTemplateMaterialize", "gmContractOwnTemplateAskClaude", "gmContractOwnTemplateModel",
   "apxAuthStaff", "apxAuthOwnOrStaff", "gmDocSettingsOwnerOnly", "requireClientAccess", "sessionSellerName",
   "isAdminRole", "actorName", "easternDateStr"
 ];
@@ -26,6 +26,7 @@ function fakePdfBytes() {
 function world() {
   const d = makeDb(["migrations/2026-10-19_gm_contract_own_template.sql", "migrations/2026-10-20_gm_contract_own_template_lawyer.sql"]);
   try {
+    d.raw.exec("CREATE TABLE contract_clause_options (id TEXT NOT NULL, version INTEGER NOT NULL, scope TEXT NOT NULL DEFAULT 'apex', area_id TEXT NOT NULL, title TEXT, trades TEXT, owner_description TEXT, clause_text TEXT, text_note TEXT, placeholders TEXT, pt_summary TEXT, status TEXT NOT NULL DEFAULT 'draft', reviewed_by_name TEXT, reviewed_bar_number TEXT, reviewed_at TEXT, created_by TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), sort_order INTEGER, origin TEXT, PRIMARY KEY (id, version, scope))");
     d.raw.exec("CREATE TABLE contract_clause_areas (id TEXT NOT NULL, version INTEGER NOT NULL, title TEXT, intro_md TEXT, notes_md TEXT, sort_order INTEGER, PRIMARY KEY (id, version))");
   } catch (e) { /* already exists from a migration file */ }
   ["owners_json", "location_state", "location_city"].forEach((col) => {
@@ -135,6 +136,9 @@ function rq() { return { url: "https://x.test/", headers: { get: () => null }, j
   w.state.user = { role: "developer" };
   const r2 = await w.F.handlePostGmContractOwnTemplateReviewed("c1", tid, rq(), w.env);
   ok(r2.status === 200, "developer CAN mark it reviewed");
+  // The last step: confirming turns the reading into the owner's own clause options (one per area found).
+  const own = w.d.raw.prepare("SELECT area_id, status, origin, clause_text FROM contract_clause_options WHERE scope = 'c1' ORDER BY area_id").all();
+  ok(own.length === 2 && own.every((o) => o.status === "approved" && o.origin === "own_upload") && own[0].clause_text === "x" && own[1].clause_text === "y", "confirming makes one approved own_upload clause per area the reading found");
 
   const r3 = await w.F.handlePostGmContractOwnTemplateReviewed("c1", tid, rq(), w.env);
   ok(r3.status === 404, "marking an already-reviewed template again is refused, not a silent no-op success");

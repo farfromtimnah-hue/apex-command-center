@@ -41,7 +41,14 @@ function workTypeName(wiz, key) {
 // state: two letter code. cat: category key. subs: subtap keys the owner tapped.
 // Returns { ok, state_name, items[], summary, unmapped[] }. ok=false when the
 // state is not in the table (the app then shows its safe screen).
-function licenseResult(table, wiz, state, cat, subs) {
+// Same hash the Portuguese notes file was written with (data/license-notes-pt-v1.json, "h").
+function noteHash(str) { var x = 5381, i; str = String(str || ""); for (i = 0; i < str.length; i++) { x = ((x * 33) ^ str.charCodeAt(i)) >>> 0; } return x.toString(16); }
+// The Portuguese for a cell's note, or "" when there is none or the English changed since it was written.
+function notePt(ptNotes, st, workType, status, en) {
+    var e = ptNotes && ptNotes.states && ptNotes.states[st] && ptNotes.states[st][workType] && ptNotes.states[st][workType][status];
+    return e && e.pt && e.h === noteHash(en) ? e.pt : "";
+}
+function licenseResult(table, wiz, state, cat, subs, ptNotes) {
     var row = table && table[String(state || "").toUpperCase()];
     if (!row) { return { ok: false, reason: "state_not_found", items: [], unmapped: [] }; }
     var category = (wiz.categories || []).filter(function(c) { return c.key === cat; })[0];
@@ -64,7 +71,7 @@ function licenseResult(table, wiz, state, cat, subs) {
         var th = cell[1] || "";
         var lab = LABELS[cell[0]] || ["", ""];
         items.push({ work_type: sub.work_type, name_en: nm.en, name_pt: nm.pt, status: cell[0], kind: kindOf(cell[0]), threshold: th,
-            note: cell[2] || "", confidence: cell[3] || "",
+            note: cell[2] || "", note_pt: cell[2] ? notePt(ptNotes, String(state).toUpperCase(), sub.work_type, cell[0], cell[2]) : "", confidence: cell[3] || "",
             label_en: lab[0].replace("{amount}", th || "a set amount"), label_pt: lab[1].replace("{amount}", th || "um valor definido") });
     });
     // unmapped taps with no work type at all (a tap the draft map cannot place)
@@ -278,4 +285,4 @@ function wizardAutoOpen(cutoff, createdAt, completedAt, setupCompletedAt) {
     return t > c;
 }
 
-export { wizardAutoOpen, licenseResult, isBlockedIp, checkWebAddress, normalizeTypedAddress, safeFetch, parseSite, sniffImage, kindOf };
+export { wizardAutoOpen, licenseResult, noteHash, notePt, isBlockedIp, checkWebAddress, normalizeTypedAddress, safeFetch, parseSite, sniffImage, kindOf };

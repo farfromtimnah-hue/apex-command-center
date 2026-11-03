@@ -4,6 +4,7 @@ import { DurableObject } from "cloudflare:workers";
 import HERO_GALLERY_V1 from "../data/hero-gallery-v1.json";
 import WIZARD_V1 from "../data/wizard-v1.json";
 import LICENSE_TABLE_V1 from "../data/license-table-v1.json";
+import LICENSE_NOTES_PT_V1 from "../data/license-notes-pt-v1.json";
 import { wizardAutoOpen, licenseResult, safeFetch, parseSite, sniffImage, normalizeTypedAddress } from "./wizard-core.js";
 import HERO_GALLERY_PRIVATE_V1 from "../data/hero-gallery-private-v1.json";
 import CONTRACT_STATE_RIDERS_V1 from "../data/contract-state-riders-v1.json";
@@ -37634,6 +37635,9 @@ async function handleGetContractSettings(id, request, env) {
             // Cleaning is offered once its library rows are loaded (contracts_e_cleaning.sql).
             trades: CONTRACT_TRADE_KEYS.filter(function(k) { return k !== "cleaning" || contractCleaningReady(lib); }).map(function(k) { return { key: k, label: CONTRACT_TRADE_LABELS[k] }; }),
             areas: lib ? lib.clause_areas.map(function(a) { return { id: a.id, title: a.title }; }) : [],
+            // The cleaning clause areas (CL01 to CL19), shown read only in the settings: standard choice marked, the other options listed.
+            cleaning_areas: (lib && contractCleaningReady(lib)) ? contractCleaningAreasView({ lib: lib, admin: admin, settings: settings }, settings, contractCleaningGate({ lib: lib, admin: admin, settings: settings }, new Date().toISOString().slice(0, 10))) : [],
+            cleaning_templates: contractCleaningTemplateList(),
             options: lib ? lib.clause_options.concat((await env.DB.prepare("SELECT * FROM contract_clause_options WHERE scope = ? AND status = 'approved'").bind(id).all()).results || []).map(function(o) {
                 return { id: o.id, area_id: o.area_id, title: o.title, trades: contractOptionTrades(o.trades), owner_description: o.owner_description, owner_description_pt: o.pt_summary || null, scope: o.scope, private: o.scope !== "apex" };
             }) : [],
@@ -57212,7 +57216,7 @@ async function handleGetGmWizardLicense(id, request, env) {
         var a = await wizOwner(request, env, id);
         if (a.err) { return a.err; }
         var q = new URL(request.url).searchParams;
-        var res = licenseResult(LICENSE_TABLE_V1, WIZARD_V1, q.get("state"), q.get("cat"), String(q.get("subs") || "").split(",").filter(Boolean));
+        var res = licenseResult(LICENSE_TABLE_V1, WIZARD_V1, q.get("state"), q.get("cat"), String(q.get("subs") || "").split(",").filter(Boolean), LICENSE_NOTES_PT_V1);
         return jsonOk(res);
     } catch (e) {
         return jsonErr("Error reading the license table: " + e.message, 500);
@@ -57411,13 +57415,109 @@ async function handlePostGmWizardFinish(id, request, env) {
 // other document. The file is kept in storage and the link is signed, 10 minutes.
 function wizEsc(s) { return String(s === null || s === undefined ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
 
-async function wizLawyerHtml(env, id) {
-    var cs = await contractSettingsRow(env, id);
-    var doc = await gmDocSettingsRow(env, id);
-    var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first() || {};
-    var lib = await contractLibraryForClient(env, id, 1, cs.trades.length ? cs.trades : null);
-    if (!lib) { return null; }
-    if (cs.trades.length && cs.trades.every(function(t) { return t === "cleaning"; })) { return { notYet: true }; }
+// The cleaning clause areas as the owner sees them: for each area its slots and
+// every option, with the templates each option is the Apex standard choice for.
+// Used by the lawyer PDF and by the Contract settings screen, so both show the same.
+function contractCleaningTemplatesView(ctx, cs, gate) {
+    var TPLS = CONTRACT_CLEANING_TEMPLATES, out = {};
+    TPLS.forEach(function(t) {
+        var ct = { flags: { kind: "cleaning", cleaning_template: t }, selections: {}, answers: {}, custom_clauses: [] };
+        var st = contractCleaningFitSelections(ctx, ct, gate, true);
+        // The owner's own choice, where the contract settings hold one for a slot.
+        Object.keys((cs && cs.defaults) || {}).forEach(function(k) { if (/^CL/.test(k)) { st[k] = cs.defaults[k]; } });
+        ct.selections = st;
+        out[t] = { c: ct, sel: st, slots: contractCleaningSlots(ctx, ct, gate) };
+    });
+    return out;
+}
+function contractCleaningAreasView(ctx, cs, gate) {
+    var cl = (ctx.lib && ctx.lib.cleaning) || { areas: [] }, per = contractCleaningTemplatesView(ctx, cs, gate), TPLS = CONTRACT_CLEANING_TEMPLATES;
+    return cl.areas.map(function(a) {
+        var slots = [], byId = {};
+        TPLS.forEach(function(t) {
+            per[t].slots.filter(function(s) { return s.area === a.id; }).forEach(function(s) {
+                var sl = byId[s.id];
+                if (!sl) { sl = byId[s.id] = { id: s.id, title: s.title, need: s.need, virtual: !!s.virtual, options: [], optById: {} }; slots.push(sl); }
+                s.options.forEach(function(o) {
+                    var op = sl.optById[o.id];
+                    if (!op) { op = sl.optById[o.id] = { id: o.id, title: o.title, owner_description: o.owner_description, owner_description_pt: o.owner_description_pt, locked: o.locked ? { en: o.locked.en, pt: o.locked.pt } : null, standard_for: [], templates: [] }; sl.options.push(op); }
+                    if (op.templates.indexOf(t) === -1) { op.templates.push(t); }
+                    if (per[t].sel[s.id] === o.id && op.standard_for.indexOf(t) === -1) { op.standard_for.push(t); }
+                });
+            });
+        });
+        slots.forEach(function(sl) { delete sl.optById; });
+        return { id: a.id, title: a.title, slots: slots };
+    }).filter(function(a) { return a.slots.length; });
+}
+
+// Which kinds of contract a business's trades make. The lawyer PDF prints one
+// part per kind, so there is no trade the PDF cannot be built for.
+function wizLawyerKinds(trades) {
+    var t = Array.isArray(trades) ? trades : [], out = [];
+    if (!t.length || t.some(function(k) { return CONTRACT_CONSTRUCTION_TRADE_KEYS.indexOf(k) !== -1; })) { out.push("construction"); }
+    if (t.indexOf("cleaning") !== -1) { out.push("cleaning"); }
+    return out;
+}
+
+function wizMd(text) { return wizEsc(text).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>"); }
+
+// The business facts every part of the PDF opens with (cover page).
+async function wizLawyerFacts(env, id, cs, doc, client, kinds) {
+    var ans = wizAnswers(await wizStateRow(env, id));
+    var bk = null;
+    try { bk = await env.DB.prepare("SELECT work_days, day_start, day_end, min_notice_hours FROM gm_booking_settings WHERE client_id = ?").bind(id).first(); } catch (e) { bk = null; }
+    var DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    var hours = "Not set yet";
+    if (bk && bk.work_days) {
+        hours = String(bk.work_days).split(",").map(function(d) { return DAYS[Number(d)] || ""; }).filter(Boolean).join(", ") + ", " + wizHourText(bk.day_start) + " to " + wizHourText(bk.day_end);
+    }
+    var st = String((cs.values || {}).business_state || "").toUpperCase();
+    var lic = st && ans.cat ? licenseResult(LICENSE_TABLE_V1, WIZARD_V1, st, ans.cat, ans.subs || []) : null;
+    var licText;
+    if ((doc.license_numbers || []).length) { licText = "License number on file: " + (doc.license_numbers || []).join(", ") + "."; }
+    else if (doc.license_not_required) { licText = "The owner states that this work does not need a state license."; }
+    else { licText = "No license number on file."; }
+    if (lic && lic.ok) {
+        if (!lic.items.length) { licText += " State rule check (" + lic.state_name + "): no state license or registration was found for this kind of work (state level only)."; }
+        else {
+            licText += " State rule check (" + lic.state_name + "): " + lic.items.map(function(i) { return i.name_en + ": " + i.label_en + (i.note ? " (" + i.note + ")" : ""); }).join("; ") + ".";
+        }
+    } else { licText += " State rule check: not available for the state or work typed so far."; }
+    var pm = doc.payment_methods || {};
+    var methods = Object.keys(pm).map(function(k) { return GmLabelsPaymentMethodEn(k) + (pm[k] ? " (" + pm[k] + ")" : ""); });
+    var terms = doc.default_terms_days === 0 ? "Due on receipt" : (doc.default_terms_days ? "Net " + doc.default_terms_days + " days" : "Not set yet");
+    var late = (doc.late_fee_annual_pct !== null && doc.late_fee_annual_pct !== undefined ? doc.late_fee_annual_pct + " percent a year" : "no late fee set") +
+        (doc.late_fee_grace_days !== null && doc.late_fee_grace_days !== undefined ? ", after " + doc.late_fee_grace_days + " grace days" : "");
+    var entity = /limited liability/i.test((cs.values || {}).business_entity_type || "") ? "LLC" : (/sole/i.test((cs.values || {}).business_entity_type || "") ? "Sole proprietorship" : "Not set yet");
+    return [
+        ["Business", doc.legal_name || client.name || "Not set yet"], ["Address", doc.address || "Not set yet"], ["Phone", doc.phone || "Not set yet"],
+        ["State and entity", (st || "Not set yet") + ", " + entity], ["Working hours", hours],
+        ["License statement", licText], ["Payment methods", methods.length ? methods.join("; ") : "Not set yet"], ["Payment terms", terms], ["Late fee", late],
+        ["Contract kinds", kinds.map(function(k) { return k === "cleaning" ? "Cleaning service agreement" : "Construction and remodeling contract"; }).join("; ")]
+    ];
+}
+function wizHourText(t) { var h = parseInt(String(t || "09:00").slice(0, 2), 10); return (h % 12 === 0 ? 12 : h % 12) + ":00 " + (h < 12 ? "AM" : "PM"); }
+
+// The page: a cover page (what this is, the not-a-law-firm notice, the business
+// facts, the list of clause areas), then the clauses. Page numbers are printed
+// by the PDF footer ("Page N of M").
+function wizLawyerShell(name, facts, kinds, toc, bodyHtml, reviewedLine) {
+    var rows = facts.map(function(r) { return '<tr><th>' + wizEsc(r[0]) + '</th><td>' + wizEsc(r[1]) + '</td></tr>'; }).join("");
+    var tocHtml = toc.map(function(t) { return '<li>' + wizEsc(t) + '</li>'; }).join("");
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Contract for lawyer review</title><style>' +
+        'body{font:11pt/1.45 Georgia,serif;color:#111;margin:0}h1{font-size:22pt;margin:0 0 4pt}h2{font-size:12.5pt;margin:16pt 0 2pt}h3{font-size:11pt;margin:10pt 0 2pt}' +
+        '.cover{page-break-after:always}.note{border:1px solid #999;padding:8pt;font:9.5pt/1.4 Helvetica,Arial,sans-serif;margin:10pt 0 14pt}' +
+        'table{border-collapse:collapse;width:100%;font:9.5pt/1.35 Helvetica,Arial,sans-serif;margin:8pt 0}th{text-align:left;vertical-align:top;width:26%;padding:3pt 6pt 3pt 0;color:#444}td{padding:3pt 0}' +
+        '.src{font:9pt Helvetica,Arial,sans-serif;color:#555;margin:0 0 4pt}.part{page-break-before:always;font-size:16pt;margin:0 0 6pt}h2,h3{break-after:avoid-page}.opt,.std{break-inside:avoid-page}p{margin:0 0 6pt}ol{font:9.5pt/1.5 Helvetica,Arial,sans-serif;margin:4pt 0}' +
+        '.opt{border-left:3px solid #bbb;padding-left:8pt;margin:6pt 0}</style></head><body data-render-done="1">' +
+        '<div class="cover"><h1>' + wizEsc(name || "Your business") + '</h1><div style="font-size:13pt">Standard contract, for review by your lawyer</div>' +
+        '<div class="note"><b>Please read.</b> Apex is not a law firm and gives no legal advice. This is the Apex standard contract with your own values filled in, so that your lawyer can read all of it in one place. ' +
+        'Anything in [brackets] is filled in for each job. Required legal notices and state forms are added automatically to each real contract. ' + wizEsc(reviewedLine) + '</div>' +
+        '<h3>Your business</h3><table>' + rows + '</table><h3>Clause areas in this document</h3><ol>' + tocHtml + '</ol></div>' + bodyHtml + '</body></html>';
+}
+
+async function wizLawyerConstruction(env, id, cs, doc, client, lib) {
     var v = Object.assign({}, cs.values || {});
     v.business_legal_name = doc.legal_name || client.name || "";
     v.business_name = v.business_legal_name;
@@ -57427,7 +57527,7 @@ async function wizLawyerHtml(env, id) {
     v.grace_period_days = doc.late_fee_grace_days !== null && doc.late_fee_grace_days !== undefined ? String(doc.late_fee_grace_days) : (v.grace_period_days || "");
     v.late_interest_rate = doc.late_fee_annual_pct !== null && doc.late_fee_annual_pct !== undefined ? String(doc.late_fee_annual_pct) : (v.late_interest_rate || "");
     if (v.warranty_months_workmanship === undefined) { v.warranty_months_workmanship = (cs.defaults.C11 === "C11-B") ? "24" : "12"; }
-    var byId = lib.optionsById, parts = [], blanks = {};
+    var byId = lib.optionsById, parts = [], toc = [], blanks = {};
     function fill(text) {
         return String(text || "").replace(/\{([a-z0-9_]+)\}/g, function(m, k) { if (v[k] !== undefined && v[k] !== "") { return String(v[k]); } blanks[k] = 1; return "[" + k.replace(/_/g, " ") + "]"; });
     }
@@ -57436,19 +57536,135 @@ async function wizLawyerHtml(env, id) {
         var chosen = cs.defaults[a] && byId[cs.defaults[a]] ? byId[cs.defaults[a]] : lib.optionsForClient.filter(function(o) { return o.area_id === a; })[0];
         if (!area || !chosen) { return; }
         var own = chosen.origin === "own_upload";
-        var text = fill(contractOptionText(chosen, byId));
-        var html = wizEsc(text).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
-        parts.push('<section><h2>' + wizEsc(a + " " + (area.title || "")) + '</h2><p class="src">' + (own ? "Your own wording, from your uploaded contract." : "Apex standard choice: " + wizEsc(chosen.id) + (cs.defaults[a] === chosen.id ? "" : " (not changed by you)")) + '</p><p>' + html + '</p></section>');
+        var title = a + " " + (area.title || "");
+        toc.push(title);
+        parts.push('<section><h2>' + wizEsc(title) + '</h2><p class="src">' + (own ? "Your own wording, from your uploaded contract." : (cs.defaults[a] === chosen.id ? "Your choice: " : "Apex standard choice (you have not changed it): ") + wizEsc(chosen.id)) + '</p><p>' + wizMd(fill(contractOptionText(chosen, byId))) + '</p></section>');
     });
     var blankList = Object.keys(blanks).map(function(k) { return k.replace(/_/g, " "); }).sort().join(", ");
-    return { html: '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Contract for lawyer review</title><style>' +
-        '@page{size:letter;margin:0.8in}body{font:11pt/1.45 Georgia,serif;color:#111}h1{font-size:20pt;margin:0 0 4pt}h2{font-size:12.5pt;margin:16pt 0 2pt}' +
-        '.note{border:1px solid #999;padding:8pt;font:9.5pt/1.4 Helvetica,Arial,sans-serif;margin:8pt 0 14pt}.src{font:9pt Helvetica,Arial,sans-serif;color:#555;margin:0 0 4pt}section{break-inside:avoid-page}p{margin:0 0 6pt}</style></head><body data-render-done="1">' +
-        '<h1>' + wizEsc(v.business_legal_name || "Your business") + '</h1><div>Standard contract, for review by your lawyer</div>' +
-        '<div class="note"><b>Please read.</b> This is the Apex standard contract with your own values filled in. Anything in [brackets] is filled in for each job. ' +
-        'Required legal notices and state forms are added automatically to each real contract and are not shown here. Apex is not a law firm and gives no legal advice. This template has ' +
-        (lib.version.status === "attorney_reviewed" ? "been reviewed by an attorney for Florida." : "not been reviewed by an attorney.") + '</div>' +
-        parts.join("") + (blankList ? '<p class="src" style="margin-top:14pt">Filled in for each job: ' + wizEsc(blankList) + '.</p>' : '') + '</body></html>', areas: parts.length };
+    return { body: parts.join("") + (blankList ? '<p class="src" style="margin-top:14pt">Filled in for each job: ' + wizEsc(blankList) + '.</p>' : ''), toc: toc, areas: parts.length };
+}
+
+// The cleaning service agreement for the owner's business: every clause area
+// CL01 to CL19, the owner's own choice where the settings hold one, otherwise
+// Apex's standard choice for the first template (T1, residential recurring),
+// said plainly. Optional wording and options not offered yet are printed too,
+// labelled, so the lawyer reads everything the agreement can contain.
+async function wizLawyerCleaning(env, id, cs, doc, client, lib, admin) {
+    var cl = lib.cleaning || { areas: [], options: [], locked: {}, byId: {}, areasById: {} };
+    if (!cl.options.length) { return { body: '<h2 class="part">Cleaning service agreement</h2><p>The cleaning clause library is not loaded.</p>', toc: [], areas: 0 }; }
+    var today = new Date().toISOString().slice(0, 10);
+    var ctx = { lib: lib, admin: admin, settings: cs, doc: doc, client: client, estimates: [], lead: null, job: null, booking: null, job_parties: [], state_slots: contractStateSlots(admin) };
+    var gate = contractCleaningGate(ctx, today);
+    var TPLS = CONTRACT_CLEANING_TEMPLATES, perTpl = contractCleaningTemplatesView(ctx, cs, gate);
+    var c = perTpl.T1.c, sel = perTpl.T1.sel, slots = perTpl.T1.slots;
+    var base = {};
+    try { base = contractBuildVars(ctx, c, today, "template").vars || {}; } catch (e) { base = {}; }
+    var v = Object.assign({}, base);
+    function fieldsOf(oid) { return (cl.byId[oid] || {}).placeholders || ""; }
+    function dflt(k, val) { if ((v[k] === undefined || v[k] === "") && val) { v[k] = String(val); } }
+    dflt("partial_visit_basis", contractCleaningQuoted(fieldsOf("CL04-D"), /partial_visit_basis \(default: "([^"]+)"\)/));
+    dflt("credit_basis", contractCleaningQuoted(fieldsOf("CL11-B"), /credit_basis \(default: "([^"]+)"\)/));
+    dflt("renewal_term", contractCleaningQuoted(fieldsOf("CL09-B"), /renewal_term \(default: "([^"]+)"/));
+    dflt("nonsolicit_months", contractCleaningQuoted(fieldsOf("CL15-A"), /nonsolicit_months \(default (\d+)\)/));
+    dflt("late_interest_rate", contractCleaningQuoted(fieldsOf("CL07-F"), /default (\d+);/));
+    dflt("fee_exclusions_sentence", contractCleaningQuoted(fieldsOf("CL09-F"), /fee_exclusions_sentence \(for example "([^"]+)"\)/));
+    delete v.contract_date;
+    v.customer_label = "Customer";
+    ["landlord_consent_sentence", "customer_entity_sentence", "turnover_deadline_sentence", "translation_notice_sentence", "tax_note_short", "tax_line_sentence", "renewal_notice_sentence", "renewal_reminder_sentence"].forEach(function(k) { v[k] = ""; });
+    v.access_instructions = CONTRACT_CLEANING_ACCESS_TEXT; v.alarm_gate_instructions = CONTRACT_CLEANING_ALARM_TEXT;
+    v.arbitration_rules = (admin && admin.cleaning_arbitration_rules) || ""; v.arbitration_fee_allocation = (admin && admin.cleaning_arbitration_fee_allocation) || "";
+    v.insurance_summary = gate.insured ? String((cs.values || {}).cleaning_insurance_summary || "").trim() : "";
+    v.screening_description = gate.screened ? String((cs.values || {}).screening_description || "").trim() : "";
+    var ftext = String((cl.byId["CL09-F"] || {}).clause_text || "");
+    v.early_termination_sentence = sel["CL09-F"] === "CL09-F:fee" ? contractCleaningQuoted(ftext, /\*\*Fee version\.\*\* ([\s\S]+)$/) : contractCleaningQuoted(ftext, /\*\*No-fee version\.\*\* ([^\n]+)/);
+    // Section numbers: the areas that are on this agreement, in order.
+    var onArea = {};
+    TPLS.forEach(function(t) { perTpl[t].slots.forEach(function(sl) { onArea[sl.area] = true; }); });
+    var nums = {}, n = 0;
+    cl.areas.forEach(function(a) { if (onArea[a.id]) { n++; nums[a.id] = n; } });
+    var blanks = {};
+    function fill(text) {
+        text = String(text || "").replace(/\{sec_(CL\d\d)\}/g, function(m0, a) { return nums[a] ? String(nums[a]) : "[" + a + "]"; });
+        text = contractFill(text, v);
+        return text.replace(/\{([a-z0-9_]+)\}/g, function(m, k) { blanks[k] = 1; return "[" + k.replace(/_/g, " ") + "]"; });
+    }
+    function optText(oid) { return fill(contractCleaningOptionText(oid, lib.cleaning.byId).replace(/^\*\*\d+\. /, "**" + (nums[(lib.cleaning.byId[oid] || {}).area_id] || "") + ". ")); }
+    var parts = [], toc = [], shown = {};
+    var TNAME = CONTRACT_CLEANING_TEMPLATE_LABELS;
+    cl.areas.forEach(function(a) {
+        if (!onArea[a.id]) { return; }
+        var title = a.id + " " + contractHomeownerHeading(a.title || "");
+        toc.push(title);
+        var html = '<section><h2>' + wizEsc(title) + '</h2>';
+        TPLS.forEach(function(t) {
+            perTpl[t].slots.filter(function(s) { return s.area === a.id; }).forEach(function(s) {
+                if (s.virtual) {
+                    if (shown["v:" + s.id]) { return; }
+                    shown["v:" + s.id] = 1;
+                    var fee = s.options.filter(function(o) { return o.id === (perTpl[t].sel[s.id] || s.def); })[0] || s.options[0];
+                    html += '<p class="src">' + wizEsc(s.id + " (" + (s.title || "") + "): Apex standard choice, " + fee.title + ". The sentence is printed inside the term clause.") + '</p>';
+                    return;
+                }
+                var chosenId = perTpl[t].sel[s.id];
+                s.options.forEach(function(o) {
+                    if (shown[o.id]) { return; }
+                    shown[o.id] = 1;
+                    var owned = cs.defaults && cs.defaults[s.id] === o.id;
+                    var label;
+                    if (o.locked) { label = "Not offered yet: " + String(o.locked.en || "").replace(/^Not available yet:\s*/i, ""); }
+                    else if (chosenId === o.id) { label = owned ? "Your choice" : (t === "T1" ? "Apex standard choice, you have not changed it" : "Apex standard choice for the " + TNAME[t].toLowerCase() + " template, you have not changed it"); }
+                    else if (s.need === "optional") { label = "Optional wording, printed only if you add it for a job"; }
+                    else { label = "Other option, printed only if chosen for a job"; }
+                    var std = chosenId === o.id && !o.locked;
+                    html += '<div class="' + (std ? "" : "opt") + '"><p class="src">' + wizEsc((s.title && s.title !== a.title ? s.title + ": " : "") + o.id + " " + (o.title || "") + ". " + label + ".") + '</p><p>' + wizMd(optText(o.id)) + '</p></div>';
+                });
+            });
+        });
+        parts.push(html + '</section>');
+    });
+    // Attorney approved values Apex holds, printed so the lawyer sees what the options can say.
+    var lists = [["Damage caps (CL10-B)", contractCleaningAdminList(ctx, "cleaning_damage_caps")], ["Liability limits (CL10-E)", contractCleaningAdminList(ctx, "cleaning_liability_limits")]];
+    var adminHtml = '<section><h2>Attorney approved values</h2>' + lists.map(function(l) {
+        return '<p class="src">' + wizEsc(l[0]) + '</p><p>' + (l[1].length ? l[1].map(wizEsc).join("<br>") : "Apex has not loaded the attorney approved values yet, so this option is not offered.") + '</p>';
+    }).join("");
+    var capFee = admin && admin.cleaning_conversion_fee_cap ? admin.cleaning_conversion_fee_cap : "";
+    adminHtml += '<p class="src">Conversion fee cap (CL15-B)</p><p>' + wizEsc(capFee || "Not loaded yet, so this option is not offered.") + '</p>';
+    adminHtml += '<p class="src">Arbitration rules and fee allocation (CL18-B)</p><p>' + wizEsc(v.arbitration_rules ? v.arbitration_rules + (v.arbitration_fee_allocation ? "; " + v.arbitration_fee_allocation : "") : "Not loaded yet, so this option is not offered.") + '</p></section>';
+    parts.push(adminHtml);
+    // The notice blocks the rules add (cancellation notices, renewal panel, tax). Printed in full.
+    var lockedHtml = '<section><h2>Notice blocks added by rule</h2><p class="src">These are printed automatically when the rules for the job call for them (for example the Florida cancellation notices for a service sold in the customer\'s home). They are shown here so the lawyer can read them.</p>';
+    Object.keys(cl.locked).sort().forEach(function(k) {
+        var b = cl.locked[k];
+        if (!b || !b.text) { return; }
+        lockedHtml += '<div class="opt"><p class="src">' + wizEsc(k + " " + (b.title || "")) + '</p><p>' + wizMd(fill(b.text)) + '</p></div>';
+    });
+    parts.push(lockedHtml + '</section>');
+    var blankList = Object.keys(blanks).map(function(k) { return k.replace(/_/g, " "); }).sort().join(", ");
+    return { body: '<h2 class="part">Cleaning service agreement</h2><p class="src">One agreement with four templates: residential recurring (T1), one-time or move-out (T2), short-term-rental turnover (T3) and small office (T4). Each clause area below shows the standard choice, then the other wording that can be used. Clause areas 16 and 17 belong to the rental and office templates only.</p>' +
+        parts.join("") + (blankList ? '<p class="src" style="margin-top:14pt">Filled in for each job: ' + wizEsc(blankList) + '.</p>' : ''), toc: toc, areas: toc.length };
+}
+
+async function wizLawyerHtml(env, id) {
+    var cs = await contractSettingsRow(env, id);
+    var doc = await gmDocSettingsRow(env, id);
+    var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first() || {};
+    var kinds = wizLawyerKinds(cs.trades);
+    var lib = await contractLibraryForClient(env, id, 1, cs.trades.length ? cs.trades : null);
+    if (!lib) { return null; }
+    var admin = await contractAdminSettings(env);
+    var bodies = [], toc = [], areas = 0;
+    if (kinds.indexOf("construction") !== -1) {
+        var k1 = await wizLawyerConstruction(env, id, cs, doc, client, lib);
+        bodies.push(kinds.length > 1 ? '<h2 class="part" style="page-break-before:avoid">Construction and remodeling contract</h2>' + k1.body : k1.body); toc = toc.concat(k1.toc); areas += k1.areas;
+    }
+    if (kinds.indexOf("cleaning") !== -1) {
+        var k2 = await wizLawyerCleaning(env, id, cs, doc, client, lib, admin);
+        bodies.push(k2.body); toc = toc.concat(k2.toc); areas += k2.areas;
+    }
+    var facts = await wizLawyerFacts(env, id, cs, doc, client, kinds);
+    var reviewed = lib.version.status === "attorney_reviewed";
+    var reviewedLine = "This template has " + (reviewed ? "been reviewed by an attorney for Florida." : "not been reviewed by an attorney.");
+    return { html: wizLawyerShell(doc.legal_name || client.name, facts, kinds, toc, bodies.join(""), reviewedLine), areas: areas, kinds: kinds };
 }
 
 async function handlePostGmWizardLawyerPdf(id, request, env) {
@@ -57457,20 +57673,21 @@ async function handlePostGmWizardLawyerPdf(id, request, env) {
         if (a.err) { return a.err; }
         var built = await wizLawyerHtml(env, id);
         if (!built) { return jsonErr2("A biblioteca de cláusulas não está disponível.", "The clause library is not available.", 503); }
-        if (built.notYet) { return jsonErr2("O PDF para o advogado ainda não existe para contratos de limpeza.", "The lawyer PDF is not available for cleaning contracts yet.", 422, { code: "not_available" }); }
         var puppeteer = (await import("@cloudflare/puppeteer")).default;
         var browser = await docPdfLaunch(puppeteer, env), bytes;
         try {
             var page = await browser.newPage();
             await page.setContent(built.html, { waitUntil: "load", timeout: 30000 });
-            var pdf = await page.pdf({ format: "letter", printBackground: true, preferCSSPageSize: true });
+            var pdf = await page.pdf({ format: "letter", printBackground: true, margin: { top: "0.8in", bottom: "0.9in", left: "0.8in", right: "0.8in" },
+                displayHeaderFooter: true, headerTemplate: "<div></div>",
+                footerTemplate: '<div style="width:100%;font:8pt Helvetica,Arial,sans-serif;color:#666;text-align:center">Apex standard contract for lawyer review. Not legal advice. Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>' });
             bytes = pdf instanceof Uint8Array ? pdf : new Uint8Array(pdf);
         } finally { try { await browser.close(); } catch (e2) {} }
         var key = "lawyer-pdfs/" + id + "/" + Date.now() + ".pdf";
         await env.ASSETS.put(key, bytes, { httpMetadata: { contentType: "application/pdf" } });
         var body = docPdfB64url(new TextEncoder().encode(JSON.stringify({ c: id, f: key, x: Date.now() + DOC_PDF_TOKEN_TTL_MS })));
         var token = "lwyr_" + body + "." + (await docPdfHmac(env, body));
-        return jsonOk({ url: new URL(request.url).origin + "/api/pdf/lawyer/" + token, areas: built.areas, pages: (new TextDecoder().decode(bytes).match(/\/Type\s*\/Page[^s]/g) || []).length });
+        return jsonOk({ url: new URL(request.url).origin + "/api/pdf/lawyer/" + token, areas: built.areas, kinds: built.kinds, pages: (new TextDecoder().decode(bytes).match(/\/Type\s*\/Page[^s]/g) || []).length });
     } catch (e) {
         return jsonErr2("Não foi possível preparar o PDF.", "Could not prepare the PDF: " + e.message, 500);
     }

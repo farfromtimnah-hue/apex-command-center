@@ -1,0 +1,3882 @@
+{
+ "note": "Brazilian Portuguese for the third item of each license table cell (data/license-table-v1.json). Keyed by state, work type and status. h is a hash of the English note it was written from; if the English changes, the Portuguese is ignored and the screen falls back to the English note with a label.",
+ "states": {
+  "AK": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "3873135c",
+     "pt": "Nenhum citado no menu da CBPL (observação: Concert Promoters é um tipo de evento licenciado). (resposta compartilhada copiada para: photography, events, fitness)"
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "9d64bd67",
+     "pt": "Alvará de estabelecimento de alimentos do DEC. (resposta compartilhada, copiada para: food_caterer, food_truck, food_retail)"
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "4f827191",
+     "pt": "Isenção para alimentos caseiros: sem alvará nem inspeção estadual para alimentos isentos."
+    }
+   },
+   "framing": {
+    "LICENSED": {
+     "h": "a85b3c61",
+     "pt": "Ofício especializado."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "5ca3f044",
+     "pt": "(fora da definição)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "a900429d",
+     "pt": "Não consta no menu completo de licenciamento profissional da CBPL (48 entradas) nem nos 37 ofícios de empreiteiro especializado. Conclusão por ausência. Construção de piscina ou encanamento/elétrica de equipamentos se enquadraria em empreiteiro ou mecânica/elect"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "4e34290e",
+     "pt": "Não consta no menu completo da CBPL nem nos 37 ofícios especializados. Conclusão por ausência."
+    }
+   },
+   "siding": {
+    "LEAN_LICENSED": {
+     "h": "506c14e2",
+     "pt": "Não é um ofício especializado nomeado; coberto pela licença de empreiteiro Geral/Residencial/Especializado ou pelo registro de Handyman Contractor (handyman: projetos de $10,000 ou menos). (resposta compartilhada copiada para: siding, gutters, garage_door"
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "8d7ab292",
+     "pt": "Nenhum dos 36 ofícios especializados é citado; ofícios mais próximos: Landscaping (17) e Water System (35). (resposta compartilhada copiada para: window_cleaning, junk_removal, snow_removal, irrigation, restoration_mold, water_treatment)"
+    }
+   }
+  },
+  "AL": {
+   "demolition": {
+    "THRESHOLD": {
+     "h": "49b6e4a0",
+     "pt": "Licença de empreiteiro geral quando o custo da empreitada, incluindo mão de obra e materiais, é $100,000 ou mais; demolição citada na lei estadual."
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "b989c3c7",
+     "pt": "Nenhum conselho. (resposta compartilhada, copiada para: photography, events, fitness)"
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "520549bd",
+     "pt": "Alvará do departamento de saúde do condado, sob o ADPH. (resposta compartilhada, copiada para: food_caterer, food_truck, food_retail)"
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "cd309e21",
+     "pt": "Sem alvará; o Departamento de Saúde do condado local analisa o certificado do curso e os rótulos (é um formulário de análise, não uma licença)."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "78df311d",
+     "pt": "Licença do Home Builders Licensure Board exigida para obra residencial acima de $10,000 (telhadistas acima de $2,500); sem licenças específicas por ofício; obra comercial acima de $50,000 fica com o conselho de General Contractors. (resposta compartilhada, copiada para: insul"
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "5a06f55e",
+     "pt": "34-8-7(a)(10), novo na Lei (PRIMARY): isenta 'Routine cleaning, waste disposal, and janitorial services, including the cleaning, stripping, and waxing of floors.' Act 2026-396 (SB279), em vigor em 2026-10-01 (ALISON Ac"
+    }
+   },
+   "plumbing": {
+    "REQUIRED": {
+     "h": "3a3225a3",
+     "pt": "Alabama Plumbers and Gas Fitters Board (PGFB) FAQ (PRIMARY): 'Who is required to hold a certification as a Master Plumber? Any Person or Entity who contracts, engages in, offers to engage in, or conveys the impression th"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "662e43cd",
+     "pt": "Construção ou reparo de piscina residencial é isento: 34-8-7(a)(2), 'The construction or repair of any residence or private dwelling or any residential swimming pool' ('or repair' acrescentado pelo Act 2026-396, em vigor a partir de 2"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "2127fbcf",
+     "pt": "34-8-7(a)(7), Código atual (PRIMARY): isenta 'Routine landscape maintenance work that includes cutting grass; trimming, replacing, and removal of bushes, shrubs, and similar items; the placement and removal of pine stra"
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "78df311d",
+     "pt": "Licença do Home Builders Licensure Board exigida para obra residencial acima de $10,000 (telhadistas acima de $2,500); sem licenças específicas por ofício; obra comercial acima de $50,000 fica com o conselho de General Contractors. (resposta compartilhada, copiada para: insul"
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "a740cd4",
+     "pt": "Nenhum conselho no diretório de órgãos estaduais. (resposta compartilhada, copiada para: irrigation, restoration_mold, appliance_repair, water_treatment)"
+    }
+   }
+  },
+  "AR": {
+   "electrical": {
+    "REQUIRED": {
+     "h": "5377872d",
+     "pt": "(17-28-304 \"No person shall perform electrical work in this state ... unless the person has first obtained a license\" (ninguém pode fazer serviço elétrico neste estado sem antes obter licença))"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "b826ac57",
+     "pt": "Não consta na lista de conselhos do Labor. (resposta compartilhada copiada para: photography, events, fitness)"
+    }
+   },
+   "food_caterer": {
+    "UNCLEAR": {
+     "h": "c0ac4356",
+     "pt": "Nenhuma linha de buffet (caterer) ou de varejo de alimentos. (resposta compartilhada, copiada para: food_caterer, food_retail)"
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "793ad54",
+     "pt": "A Food Freedom Act permite vender de casa, sem alvará, alimentos que não exigem controle de tempo/temperatura."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "4346372a",
+     "pt": "Licença de especialidade de Home Improvement necessária para trabalho especializado em residência unifamiliar acima de $2,000; limite comercial $50,000."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "5ca3f044",
+     "pt": "(fora da definição)"
+    }
+   },
+   "plumbing": {
+    "REQUIRED": {
+     "h": "6c21d4ac",
+     "pt": "(17-38-301 \"No person shall engage in work as a master plumber, journeyman plumber, apprentice plumber, or restricted license holder ... unless first licensed or registered\" (ninguém pode trabalhar como encanador mestre, oficial, aprendiz ou titular de licença restrita sem antes ser licenciado ou registrado); isentos: proprietário na própria casa, reparos pequenos)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "92b46d7",
+     "pt": "Nenhuma licença de operador de piscina ou de prestador de serviço de piscina na lista de licenciamento do Arkansas Dept of Health; o estado apenas analisa plantas de piscinas públicas novas. Construção ou reparo de piscina em imóvel unifamiliar se enquadra no limite de $2,000 de home i"
+    }
+   },
+   "pressure washing": {
+    "THRESHOLD": {
+     "h": "75f6f320",
+     "pt": "TENDÊNCIA (LEAN): EXIGIDO acima de $2,000 (licença de home improvement, residência unifamiliar). Nenhum texto oficial cita pressure washing: não está entre as 36 especialidades de Home Improvement no requerimento do Contractors Licensing Board"
+    }
+   },
+   "roofing": {
+    "REGISTRATION": {
+     "h": "eb0ad884",
+     "pt": "(registro de telhado separado)"
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "7f6fb14f",
+     "pt": "Licença de especialidade de Home Improvement acima de $2,000 (classe de siding, soffit, fascia e calhas). (resposta compartilhada, copiada para: siding, gutters)"
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "68c04336",
+     "pt": "Sem conselho de ofício; nenhuma linha cita este tipo de serviço além dos limites de empreiteiro. (resposta compartilhada copiada para: snow_removal, window_cleaning, junk_removal, appliance_repair, restoration_mold, water_treatment)"
+    }
+   }
+  },
+  "AZ": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "bb20d5c7",
+     "pt": "Ausente do diretório az.gov. (resposta compartilhada copiada para: photography, events, fitness)"
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "ded26c6b",
+     "pt": "Alvará do departamento de saúde do condado (p. ex., Maricopa). (resposta compartilhada, copiada para: food_caterer, food_retail)"
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "850378a0",
+     "pt": "Programa de cottage food do ADHS; os produtores têm certificado de registro."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "3b02a5a3",
+     "pt": "Classes do ROC R-7 Carpentry e R-61 Carpentry, Remodeling and Repairs; regra de $1,000 por alvará."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "5ca3f044",
+     "pt": "(fora da definição)"
+    }
+   },
+   "pool cleaning and service": {
+    "THRESHOLD": {
+     "h": "5e7c544a",
+     "pt": "TENDÊNCIA (LEAN). A.R.S. 32-1121(A)(14) (lido, PRIMARY): o trabalho é isento quando o valor total é inferior a $1,000, o trabalho é casual ou de pequeno porte, não precisa de alvará de obra local, não faz parte de uma operação maior e a publicidade diz"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "685b8e37",
+     "pt": "TENDÊNCIA (LEAN): SEM LICENÇA abaixo de $1,000 (ARS 32-1121 isenta trabalho casual ou de pequeno porte abaixo de $1,000, salvo se exigir alvará de obra ou fizer parte de uma operação maior); AINDA INCERTO acima de $1,000, onde o texto \"improve\" da ARS 32-1101 c"
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "872b3abd",
+     "pt": "Licença exigida acima de $1,000 de mão de obra e materiais ou se um alvará de obra for exigido; classificação ROC por ofício não encontrada (mais próximas: R-45 Sheet Metal para calhas, CR-5 restrita para portas de garagem/siding, segundo um resumo de busca). (s"
+    }
+   },
+   "water_treatment": {
+    "LICENSED": {
+     "h": "e6f8af07",
+     "pt": "ROC R-54 Water Conditioning Equipment."
+    }
+   }
+  },
+  "CA": {
+   "cabinets and finish carpentry": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "demolition": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "drywall and plaster": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "electrical": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "c77baa40",
+     "pt": "Ausente da lista do DCA; somente tipos de registro local. (resposta compartilhada copiada para: photography, events, fitness)"
+    }
+   },
+   "fences and decks": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "flooring": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "df5e9ced",
+     "pt": "Alvarás do departamento de saúde do condado; sem licença estadual. (resposta compartilhada, copiada para: food_caterer, food_truck, food_retail)"
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "8b1685bf",
+     "pt": "Sem registro estadual; operações de cottage food Classe A e B se registram ou obtêm alvarás junto aos órgãos locais de fiscalização (teto da Classe A: $75,000 em vendas anuais brutas)."
+    }
+   },
+   "framing": {
+    "LICENSED": {
+     "h": "9f5f7ebe",
+     "pt": "CSLB C-5 Framing and Rough Carpentry; isenção de $1,000 (BPC 7048)."
+    }
+   },
+   "general contracting, remodeling, kitchens and baths, additions": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "b0000ad2",
+     "pt": "(somente residencial); REGISTRO (empregadores de limpeza comercial)"
+    }
+   },
+   "painting": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "pavers, patios, hardscape": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "plumbing": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "pool and spa building": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "4fd18e55",
+     "pt": "TENDÊNCIA (LEAN): SEM LICENÇA para retirar sujeira da superfície, aspirar e produtos químicos (a classe D-35 do CSLB não os cita). O D-35 Pool and Spa Maintenance Contractor \"installs, replaces or repairs pool motors, pumps, filters, gas heaters and any above g"
+    }
+   },
+   "pressure washing": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "roofing": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "siding": {
+    "LICENSED": {
+     "h": "48e948df",
+     "pt": "CSLB C-61 especialidade limitada D-41 Siding and Decking; isenção de $1,000 para obra pequena (BPC 7048)."
+    }
+   },
+   "stone and countertop install": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "tile": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   },
+   "water_treatment": {
+    "LICENSED": {
+     "h": "53df299d",
+     "pt": "CSLB C-55 Water Conditioning."
+    }
+   },
+   "windows and doors": {
+    "THRESHOLD": {
+     "h": "1251f7b1",
+     "pt": "B&P Code 7048(a), CSLB 2026 Law Book (PRIMARY): o capítulo não se aplica a um serviço ou projeto quando o valor total do contrato para mão de obra, materiais e todos os outros itens é inferior a $1,000, o serviço é de uma ca"
+    }
+   }
+  },
+  "CO": {
+   "cabinets and finish carpentry": {
+    "NO STATE LICENSE": {
+     "h": "91ecafe9",
+     "pt": "(não consta na lista de ocupações do DPO; vale a licença local)"
+    }
+   },
+   "demolition": {
+    "NO STATE LICENSE": {
+     "h": "e2971cde",
+     "pt": "(não consta na lista de ocupações do DPO; a remoção de amianto é um programa separado do departamento de saúde, não lido)"
+    }
+   },
+   "drywall and plaster": {
+    "NO STATE LICENSE": {
+     "h": "91ecafe9",
+     "pt": "(não consta na lista de ocupações do DPO; vale a licença local)"
+    }
+   },
+   "electrical": {
+    "REQUIRED": {
+     "h": "a8ee9c34",
+     "pt": "(o DPO lista Master, Journeyman, Residential Wireman, Electrical Contractor)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "d9be2452",
+     "pt": "Ausente da lista do DPO; nenhum documento do conselho foi aberto para estes. (resposta compartilhada copiada para: photography, events, fitness)"
+    }
+   },
+   "fences and decks": {
+    "NO STATE LICENSE": {
+     "h": "91ecafe9",
+     "pt": "(não consta na lista de ocupações do DPO; vale a licença local)"
+    }
+   },
+   "flooring": {
+    "NO STATE LICENSE": {
+     "h": "91ecafe9",
+     "pt": "(não consta na lista de ocupações do DPO; vale a licença local)"
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "fe26f45",
+     "pt": "Licença de venda de alimentos do CDPHE ou do departamento de saúde local. (resposta compartilhada copiada para: food_caterer, food_retail)"
+    }
+   },
+   "food_cottage": {
+    "UNCLEAR": {
+     "h": "4fd82f60",
+     "pt": "A página aberta do CDPHE não mostra frase sobre registro; as mudanças do Tamale Act começam em 2027."
+    }
+   },
+   "framing": {
+    "LEAN_NOT_LICENSED": {
+     "h": "a4985d9c",
+     "pt": "Nenhuma licença estadual de empreiteiro geral do Colorado encontrada; apenas elétrica e encanamento são licenciadas pelo DPO; vale o licenciamento local de cidade ou condado. (resposta compartilhada, copiada para: insulation, siding, gutters, framing, garage_doors, chimney"
+    }
+   },
+   "general contracting, remodeling, kitchens and baths, additions": {
+    "NO STATE LICENSE": {
+     "h": "91ecafe9",
+     "pt": "(não consta na lista de ocupações do DPO; vale a licença local)"
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "615776d3",
+     "pt": "(não consta na lista de ocupações do DPO)"
+    }
+   },
+   "painting": {
+    "NO STATE LICENSE": {
+     "h": "91ecafe9",
+     "pt": "(não consta na lista de ocupações do DPO; vale a licença local)"
+    }
+   },
+   "pavers, patios, hardscape": {
+    "NO STATE LICENSE": {
+     "h": "91ecafe9",
+     "pt": "(não consta na lista de ocupações do DPO; vale a licença local)"
+    }
+   },
+   "plumbing": {
+    "REQUIRED": {
+     "h": "11c51763",
+     "pt": "(o DPO lista Master Plumber, Journeyworker, Residential Plumber, Plumbing Contractor)"
+    }
+   },
+   "pool and spa building": {
+    "NO STATE LICENSE": {
+     "h": "615776d3",
+     "pt": "(não consta na lista de ocupações do DPO)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "ac5e2b6e",
+     "pt": "A lista completa de licenças profissionais do DORA não tem ofício de piscina. Piscinas públicas exigem um Certified Pool Operator (dever do proprietário). O registro de encanador se aplica se o trabalho for de encanamento."
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "429b4f46",
+     "pt": "(não consta na lista de ocupações do DPO; outros órgãos não foram verificados exaustivamente)"
+    }
+   },
+   "roofing": {
+    "NO STATE LICENSE": {
+     "h": "91ecafe9",
+     "pt": "(não consta na lista de ocupações do DPO; vale a licença local)"
+    }
+   },
+   "siding": {
+    "LEAN_NOT_LICENSED": {
+     "h": "a4985d9c",
+     "pt": "Nenhuma licença estadual de empreiteiro geral do Colorado encontrada; apenas elétrica e encanamento são licenciadas pelo DPO; vale o licenciamento local de cidade ou condado. (resposta compartilhada, copiada para: insulation, siding, gutters, framing, garage_doors, chimney"
+    }
+   },
+   "stone and countertop install": {
+    "NO STATE LICENSE": {
+     "h": "91ecafe9",
+     "pt": "(não consta na lista de ocupações do DPO; vale a licença local)"
+    }
+   },
+   "tile": {
+    "NO STATE LICENSE": {
+     "h": "91ecafe9",
+     "pt": "(não consta na lista de ocupações do DPO; vale a licença local)"
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "fdea10ca",
+     "pt": "Não citado na lista de ocupações do DPO, lida por inteiro; apenas licenciamento local. (resposta compartilhada copiada para: snow_removal, window_cleaning, junk_removal, appliance_repair, restoration_mold, irrigation, water_treatment)"
+    }
+   },
+   "windows and doors": {
+    "NO STATE LICENSE": {
+     "h": "91ecafe9",
+     "pt": "(não consta na lista de ocupações do DPO; vale a licença local)"
+    }
+   }
+  },
+  "CT": {
+   "cabinets and finish carpentry": {
+    "THRESHOLD": {
+     "h": "887b3a3c",
+     "pt": "(registro; total de 12 meses de todos os contratos de reformas residenciais)"
+    }
+   },
+   "demolition": {
+    "NO STATE LICENSE": {
+     "h": "b7b2c88b",
+     "pt": "Nenhuma entrada de demolição na lista de tipos de licença do DCP. Órgãos DPH/DEEP de remoção de amianto e materiais perigosos não verificados; demolição residencial pode se enquadrar no registro de Home Improvement Contractor, não confirmado."
+    }
+   },
+   "drywall and plaster": {
+    "THRESHOLD": {
+     "h": "887b3a3c",
+     "pt": "(registro; total de 12 meses de todos os contratos de reformas residenciais)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "a4d6d9d5",
+     "pt": "Sem entrada. (resposta compartilhada copiada para: photography, events)"
+    }
+   },
+   "fences and decks": {
+    "THRESHOLD": {
+     "h": "887b3a3c",
+     "pt": "(registro; total de 12 meses de todos os contratos de reformas residenciais)"
+    }
+   },
+   "flooring": {
+    "THRESHOLD": {
+     "h": "887b3a3c",
+     "pt": "(registro; total de 12 meses de todos os contratos de reformas residenciais)"
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "2892ba80",
+     "pt": "Alvará do diretor/departamento de saúde local para buffets (caterers) e vendedores ambulantes de alimentos (itinerant). (resposta compartilhada, copiada para: food_caterer, food_truck)"
+    }
+   },
+   "food_cottage": {
+    "LICENSED": {
+     "h": "32ca9f3c",
+     "pt": "Licença de Cottage Food Operator do DCP."
+    }
+   },
+   "framing": {
+    "LEAN_LICENSED": {
+     "h": "13ef4e1c",
+     "pt": "Provavelmente dentro do registro de Home Improvement Contractor; não citado na página (apenas inferência). (resposta compartilhada copiada para: gutters, framing)"
+    }
+   },
+   "general contracting, remodeling, kitchens and baths, additions": {
+    "THRESHOLD": {
+     "h": "887b3a3c",
+     "pt": "(registro; total de 12 meses de todos os contratos de reformas residenciais)"
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "5ca3f044",
+     "pt": "(fora da definição)"
+    }
+   },
+   "painting": {
+    "THRESHOLD": {
+     "h": "887b3a3c",
+     "pt": "(registro; total de 12 meses de todos os contratos de reformas residenciais)"
+    }
+   },
+   "pavers, patios, hardscape": {
+    "THRESHOLD": {
+     "h": "887b3a3c",
+     "pt": "(registro; total de 12 meses de todos os contratos de reformas residenciais)"
+    }
+   },
+   "pool and spa building": {
+    "REQUIRED": {
+     "h": "d64ddce4",
+     "pt": "(licença de construtor de piscinas; vale a partir da adoção dos regulamentos, adoção não verificada)"
+    }
+   },
+   "pool cleaning and service": {
+    "AMBIGUOUS": {
+     "h": "2ec93c93",
+     "pt": "AMBÍGUO. CGS 20-417aa(a) (lei estadual lida em cga.ct.gov, PRIMARY): 'swimming pool maintenance and repair work' significa 'the performance of all plumbing, heating and electrical work necessary to service, modify, repair, repl"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "1e9a6d56",
+     "pt": "Lavagem com água sob pressão não é citada (\"washing\" e \"cleaning\" não aparecem no capítulo 400; a citação sobre \"cleaning services\" vem da página web do DCP). Mas a definição de home improvement agora cita \"sandblasting\" e \""
+    }
+   },
+   "roofing": {
+    "THRESHOLD": {
+     "h": "887b3a3c",
+     "pt": "(registro; total de 12 meses de todos os contratos de reformas residenciais)"
+    }
+   },
+   "siding": {
+    "REGISTRATION": {
+     "h": "240d0bfc",
+     "pt": "Registro de Home Improvement Contractor (DCP) para mudanças permanentes em propriedade residencial. (resposta compartilhada, copiada para: insulation, siding, garage_doors)"
+    }
+   },
+   "stone and countertop install": {
+    "THRESHOLD": {
+     "h": "887b3a3c",
+     "pt": "(registro; total de 12 meses de todos os contratos de reformas residenciais)"
+    }
+   },
+   "tile": {
+    "THRESHOLD": {
+     "h": "887b3a3c",
+     "pt": "(registro; total de 12 meses de todos os contratos de reformas residenciais)"
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "42af20a0",
+     "pt": "Sem entrada; a licença de encanador cobre o serviço de encanamento."
+    }
+   },
+   "windows and doors": {
+    "THRESHOLD": {
+     "h": "887b3a3c",
+     "pt": "(registro; total de 12 meses de todos os contratos de reformas residenciais)"
+    }
+   }
+  },
+  "DC": {
+   "demolition": {
+    "REQUIRED": {
+     "h": "60f93ce9",
+     "pt": "(licença comercial de Empreiteiro Geral (A,B,C,G,H)/Gerente de Construção do DLCP; a página do DLCP define os serviços como incluindo \"demolishing\" (demolição))"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "a4d6d9d5",
+     "pt": "Sem entrada. (resposta compartilhada copiada para: photography, events)"
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "3cda1103",
+     "pt": "Licença comercial na categoria Caterers."
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "15f329c9",
+     "pt": "Pedido de Cottage Food Registry ao DC Health."
+    }
+   },
+   "framing": {
+    "LICENSED": {
+     "h": "9f72d311",
+     "pt": "Licença comercial como Home Improvement Contractor (ofício não nomeado). (resposta compartilhada copiada para: insulation, siding, gutters, framing, garage_doors)"
+    }
+   },
+   "general contracting, remodeling, kitchens and baths, additions": {
+    "THRESHOLD": {
+     "h": "8f588b75",
+     "pt": "(licença de empreiteiro de reformas residenciais); outras obras de empreiteiro geral exigem a licença de Empreiteiro Geral do DLCP"
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "49eddcac",
+     "pt": "Não citado (só limpeza de veículos). O DC exige a licença comercial básica do DLCP de toda empresa (ver general_business_license); ela não é licença de empreiteiro nem de habilidade profissional, portanto este serviço continua sem exigir licença de empreiteiro"
+    }
+   },
+   "pool cleaning and service": {
+    "REGISTRATION": {
+     "h": "19633fc3",
+     "pt": "Individual Pool and Spa Operator Registration Card (25-C DCMR 300.2) para quem faz a manutenção de piscinas PÚBLICAS; a operação de uma piscina regulamentada é \"Health services\" (serviços de saúde) (47-2851.01(14)). Piscinas particulares unifamiliares estão fora do"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "7943bd33",
+     "pt": "Não citado (só aparece limpeza de veículos). O DC exige a licença comercial básica do DLCP de toda empresa (ver general_business_license); ela não é licença de empreiteiro nem de habilidade profissional, portanto este serviço continua sem exigir licença de empreiteiro"
+    }
+   },
+   "siding": {
+    "LICENSED": {
+     "h": "9f72d311",
+     "pt": "Licença comercial como Home Improvement Contractor (ofício não nomeado). (resposta compartilhada copiada para: insulation, siding, gutters, framing, garage_doors)"
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "f8115de",
+     "pt": "Sem entrada."
+    }
+   }
+  },
+  "DE": {
+   "cabinets and finish carpentry": {
+    "REGISTRATION": {
+     "h": "fc6d1a0c",
+     "pt": "(licença comercial de empreiteiro da Division of Revenue)"
+    }
+   },
+   "demolition": {
+    "REGISTRATION": {
+     "h": "fc6d1a0c",
+     "pt": "(licença comercial de empreiteiro da Division of Revenue)"
+    }
+   },
+   "drywall and plaster": {
+    "REGISTRATION": {
+     "h": "fc6d1a0c",
+     "pt": "(licença comercial de empreiteiro da Division of Revenue)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "ed20419c",
+     "pt": "Sem entrada. (resposta compartilhada copiada para: events, fitness)"
+    }
+   },
+   "fences and decks": {
+    "REGISTRATION": {
+     "h": "fc6d1a0c",
+     "pt": "(licença comercial de empreiteiro da Division of Revenue)"
+    }
+   },
+   "flooring": {
+    "REGISTRATION": {
+     "h": "fc6d1a0c",
+     "pt": "(licença comercial de empreiteiro da Division of Revenue)"
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "a1df9f57",
+     "pt": "Alvará da Division of Public Health. (resposta compartilhada, copiada para: food_caterer, food_truck, food_retail)"
+    }
+   },
+   "food_cottage": {
+    "PERMIT": {
+     "h": "2934f743",
+     "pt": "Alvará da Division of Public Health para operar um estabelecimento de alimentos caseiros (cottage food)."
+    }
+   },
+   "framing": {
+    "LEAN_NOT_LICENSED": {
+     "h": "8b1a77b",
+     "pt": "A licença comercial RESIDENT CONTRACTOR da Division of Revenue se aplica à atividade de empreiteiro; não há licença de ofício no índice First Steps de 268 entradas. (resposta compartilhada, copiada para: insulation, siding, gutters, framing, garage_doors)"
+    }
+   },
+   "general contracting, remodeling, kitchens and baths, additions": {
+    "REGISTRATION": {
+     "h": "fc6d1a0c",
+     "pt": "(licença comercial de empreiteiro da Division of Revenue)"
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "a50c72d7",
+     "pt": "Não consta na lista completa de profissões do DPR."
+    }
+   },
+   "painting": {
+    "REGISTRATION": {
+     "h": "fc6d1a0c",
+     "pt": "(licença comercial de empreiteiro da Division of Revenue)"
+    }
+   },
+   "pavers, patios, hardscape": {
+    "REGISTRATION": {
+     "h": "fc6d1a0c",
+     "pt": "(licença comercial de empreiteiro da Division of Revenue)"
+    }
+   },
+   "pool and spa building": {
+    "REGISTRATION": {
+     "h": "fc6d1a0c",
+     "pt": "(licença comercial de empreiteiro da Division of Revenue)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "f5f51e84",
+     "pt": "CONFLITO RESOLVIDO para TENDE A NÃO EXIGIR REGISTRO para limpeza de rotina. 19 Del. C. 3604 exige registro \"before performing construction services or maintenance\" (antes de executar serviços de construção ou manutenção), mas 3602(5) diz \"Maintenance means the repair of existing f"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "43f374f0",
+     "pt": "Não consta na lista completa de profissões do DPR (a lista cobre apenas licenças do DPR)."
+    }
+   },
+   "roofing": {
+    "REGISTRATION": {
+     "h": "fc6d1a0c",
+     "pt": "(licença comercial de empreiteiro da Division of Revenue)"
+    }
+   },
+   "siding": {
+    "LEAN_NOT_LICENSED": {
+     "h": "8b1a77b",
+     "pt": "A licença comercial RESIDENT CONTRACTOR da Division of Revenue se aplica à atividade de empreiteiro; não há licença de ofício no índice First Steps de 268 entradas. (resposta compartilhada, copiada para: insulation, siding, gutters, framing, garage_doors)"
+    }
+   },
+   "stone and countertop install": {
+    "REGISTRATION": {
+     "h": "fc6d1a0c",
+     "pt": "(licença comercial de empreiteiro da Division of Revenue)"
+    }
+   },
+   "tile": {
+    "REGISTRATION": {
+     "h": "fc6d1a0c",
+     "pt": "(licença comercial de empreiteiro da Division of Revenue)"
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "cf93e441",
+     "pt": "O índice tem apenas Water Treatment Plant Operator e Public Water Supply Operator."
+    }
+   },
+   "windows and doors": {
+    "REGISTRATION": {
+     "h": "fc6d1a0c",
+     "pt": "(licença comercial de empreiteiro da Division of Revenue)"
+    }
+   }
+  },
+  "FL": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "7074b0d6",
+     "pt": "O DBPR tem somente Talent Agencies."
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "af23a846",
+     "pt": "Licença do DBPR para restaurantes, buffets (caterers) e vendedores ambulantes de alimentos."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "51ff254d",
+     "pt": "Cottage food isento até $250,000 (Fla. Stat. 500.80)."
+    }
+   },
+   "framing": {
+    "LEAN_NOT_LICENSED": {
+     "h": "3bb60fbc",
+     "pt": "(m) existe a especialidade de empreiteiro de carpintaria estrutural na regra 61G4-15.100, mas é voluntária; a licença local costuma ser exigida."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "e5a3a34d",
+     "pt": "A lista completa do DBPR com 27 negócios e profissões licenciados não tem entrada de limpeza, faxina ou zeladoria. Vale o business tax receipt local. Remediação de mofo e serviço com amianto exigem licenças do DBPR."
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "fa969ab9",
+     "pt": "Limpeza simples é isenta: 489.105(3)(j) \"a license is not required for the cleaning of the pool or spa in a way that does not affect the structural integrity of the pool or spa or its associated equipment.\" (não se exige licença para limpar a piscina ou o spa sem afetar a integridade estrutural da piscina, do spa ou de seu equipamento). Reparo e se"
+    }
+   },
+   "siding": {
+    "LEAN_NOT_LICENSED": {
+     "h": "23886b7c",
+     "pt": "Apenas um escopo estadual especializado voluntário cobre isso (empreiteiro especializado em estruturas de alumínio ou cercados de tela); a licença local é o caminho usual. Mesma resposta copiada para siding e gutters."
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "146cfd78",
+     "pt": "Nenhuma entrada para revendedores de tratamento de água; as instalações podem se enquadrar em encanamento ou especialidade."
+    }
+   }
+  },
+  "GA": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "30778120",
+     "pt": "Sem entrada no menu de conselhos da SOS; outros órgãos não foram consultados."
+    }
+   },
+   "food_caterer": {
+    "LEAN_LICENSED": {
+     "h": "c31bc71b",
+     "pt": "Mesma via de alvará de serviço de alimentos do DPH das unidades móveis; texto sobre bufê não encontrado."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "841a255",
+     "pt": "A House Bill 398 (em vigor em July 1, 2025) elimina a exigência de licença estadual; um formulário de registro de ID está listado."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "eedc6706",
+     "pt": "Licença de empreiteiro residencial conforme O.C.G.A. 43-41-2 e 43-41-17 se aplica acima de $2,500, com isenções para empreiteiros especializados, licenciados do Chapter 14, reparos pequenos e proprietários que constroem a própria obra. Mesma resposta copiada para insulation,"
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "a6e918d5",
+     "pt": "A lista de conselhos da SOS (completa) não tem conselho de limpeza; fontes secundárias concordam. Aplica-se o certificado local de imposto de ocupação."
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "ba277d29",
+     "pt": "Ausente de duas listas oficiais completas (lista de certificação/registro do DPH e lista de conselhos do SOS). As regras de piscina do DPH valem somente para piscinas públicas. Licença de empreiteiro de pesticidas (Ag Dept) é separada."
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "eedc6706",
+     "pt": "Licença de empreiteiro residencial conforme O.C.G.A. 43-41-2 e 43-41-17 se aplica acima de $2,500, com isenções para empreiteiros especializados, licenciados do Chapter 14, reparos pequenos e proprietários que constroem a própria obra. Mesma resposta copiada para insulation,"
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "cee43d95",
+     "pt": "Dealers: somente Water & Wastewater Treatment Plant Operators na lista."
+    }
+   }
+  },
+  "HI": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "3edb9e37",
+     "pt": "Sem entrada na lista da PVL."
+    }
+   },
+   "food_caterer": {
+    "LEAN_LICENSED": {
+     "h": "d4fa7139",
+     "pt": "Alvará de estabelecimento de alimentos do DOH; texto sobre caterer não encontrado (PDF do requerimento não aberto)."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "be67f513",
+     "pt": "Operações de alimentos caseiros isentas de alvará de estabelecimento de alimentos; devem seguir os limites do HAR 11-50."
+    }
+   },
+   "framing": {
+    "LICENSED": {
+     "h": "e062e470",
+     "pt": "C-6 Carpentry framing contractor; C-5 Cabinet, millwork, and carpentry remodeling and repairs. Isenção de empreiteiro para obra pequena: licença não exigida para projeto que não passe do limite de handyman ($1,500 atual segundo as dicas do RICO,"
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "57747d8",
+     "pt": "A lista completa de conselhos e programas do PVL omite o ofício; somente a licença General Excise Tax é exigida."
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "d3f29463",
+     "pt": "TENDÊNCIA (LEAN): SEM LICENÇA para limpeza de rotina (retirar sujeira da superfície, aspirar e produtos químicos não são citados). A Class C-49a Swimming pool service contractor abrange \"Repair and replacement of pumps, filters, heaters and related circulation piping ."
+    }
+   },
+   "pressure washing": {
+    "REQUIRED": {
+     "h": "6e852444",
+     "pt": "Classe de licença de empreiteiro C-33 Surface treatment, cuja parte C-33c cobre \"sandblasting, waterblasting, power cleaning, or steam cleaning\"; C-33 também lista limpeza com pressão ou a vapor preparatória para pintura. Power c"
+    }
+   },
+   "siding": {
+    "LICENSED": {
+     "h": "f29b0202",
+     "pt": "C-5b Siding application contractor. Isenção de empreiteiro para obra pequena: licença não exigida para projeto que não passe do limite de handyman ($1,500 atual segundo as dicas do RICO, $1,000 na cópia mais antiga do FAQ/lei estadual) e que não precise de alvará de obra"
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "7cf7b2b4",
+     "pt": "Existem C-37d Water chlorination and sanitation e C-37e Treatment and pumping facilities; revendedores de filtros residenciais tendem a não precisar de licença."
+    }
+   }
+  },
+  "IA": {
+   "events": {
+    "UNCLEAR": {
+     "h": "f23c6c98",
+     "pt": "Nenhuma linha em qualquer arquivo de pesquisa para este tipo de serviço neste estado."
+    }
+   },
+   "fences and decks": {
+    "REGISTRATION": {
+     "h": "38ccbc4d",
+     "pt": "(cercas e decks)"
+    }
+   },
+   "food_caterer": {
+    "UNCLEAR": {
+     "h": "f23c6c98",
+     "pt": "Nenhuma linha em qualquer arquivo de pesquisa para este tipo de serviço neste estado."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "c3f3aa9",
+     "pt": "Lei de cottage food: não sujeito a licenciamento nem inspeção."
+    }
+   },
+   "framing": {
+    "REGISTRATION": {
+     "h": "b3c172d2",
+     "pt": "Registro de empreiteiro no DIAL para quem ganha pelo menos $2,000 por ano com construção; a definição de construção é muito ampla. Mesma resposta copiada para as especialidades da construção."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "3402090e",
+     "pt": "Limpeza não é \"construction\" segundo IAC 481-465.2; ausente da página de empreiteiros do DIAL e da lista estadual. v4: busca por palavras-chave em 871 IAC 23.82 (primeira parte, até o item f) não achou landscap, lawn, tree, pruning, stump, clean"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "2ae7e5e5",
+     "pt": "DIAL: reconstruction \"does not include ... normal maintenance or repair\" (reconstrução \"não inclui ... manutenção ou reparo normal\"); manutenção não é construção. Empreiteiros de construção se registram no DIAL (Chapter 91C) a partir de $2,000 por ano. v4: keyword scan of 871 IAC 2"
+    }
+   },
+   "siding": {
+    "REGISTRATION": {
+     "h": "b3c172d2",
+     "pt": "Registro de empreiteiro no DIAL para quem ganha pelo menos $2,000 por ano com construção; a definição de construção é muito ampla. Mesma resposta copiada para as especialidades da construção."
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "f23c6c98",
+     "pt": "Nenhuma linha em qualquer arquivo de pesquisa para este tipo de serviço neste estado."
+    }
+   }
+  },
+  "ID": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "81c469eb",
+     "pt": "Não consta no diretório do DOPL (somente no nível estadual); Business.Idaho.gov diz que uma atividade não listada no Business Wizard não precisa de licença ou alvará especial."
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "3bb9d81b",
+     "pt": "Alvarás, inspeções e fiscalização no distrito local de saúde pública."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "c2c5a1a2",
+     "pt": "Produtores de alimentos caseiros (cottage food) não precisam de alvará, mas a venda a qualquer terceiro exige um alvará de estabelecimento de alimentos do distrito de saúde."
+    }
+   },
+   "framing": {
+    "REGISTRATION": {
+     "h": "3077dc02",
+     "pt": "Registro de empreiteiro no DOPL (não é licença de ofício) para qualquer obra de construção acima de $2000 (materiais e mão de obra), salvo isenção (funcionários, fornecedores, proprietários em terreno próprio). Mesma resposta copiada para todas as especialidades da construção."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "a5591744",
+     "pt": "Não é construção conforme 54-5203; ausente da lista completa do DOPL."
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "8657a5e",
+     "pt": "Limpeza e balanceamento químico não são \"construction\" segundo Idaho Code 54-5203; não há classificação para piscinas. Construção de piscina ou reparo estrutural pode ser construção (isenta abaixo de $2,000 em um projeto)."
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "6651e6",
+     "pt": "Limpeza não é \"construction\" segundo Idaho Code 54-5203; leitura da definição, nenhuma frase menciona lavagem com pressão."
+    }
+   },
+   "siding": {
+    "REGISTRATION": {
+     "h": "3077dc02",
+     "pt": "Registro de empreiteiro no DOPL (não é licença de ofício) para qualquer obra de construção acima de $2000 (materiais e mão de obra), salvo isenção (funcionários, fornecedores, proprietários em terreno próprio). Mesma resposta copiada para todas as especialidades da construção."
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "81c469eb",
+     "pt": "Não consta no diretório do DOPL (somente no nível estadual); Business.Idaho.gov diz que uma atividade não listada no Business Wizard não precisa de licença ou alvará especial."
+    }
+   }
+  },
+  "IL": {
+   "cabinets and finish carpentry": {
+    "NO STATE LICENSE": {
+     "h": "658db4d0",
+     "pt": "Ausente da lista completa de leis do ILCS Chapter 225 e da lista de profissões do IDFPR. O Home Repair and Remodeling Act (815 ILCS 513) exige contrato escrito acima de $1,000 (regra de consumidor, não é licença). As licenças locais variam"
+    }
+   },
+   "demolition": {
+    "NO STATE LICENSE": {
+     "h": "4e402b16",
+     "pt": "Demolição comum não exige licença estadual. A remoção de amianto em prédios comerciais e públicos EXIGE licença de Asbestos Abatement Contractor do IDPH (225 ILCS 207 Sec. 35). Alvarás e licenças locais de demolição se aplicam"
+    }
+   },
+   "drywall and plaster": {
+    "NO STATE LICENSE": {
+     "h": "658db4d0",
+     "pt": "Ausente da lista completa de leis do ILCS Chapter 225 e da lista de profissões do IDFPR. O Home Repair and Remodeling Act (815 ILCS 513) exige contrato escrito acima de $1,000 (regra de consumidor, não é licença). As licenças locais variam"
+    }
+   },
+   "electrical": {
+    "NO STATE LICENSE": {
+     "h": "5da208ec",
+     "pt": "(somente registro local)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "afaf8f9b",
+     "pt": "A lista do IDFPR é completa para o IDFPR; não há licença estadual de empreiteiro geral (apenas Roofing Contractor). Somente no nível estadual."
+    }
+   },
+   "fences and decks": {
+    "NO STATE LICENSE": {
+     "h": "73441c3c",
+     "pt": "Ausente das listas completas; o Home Repair Act lista cercas e varandas (contrato escrito acima de $1,000). Os alvarás de obra são locais."
+    }
+   },
+   "flooring": {
+    "NO STATE LICENSE": {
+     "h": "658db4d0",
+     "pt": "Ausente da lista completa de leis do ILCS Chapter 225 e da lista de profissões do IDFPR. O Home Repair and Remodeling Act (815 ILCS 513) exige contrato escrito acima de $1,000 (regra de consumidor, não é licença). As licenças locais variam"
+    }
+   },
+   "food_caterer": {
+    "UNCLEAR": {
+     "h": "5a488d5b",
+     "pt": "Departamento de saúde local; páginas de unidades móveis e buffet (caterer) não encontradas."
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "4a068827",
+     "pt": "Operações de alimentos caseiros (cottage food) se registram no departamento de saúde local."
+    }
+   },
+   "framing": {
+    "LEAN_NOT_LICENSED": {
+     "h": "afaf8f9b",
+     "pt": "A lista do IDFPR é completa para o IDFPR; não há licença estadual de empreiteiro geral (apenas Roofing Contractor). Somente no nível estadual."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "1c83cde5",
+     "pt": "Ausente das listas completas. Pesticida ou desinfetante aplicado por contrato dentro de edifícios ficaria sob o controle estrutural de pragas do IDPH."
+    }
+   },
+   "painting": {
+    "NO STATE LICENSE": {
+     "h": "658db4d0",
+     "pt": "Ausente da lista completa de leis do ILCS Chapter 225 e da lista de profissões do IDFPR. O Home Repair and Remodeling Act (815 ILCS 513) exige contrato escrito acima de $1,000 (regra de consumidor, não é licença). As licenças locais variam"
+    }
+   },
+   "pavers, patios, hardscape": {
+    "NO STATE LICENSE": {
+     "h": "42c75b68",
+     "pt": "Ausente da lista completa de leis do ILCS Chapter 225 e da lista do IDFPR; as licenças da lei de Landscape Architecture cobrem somente projeto. Contrato escrito acima de $1,000 (Home Repair Act, regra de consumidor). Somente local."
+    }
+   },
+   "pool and spa building": {
+    "NO STATE LICENSE": {
+     "h": "2bf21809",
+     "pt": "Piscinas particulares unifamiliares são excluídas do Swimming Facility Act. Piscinas públicas: a construção exige pré-qualificação do IDPH e alvará (210 ILCS 125 Sec. 31). As partes elétrica e hidráulica esbarram em regras locais."
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "d18dbc3d",
+     "pt": "O Swimming Facility Act licencia a INSTALAÇÃO, não a empresa prestadora do serviço; não há lei de serviço de piscina no Chapter 225. Algicida pode cair nas regras de pesticidas somente se um pesticida registrado for usado mediante pagamento ao ar livre (não verificado p"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "71db4360",
+     "pt": "Ausente das listas completas; limpeza não é reparo segundo o Home Repair Act. Somente licença comercial local."
+    }
+   },
+   "siding": {
+    "LEAN_NOT_LICENSED": {
+     "h": "afaf8f9b",
+     "pt": "A lista do IDFPR é completa para o IDFPR; não há licença estadual de empreiteiro geral (apenas Roofing Contractor). Somente no nível estadual."
+    }
+   },
+   "stone and countertop install": {
+    "NO STATE LICENSE": {
+     "h": "658db4d0",
+     "pt": "Ausente da lista completa de leis do ILCS Chapter 225 e da lista de profissões do IDFPR. O Home Repair and Remodeling Act (815 ILCS 513) exige contrato escrito acima de $1,000 (regra de consumidor, não é licença). As licenças locais variam"
+    }
+   },
+   "tile": {
+    "NO STATE LICENSE": {
+     "h": "658db4d0",
+     "pt": "Ausente da lista completa de leis do ILCS Chapter 225 e da lista de profissões do IDFPR. O Home Repair and Remodeling Act (815 ILCS 513) exige contrato escrito acima de $1,000 (regra de consumidor, não é licença). As licenças locais variam"
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "200324c0",
+     "pt": "A página do IDPH sobre água privada não diz nada sobre revendedores de abrandadores/tratamento de água."
+    }
+   },
+   "windows and doors": {
+    "NO STATE LICENSE": {
+     "h": "658db4d0",
+     "pt": "Ausente da lista completa de leis do ILCS Chapter 225 e da lista de profissões do IDFPR. O Home Repair and Remodeling Act (815 ILCS 513) exige contrato escrito acima de $1,000 (regra de consumidor, não é licença). As licenças locais variam"
+    }
+   }
+  },
+  "IN": {
+   "demolition": {
+    "NO STATE LICENSE": {
+     "h": "1b3f762c",
+     "pt": "(obra com amianto: EXIGIDO)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "4f6f4a11",
+     "pt": "Não consta na lista completa de profissões da PLA (somente no nível estadual)."
+    }
+   },
+   "food_caterer": {
+    "UNCLEAR": {
+     "h": "fb192c61",
+     "pt": "Páginas do IDOH não abertas."
+    }
+   },
+   "food_cottage": {
+    "UNCLEAR": {
+     "h": "dad4c356",
+     "pt": "Páginas IDOH Home-Based Vendor não abertas."
+    }
+   },
+   "framing": {
+    "LEAN_NOT_LICENSED": {
+     "h": "4f6f4a11",
+     "pt": "Não consta na lista completa de profissões da PLA (somente no nível estadual)."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "3c928860",
+     "pt": "Não citado na lista completa do IPLA, na tabela do IDHS nem na página do OISC."
+    }
+   },
+   "pool and spa building": {
+    "NO STATE LICENSE": {
+     "h": "da0fc9c8",
+     "pt": "(as partes de hidráulica exigem a licença de encanador)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "4b04e099",
+     "pt": "Serviço de piscina não é citado; um pesticida químico ou algicida aplicado mediante pagamento se enquadra na licença comercial do OISC somente se for pesticida. O 'swimming pool application' do IDHS é uma análise de plantas de obra para construção de pisc"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "3c928860",
+     "pt": "Não citado na lista completa do IPLA, na tabela do IDHS nem na página do OISC."
+    }
+   },
+   "siding": {
+    "LEAN_NOT_LICENSED": {
+     "h": "4f6f4a11",
+     "pt": "Não consta na lista completa de profissões da PLA (somente no nível estadual)."
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "f23c6c98",
+     "pt": "Nenhuma linha em qualquer arquivo de pesquisa para este tipo de serviço neste estado."
+    }
+   }
+  },
+  "KS": {
+   "demolition": {
+    "NO STATE LICENSE": {
+     "h": "1b3f762c",
+     "pt": "(obra com amianto: EXIGIDO)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "a4e404e9",
+     "pt": "O diretório do Kansas Business Center é completo; não listado (somente no nível estadual). Irrigação: apenas pesticida de paisagismo."
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "5744c992",
+     "pt": "Licença do Kansas Department of Agriculture (o diretório lista Bakery, Caterer, Mobile Food Unit, Retail Food Store)."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "e35ac748",
+     "pt": "Alimentos isentos (que não exigem controle de tempo e temperatura nem processamento especializado) vendidos diretamente ao consumidor final não precisam de licença."
+    }
+   },
+   "framing": {
+    "LEAN_NOT_LICENSED": {
+     "h": "a4e404e9",
+     "pt": "O diretório do Kansas Business Center é completo; não listado (somente no nível estadual). Irrigação: apenas pesticida de paisagismo."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "91e03867",
+     "pt": "As buscas no K.S.A. 'house NEAR/2 cleaning' e 'cleaning NEAR/3 residential' não retornaram resultados ('janitorial' apenas um arrendamento de arsenal). O portal de verificação de licenças do Kansas cobre somente órgãos participantes; as páginas do KDA foram"
+    }
+   },
+   "painting": {
+    "NO STATE LICENSE": {
+     "h": "d304161c",
+     "pt": "(licença de empresa lead-safe (segura contra chumbo) se a moradia for anterior a 1978)"
+    }
+   },
+   "pool and spa building": {
+    "NO STATE LICENSE": {
+     "h": "1da8cc6e",
+     "pt": "(hidráulica e elétrica são licenciadas pela cidade ou condado)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "d504559d",
+     "pt": "As buscas no K.S.A. ('swimming NEAR/2 pool' e outras) encontraram apenas garantias, gravames e direitos civis; o portal estadual de licenças e o menu do KDA não listam nada para piscinas. O portal de verificação de licenças do Kansas cobre somente"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "d3e158b5",
+     "pt": "A busca no K.S.A. por 'pressure washing' não retornou resultados; o menu do KDA e o portal estadual não listam nada para limpeza ou lavagem. O portal de verificação de licenças do Kansas cobre somente órgãos participantes; as páginas do KDA foram lidas"
+    }
+   },
+   "siding": {
+    "LEAN_NOT_LICENSED": {
+     "h": "a4e404e9",
+     "pt": "O diretório do Kansas Business Center é completo; não listado (somente no nível estadual). Irrigação: apenas pesticida de paisagismo."
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "f23c6c98",
+     "pt": "Nenhuma linha em qualquer arquivo de pesquisa para este tipo de serviço neste estado."
+    }
+   }
+  },
+  "KY": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "759cfcf7",
+     "pt": "Nenhum conselho na lista completa do OOP com 28 conselhos nem na página do DPL (cosmetologia e DHBC verificados separadamente)."
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "51732e88",
+     "pt": "A cozinha de catering atende a exigências adicionais de licenciamento; alvarás pelo departamento de saúde local."
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "d17895eb",
+     "pt": "Registro para processadores domésticos (formulário DFS-250)."
+    }
+   },
+   "framing": {
+    "UNCLEAR": {
+     "h": "416c3efb",
+     "pt": "Ofícios não abertos; DHBC/outros órgãos não verificados para este ofício."
+    }
+   },
+   "general contracting, remodeling, kitchens and baths, additions": {
+    "NO STATE LICENSE": {
+     "h": "68272464",
+     "pt": "Nenhuma licença estadual de reformas residenciais ou de empreiteiro geral. O 2026 HB 300 (licença de empreiteiro sob o DHBC) está marcado como Introduced - Dead, e morreu na comissão Licensing, Occupations and Administrative Regulations (LegiScan, SEC"
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "7ac35047",
+     "pt": "Não citado na lista de divisões do DHBC (código de obras, elevador, casas pré-fabricadas, HVAC, encanamento, caldeira, prevenção de incêndio, materiais perigosos) nem no 2026 HB 300. A página de nomes de classes do DHBC não carregou, então uma lista completa"
+    }
+   },
+   "pool and spa building": {
+    "NO STATE LICENSE": {
+     "h": "9e306a04",
+     "pt": "(as partes de hidráulica e elétrica exigem essas licenças)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "7ac35047",
+     "pt": "Não citado na lista de divisões do DHBC (código de obras, elevador, casas pré-fabricadas, HVAC, encanamento, caldeira, prevenção de incêndio, materiais perigosos) nem no 2026 HB 300. A página de nomes de classes do DHBC não carregou, então uma lista completa"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "7ac35047",
+     "pt": "Não citado na lista de divisões do DHBC (código de obras, elevador, casas pré-fabricadas, HVAC, encanamento, caldeira, prevenção de incêndio, materiais perigosos) nem no 2026 HB 300. A página de nomes de classes do DHBC não carregou, então uma lista completa"
+    }
+   },
+   "siding": {
+    "UNCLEAR": {
+     "h": "416c3efb",
+     "pt": "Ofícios não abertos; DHBC/outros órgãos não verificados para este ofício."
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "f23c6c98",
+     "pt": "Nenhuma linha em qualquer arquivo de pesquisa para este tipo de serviço neste estado."
+    }
+   }
+  },
+  "LA": {
+   "demolition": {
+    "THRESHOLD": {
+     "h": "b86500e",
+     "pt": "(j)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "5c284bdb",
+     "pt": "Não consta na lista do louisiana.gov (apenas Exercise Physiologist)."
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "d0c990c0",
+     "pt": "Alvará do LDH fortemente implícito; nenhuma categoria de buffet (caterer) ou cozinha doméstica vista na tabela de taxas."
+    }
+   },
+   "food_cottage": {
+    "THRESHOLD": {
+     "h": "14537810",
+     "pt": "Isento de alvará estadual abaixo de $30,000 de vendas brutas anuais; exige certificado de imposto sobre vendas e rótulo."
+    }
+   },
+   "framing": {
+    "LICENSED": {
+     "h": "a6d3fb92",
+     "pt": "Classificação LSLBC Carpentry [S.2]."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "5dfff3bb",
+     "pt": "A lista do LSLBC não tem ofício de limpeza (apenas remediação de mofo, limpeza industrial, amianto). Fonte secundária concorda; pode se aplicar licença ocupacional da paróquia."
+    }
+   },
+   "painting": {
+    "THRESHOLD": {
+     "h": "b8650e5",
+     "pt": "(a)"
+    }
+   },
+   "plumbing": {
+    "REQUIRED": {
+     "h": "b865061",
+     "pt": "(e)"
+    }
+   },
+   "pool and spa building": {
+    "THRESHOLD": {
+     "h": "b865106",
+     "pt": "(b)"
+    }
+   },
+   "pool cleaning and service": {
+    "THRESHOLD": {
+     "h": "b865127",
+     "pt": "(c)"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "31626032",
+     "pt": "A lista completa de classificações do LSLBC não tem lavagem com pressão; a mais próxima é Industrial Cleaning (hidrojateamento industrial/comercial)."
+    }
+   },
+   "roofing": {
+    "THRESHOLD": {
+     "h": "b865040",
+     "pt": "(d)"
+    }
+   },
+   "siding": {
+    "LICENSED": {
+     "h": "ad188ee5",
+     "pt": "Classificação LSLBC Roofing and Sheet Metal, Siding [1.11]."
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "a8546d0c",
+     "pt": "Só foi encontrada uma certificação de especialista em proteção do abastecimento de água de encanamento (refluxo); nenhuma regra sobre amaciadores."
+    }
+   }
+  },
+  "MA": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "ad2051f0",
+     "pt": "O diretório lista MMA, kickboxing, infláveis; nenhum item de personal trainer, fotografia ou eventos."
+    }
+   },
+   "fences and decks": {
+    "REGISTRATION": {
+     "h": "f63b57ff",
+     "pt": "A isenção de c.142A s.14 se aplica somente se o empreiteiro trabalha exclusivamente nesta área: cercas ou muros de alvenaria independentes."
+    }
+   },
+   "flooring": {
+    "NO STATE LICENSE": {
+     "h": "24aa163",
+     "pt": "A isenção de c.142A s.14 se aplica somente se o empreiteiro trabalha exclusivamente nesta área: revestimento de piso acabado."
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "4dc7e2e",
+     "pt": "Alvará do conselho de saúde local sob 105 CMR 590 (por veículo e cidade, para unidades móveis)."
+    }
+   },
+   "food_cottage": {
+    "PERMIT": {
+     "h": "17af7a57",
+     "pt": "Alvará de Retail Residential Kitchen do conselho local de saúde conforme 105 CMR 590."
+    }
+   },
+   "framing": {
+    "LICENSED": {
+     "h": "bcde8271",
+     "pt": "Carpintaria estrutural exige HIC e CSL; carpintaria de acabamento talvez."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "3171cd7f",
+     "pt": "Não consta na lista oficial de licenças do Mass.gov nem na definição de HIC. O certificado comercial é local. Busca por palavras-chave em c.142A seções 1 a 25 (landscap, lawn, tree, swimming, cleaning): não citado. Limpeza e lavagem são"
+    }
+   },
+   "painting": {
+    "REGISTRATION": {
+     "h": "1a38ae50",
+     "pt": "A isenção de c.142A s.14 se aplica somente se o empreiteiro trabalha exclusivamente nesta área: pintura interior ou revestimento de paredes."
+    }
+   },
+   "pavers, patios, hardscape": {
+    "NO STATE LICENSE": {
+     "h": "b40919dd",
+     "pt": "A isenção de c.142A s.14 se aplica somente se o empreiteiro trabalha exclusivamente nesta área: pátios ao nível do solo e instalação e manutenção de asfalto e entradas de garagem."
+    }
+   },
+   "pool and spa building": {
+    "REGISTRATION": {
+     "h": "3f8830f1",
+     "pt": "A isenção de c.142A s.14 se aplica somente se o empreiteiro trabalha exclusivamente nesta área: piscinas elevadas (above-ground)."
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "5ffdaaba",
+     "pt": "A lista completa de licenças profissionais do Mass.gov não tem ofício de serviço de piscina. O registro HIC vale para construção de piscina enterrada (linha do quadro), não para limpeza de rotina. Serviço de hidráulica ou elétrica em equipamento de piscina exige"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "bbb0cff9",
+     "pt": "Não consta na lista oficial de licenças do Mass.gov; o quadro do HIC não tem linha de lavagem (pintura exterior é HIC). Se vendido como parte de pintura exterior ou reparo em casa de 1 a 4 unidades ocupada pelo proprietário, aplica-se o registro HIC. c.142A s"
+    }
+   },
+   "siding": {
+    "LICENSED": {
+     "h": "ffd9b899",
+     "pt": "Registro HIC e CSL mínimo."
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "8d0d579c",
+     "pt": "Tendência à licença de encanador para ligações; abrandador como aparelho fixo não é mencionado."
+    }
+   },
+   "windows and doors": {
+    "REGISTRATION": {
+     "h": "9bf94604",
+     "pt": "A isenção de c.142A s.14 se aplica somente se o empreiteiro trabalha exclusivamente nesta área: instalação de venezianas ou toldos."
+    }
+   }
+  },
+  "MD": {
+   "demolition": {
+    "NO STATE LICENSE": {
+     "h": "7c5065e0",
+     "pt": "(ae)"
+    }
+   },
+   "electrical": {
+    "REQUIRED": {
+     "h": "b865271",
+     "pt": "(u)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "6c2f3976",
+     "pt": "Não consta nas listas do DOLP ou do Comptroller (diretório parcial)."
+    }
+   },
+   "flooring": {
+    "REQUIRED": {
+     "h": "b865337",
+     "pt": "(s)"
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "ddab83e9",
+     "pt": "Licença de alimentos do departamento de saúde local; unidades móveis precisam de base licenciada."
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "bb9a0d14",
+     "pt": "Sem licença, mas deve seguir as leis do condado/município; teto de receita $50,000 (página mais antiga dizia $25,000)."
+    }
+   },
+   "framing": {
+    "LICENSED": {
+     "h": "89a96f9e",
+     "pt": "Licença de empreiteiro de home improvement do MHIC (Business Regulation 8-101, 8-301); garagem citada, siding/isolamento/calhas por inferência; copiada para todo este grupo de ofícios."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "cdbb1bff",
+     "pt": "( MD2)"
+    }
+   },
+   "plumbing": {
+    "REQUIRED": {
+     "h": "b865250",
+     "pt": "(t)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "dab43e1",
+     "pt": "TENDÊNCIA (LEAN): SEM LICENÇA para limpeza de rotina. O MHIC \"What is Home Improvement?\" lista piscinas apenas como itens construídos (\"Hot tubs - permanent, Pools, Pool covers, Pool houses\") e \"Cleaning and Treatments\" cita tratamento com ácido, sandbla"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "c80ed58f",
+     "pt": "( MD1; aplicação de selante ou revestimento exige MHIC)"
+    }
+   },
+   "siding": {
+    "LICENSED": {
+     "h": "89a96f9e",
+     "pt": "Licença de empreiteiro de home improvement do MHIC (Business Regulation 8-101, 8-301); garagem citada, siding/isolamento/calhas por inferência; copiada para todo este grupo de ofícios."
+    }
+   },
+   "water_treatment": {
+    "LICENSED": {
+     "h": "c54a2692",
+     "pt": "Licença de instalador de condicionador de água do Board of Well Drillers, a menos que seja encanador mestre."
+    }
+   }
+  },
+  "ME": {
+   "demolition": {
+    "NO STATE LICENSE": {
+     "h": "b865316",
+     "pt": "(r)"
+    }
+   },
+   "electrical": {
+    "REQUIRED": {
+     "h": "b864f69",
+     "pt": "(m)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "6972ab5f",
+     "pt": "Não consta na lista do PFR."
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "6e89358e",
+     "pt": "A lista de licenças do Health Inspection Program inclui Catering e Commissary."
+    }
+   },
+   "food_cottage": {
+    "LICENSED": {
+     "h": "c9ba646c",
+     "pt": "Licença DACF Home Food Processing, $20 por ano, alimentos não perecíveis (apenas resumo de busca)."
+    }
+   },
+   "framing": {
+    "LEAN_NOT_LICENSED": {
+     "h": "6e91512b",
+     "pt": "Não consta na lista de 69 entradas do PFR; Maine não tem conselho estadual de empreiteiros (copiada para os ofícios/serviços deste grupo; outros órgãos são separados, então a ausência não é prova)."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "cdbb27dd",
+     "pt": "( ME1)"
+    }
+   },
+   "plumbing": {
+    "REQUIRED": {
+     "h": "b864f48",
+     "pt": "(l)"
+    }
+   },
+   "pool and spa building": {
+    "NO STATE LICENSE": {
+     "h": "b86502f",
+     "pt": "(k)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "e6865f29",
+     "pt": "A lista completa do PFR (69 entradas) não tem entrada de piscina, spa ou empreiteiro. A licença de encanador se aplica se o serviço for de encanamento. Piscinas públicas precisam de licença (da instalação)."
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "cdbb27dd",
+     "pt": "( ME1)"
+    }
+   },
+   "siding": {
+    "LEAN_NOT_LICENSED": {
+     "h": "6e91512b",
+     "pt": "Não consta na lista de 69 entradas do PFR; Maine não tem conselho estadual de empreiteiros (copiada para os ofícios/serviços deste grupo; outros órgãos são separados, então a ausência não é prova)."
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "cac4ed8b",
+     "pt": "Encanadores do PFR podem alcançar as ligações; não aberto."
+    }
+   }
+  },
+  "MI": {
+   "drywall and plaster": {
+    "THRESHOLD": {
+     "h": "7206dc28",
+     "pt": "( MI1; por definição, nenhum ofício listado)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "299d2e30",
+     "pt": "Não consta no diretório (fitness: apenas Unarmed Combat Commission)."
+    }
+   },
+   "flooring": {
+    "THRESHOLD": {
+     "h": "7206dc28",
+     "pt": "( MI1; por definição, nenhum ofício listado)"
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "30337453",
+     "pt": "MDARD Food Service License / Food Establishment License emitida junto com os departamentos de saúde locais."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "82136d6c",
+     "pt": "Operações de cottage food isentas de licenciamento e inspeção."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "67cd850f",
+     "pt": "Licença LARA de Residential Maintenance and Alteration Contractor (ou Residential Builder); isenção quando o valor total é inferior a $600 (MCL 339.2404). Copiada para todo este grupo de ofícios."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "4cf107e1",
+     "pt": "A própria lista completa de License Search do estado (273 itens) não tem licença de paisagista, lavagem com pressão ou limpeza (a busca \"wash\" deu apenas Dairy Tank Truck Wash; \"clean\" deu 0). Conclusão por ausência. Landscape ARCHITECTS são licenciados"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "1bdaf6fe",
+     "pt": "A lista estadual de 273 licenças não tem licença de limpeza de piscina; MCL 339.2401 cita serviço de piscina apenas como instalação de piscina (licença LARA Residential Maintenance and Alteration EXIGIDA para instalar). Manutenção ou r"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "4cf107e1",
+     "pt": "A própria lista completa de License Search do estado (273 itens) não tem licença de paisagista, lavagem com pressão ou limpeza (a busca \"wash\" deu apenas Dairy Tank Truck Wash; \"clean\" deu 0). Conclusão por ausência. Landscape ARCHITECTS são licenciados"
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "67cd850f",
+     "pt": "Licença LARA de Residential Maintenance and Alteration Contractor (ou Residential Builder); isenção quando o valor total é inferior a $600 (MCL 339.2404). Copiada para todo este grupo de ofícios."
+    }
+   },
+   "stone and countertop install": {
+    "THRESHOLD": {
+     "h": "7206dc28",
+     "pt": "( MI1; por definição, nenhum ofício listado)"
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "d4453ac7",
+     "pt": "Instaladores não constam no diretório; existem o Water Dispensing Machine and Bottled Water Registration (MDARD) para venda automática/engarrafamento."
+    }
+   },
+   "windows and doors": {
+    "THRESHOLD": {
+     "h": "7206dc28",
+     "pt": "( MI1; por definição, nenhum ofício listado)"
+    }
+   }
+  },
+  "MN": {
+   "demolition": {
+    "NO STATE LICENSE": {
+     "h": "422031f0",
+     "pt": "Nenhuma licença de empreiteiro de demolição no ELicensing (apenas alvarás de instalações de descarte de entulho de demolição); não está entre as oito habilidades especiais do DLI. A remoção de amianto é EXIGIDA separadamente (MDH Asbestos Contractor License, 5 day"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "e9f52a7a",
+     "pt": "Não consta entre os tópicos (Martial Arts e Combative Sports são esportes de combate)."
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "f76cf34f",
+     "pt": "Tópicos A-Z Catering, Restaurants, Food; licença do Department of Agriculture ou Health."
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "e8d70c42",
+     "pt": "Isento de licença; registro anual, taxa de $30, curso de manipulador de alimentos; faturamento bruto de $78,000 ou menos."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "b2231c0d",
+     "pt": "Licença residencial de empreiteiro do DLI; um empreiteiro especializado que presta somente UMA habilidade especial não precisa de licença (326B.805 subd. 6 cl. 8); duas ou mais habilidades exigem licença (326B.802 subd. 15 define as habilidades)."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "878e014e",
+     "pt": "As buscas no ELicensing por \"janitorial\" e \"cleaning\" não encontraram licença de limpeza."
+    }
+   },
+   "pavers, patios, hardscape": {
+    "NO STATE LICENSE": {
+     "h": "908547ba",
+     "pt": "TENDÊNCIA (LEAN): SEM LICENÇA ESTADUAL para empresa que faz somente pavers, pátio ou hardscape. Pátios, pavers, muros de arrimo, hardscape e paisagismo não são citados em nenhuma das oito habilidades especiais (326B.802). Mesmo que o DLI tratasse"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "524706af",
+     "pt": "Nenhuma licença de empreiteiro de serviço de piscina no portal estadual ELicensing (busca \"pool\", 12 resultados: apenas certificado de operador de piscina pública e análise de plantas). Piscinas públicas precisam de operador de piscina certificado (obrigação da instalação). Pool inst"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "f2623011",
+     "pt": "Busca no ELicensing por \"pressure washing\": \"No results were found for your query.\" (nenhum resultado encontrado). Ausência no portal estadual; se vendido como serviço de melhoria, o registro de uma única habilidade pode se aplicar."
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "b2231c0d",
+     "pt": "Licença residencial de empreiteiro do DLI; um empreiteiro especializado que presta somente UMA habilidade especial não precisa de licença (326B.805 subd. 6 cl. 8); duas ou mais habilidades exigem licença (326B.802 subd. 15 define as habilidades)."
+    }
+   },
+   "water_treatment": {
+    "LICENSED": {
+     "h": "ef097b29",
+     "pt": "Tópico A-Z Water Conditioning; página da licença não aberta."
+    }
+   }
+  },
+  "MO": {
+   "demolition": {
+    "NO STATE LICENSE": {
+     "h": "e865777a",
+     "pt": "( MO1; regras de amianto são separadas)"
+    }
+   },
+   "electrical": {
+    "NO STATE LICENSE": {
+     "h": "31a17eb9",
+     "pt": "(existe licença estadual opcional)"
+    }
+   },
+   "events": {
+    "UNCLEAR": {
+     "h": "261c42d0",
+     "pt": "Nenhuma licença estadual encontrada."
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "c902e887",
+     "pt": "Alvará da agência local de saúde pública e inspeção antes da abertura; sem alvará estadual."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "de184e3b",
+     "pt": "Operação de cottage food não sujeita às leis de saúde ou de código de alimentos; venda por atacado não é isenta."
+    }
+   },
+   "framing": {
+    "LEAN_NOT_LICENSED": {
+     "h": "7cd67310",
+     "pt": "Nenhuma licença estadual de empreiteiro geral; ausente das listas completas de profissões e conselhos do DPR (apenas Electrical Contractors entre os ofícios); podem existir licenças locais. Copiada para estes ofícios."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "cdbb5257",
+     "pt": "( MO1)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "c543020b",
+     "pt": "A lista completa da Division of Professional Registration não tem entrada de piscina, spa ou empreiteiro geral. Empreiteiros elétricos têm registro estadual (somente fiação de piscina). Existem licenças locais."
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "cdbb5257",
+     "pt": "( MO1)"
+    }
+   },
+   "siding": {
+    "LEAN_NOT_LICENSED": {
+     "h": "7cd67310",
+     "pt": "Nenhuma licença estadual de empreiteiro geral; ausente das listas completas de profissões e conselhos do DPR (apenas Electrical Contractors entre os ofícios); podem existir licenças locais. Copiada para estes ofícios."
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "261c42d0",
+     "pt": "Nenhuma licença estadual encontrada."
+    }
+   }
+  },
+  "MS": {
+   "demolition": {
+    "THRESHOLD": {
+     "h": "77f297ee",
+     "pt": "( MS1; somente classificação comercial)"
+    }
+   },
+   "electrical": {
+    "THRESHOLD": {
+     "h": "e2986546",
+     "pt": "(subempreiteiro de qualquer nível: EXIGIDO em qualquer valor)"
+    }
+   },
+   "events": {
+    "UNCLEAR": {
+     "h": "320af624",
+     "pt": "Nenhuma licença estadual encontrada (conselho de CPA apenas para CPA)."
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "49a9f800",
+     "pt": "Alvará de alimentos do Dept of Health com revisão de projeto; mercearia de varejo também exige a Retail Food Sanitation License do Dept of Agriculture."
+    }
+   },
+   "food_cottage": {
+    "THRESHOLD": {
+     "h": "b5018b46",
+     "pt": "Sem alvará; limite de $35,000 em vendas anuais brutas."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "98ed2eb",
+     "pt": "Classificação do conselho de empreiteiros; limite para reformas residenciais acima de $10,000, comercial $50,000 (abaixo do limite, sem licença estadual)."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "6c4d53f2",
+     "pt": "TENDÊNCIA (LEAN): SEM LICENÇA. O FAQ do MSBOC dá uma lista completa de quem precisa de licença (comercial acima de $50,000, construção residencial nova acima de $50,000, reformas ou ampliações acima de $10,000, telhados acima de $10,000, residential tra"
+    }
+   },
+   "plumbing": {
+    "THRESHOLD": {
+     "h": "e2986546",
+     "pt": "(subempreiteiro de qualquer nível: EXIGIDO em qualquer valor)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "57506440",
+     "pt": "TENDÊNCIA (LEAN): SEM LICENÇA para limpeza residencial de rotina. A classificação Swimming Pools do MSBOC (exame exigido) abrange construção, reparo e manutenção e inclui expressamente limpeza ou higienização de equipamento que exija pelo menos"
+    }
+   },
+   "pressure washing": {
+    "THRESHOLD": {
+     "h": "39f9f39",
+     "pt": "Somente comercial: classificação Hydroblasting and Sandblasting, obras acima de $50,000. Não há classificação residencial para isso. Não é um ofício residencial independente."
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "384bb082",
+     "pt": "Classificação do conselho de empreiteiros; limite para reformas residenciais acima de $10,000, comercial $50,000 (abaixo do limite, sem licença estadual). Classe: Roofing, Sheet Metal and Siding."
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "320af624",
+     "pt": "Nenhuma licença estadual encontrada (conselho de CPA apenas para CPA)."
+    }
+   }
+  },
+  "MT": {
+   "cabinets and finish carpentry": {
+    "THRESHOLD": {
+     "h": "64ba53ec",
+     "pt": "ISENTO quando a pessoa é prestador independente sem funcionários (MCA 37-45-104(24): 'to an independent contractor who has no employees. However, an independent contractor may voluntarily elect to register under thi"
+    }
+   },
+   "demolition": {
+    "THRESHOLD": {
+     "h": "64ba53ec",
+     "pt": "ISENTO quando a pessoa é prestador independente sem funcionários (MCA 37-45-104(24): 'to an independent contractor who has no employees. However, an independent contractor may voluntarily elect to register under thi"
+    }
+   },
+   "drywall and plaster": {
+    "THRESHOLD": {
+     "h": "64ba53ec",
+     "pt": "ISENTO quando a pessoa é prestador independente sem funcionários (MCA 37-45-104(24): 'to an independent contractor who has no employees. However, an independent contractor may voluntarily elect to register under thi"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "1bd64ebe",
+     "pt": "Nenhuma licença estadual encontrada; design de interiores não consta na lista do DLI."
+    }
+   },
+   "fences and decks": {
+    "THRESHOLD": {
+     "h": "64ba53ec",
+     "pt": "ISENTO quando a pessoa é prestador independente sem funcionários (MCA 37-45-104(24): 'to an independent contractor who has no employees. However, an independent contractor may voluntarily elect to register under thi"
+    }
+   },
+   "flooring": {
+    "THRESHOLD": {
+     "h": "64ba53ec",
+     "pt": "ISENTO quando a pessoa é prestador independente sem funcionários (MCA 37-45-104(24): 'to an independent contractor who has no employees. However, an independent contractor may voluntarily elect to register under thi"
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "92af44aa",
+     "pt": "Licença anual de estabelecimento de venda de alimentos, emitida pelo departamento."
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "5fda2565",
+     "pt": "Não sujeito a licenciamento nem inspeção; o operador se registra na autoridade de saúde local."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "7dc3e0f1",
+     "pt": "Licença de empreiteiro de construção (administrada pelo DLI a partir de 1 de jan. de 2026) quando a obra for de $2,500 ou mais; isentos: obras eventuais abaixo de $2,500, prestador independente sem funcionários (37-45-104). Copiado para os ofícios de construção; ga"
+    }
+   },
+   "general contracting, remodeling, kitchens and baths, additions": {
+    "THRESHOLD": {
+     "h": "64ba53ec",
+     "pt": "ISENTO quando a pessoa é prestador independente sem funcionários (MCA 37-45-104(24): 'to an independent contractor who has no employees. However, an independent contractor may voluntarily elect to register under thi"
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "378d2b4d",
+     "pt": "( MT1) 37-45-102(1) busca por palavras-chave (landscap, lawn, tree, clearing, pruning, cleaning, washing, swimming): nenhum resultado. Tudo o que é construído ou melhorado 'attached to real estate' (preso ao imóvel) está incluído; cortar grama e limpeza não estão. ISENTO quando th"
+    }
+   },
+   "painting": {
+    "THRESHOLD": {
+     "h": "64ba53ec",
+     "pt": "ISENTO quando a pessoa é prestador independente sem funcionários (MCA 37-45-104(24): 'to an independent contractor who has no employees. However, an independent contractor may voluntarily elect to register under thi"
+    }
+   },
+   "pavers, patios, hardscape": {
+    "THRESHOLD": {
+     "h": "64ba53ec",
+     "pt": "ISENTO quando a pessoa é prestador independente sem funcionários (MCA 37-45-104(24): 'to an independent contractor who has no employees. However, an independent contractor may voluntarily elect to register under thi"
+    }
+   },
+   "pool and spa building": {
+    "THRESHOLD": {
+     "h": "64ba53ec",
+     "pt": "ISENTO quando a pessoa é prestador independente sem funcionários (MCA 37-45-104(24): 'to an independent contractor who has no employees. However, an independent contractor may voluntarily elect to register under thi"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "87c85055",
+     "pt": "Nenhum conselho do DLI para serviço de piscina, e não é atividade de empreiteiro de construção. Construção de piscina ou reparo estrutural é trabalho de empreiteiro de construção (licença desde 2026-01-01, isento abaixo de $2,500 por obra ou sem funcionários). Piscinas públicas"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "378d2b4d",
+     "pt": "( MT1) 37-45-102(1) busca por palavras-chave (landscap, lawn, tree, clearing, pruning, cleaning, washing, swimming): nenhum resultado. Tudo o que é construído ou melhorado 'attached to real estate' (preso ao imóvel) está incluído; cortar grama e limpeza não estão. ISENTO quando th"
+    }
+   },
+   "roofing": {
+    "THRESHOLD": {
+     "h": "64ba53ec",
+     "pt": "ISENTO quando a pessoa é prestador independente sem funcionários (MCA 37-45-104(24): 'to an independent contractor who has no employees. However, an independent contractor may voluntarily elect to register under thi"
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "7dc3e0f1",
+     "pt": "Licença de empreiteiro de construção (administrada pelo DLI a partir de 1 de jan. de 2026) quando a obra for de $2,500 ou mais; isentos: obras eventuais abaixo de $2,500, prestador independente sem funcionários (37-45-104). Copiado para os ofícios de construção; ga"
+    }
+   },
+   "stone and countertop install": {
+    "THRESHOLD": {
+     "h": "64ba53ec",
+     "pt": "ISENTO quando a pessoa é prestador independente sem funcionários (MCA 37-45-104(24): 'to an independent contractor who has no employees. However, an independent contractor may voluntarily elect to register under thi"
+    }
+   },
+   "tile": {
+    "THRESHOLD": {
+     "h": "64ba53ec",
+     "pt": "ISENTO quando a pessoa é prestador independente sem funcionários (MCA 37-45-104(24): 'to an independent contractor who has no employees. However, an independent contractor may voluntarily elect to register under thi"
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "261c42d0",
+     "pt": "Nenhuma licença estadual encontrada."
+    }
+   },
+   "windows and doors": {
+    "THRESHOLD": {
+     "h": "64ba53ec",
+     "pt": "ISENTO quando a pessoa é prestador independente sem funcionários (MCA 37-45-104(24): 'to an independent contractor who has no employees. However, an independent contractor may voluntarily elect to register under thi"
+    }
+   }
+  },
+  "NC": {
+   "demolition": {
+    "THRESHOLD": {
+     "h": "ebdddb1d",
+     "pt": "Licença de empreiteiro geral quando o custo da obra é $40,000 ou mais (G.S. 87-1(a)); a página do conselho diz que a classificação residencial abrange atividade de construção e demolição. Demolição como classe de especialidade própria não está confirma"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "787b903e",
+     "pt": "Serviços de eventos. Nenhum título na lista de 1033 títulos do ncbold."
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "dabe86f9",
+     "pt": "Food Establishments (G.S. 130A-248, apenas resultado de busca). (título da lista do ncbold.com; domínio .com, não totalmente completa)."
+    }
+   },
+   "food_cottage": {
+    "LEAN_NOT_LICENSED": {
+     "h": "2461176",
+     "pt": "Processadores caseiros são inspecionados, mas nenhum alvará é emitido; número de imposto sobre vendas NC-BR exigido."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "3be6f28a",
+     "pt": "Licença de empreiteiro geral necessária somente quando o valor da obra é $40,000 ou mais; sem licença de especialidade; abaixo disso, tendência (LEAN): não licenciado. Compartilhada por insulation, siding, gutters, framing, garage_doors, restoration_mold."
+    }
+   },
+   "pool cleaning and service": {
+    "THRESHOLD": {
+     "h": "34cfe599",
+     "pt": "Licença de empreiteiro geral quando uma única empreitada custa $40,000 ou mais (G.S. 87-1(a)). A classificação S(Swimming Pools) \"covers the construction, demolition, service, and repair of all swimming pools\" (abrange a construção, demolição, serviço e reparo de todas as piscinas). Servic"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "21e70a1d",
+     "pt": "Não consta na lista completa de classificações do conselho (21 NCAC 12A .0202); também está abaixo do limite de $40,000 por projeto."
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "3be6f28a",
+     "pt": "Licença de empreiteiro geral necessária somente quando o valor da obra é $40,000 ou mais; sem licença de especialidade; abaixo disso, tendência (LEAN): não licenciado. Compartilhada por insulation, siding, gutters, framing, garage_doors, restoration_mold."
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "1edc6cc5",
+     "pt": "Revendedores de tratamento de água. Nenhum título na lista de 1033 títulos do ncbold."
+    }
+   }
+  },
+  "ND": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "af2c063b",
+     "pt": "Serviços de eventos. Nenhum conselho ou lei estadual encontrado; ND não tem lista de todos os órgãos, então a ausência é apenas LEAN (tendência)."
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "af06ebd6",
+     "pt": "Estabelecimentos de alimentos e unidades móveis de alimentos licenciados pelo departamento (NDCC 23-09-16)."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "b0233afd",
+     "pt": "O estado não pode exigir licenciamento, alvará ou inspeção para cottage food vendido diretamente ao consumidor final."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "a4d1ad26",
+     "pt": "Licença de empreiteiro do Secretary of State quando a obra excede $4,000 (classes A a D por porte); sem licença específica de ofício; obras de $4,000 ou menos não precisam de nenhuma. Compartilhada por insulation, siding, gutters, framing, garage_doors, irrigat"
+    }
+   },
+   "pool cleaning and service": {
+    "THRESHOLD": {
+     "h": "8fa663f1",
+     "pt": "Licença de empreiteiro de ND quando uma obra excede $4,000 (NDCC 43-07). A página do SOS define empreiteiro como quem atua no negócio de \"construction ... building, repairing, altering, dismantling, or demolishing\". Nada oficial cita"
+    }
+   },
+   "pressure washing": {
+    "THRESHOLD": {
+     "h": "8fa663f1",
+     "pt": "Licença de empreiteiro de ND quando uma obra excede $4,000 (NDCC 43-07). A página do SOS define empreiteiro como quem atua no negócio de \"construction ... building, repairing, altering, dismantling, or demolishing\". Nada oficial cita"
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "a4d1ad26",
+     "pt": "Licença de empreiteiro do Secretary of State quando a obra excede $4,000 (classes A a D por porte); sem licença específica de ofício; obras de $4,000 ou menos não precisam de nenhuma. Compartilhada por insulation, siding, gutters, framing, garage_doors, irrigat"
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "33eb95a8",
+     "pt": "Tratamento de água. Nenhum conselho ou lei encontrado; ND não tem lista de todos os órgãos, portanto a ausência é apenas LEAN (indício, não prova)."
+    }
+   }
+  },
+  "NE": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "46320141",
+     "pt": "Serviços de eventos. Não consta no portal onestop (564 títulos, somente órgãos do gabinete do governador) e nenhuma lei estadual foi encontrada."
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "5f034cad",
+     "pt": "Alvará do Pure Food Act; a lei define unidade móvel de alimentos (mobile food unit) e serviço de bufê (food catering)."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "50506ba2",
+     "pt": "Produtores de alimentos caseiros (cottage food) afixam seu registro no local de venda; sem alvará."
+    }
+   },
+   "framing": {
+    "REGISTRATION": {
+     "h": "85b3edff",
+     "pt": "Empreiteiros se registram no Dept of Labor (registro, não licença de habilidade) antes de executar obras; proprietários na própria propriedade e quem ganha menos de $5,000 por ano com construção não são empreiteiros. Compartilhado por insu"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "9bd51ce7",
+     "pt": "TENDÊNCIA (LEAN): SEM REGISTRO para limpeza de rotina e serviço químico (não anexação nem reparo). Reparos ou instalação de equipamento são construção. Nebraska Dept of Revenue \"Nebraska Construction Contractors FAQs\" (official gui"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "2e50661b",
+     "pt": "TENDÊNCIA (LEAN): SEM REGISTRO. Lavar a casa é limpeza de um bem anexado ao imóvel, que o DOR chama de \"building cleaning\" e lista como não obrigado a constar no Database. Ressalva: o texto do DOR é orientação sobre o banco de dados e impostos,"
+    }
+   },
+   "siding": {
+    "REGISTRATION": {
+     "h": "85b3edff",
+     "pt": "Empreiteiros se registram no Dept of Labor (registro, não licença de habilidade) antes de executar obras; proprietários na própria propriedade e quem ganha menos de $5,000 por ano com construção não são empreiteiros. Compartilhado por insu"
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "4135b552",
+     "pt": "Tratamento de água. Não consta no portal onestop (564 títulos, apenas órgãos do gabinete do Governor) e nenhuma lei encontrada."
+    }
+   }
+  },
+  "NH": {
+   "cabinets and finish carpentry": {
+    "NO STATE LICENSE": {
+     "h": "f692656f",
+     "pt": "NH Dept of Justice (PRIMARY): 'In New Hampshire, contractors do not need to be licensed.' (Em New Hampshire, empreiteiros não precisam ser licenciados.) A mesma página diz que licenças SÃO necessárias para trabalho elétrico, inspeções, encanamento, fossa séptica, trabalho com bomba de poço, remoção de amianto ou l"
+    }
+   },
+   "demolition": {
+    "NO STATE LICENSE": {
+     "h": "f692656f",
+     "pt": "NH Dept of Justice (PRIMARY): 'In New Hampshire, contractors do not need to be licensed.' (Em New Hampshire, empreiteiros não precisam ser licenciados.) A mesma página diz que licenças SÃO necessárias para trabalho elétrico, inspeções, encanamento, fossa séptica, trabalho com bomba de poço, remoção de amianto ou l"
+    }
+   },
+   "drywall and plaster": {
+    "NO STATE LICENSE": {
+     "h": "f692656f",
+     "pt": "NH Dept of Justice (PRIMARY): 'In New Hampshire, contractors do not need to be licensed.' (Em New Hampshire, empreiteiros não precisam ser licenciados.) A mesma página diz que licenças SÃO necessárias para trabalho elétrico, inspeções, encanamento, fossa séptica, trabalho com bomba de poço, remoção de amianto ou l"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "eb6fec2",
+     "pt": "Serviços de eventos. Ausente da lista de conselhos do OPLC (completa somente para as profissões do OPLC); possíveis alvarás locais."
+    }
+   },
+   "fences and decks": {
+    "NO STATE LICENSE": {
+     "h": "f692656f",
+     "pt": "NH Dept of Justice (PRIMARY): 'In New Hampshire, contractors do not need to be licensed.' (Em New Hampshire, empreiteiros não precisam ser licenciados.) A mesma página diz que licenças SÃO necessárias para trabalho elétrico, inspeções, encanamento, fossa séptica, trabalho com bomba de poço, remoção de amianto ou l"
+    }
+   },
+   "flooring": {
+    "NO STATE LICENSE": {
+     "h": "f692656f",
+     "pt": "NH Dept of Justice (PRIMARY): 'In New Hampshire, contractors do not need to be licensed.' (Em New Hampshire, empreiteiros não precisam ser licenciados.) A mesma página diz que licenças SÃO necessárias para trabalho elétrico, inspeções, encanamento, fossa séptica, trabalho com bomba de poço, remoção de amianto ou l"
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "82fccd92",
+     "pt": "Licença estadual de serviço de alimentos; bufê e alimentos móveis: licença estadual ou licença de autoridade local de saúde, não ambas (143-A:5)."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "3fac1943",
+     "pt": "Operações de alimentos de homestead que vendem alimentos não perigosos de casa, banca na fazenda, feiras livres (farmers markets) ou lojas de varejo são isentas; licença Class H necessária para atacado, internet e venda por correio."
+    }
+   },
+   "framing": {
+    "LEAN_NOT_LICENSED": {
+     "h": "a260c58",
+     "pt": "Estruturas de madeira (framing). Ausente da lista de conselhos do OPLC (completa somente para as profissões do OPLC); possíveis alvarás locais."
+    }
+   },
+   "general contracting, remodeling, kitchens and baths, additions": {
+    "NO STATE LICENSE": {
+     "h": "f692656f",
+     "pt": "NH Dept of Justice (PRIMARY): 'In New Hampshire, contractors do not need to be licensed.' (Em New Hampshire, empreiteiros não precisam ser licenciados.) A mesma página diz que licenças SÃO necessárias para trabalho elétrico, inspeções, encanamento, fossa séptica, trabalho com bomba de poço, remoção de amianto ou l"
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "a7e05ebf",
+     "pt": "Não citado na lista completa de conselhos do OPLC (54 conselhos); buscas no RSA por 'pressure wash' e 'janitor' retornaram 0 resultados. Encanamento, mecânica e elétrica continuam licenciados."
+    }
+   },
+   "painting": {
+    "NO STATE LICENSE": {
+     "h": "f692656f",
+     "pt": "NH Dept of Justice (PRIMARY): 'In New Hampshire, contractors do not need to be licensed.' (Em New Hampshire, empreiteiros não precisam ser licenciados.) A mesma página diz que licenças SÃO necessárias para trabalho elétrico, inspeções, encanamento, fossa séptica, trabalho com bomba de poço, remoção de amianto ou l"
+    }
+   },
+   "pavers, patios, hardscape": {
+    "NO STATE LICENSE": {
+     "h": "f692656f",
+     "pt": "NH Dept of Justice (PRIMARY): 'In New Hampshire, contractors do not need to be licensed.' (Em New Hampshire, empreiteiros não precisam ser licenciados.) A mesma página diz que licenças SÃO necessárias para trabalho elétrico, inspeções, encanamento, fossa séptica, trabalho com bomba de poço, remoção de amianto ou l"
+    }
+   },
+   "pool and spa building": {
+    "NO STATE LICENSE": {
+     "h": "f692656f",
+     "pt": "NH Dept of Justice (PRIMARY): 'In New Hampshire, contractors do not need to be licensed.' (Em New Hampshire, empreiteiros não precisam ser licenciados.) A mesma página diz que licenças SÃO necessárias para trabalho elétrico, inspeções, encanamento, fossa séptica, trabalho com bomba de poço, remoção de amianto ou l"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "a7e05ebf",
+     "pt": "Não citado na lista completa de conselhos do OPLC (54 conselhos); buscas no RSA por 'pressure wash' e 'janitor' retornaram 0 resultados. Encanamento, mecânica e elétrica continuam licenciados."
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "2ddb0589",
+     "pt": "(NH1) Não consta na lista completa de conselhos do OPLC (54 conselhos); buscas nas RSA por 'pressure wash' e 'janitor' retornaram 0 resultados. Hidráulica, mecânica e elétrica continuam licenciadas."
+    }
+   },
+   "roofing": {
+    "NO STATE LICENSE": {
+     "h": "f692656f",
+     "pt": "NH Dept of Justice (PRIMARY): 'In New Hampshire, contractors do not need to be licensed.' (Em New Hampshire, empreiteiros não precisam ser licenciados.) A mesma página diz que licenças SÃO necessárias para trabalho elétrico, inspeções, encanamento, fossa séptica, trabalho com bomba de poço, remoção de amianto ou l"
+    }
+   },
+   "siding": {
+    "LEAN_NOT_LICENSED": {
+     "h": "b0df2b5e",
+     "pt": "Siding. Ausente da lista de conselhos do OPLC (completa apenas para profissões do OPLC); possíveis alvarás locais."
+    }
+   },
+   "stone and countertop install": {
+    "NO STATE LICENSE": {
+     "h": "f692656f",
+     "pt": "NH Dept of Justice (PRIMARY): 'In New Hampshire, contractors do not need to be licensed.' (Em New Hampshire, empreiteiros não precisam ser licenciados.) A mesma página diz que licenças SÃO necessárias para trabalho elétrico, inspeções, encanamento, fossa séptica, trabalho com bomba de poço, remoção de amianto ou l"
+    }
+   },
+   "tile": {
+    "NO STATE LICENSE": {
+     "h": "f692656f",
+     "pt": "NH Dept of Justice (PRIMARY): 'In New Hampshire, contractors do not need to be licensed.' (Em New Hampshire, empreiteiros não precisam ser licenciados.) A mesma página diz que licenças SÃO necessárias para trabalho elétrico, inspeções, encanamento, fossa séptica, trabalho com bomba de poço, remoção de amianto ou l"
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "12d0fe4d",
+     "pt": "Licença de encanador não exigida para sistemas de tratamento de água; RSA 153:27 define 'Water treatment technician' e aprendiz sob uma subdivisão de certificação."
+    }
+   },
+   "windows and doors": {
+    "NO STATE LICENSE": {
+     "h": "f692656f",
+     "pt": "NH Dept of Justice (PRIMARY): 'In New Hampshire, contractors do not need to be licensed.' (Em New Hampshire, empreiteiros não precisam ser licenciados.) A mesma página diz que licenças SÃO necessárias para trabalho elétrico, inspeções, encanamento, fossa séptica, trabalho com bomba de poço, remoção de amianto ou l"
+    }
+   }
+  },
+  "NJ": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "23ef107f",
+     "pt": "Serviços de eventos/casamentos/festas: nenhuma linha no guia de 2011."
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "ce92224",
+     "pt": "Catering segue as regras de estabelecimento de venda de alimentos, licenciado pela saúde local."
+    }
+   },
+   "food_cottage": {
+    "PERMIT": {
+     "h": "929179c3",
+     "pt": "Permissão de Cottage Food Operator do Dept of Health."
+    }
+   },
+   "framing": {
+    "LICENSED": {
+     "h": "b4ac3afa",
+     "pt": "Home improvement (incl. isolamento, reforma, reparo, instalação) exige licença do conselho de home improvement do DCA; vale para obra residencial. Esta célula é compartilhada por insulation, siding, gutters, framing, garage"
+    }
+   },
+   "pool cleaning and service": {
+    "REQUIRED": {
+     "h": "fc017ab5",
+     "pt": "A licença estadual para contratação de serviços de piscina e spa cobre o trabalho de encanamento, aquecimento e elétrica para fazer manutenção, modificar, reparar, substituir ou manter uma piscina (P.L.2019 c.22, C.45:5A-39). Equilíbrio químico semanal, limpeza da superfície"
+    }
+   },
+   "pressure washing": {
+    "REGISTRATION": {
+     "h": "e3333fca",
+     "pt": "TENDÊNCIA (LEAN): REGISTRO (Home Improvement Contractor Business, $110 inicial, anual até March 31). Nenhum texto oficial cita \"pressure washing\" pelo nome, mas o FAQ da Division define home improvement de forma ampla (reforma, pintura, r"
+    }
+   },
+   "siding": {
+    "LICENSED": {
+     "h": "b4ac3afa",
+     "pt": "Home improvement (incl. isolamento, reforma, reparo, instalação) exige licença do conselho de home improvement do DCA; vale para obra residencial. Esta célula é compartilhada por insulation, siding, gutters, framing, garage"
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "809af788",
+     "pt": "Sem linha no guia; o escopo do conselho de encanadores não foi verificado."
+    }
+   }
+  },
+  "NM": {
+   "cabinets and finish carpentry": {
+    "NO STATE LICENSE": {
+     "h": "66974d5",
+     "pt": "(NM2)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "e8c1a2b0",
+     "pt": "Serviços de eventos. A lista de conselhos do RLD (29) e as categorias de biz.nm.gov não citam nenhum; NM não tem lista de todos os órgãos."
+    }
+   },
+   "fences and decks": {
+    "NO STATE LICENSE": {
+     "h": "66974d5",
+     "pt": "(NM2)"
+    }
+   },
+   "flooring": {
+    "NO STATE LICENSE": {
+     "h": "66974d5",
+     "pt": "(NM2)"
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "40a5ccce",
+     "pt": "Alvará de funcionamento do NMED (7.6.2.8 NMAC)."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "89e7d5cf",
+     "pt": "Pessoas físicas podem vender alimentos caseiros diretamente aos consumidores sem alvará do NMED (licença comercial e impostos continuam valendo)."
+    }
+   },
+   "framing": {
+    "LICENSED": {
+     "h": "9267a265",
+     "pt": "Classificação de empreiteiro do CID: GS-13 framing."
+    }
+   },
+   "painting": {
+    "NO STATE LICENSE": {
+     "h": "66974d5",
+     "pt": "(NM2)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "8e353c9b",
+     "pt": "A lista de classificações do CID tem somente construção e reparo de piscinas (GS-25); limpeza não está listada. Serviço de bomba, aquecedor, gás e elétrica exige licenças MM ou EE."
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "66974d5",
+     "pt": "(NM2)"
+    }
+   },
+   "siding": {
+    "LICENSED": {
+     "h": "491f0c23",
+     "pt": "Classificação de empreiteiro do CID: GS-31 siding."
+    }
+   },
+   "stone and countertop install": {
+    "THRESHOLD": {
+     "h": "7610bbc0",
+     "pt": "Muros e revestimentos de pedra exigem GS-16 acima da isenção de trabalho eventual de $7,200 por ano (NMSA 60-13-3, texto lido no espelho Justia, texto da ressalva cortado); instalação de bancadas não está na lista do CID (NO STATE LICENSE"
+    }
+   },
+   "tile": {
+    "NO STATE LICENSE": {
+     "h": "66974d5",
+     "pt": "(NM2)"
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "2ed53ea8",
+     "pt": "Nenhuma classe encontrada por palavra-chave em 14.6.6; o escopo de encanamento não foi lido quanto a tratamento de água."
+    }
+   }
+  },
+  "NV": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "bb6b4cd0",
+     "pt": "Serviços de eventos. Nenhum capítulo no índice do NRS."
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "e2a7c7a7",
+     "pt": "Alvará da autoridade de saúde (NRS 446, encontrado no índice; texto da seção de alvarás parcialmente revogado e não citado)."
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "22b4cacf",
+     "pt": "Registro de operador de alimentos caseiros (cottage food), sem alvará; o Nevada Dept of Agriculture passa a ser o órgão de registro em todo o estado a partir de July 1, 2027."
+    }
+   },
+   "framing": {
+    "LICENSED": {
+     "h": "cd1ae94b",
+     "pt": "Licença de empreiteiro necessária acima do limite de obra pequena da NRS 624 (serviço avaliado abaixo de $1,000 é isento, a menos que envolva alvará de obra ou serviço de hidráulica/elétrica/HVAC). C-3 carpentry."
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "7a72f17",
+     "pt": "O NAC 624 inteiro tem zero ocorrências de pressure washing, power washing ou washing; as classificações do conselho A, B, AB, C não o incluem. Jateamento de areia (sandblasting) (C-4d) é licenciado."
+    }
+   },
+   "siding": {
+    "LICENSED": {
+     "h": "25f78da9",
+     "pt": "Licença de empreiteiro necessária acima do limite de obra pequena da NRS 624 (serviço avaliado abaixo de $1,000 é isento, a menos que envolva alvará de obra ou serviço de hidráulica/elétrica/HVAC). C-15 roofing and siding."
+    }
+   },
+   "water_treatment": {
+    "LICENSED": {
+     "h": "e7a9b3dc",
+     "pt": "Licença de empreiteiro necessária acima do limite de obra pequena da NRS 624 (serviço avaliado abaixo de $1,000 é isento, a menos que envolva alvará de obra ou serviço de hidráulica/elétrica/HVAC). C-30 installing equipment to treat water."
+    }
+   }
+  },
+  "NY": {
+   "demolition": {
+    "NO STATE LICENSE": {
+     "h": "669a420",
+     "pt": "(NY3)"
+    }
+   },
+   "electrical": {
+    "NO STATE LICENSE": {
+     "h": "669a420",
+     "pt": "(NY3)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "5f445e75",
+     "pt": "Serviços de eventos/casamentos/festas. Não consta entre as 35 ocupações do DOS nem entre as profissões do OP; NY não tem licença estadual de empreiteiro (as licenças locais variam)."
+    }
+   },
+   "food_caterer": {
+    "UNCLEAR": {
+     "h": "906fa051",
+     "pt": "Licença 20-C do Ag&Markets para estabelecimentos que fabricam e/ou embalam alimentos; isenção do Health Dept vista somente em um memorando de projeto de lei."
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "30b90e0b",
+     "pt": "Isento do licenciamento do Article 20-C, mas deve enviar o Home Processor Registration Request."
+    }
+   },
+   "framing": {
+    "LEAN_NOT_LICENSED": {
+     "h": "7e7c16f3",
+     "pt": "Estruturas de madeira (framing). Não consta entre as 35 ocupações do DOS nem entre as profissões do OP; NY não tem licença estadual de empreiteiro (as licenças locais variam)."
+    }
+   },
+   "general contracting, remodeling, kitchens and baths, additions": {
+    "NO STATE LICENSE": {
+     "h": "e09e8286",
+     "pt": "Sem licença estadual. O Attorney General diz que empreiteiros de reformas residenciais devem ser licenciados em New York City, Suffolk, Nassau, Westchester, Putnam e Rockland; o empreiteiro também deve cumprir qualquer lei local de licenciamento. N"
+    }
+   },
+   "plumbing": {
+    "NO STATE LICENSE": {
+     "h": "669a420",
+     "pt": "(NY3)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "6357f448",
+     "pt": "A lista do Dept of State com 36 tipos de licença não tem entrada de piscina, reforma residencial (home improvement) ou empreiteiro. Existe licenciamento local (endorsement de serviço de piscina do Nassau County, fonte secundária). Piscinas públicas exigem operador certificado (dever do proprietário)."
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "669a420",
+     "pt": "(NY3)"
+    }
+   },
+   "siding": {
+    "LEAN_NOT_LICENSED": {
+     "h": "e00ab575",
+     "pt": "Siding. Não consta entre as 35 ocupações do DOS nem entre as profissões do OP; NY não tem licença estadual de empreiteiro (licenças locais variam)."
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "5835b652",
+     "pt": "Revendedores de tratamento de água. Não consta entre as 35 ocupações do DOS nem entre as profissões do OP; NY não tem licença estadual de empreiteiro (licenças locais variam)."
+    }
+   }
+  },
+  "OH": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "f167ea0f",
+     "pt": "Serviços de eventos. Não consta entre os 24 conselhos do eLicense Ohio nem entre os ofícios de empreiteiro do Commerce (que cobrem somente elétrica, HVAC, encanamento, hidrônica e refrigeração); cidades ou condados podem exigir registro local."
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "3ad1d15",
+     "pt": "Licença de operação de serviço de alimentação sob a ORC 3717 (exceto as exclusões da 3717.42)."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "1726fbc7",
+     "pt": "Operações de produção de alimentos caseiros (cottage food) que vendem diretamente aos consumidores estão excluídas da exigência de licença."
+    }
+   },
+   "framing": {
+    "LEAN_NOT_LICENSED": {
+     "h": "fd9f9dd5",
+     "pt": "Estruturas de madeira (framing). Não consta entre os 24 conselhos do eLicense Ohio nem entre os ofícios de empreiteiro do Commerce (que cobrem somente elétrica, HVAC, encanamento, hidrônica e refrigeração); cidades ou condados podem exigir registro local."
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "ac2eccbc",
+     "pt": "Não consta entre os cinco ofícios do OCILB (elétrica, HVAC, hidrônica, encanamento, refrigeração). Encanamento ou elétrica em equipamento de piscina seriam esses ofícios."
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "2e6002af",
+     "pt": "Não consta entre os cinco ofícios do OCILB. O site de leis de Ohio e a busca do ohio.gov não foram pesquisados."
+    }
+   },
+   "siding": {
+    "LEAN_NOT_LICENSED": {
+     "h": "92a8f413",
+     "pt": "Siding. Não consta entre os 24 conselhos do eLicense Ohio nem entre os ofícios de empreiteiro do Commerce (que cobrem apenas elétrica, HVAC, encanamento, hidrônica, refrigeração); cidades ou condados podem exigir registro local."
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "f8bd377c",
+     "pt": "Tratamento de água. Não consta entre os 24 conselhos do eLicense Ohio nem entre os ofícios de empreiteiro do Commerce (que cobrem apenas elétrica, HVAC, encanamento, hidrônica, refrigeração); cidades ou condados podem exigir registro local."
+    }
+   }
+  },
+  "OK": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "e4e3c3ba",
+     "pt": "Nenhum conselho ou lei estadual encontrado."
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "a9a12810",
+     "pt": "Licença de estabelecimento de alimentos da OSDH; serviço de bufê (caterer) não é citado separadamente, e os departamentos de saúde de cidade-condado licenciam localmente."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "f4658fb",
+     "pt": "A Homemade Food Freedom Act isenta alimentos caseiros não-TCS do licenciamento de Health e Agriculture."
+    }
+   },
+   "framing": {
+    "NO_STATE_LICENSE": {
+     "h": "966d2cd8",
+     "pt": "Sem licença estadual de ofício; Oklahoma licencia apenas encanamento, elétrica, mecânica, registro de telhadistas e alarme/chaveiro/sprinkler. Mesma resposta copiada para insulation, siding, gutters, framing, garage doors, irrigation, chim"
+    }
+   },
+   "siding": {
+    "NO_STATE_LICENSE": {
+     "h": "966d2cd8",
+     "pt": "Sem licença estadual de ofício; Oklahoma licencia apenas encanamento, elétrica, mecânica, registro de telhadistas e alarme/chaveiro/sprinkler. Mesma resposta copiada para insulation, siding, gutters, framing, garage doors, irrigation, chim"
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "d5e56d2b",
+     "pt": "O Title 59 não tem ofício de tratamento de água residencial, apenas 'water treatment facilities' em uma isenção de engenharia."
+    }
+   }
+  },
+  "OR": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "5b3bce99",
+     "pt": "Nenhum conselho nem capítulo do ORS; não confirmado por uma página de isenção."
+    }
+   },
+   "food_caterer": {
+    "UNCLEAR": {
+     "h": "399dd4ec",
+     "pt": "Licença de alimentos da ODA presumida para alimentos comerciais; não lida."
+    }
+   },
+   "food_cottage": {
+    "THRESHOLD": {
+     "h": "220cc140",
+     "pt": "Isenção de cottage food da ODA para alimentos não TCS com limite de vendas."
+    }
+   },
+   "framing": {
+    "LICENSED": {
+     "h": "2c41f4d8",
+     "pt": "Carpintaria e framing exigem licença do CCB. Mesma resposta de insulation, siding, garage doors."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "4833b9d3",
+     "pt": "(residencial); EXIGIDO (limpeza com funcionários, BOLI)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "f22ce29",
+     "pt": "O CCB \"Do You Need A License?\" cita lavagem com pressão, limpeza de calhas e remoção de entulho como serviços sem licença; limpeza de piscina não está em nenhuma das listas. A definição de empreiteiro em ORS 701.005 (construct, alter, repair, improve) não"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "efb8ddd3",
+     "pt": "Varredura: ORS 701 não tem texto sobre lavagem com pressão."
+    }
+   },
+   "siding": {
+    "LICENSED": {
+     "h": "6baa2ca4",
+     "pt": "A lista do CCB de serviços que exigem licença cita siding (revestimento externo). Mesma resposta de insulation, framing, garage doors."
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "1ac4b20",
+     "pt": "ORS 448 cita apenas operadores de estações de tratamento de água potável, não o serviço de amaciadores de água residenciais."
+    }
+   }
+  },
+  "PA": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "261c42d0",
+     "pt": "Nenhuma licença estadual encontrada."
+    }
+   },
+   "food_caterer": {
+    "UNCLEAR": {
+     "h": "c1240c87",
+     "pt": "A página de Retail Food Facility License não cita serviços de bufê nem food trucks; provavelmente licença do PDA, saúde local em alguns condados."
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "f27107f3",
+     "pt": "Registro de Limited Food Establishment do PDA para produção de alimentos doméstica ou não comercial."
+    }
+   },
+   "framing": {
+    "REGISTRATION": {
+     "h": "597ef8f5",
+     "pt": "Home Improvement Consumer Protection Act: registro de empreiteiro no Attorney General para obra em residência particular acima de $500 de preço total em dinheiro; licenças locais em alguns municípios. Não citado; coberto pelo verbo genérico"
+    }
+   },
+   "house cleaning and janitorial": {
+    "REGISTRATION": {
+     "h": "3f5d510a",
+     "pt": "TENDÊNCIA (LEAN): REGISTRO. A lista 'Type of Work' da busca de Home Improvement Contractor do AG (PRIMARY, 50 opções lidas, nada enviado) cita Pressure Washing, Cleaning & Janitorial Services, Tree services, Lawn & Garden Services, La"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "18f2e040",
+     "pt": "TENDÊNCIA (LEAN): SEM REGISTRO somente para limpeza. O cadastro lista apenas categorias de construção para piscinas (elevadas, enterradas). Construção, instalação, reparo ou melhoria de piscina exige registro HICPA. v4: the AG regist"
+    }
+   },
+   "pressure washing": {
+    "REGISTRATION": {
+     "h": "379665a8",
+     "pt": "TENDÊNCIA (LEAN): EXIGIDO. A lista 'Type of Work' da busca de Home Improvement Contractor do AG (PRIMARY, 50 opções lidas, nada enviado) cita Pressure Washing, Cleaning & Janitorial Services, Tree services, Lawn & Garden Services, Landsc"
+    }
+   },
+   "siding": {
+    "REGISTRATION": {
+     "h": "6aee79ce",
+     "pt": "Home Improvement Consumer Protection Act: registro de empreiteiro no Attorney General para obra em residência particular acima de $500 de preço total em dinheiro; licenças locais em alguns municípios. Siding citado."
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "257424d2",
+     "pt": "Nenhuma linha encontrada."
+    }
+   }
+  },
+  "RI": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "3cc1b853",
+     "pt": "Nenhum capítulo."
+    }
+   },
+   "food_caterer": {
+    "UNCLEAR": {
+     "h": "43db48d8",
+     "pt": "A lista do DLT mostra Food Service, Food Markets, Food Processor; a palavra caterer não aparece em nenhuma página de RI lida. Tendência: licenciado como food service."
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "89924550",
+     "pt": "Certificado de registro do RIDOH para fabricantes de cottage food; teto de vendas $50,000."
+    }
+   },
+   "framing": {
+    "REGISTRATION": {
+     "h": "75637c2c",
+     "pt": "Registro no CRB pela definição geral e pela expressão 'handyman work'; não é nomeado individualmente. Isenção eventual de $500 (5-65-2(4)). Mesma resposta para gutters, framing, garage doors."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "1925e0a6",
+     "pt": "Não consta na lista completa de ocupações licenciadas de todos os órgãos de RI. Asbestos Remediation (Dept of Health) é a única licença próxima de limpeza."
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "ccbcd941",
+     "pt": "Serviço de limpeza e manutenção não consta na lista completa de ocupações licenciadas de RI. Construir, alterar ou reparar a estrutura da piscina exige REGISTRO (CRLB, isenção eventual de $500); reparo de equipamento, segundo uma leitura possível, conta como r"
+    }
+   },
+   "pressure washing": {
+    "REGISTRATION": {
+     "h": "e8d6257",
+     "pt": "A página do Contractors' Registration and Licensing Board (PRIMARY, aberta no Chrome) lista 'Power washers' entre os tipos de serviço mais comuns que exigem Registro de Empreiteiro Geral (a lista 'is not all-inclusive'). Who does"
+    }
+   },
+   "roofing": {
+    "REGISTRATION": {
+     "h": "7c082ae3",
+     "pt": "(telhado em geral; licença CRB separada para telhado comercial)"
+    }
+   },
+   "siding": {
+    "REGISTRATION": {
+     "h": "7bbba466",
+     "pt": "Registro de empreiteiro no CRB."
+    }
+   },
+   "water_treatment": {
+    "LICENSED": {
+     "h": "cf351b17",
+     "pt": "O Chapter 5-65.2 define sistemas de tratamento e filtragem de água dentro da lei de licenciamento."
+    }
+   }
+  },
+  "SC": {
+   "demolition": {
+    "NO STATE LICENSE": {
+     "h": "a125ba99",
+     "pt": "(licença de empreiteiro; amianto pelo SC DES)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "29d31e8b",
+     "pt": "Nenhum capítulo; a comissão atlética, cap. 40-81, trata de boxe."
+    }
+   },
+   "food_caterer": {
+    "UNCLEAR": {
+     "h": "ee1c7ade",
+     "pt": "Apenas indicação de busca: alvará de Retail Food Establishments da SC Regulation 61-25; páginas do DES/DAH não abertas."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "3ec93188",
+     "pt": "Alimentos caseiros não potencialmente perigosos vendidos sem inspeção ou alvará; o alvará de cozinha doméstica é opcional."
+    }
+   },
+   "framing": {
+    "REGISTRATION": {
+     "h": "f05406ff",
+     "pt": "Registro de empreiteiro especializado residencial para obras acima de $500 (SC Contractor's Licensing Board). Carpinteiros; estrutura metálica é uma subclassificação de General Contractor."
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "64b0fd98",
+     "pt": "O Title 40 e a lista de profissões do LLR não têm entrada de limpeza, faxina ou zeladoria. As licenças comerciais são locais."
+    }
+   },
+   "pool cleaning and service": {
+    "THRESHOLD": {
+     "h": "e4a7a5fc",
+     "pt": "Licença de empreiteiro geral quando o custo total da construção é superior a $10,000; a subclassificação Swimming Pools \"includes the construction, service, and repair of all residential, commercial, and institutional swimm"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "488721b9",
+     "pt": "Não consta em nenhuma lista oficial de ofícios (Title 40, lista de ofícios especializados residenciais). Uma especialidade de pintor inclui a limpeza preparatória para pintura; reparo acima de $500 (especialidade) ou $10,000 (empreiteiro) poderia ser classificado como co"
+    }
+   },
+   "siding": {
+    "REGISTRATION": {
+     "h": "1598ab5",
+     "pt": "Registro de empreiteiro especializado residencial para obras acima de $500 (SC Contractor's Licensing Board)."
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "257424d2",
+     "pt": "Nenhuma linha encontrada."
+    }
+   }
+  },
+  "SD": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "666120f",
+     "pt": "Nenhum capítulo no índice do Title 36."
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "15ed6e35",
+     "pt": "Licença do Department of Health para estabelecimentos de serviço de alimentação. 34-18-1(5) inclui cozinhas de buffet (catering)."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "6738338b",
+     "pt": "As disposições de licenciamento não se aplicam a alimentos residenciais sem controle de temperatura, sujeitos às condições de 34-18-38."
+    }
+   },
+   "framing": {
+    "LEAN_NOT_LICENSED": {
+     "h": "19b4cb66",
+     "pt": "Nenhum conselho de empreiteiro geral ou especializado na lista estadual de licenciamento profissional; o Title 36 não tem capítulo sobre empreiteiros (apenas eletricistas 36-16, encanadores 36-25). Mesma resposta copiada para insulation, siding, gutters, framing,"
+    }
+   },
+   "siding": {
+    "LEAN_NOT_LICENSED": {
+     "h": "19b4cb66",
+     "pt": "Nenhum conselho de empreiteiro geral ou especializado na lista estadual de licenciamento profissional; o Title 36 não tem capítulo sobre empreiteiros (apenas eletricistas 36-16, encanadores 36-25). Mesma resposta copiada para insulation, siding, gutters, framing,"
+    }
+   },
+   "water_treatment": {
+    "LICENSED": {
+     "h": "91405db7",
+     "pt": "Classe de encanamento 'Water conditioning contractor' (36-25-19 item 12)."
+    }
+   }
+  },
+  "TN": {
+   "cabinets and finish carpentry": {
+    "THRESHOLD": {
+     "h": "63eb9e42",
+     "pt": "Licença de empreiteiro exigida em todo o estado a partir de $25,000 (página do Board for Licensing Contractors, PRIMARY): empreiteiro principal, certos subempreiteiros, gerente de construção; subempreiteiros em elétrica, mecânica, hidráulica"
+    }
+   },
+   "demolition": {
+    "THRESHOLD": {
+     "h": "57951c45",
+     "pt": "Inalterado em $25,000. Não citado na definição de Home Improvement (62-6-501); uma licença residencial de $3,000 ainda poderia se aplicar se o serviço for considerado melhoria. Não definido."
+    }
+   },
+   "drywall and plaster": {
+    "THRESHOLD": {
+     "h": "63eb9e42",
+     "pt": "Licença de empreiteiro exigida em todo o estado a partir de $25,000 (página do Board for Licensing Contractors, PRIMARY): empreiteiro principal, certos subempreiteiros, gerente de construção; subempreiteiros em elétrica, mecânica, hidráulica"
+    }
+   },
+   "electrical": {
+    "THRESHOLD": {
+     "h": "b8d25c91",
+     "pt": "Inalterado. 62-6-505 isenta o encanador ou eletricista que atua dentro de seu próprio ofício licenciado da licença de Home Improvement; o licenciamento do ofício é separado."
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "49048268",
+     "pt": "Ausente das listas lidas."
+    }
+   },
+   "fences and decks": {
+    "THRESHOLD": {
+     "h": "63eb9e42",
+     "pt": "Licença de empreiteiro exigida em todo o estado a partir de $25,000 (página do Board for Licensing Contractors, PRIMARY): empreiteiro principal, certos subempreiteiros, gerente de construção; subempreiteiros em elétrica, mecânica, hidráulica"
+    }
+   },
+   "flooring": {
+    "THRESHOLD": {
+     "h": "63eb9e42",
+     "pt": "Licença de empreiteiro exigida em todo o estado a partir de $25,000 (página do Board for Licensing Contractors, PRIMARY): empreiteiro principal, certos subempreiteiros, gerente de construção; subempreiteiros em elétrica, mecânica, hidráulica"
+    }
+   },
+   "food_caterer": {
+    "UNCLEAR": {
+     "h": "c5fff77b",
+     "pt": "Alvará do Department of Health ou do TDA; divisão entre os órgãos não confirmada; frase sobre o alvará não extraída."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "cfcc6fcc",
+     "pt": "O Tennessee Food Freedom Act isenta alimentos de cozinha doméstica de licenciamento, alvará, inspeção, embalagem e rotulagem."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "922119c8",
+     "pt": "Licença de empreiteiro exigida a partir de $25,000 (Board for Licensing Contractors). BC-2 Carpentry, Framing and Millwork."
+    }
+   },
+   "general contracting, remodeling, kitchens and baths, additions": {
+    "THRESHOLD": {
+     "h": "63eb9e42",
+     "pt": "Licença de empreiteiro exigida em todo o estado a partir de $25,000 (página do Board for Licensing Contractors, PRIMARY): empreiteiro principal, certos subempreiteiros, gerente de construção; subempreiteiros em elétrica, mecânica, hidráulica"
+    }
+   },
+   "house cleaning and janitorial": {
+    "NO STATE LICENSE": {
+     "h": "c92d8639",
+     "pt": "Limpeza não é citada nas páginas do Conselho nem no Appendix A. A licença Home Improvement ($3,000 a $24,999) vale somente nos nove condados que a adotaram e somente para reformas residenciais."
+    }
+   },
+   "painting": {
+    "THRESHOLD": {
+     "h": "63eb9e42",
+     "pt": "Licença de empreiteiro exigida em todo o estado a partir de $25,000 (página do Board for Licensing Contractors, PRIMARY): empreiteiro principal, certos subempreiteiros, gerente de construção; subempreiteiros em elétrica, mecânica, hidráulica"
+    }
+   },
+   "pavers, patios, hardscape": {
+    "THRESHOLD": {
+     "h": "63eb9e42",
+     "pt": "Licença de empreiteiro exigida em todo o estado a partir de $25,000 (página do Board for Licensing Contractors, PRIMARY): empreiteiro principal, certos subempreiteiros, gerente de construção; subempreiteiros em elétrica, mecânica, hidráulica"
+    }
+   },
+   "plumbing": {
+    "THRESHOLD": {
+     "h": "b8d25c91",
+     "pt": "Inalterado. 62-6-505 isenta o encanador ou eletricista que atua dentro de seu próprio ofício licenciado da licença de Home Improvement; o licenciamento do ofício é separado."
+    }
+   },
+   "pool and spa building": {
+    "THRESHOLD": {
+     "h": "63eb9e42",
+     "pt": "Licença de empreiteiro exigida em todo o estado a partir de $25,000 (página do Board for Licensing Contractors, PRIMARY): empreiteiro principal, certos subempreiteiros, gerente de construção; subempreiteiros em elétrica, mecânica, hidráulica"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "49874c9b",
+     "pt": "Limpeza de rotina não citada. 'Swimming pools' é citado como construção ou melhoria. Reparo de piscina ou troca de equipamento é reforma residencial: licença Home Improvement $3,000 a $24,999 somente nos nove condados que a adotaram"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "cfbd6b4",
+     "pt": "Lavagem com pressão não é citada nas páginas do Board nem no Appendix A. A licença Home Improvement ($3,000 a $24,999) se aplica apenas nos nove condados que a adotaram e apenas a reformas residenciais."
+    }
+   },
+   "roofing": {
+    "THRESHOLD": {
+     "h": "63eb9e42",
+     "pt": "Licença de empreiteiro exigida em todo o estado a partir de $25,000 (página do Board for Licensing Contractors, PRIMARY): empreiteiro principal, certos subempreiteiros, gerente de construção; subempreiteiros em elétrica, mecânica, hidráulica"
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "df43ac26",
+     "pt": "Licença de empreiteiro exigida a partir de $25,000 (Board for Licensing Contractors). Mesma resposta para siding e gutters."
+    }
+   },
+   "stone and countertop install": {
+    "THRESHOLD": {
+     "h": "63eb9e42",
+     "pt": "Licença de empreiteiro exigida em todo o estado a partir de $25,000 (página do Board for Licensing Contractors, PRIMARY): empreiteiro principal, certos subempreiteiros, gerente de construção; subempreiteiros em elétrica, mecânica, hidráulica"
+    }
+   },
+   "tile": {
+    "THRESHOLD": {
+     "h": "63eb9e42",
+     "pt": "Licença de empreiteiro exigida em todo o estado a partir de $25,000 (página do Board for Licensing Contractors, PRIMARY): empreiteiro principal, certos subempreiteiros, gerente de construção; subempreiteiros em elétrica, mecânica, hidráulica"
+    }
+   },
+   "water_treatment": {
+    "LICENSED": {
+     "h": "8e4d9d9d",
+     "pt": "Licenciado somente para instalação em poços de água; abrandador de casa inteira em água municipal não é coberto por estas palavras."
+    }
+   },
+   "windows and doors": {
+    "THRESHOLD": {
+     "h": "63eb9e42",
+     "pt": "Licença de empreiteiro exigida em todo o estado a partir de $25,000 (página do Board for Licensing Contractors, PRIMARY): empreiteiro principal, certos subempreiteiros, gerente de construção; subempreiteiros em elétrica, mecânica, hidráulica"
+    }
+   }
+  },
+  "TX": {
+   "events": {
+    "NO_STATE_LICENSE": {
+     "h": "467e8a98",
+     "pt": "Sem título no guia para planejamento de eventos; inferido."
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "c11f1664",
+     "pt": "Alvará de alimentos no varejo do DSHS conforme o faturamento bruto ($258 / $515 / $773); eventos temporários 14 dias, alvarás de evento único $52; os departamentos de saúde locais emitem alvarás dentro de suas jurisdições. Vendedores ambulantes de alimentos (Mobile Food Vendors) têm página própria no DSHS."
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "cbd2426",
+     "pt": "Operações de alimentos caseiros (cottage food) que vendem alimentos TCS devem se registrar no DSHS; os demais alimentos caseiros não precisam de alvará."
+    }
+   },
+   "framing": {
+    "NO_STATE_LICENSE": {
+     "h": "f9ec1f9a",
+     "pt": "Texas não tem licença estadual de empreiteiro geral; este ofício não está entre as licenças estaduais listadas para empreitada geral (mesma resposta copiada para insulation, siding, gutters, framing, garage doors). Cidades podem exigir re"
+    }
+   },
+   "siding": {
+    "NO_STATE_LICENSE": {
+     "h": "f9ec1f9a",
+     "pt": "Texas não tem licença estadual de empreiteiro geral; este ofício não está entre as licenças estaduais listadas para empreitada geral (mesma resposta copiada para insulation, siding, gutters, framing, garage doors). Cidades podem exigir re"
+    }
+   },
+   "water_treatment": {
+    "LICENSED": {
+     "h": "a0ad71db",
+     "pt": "Certificado de Water Treatment Specialist do TCEQ; isenções para encanadores e proprietários conforme a página do TCEQ, texto não aberto."
+    }
+   }
+  },
+  "UT": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "55075a8c",
+     "pt": "Eventos não consta na lista de licenças do DOPL; apenas ausência."
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "36d8890c",
+     "pt": "Nenhuma linha específica para buffet (caterer); tratado junto com o varejo de alimentos: alvará do departamento de saúde local."
+    }
+   },
+   "food_cottage": {
+    "REGISTRATION": {
+     "h": "851db564",
+     "pt": "Inspeção e registro do UDAF para cottage foods não perecíveis; alvará de manipulador de alimentos exigido."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "8a9271b1",
+     "pt": "Licença de empreiteiro exigida somente acima de $7,000 de mão de obra mais materiais (58-55-305(1)(h)); S220 Carpentry and Flooring (copiado para framing e garage doors)."
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "6be82f08",
+     "pt": "Nenhuma classificação para serviço químico ou limpeza; S380 Swimming Pool and Spa Contractor abrange construção e instalação no local. Reparo, substituição e reforma de acabamento de componentes de piscina é trabalho sujeito a licença (limite"
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "a759897c",
+     "pt": "Licença de empreiteiro exigida somente acima de $7,000 de mão de obra mais materiais (58-55-305(1)(h)); S230 Masonry, Siding, Stucco, Glass, and Rain Gutter Contractor (copiado para siding e gutters)."
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "d95525ca",
+     "pt": "Não consta na lista do DOPL; nenhuma fonte do DEQ ou sobre o escopo de encanamento foi lida."
+    }
+   }
+  },
+  "VA": {
+   "electrical": {
+    "REQUIRED": {
+     "h": "a3883381",
+     "pt": "(licença de empreiteiro acima de $1,000 mais licença de profissional de ofício)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "9f662703",
+     "pt": "Não consta na lista do DPOR (apenas ausência)."
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "f9ad12fe",
+     "pt": "Alvará de estabelecimento de alimentos do VDH (página do distrito Blue Ridge)."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "f8fca2a6",
+     "pt": "Operações isentas de processamento caseiro de alimentos são isentas das exigências de alvará e inspeção do VDACS."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "a479a27a",
+     "pt": "Licença de empreiteiro exigida acima de $1,000 (Classe C é acima de $1,000 e abaixo de $30,000, Va. Code 54.1-1100); DPOR Board for Contractors. Especialidade de empreiteiro de framing (FRM)."
+    }
+   },
+   "plumbing": {
+    "REQUIRED": {
+     "h": "a3883381",
+     "pt": "(licença de empreiteiro acima de $1,000 mais licença de profissional de ofício)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "39ff39d",
+     "pt": "A classificação POL do DPOR abrange construção, reparo, melhoria ou remoção de piscinas enterradas; limpeza de rotina e serviço químico não se enquadram em nenhum desses. Reparo ou melhoria de piscinas exige licença Class A/B/C com POL"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "29e5f31b",
+     "pt": "(lavagem avulsa não consta em 18VAC50-22-30; limpeza preparatória para pintura fica dentro da especialidade de pintura)"
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "1b42cb8a",
+     "pt": "Licença de empreiteiro exigida acima de $1,000 (Classe C é acima de $1,000 e abaixo de $30,000, Va. Code 54.1-1100); DPOR Board for Contractors. Não há especialidade separada de siding; fica sob HIC."
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "6e012594",
+     "pt": "Instaladores de equipamento de tratamento não constam na lista do DPOR; as regras de encanamento/HVAC se aplicam se houver trabalho com tubulação; operadores de sistemas públicos de água são licenciados separadamente."
+    }
+   }
+  },
+  "VT": {
+   "cabinets and finish carpentry": {
+    "THRESHOLD": {
+     "h": "e7b60bf8",
+     "pt": "(registro OPR)"
+    }
+   },
+   "demolition": {
+    "THRESHOLD": {
+     "h": "e7b60bf8",
+     "pt": "(registro OPR)"
+    }
+   },
+   "drywall and plaster": {
+    "THRESHOLD": {
+     "h": "e7b60bf8",
+     "pt": "(registro OPR)"
+    }
+   },
+   "electrical": {
+    "NO STATE LICENSE": {
+     "h": "f928d164",
+     "pt": "(edifícios de 1 ou 2 unidades residenciais); EXIGIDO (edifícios maiores); LIMITE de $10,000 para registro de obra residencial sem licença"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "228ae8d8",
+     "pt": "Não consta na lista do OPR (apenas ausência)."
+    }
+   },
+   "fences and decks": {
+    "THRESHOLD": {
+     "h": "df182b28",
+     "pt": "(decks fixos à construção); SEM LICENÇA ESTADUAL (cercas e estruturas separadas da construção)"
+    }
+   },
+   "flooring": {
+    "THRESHOLD": {
+     "h": "e7b60bf8",
+     "pt": "(registro OPR)"
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "b80b35a0",
+     "pt": "Licença do Health Commissioner para estabelecimentos de alimentos no varejo; serviço de alimentação inclui buffets (caterers) e unidades móveis de alimentos (copiada para caterer, truck, retail)."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "3b91120e",
+     "pt": "Isenção de licença para operadores de alimentos caseiros (cottage food) em cozinha doméstica com receita bruta anual de $30,000 ou menos (declaração anual)."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "650ae5a5",
+     "pt": "Registro no OPR exigido antes de contratar com um proprietário construção residencial acima de $10,000 incluindo mão de obra e materiais (26 V.S.A. 5501); residências e prédios de quatro unidades ou menos. \"build, demolish, or"
+    }
+   },
+   "general contracting, remodeling, kitchens and baths, additions": {
+    "THRESHOLD": {
+     "h": "e7b60bf8",
+     "pt": "(registro OPR)"
+    }
+   },
+   "painting": {
+    "THRESHOLD": {
+     "h": "e7b60bf8",
+     "pt": "(registro OPR)"
+    }
+   },
+   "pavers, patios, hardscape": {
+    "THRESHOLD": {
+     "h": "b2f1f14d",
+     "pt": "(a lei estadual menciona \"paving\"; a isenção de paisagismo 5502(4) não é definida, pode cobrir hardscape decorativo)"
+    }
+   },
+   "plumbing": {
+    "REQUIRED": {
+     "h": "54409d44",
+     "pt": "(licença de encanador do DFS; mais registro se não licenciado)"
+    }
+   },
+   "pool and spa building": {
+    "THRESHOLD": {
+     "h": "19c72db3",
+     "pt": "(\"premises\" e construção exterior em 5501(b); 5502(5) \"structure that is not attached\" pode isentar uma piscina separada da construção, o texto não resolve)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "53ef56ef",
+     "pt": "A lista completa de profissões do OPR não tem ofício de piscina. Conclusão por ausência."
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "1a352944",
+     "pt": "(a lista de escopo em 5501(b) não menciona limpeza)"
+    }
+   },
+   "roofing": {
+    "THRESHOLD": {
+     "h": "e7b60bf8",
+     "pt": "(registro OPR)"
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "9f9343c6",
+     "pt": "Registro no OPR exigido antes de contratar com um proprietário construção residencial acima de $10,000 incluindo mão de obra e materiais (26 V.S.A. 5501); residências e prédios de quatro unidades ou menos. Renovação exterior"
+    }
+   },
+   "stone and countertop install": {
+    "THRESHOLD": {
+     "h": "e7b60bf8",
+     "pt": "(registro OPR)"
+    }
+   },
+   "tile": {
+    "THRESHOLD": {
+     "h": "e7b60bf8",
+     "pt": "(registro OPR)"
+    }
+   },
+   "water_treatment": {
+    "LEAN_NOT_LICENSED": {
+     "h": "fc0f073d",
+     "pt": "Instalação de equipamento: tendência a não licenciado; a licença de encanador se aplica ao trabalho com tubulação (26 V.S.A. 2198); a lista do OPR não tem tratamento de água."
+    }
+   },
+   "windows and doors": {
+    "THRESHOLD": {
+     "h": "e7b60bf8",
+     "pt": "(registro OPR)"
+    }
+   }
+  },
+  "WA": {
+   "electrical": {
+    "REQUIRED": {
+     "h": "62f04bf5",
+     "pt": "(licença de empreiteiro elétrico mais eletricistas certificados)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "e2c41fef",
+     "pt": "Não consta na lista de licenças do DOL (apenas ausência)."
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "495f4ab3",
+     "pt": "Alvará de Retail Food Establishment da jurisdição local de saúde do condado (copiado para caterer, food truck, retail)."
+    }
+   },
+   "food_cottage": {
+    "PERMIT": {
+     "h": "5a76613d",
+     "pt": "Alvará de cottage food do WSDA a cada dois anos."
+    }
+   },
+   "framing": {
+    "REGISTRATION": {
+     "h": "30068ca6",
+     "pt": "REGISTRO no L&I como empreiteiro (RCW 18.27.020(1)(a); serviço abaixo de $500 isento conforme RCW 18.27.090). (23) Estrutura (framing) e carpintaria bruta."
+    }
+   },
+   "plumbing": {
+    "REQUIRED": {
+     "h": "a3356ab",
+     "pt": "(certificado de encanador mais registro)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "e95e9b1e",
+     "pt": "TENDÊNCIA (LEAN): SEM REGISTRO somente para limpeza; nenhuma fonte diz isso em palavras. WAC 296-200A-016(54) swimming pools, spas and hot tubs: \"constructs, alters, and repairs permanent swimming pools and spas ... including associated equi"
+    }
+   },
+   "pressure washing": {
+    "REGISTRATION": {
+     "h": "e276670b",
+     "pt": "Registro de empreiteiro no L&I: WAC 296-200A-016 especialidade (43) Pressure washing (\"uses the force of pressurized water to clean and prepare surfaces ... on a commercial and/or residential structure\"); pressure washing também"
+    }
+   },
+   "siding": {
+    "REGISTRATION": {
+     "h": "97d4b674",
+     "pt": "REGISTRO no L&I como empreiteiro (RCW 18.27.020(1)(a); serviço abaixo de $500 isento conforme RCW 18.27.090). (49) Revestimento externo (siding)."
+    }
+   },
+   "water_treatment": {
+    "REGISTRATION": {
+     "h": "3f2ca3ea",
+     "pt": "REGISTRO no L&I como empreiteiro (RCW 18.27.020(1)(a); serviço abaixo de $500 isento conforme RCW 18.27.090). A instalação é coberta pela especialidade de perfuração de poços (\"may also install water conditioning equipment\") e pela especialidade de encanamento"
+    }
+   }
+  },
+  "WI": {
+   "cabinets and finish carpentry": {
+    "REGISTRATION": {
+     "h": "5c310907",
+     "pt": "(somente se você obtiver alvará de obra para uma residência de 1 ou 2 famílias)"
+    }
+   },
+   "demolition": {
+    "REGISTRATION": {
+     "h": "5c310907",
+     "pt": "(somente se você obtiver alvará de obra para uma residência de 1 ou 2 famílias)"
+    }
+   },
+   "drywall and plaster": {
+    "REGISTRATION": {
+     "h": "5c310907",
+     "pt": "(somente se você obtiver alvará de obra para uma residência de 1 ou 2 famílias)"
+    }
+   },
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "4f5cbaa7",
+     "pt": "Nenhuma lei encontrada; não consta nas listas de credenciais da SPS/DSPS consultadas (apenas ausência)."
+    }
+   },
+   "fences and decks": {
+    "REGISTRATION": {
+     "h": "5c310907",
+     "pt": "(somente se você obtiver alvará de obra para uma residência de 1 ou 2 famílias)"
+    }
+   },
+   "flooring": {
+    "REGISTRATION": {
+     "h": "5c310907",
+     "pt": "(somente se você obtiver alvará de obra para uma residência de 1 ou 2 famílias)"
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "848de31e",
+     "pt": "Licença de retail food establishment do departamento ou de uma cidade ou condado agente (copiada para caterer, food truck, retail)."
+    }
+   },
+   "food_cottage": {
+    "LICENSED": {
+     "h": "c1455546",
+     "pt": "Licença de planta de processamento de alimentos; panificação conta como processamento de alimentos. Isenção somente para picles caseiros ou vegetais/frutas processados (pH 4.6 ou menos) vendidos em eventos comunitários ou feiras livres (farmers' markets) por menos de $5,000 por a"
+    }
+   },
+   "framing": {
+    "NO_STATE_LICENSE": {
+     "h": "9dc01279",
+     "pt": "Não há licença de empreiteiro geral; a lista de credenciais da SPS 305 não cita nenhum destes ofícios. Só a credencial de empreiteiro de residências se aplica se for retirado um alvará de obra para uma residência de 1-2 famílias (Wis. Stat. 101.654). Mesma resposta"
+    }
+   },
+   "general contracting, remodeling, kitchens and baths, additions": {
+    "REGISTRATION": {
+     "h": "5c310907",
+     "pt": "(somente se você obtiver alvará de obra para uma residência de 1 ou 2 famílias)"
+    }
+   },
+   "painting": {
+    "REGISTRATION": {
+     "h": "5c310907",
+     "pt": "(somente se você obtiver alvará de obra para uma residência de 1 ou 2 famílias)"
+    }
+   },
+   "pavers, patios, hardscape": {
+    "REGISTRATION": {
+     "h": "5c310907",
+     "pt": "(somente se você obtiver alvará de obra para uma residência de 1 ou 2 famílias)"
+    }
+   },
+   "pool and spa building": {
+    "REGISTRATION": {
+     "h": "5c310907",
+     "pt": "(somente se você obtiver alvará de obra para uma residência de 1 ou 2 famílias)"
+    }
+   },
+   "pool cleaning and service": {
+    "NO STATE LICENSE": {
+     "h": "5bd006e7",
+     "pt": "O PROPRIETÁRIO da piscina precisa de licença de piscina pública (DATCP); algumas piscinas públicas precisam de operador certificado (ATCP 76). Sem licença estadual para a empresa prestadora do serviço nem para piscinas residenciais. A credencial de Dwelling contractor cobre constr"
+    }
+   },
+   "roofing": {
+    "REGISTRATION": {
+     "h": "5c310907",
+     "pt": "(somente se você obtiver alvará de obra para uma residência de 1 ou 2 famílias)"
+    }
+   },
+   "siding": {
+    "NO_STATE_LICENSE": {
+     "h": "9dc01279",
+     "pt": "Não há licença de empreiteiro geral; a lista de credenciais da SPS 305 não cita nenhum destes ofícios. Só a credencial de empreiteiro de residências se aplica se for retirado um alvará de obra para uma residência de 1-2 famílias (Wis. Stat. 101.654). Mesma resposta"
+    }
+   },
+   "stone and countertop install": {
+    "REGISTRATION": {
+     "h": "5c310907",
+     "pt": "(somente se você obtiver alvará de obra para uma residência de 1 ou 2 famílias)"
+    }
+   },
+   "tile": {
+    "REGISTRATION": {
+     "h": "5c310907",
+     "pt": "(somente se você obtiver alvará de obra para uma residência de 1 ou 2 famílias)"
+    }
+   },
+   "water_treatment": {
+    "LICENSED": {
+     "h": "7002dd64",
+     "pt": "A definição de encanamento (145.01(10)) inclui dispositivos de tratamento de água e sua instalação."
+    }
+   },
+   "windows and doors": {
+    "REGISTRATION": {
+     "h": "5c310907",
+     "pt": "(somente se você obtiver alvará de obra para uma residência de 1 ou 2 famílias)"
+    }
+   }
+  },
+  "WV": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "77cf49af",
+     "pt": "Não consta entre os conselhos do Chapter 30 (apenas ausência)."
+    }
+   },
+   "food_caterer": {
+    "PERMIT": {
+     "h": "6fca55e9",
+     "pt": "Alvará do departamento de saúde local esperado; o guia do SoS lista Retail Food Stores; página não aberta."
+    }
+   },
+   "food_cottage": {
+    "PERMIT": {
+     "h": "f7e88c4b",
+     "pt": "Alvará apenas para cottage food potencialmente perigoso; os demais são isentos."
+    }
+   },
+   "framing": {
+    "THRESHOLD": {
+     "h": "e6256bfa",
+     "pt": "Licença de empreiteiro somente a partir de $5,000 residencial ($25,000 comercial); abaixo disso, nenhuma. Mesma resposta de licença de empreiteiro copiada para insulation, siding, gutters, framing, garage doors, chimney, appliance repair (installs), mo"
+    }
+   },
+   "painting": {
+    "NO STATE LICENSE": {
+     "h": "b2777f78",
+     "pt": "(isento por lei estadual)"
+    }
+   },
+   "pavers, patios, hardscape": {
+    "THRESHOLD": {
+     "h": "4d79c15b",
+     "pt": "(pátios são serviço de \"structure\" segundo 30-42-3(d); a isenção de paisagismo (d)(6) não é definida)"
+    }
+   },
+   "pool cleaning and service": {
+    "THRESHOLD": {
+     "h": "e29b133",
+     "pt": "Licença de empreiteiro para construir/alterar/reparar quando o custo for de $5,000 ou mais residencial ou $25,000 ou mais comercial (W. Va. Code 30-42-3); limpeza de rotina e serviço químico não é construção, não há licença de serviço de piscina"
+    }
+   },
+   "pressure washing": {
+    "NO STATE LICENSE": {
+     "h": "89a0cec3",
+     "pt": "(não consta na definição de 30-42-3(d) nem na lista de classificações do Conselho)"
+    }
+   },
+   "siding": {
+    "THRESHOLD": {
+     "h": "e6256bfa",
+     "pt": "Licença de empreiteiro somente a partir de $5,000 residencial ($25,000 comercial); abaixo disso, nenhuma. Mesma resposta de licença de empreiteiro copiada para insulation, siding, gutters, framing, garage doors, chimney, appliance repair (installs), mo"
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "fdb94a27",
+     "pt": "O BPH lista somente licenças de backflow e de operador de estação de água potável; instalação de tratamento de água residencial não encontrada; a lei de hidráulica (21-14) não foi lida."
+    }
+   }
+  },
+  "WY": {
+   "events": {
+    "LEAN_NOT_LICENSED": {
+     "h": "9b0720b4",
+     "pt": "Nenhum conselho na lista do LSO (apenas ausência)."
+    }
+   },
+   "food_caterer": {
+    "LICENSED": {
+     "h": "bb186508",
+     "pt": "Licença do departamento de agricultura ou de um departamento de saúde local; alvarás temporários $50 por 14 dias (copiada para caterer, food truck, retail). Projetos de lei estaduais para food trucks não confirmados como promulgados."
+    }
+   },
+   "food_cottage": {
+    "NO_STATE_LICENSE": {
+     "h": "f778619d",
+     "pt": "O Wyoming Food Freedom Act isenta alimentos caseiros de licenciamento estadual, alvará, inspeção, embalagem e rotulagem."
+    }
+   },
+   "framing": {
+    "NO_STATE_LICENSE": {
+     "h": "ca30e5b1",
+     "pt": "Wyoming não faz licenciamento estadual de empreiteiros, exceto elétrica; jurisdições locais podem licenciar. Mesma resposta copiada para insulation, siding, gutters, framing, garage doors, restoration/mold, irrigation, snow removal, window"
+    }
+   },
+   "roofing": {
+    "NO STATE LICENSE": {
+     "h": "f2feef",
+     "pt": "(valem as regras de reparo de danos de tempestade, Wyo. Stat. 40-12-701 to 40-12-706)"
+    }
+   },
+   "siding": {
+    "NO_STATE_LICENSE": {
+     "h": "ca30e5b1",
+     "pt": "Wyoming não faz licenciamento estadual de empreiteiros, exceto elétrica; jurisdições locais podem licenciar. Mesma resposta copiada para insulation, siding, gutters, framing, garage doors, restoration/mold, irrigation, snow removal, window"
+    }
+   },
+   "water_treatment": {
+    "UNCLEAR": {
+     "h": "3d037efa",
+     "pt": "Nada no Title 33 nem na cópia do Title 35; nenhum conselho na lista do LSO."
+    }
+   }
+  }
+ },
+ "version": 1
+}

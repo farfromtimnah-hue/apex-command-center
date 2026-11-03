@@ -31225,8 +31225,12 @@
             {
               "n": 2,
               "text": {
-                "pt": "Se o seu trabalho não está na lista, escolha Outro na etapa da marca e escreva o que você faz. A Apex envia o seu texto à equipe como um pedido para incluir o seu tipo de trabalho.",
-                "en": "If your work is not on the list, choose Something else on the brand stage and type what you do. Apex sends your words to its team as a request to add your kind of work."
+                "pt": "Se o seu trabalho não está na lista, escolha Outro na primeira etapa. Depois escreva o que você faz na caixa (1). A Apex envia o seu texto à equipe como um pedido para incluir o seu tipo de trabalho.",
+                "en": "If your work is not on the list, tap Something else on the first stage. Then type what you do in the box (1). Apex sends your words to its team as a request to add your kind of work."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/work-02.pt.jpg",
+                "en": "help/img/guides/setup-wizard/work-02.en.jpg"
               }
             }
           ]
@@ -31274,8 +31278,12 @@
             {
               "n": 4,
               "text": {
-                "pt": "Se o estado não exige licença mas você tem uma, toque em \"Eu tenho uma licença mesmo assim. Adicionar.\" e escreva o número.",
-                "en": "If the state does not require a license but you hold one, tap \"I hold a license anyway. Add it.\" and type the number."
+                "pt": "Se o estado não exige licença mas você tem uma, toque em \"Eu tenho uma licença mesmo assim. Adicionar.\" (1) e escreva o número.",
+                "en": "If the state does not require a license but you hold one, tap \"I hold a license anyway. Add it.\" (1) and type the number."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/license-04.pt.jpg",
+                "en": "help/img/guides/setup-wizard/license-04.en.jpg"
               }
             }
           ]
@@ -31398,8 +31406,12 @@
             {
               "n": 6,
               "text": {
-                "pt": "Se o Stripe ainda não está disponível, cole o seu link de pagamento com cartão.",
-                "en": "If Stripe is not available yet, paste your card payment link."
+                "pt": "Se o Stripe ainda não está disponível, cole o seu link de pagamento com cartão na caixa (1).",
+                "en": "If Stripe is not available yet, paste your card payment link in the box (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/payments-06.pt.jpg",
+                "en": "help/img/guides/setup-wizard/payments-06.en.jpg"
               }
             },
             {
@@ -31409,8 +31421,8 @@
                 "en": "If Stripe is not connected yet, tick the agreement box (1) for the Terms and the Privacy Policy. Only then does the Connect Stripe button turn on."
               },
               "image": {
-                "pt": "help/img/guides/card-payments-setup/connect-07.pt.jpg",
-                "en": "help/img/guides/card-payments-setup/connect-07.en.jpg"
+                "pt": "help/img/guides/setup-wizard/payments-07.pt.jpg",
+                "en": "help/img/guides/setup-wizard/payments-07.en.jpg"
               }
             },
             {
@@ -31420,22 +31432,30 @@
                 "en": "Tap Connect Stripe (2), the same block as in Business settings. On the web this window goes to Stripe; in the iPhone app it opens in a separate window. Your answers are saved first."
               },
               "image": {
-                "pt": "help/img/guides/card-payments-setup/connect-07.pt.jpg",
-                "en": "help/img/guides/card-payments-setup/connect-07.en.jpg"
+                "pt": "help/img/guides/setup-wizard/payments-08.pt.jpg",
+                "en": "help/img/guides/setup-wizard/payments-08.en.jpg"
               }
             },
             {
               "n": 9,
               "text": {
-                "pt": "Se o cadastro no Stripe não terminou, toque em Atualizar status ou Continuar no Stripe.",
-                "en": "If your Stripe setup is not finished, tap Refresh status or Continue on Stripe."
+                "pt": "Se o cadastro no Stripe não terminou, toque em Atualizar status (1) para conferir de novo, ou em Continuar no Stripe (2) para terminar.",
+                "en": "If your Stripe setup is not finished, tap Refresh status (1) to check again, or Continue on Stripe (2) to finish it."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/payments-09.pt.jpg",
+                "en": "help/img/guides/setup-wizard/payments-09.en.jpg"
               }
             },
             {
               "n": 10,
               "text": {
-                "pt": "Se os Termos foram atualizados, um aviso pede para você revisar e concordar de novo. Marque a caixa e toque em Concordo.",
-                "en": "If the Terms were updated, a notice asks you to review and agree again. Tick the box and tap I agree."
+                "pt": "Se os Termos foram atualizados, um aviso pede para você revisar e concordar de novo. Marque a caixa (1) e toque em Concordo (2).",
+                "en": "If the Terms were updated, a notice asks you to review and agree again. Tick the box (1) and tap I agree (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/payments-10.pt.jpg",
+                "en": "help/img/guides/setup-wizard/payments-10.en.jpg"
               }
             },
             {
@@ -31505,15 +31525,23 @@
             {
               "n": 5,
               "text": {
-                "pt": "Com Meu próprio contrato escolhido na lista e a pergunta sobre o advogado respondida, toque em Enviar o PDF do meu contrato e escolha o arquivo.",
-                "en": "With My own contract chosen in the list and the lawyer question answered, tap Upload my contract PDF and choose your file."
+                "pt": "Com Meu próprio contrato escolhido na lista e a pergunta sobre o advogado respondida (1), toque em Enviar o PDF do meu contrato (2) e escolha o arquivo.",
+                "en": "With My own contract chosen in the list and the lawyer question answered (1), tap Upload my contract PDF (2) and choose your file."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/how-05.pt.jpg",
+                "en": "help/img/guides/setup-wizard/how-05.en.jpg"
               }
             },
             {
               "n": 6,
               "text": {
-                "pt": "Leia a cópia no formato da Apex e toque em Confirmar que corresponde ao meu contrato. Até confirmar, vale o modelo da Apex.",
-                "en": "Read the copy in the Apex format and tap Confirm it matches my contract. Until you confirm, the Apex template is used."
+                "pt": "Leia a cópia no formato da Apex e toque em Confirmar que corresponde ao meu contrato (1). Até confirmar, vale o modelo da Apex.",
+                "en": "Read the copy in the Apex format and tap Confirm it matches my contract (1). Until you confirm, the Apex template is used."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/how-06.pt.jpg",
+                "en": "help/img/guides/setup-wizard/how-06.en.jpg"
               }
             }
           ]
@@ -31528,8 +31556,12 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em Conectar para ligar o Thumbtack. Na web esta janela vai para o Thumbtack; no app do iPhone ele abre em uma janela separada. Suas respostas já estão salvas. O guia Conectar o Thumbtack mostra cada tela.",
-                "en": "Tap Connect to link Thumbtack. On the web this window goes to Thumbtack; in the iPhone app it opens in a separate window. Your answers are already saved. The guide Connect Thumbtack shows every screen."
+                "pt": "Toque em Conectar (1) para ligar o Thumbtack. Na web esta janela vai para o Thumbtack; no app do iPhone ele abre em uma janela separada. Suas respostas já estão salvas. O guia Conectar o Thumbtack mostra cada tela.",
+                "en": "Tap Connect (1) to link Thumbtack. On the web this window goes to Thumbtack; in the iPhone app it opens in a separate window. Your answers are already saved. The guide Connect Thumbtack shows every screen."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/connections-01.pt.jpg",
+                "en": "help/img/guides/setup-wizard/connections-01.en.jpg"
               }
             },
             {
@@ -31650,8 +31682,12 @@
             {
               "n": 4,
               "text": {
-                "pt": "Se faltar algo, uma caixa chamada Não deu para começar diz o quê, como o número da licença. A revisão do contrato não impede o Começar.",
-                "en": "If something is missing, a box called Could not start says what, such as the license number. The contract review does not stop Start."
+                "pt": "Se faltar algo, uma caixa chamada Não deu para começar (1) diz o quê, como o número da licença. A revisão do contrato não impede o Começar (2).",
+                "en": "If something is missing, a box called Could not start (1) says what, such as the license number. The contract review does not stop Start (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/review-04.pt.jpg",
+                "en": "help/img/guides/setup-wizard/review-04.en.jpg"
               }
             },
             {
@@ -31699,8 +31735,12 @@
             {
               "n": 2,
               "text": {
-                "pt": "Escreva uma linha sobre o contrato que você quer e toque em Enviar o pedido. A Apex recebe o nome do seu negócio, o seu tipo de trabalho, o estado e a sua linha.",
-                "en": "Type one line about the contract you want and tap Send the request. Apex receives your business name, your kind of work, your state and your line."
+                "pt": "Escreva uma linha sobre o contrato que você quer (1) e toque em Enviar o pedido (2). A Apex recebe o nome do seu negócio, o seu tipo de trabalho, o estado e a sua linha.",
+                "en": "Type one line about the contract you want (1) and tap Send the request (2). Apex receives your business name, your kind of work, your state and your line."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/nocontract-02.pt.jpg",
+                "en": "help/img/guides/setup-wizard/nocontract-02.en.jpg"
               }
             },
             {

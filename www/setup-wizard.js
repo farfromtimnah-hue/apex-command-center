@@ -278,20 +278,20 @@ function swBrand() {
   // industry tiles
   var tiles = '<p class="sw-lead">' + swT("Escolha o mais próximo. A foto de capa e as perguntas seguem daí.", "Pick the closest one. Your cover photo and questions follow from it.") + '</p><div class="sw-tiles">';
   SW.d.catalog.forEach(function(c) {
-    tiles += '<button type="button" class="sw-tile" data-act="cat" data-v="' + swEsc(c.key) + '" aria-pressed="' + (cat === c.key) + '"' + swH("brand", 2) +
+    tiles += '<button type="button" class="sw-tile" data-act="cat" data-v="' + swEsc(c.key) + '" aria-pressed="' + (cat === c.key) + '"' + swH("brand", 5) +
       ' style="background-image:url(' + swEsc(WORKER_URL + "/api/hero-gallery/" + c.photo_key + ".jpg") + ')"><i>' + SW_CHECK + '</i><span>' + swEsc(swCatLabel(c)) + '</span></button>';
   });
-  tiles += '<button type="button" class="sw-tile other" data-act="cat" data-v="other" aria-pressed="' + (cat === "other") + '"' + swH("brand", 2) + '><i>' + SW_CHECK + '</i><span>' + swT("Outro", "Something else") + '</span></button></div>';
+  tiles += '<button type="button" class="sw-tile other" data-act="cat" data-v="other" aria-pressed="' + (cat === "other") + '"' + swH("brand", 5) + '><i>' + SW_CHECK + '</i><span>' + swT("Outro", "Something else") + '</span></button></div>';
   html += sec("industry", swT("Que tipo de trabalho você faz?", "What kind of work do you do?"), tiles);
   html += sec("name", swT("Qual é o nome do seu negócio?", "What is your business called?"),
-    '<p class="sw-lead">' + swT("Os clientes veem isso no topo de cada orçamento, contrato e fatura.", "Customers see this at the top of every estimate, contract and invoice.") + '</p><label class="sw-l" for="swName">' + swT("Nome do negócio", "Business name") + '</label><input id="swName" type="text" maxlength="60" autocomplete="organization" data-bind="name"' + swH("brand", 3) + ' value="' + swEsc(s.legal_name) + '" placeholder="' + swT("Por exemplo, Silva Pools LLC", "For example, Silva Pools LLC") + '">');
+    '<p class="sw-lead">' + swT("Os clientes veem isso no topo de cada orçamento, contrato e fatura.", "Customers see this at the top of every estimate, contract and invoice.") + '</p><label class="sw-l" for="swName">' + swT("Nome do negócio", "Business name") + '</label><input id="swName" type="text" maxlength="60" autocomplete="organization" data-bind="name"' + swH("brand", 6) + ' value="' + swEsc(s.legal_name) + '" placeholder="' + swT("Por exemplo, Silva Pools LLC", "For example, Silva Pools LLC") + '">');
   var ph = s.has_logo ? '<div class="sw-ph"><img alt="' + swT("Seu logo", "Your logo") + '" src="' + swEsc(WORKER_URL + "/api/clients/" + clientId + "/logo-image?ts=" + SW.logoTs) + '"></div>' : '<div class="sw-ph empty"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a8a298" stroke-width="1.6" stroke-linecap="round"><path d="M12 16V5M7 9l5-5 5 5M5 20h14"/></svg></div>';
   html += sec("logo", swT("Adicione o seu logo", "Add your logo"),
     '<p class="sw-lead">' + swT("Uma foto ou arquivo do seu celular. Escolhemos as cores a partir dele.", "A photo or file from your phone. We pick your colors from it next.") + '</p>' +
     (SW.upErr ? swCallout(swT("Esse arquivo não funcionou", "That file did not work"), SW.upErr, "brand", 4, true) : '') +
     '<div class="sw-drop">' + ph + '<div><b>' + (s.has_logo ? swT("Seu logo foi adicionado", "Your logo is added") : swT("Nenhum logo ainda", "No logo added yet")) + '</b><p class="sw-fine" style="margin:2px 0 0">PNG, JPG ' + swT("ou", "or") + ' WebP</p>' +
-    '<label class="sw-file" for="swLogoFile"' + swH("brand", 4) + '>' + (s.has_logo ? swT("Escolher outro arquivo", "Choose a different file") : swT("Escolher um arquivo", "Choose a file")) + '</label></div></div>' +
-    '<input id="swLogoFile" type="file" accept="image/png,image/jpeg,image/webp" hidden data-bind="logofile"' + swH("brand", 4) + '>');
+    '<label class="sw-file" for="swLogoFile"' + swH("brand", 7) + '>' + (s.has_logo ? swT("Escolher outro arquivo", "Choose a different file") : swT("Escolher um arquivo", "Choose a file")) + '</label></div></div>' +
+    '<input id="swLogoFile" type="file" accept="image/png,image/jpeg,image/webp" hidden data-bind="logofile"' + swH("brand", 7) + '>');
   html += sec("colors", swT("Escolha as suas cores", "Pick your colors"),
     '<p class="sw-lead">' + (SW.swatches.length ? swT("Escolhidas a partir do seu logo. O orçamento muda quando você toca.", "Picked from your logo. The estimate changes as you tap.") : swT("Adicione o logo acima e escolhemos as cores, ou escolha as suas.", "Add your logo above and we pick colors from it, or choose your own.")) + '</p>' +
     '<div class="sw-row"><label class="sw-l">' + swT("Cor principal", "Main color") + '</label>' + swSwRow("brand_primary", false) + '</div>' +
@@ -299,23 +299,23 @@ function swBrand() {
   html += sec("cover", swT("Escolha a foto de capa", "Choose your cover photo"),
     '<p class="sw-lead">' + swT("A foto no topo de todo documento que o seu cliente abre.", "The photo across the top of every document your customer opens.") + '</p><div class="sw-pick" data-help-default="setup-wizard#brand">' + gmHeroPickerHtml() + '</div>');
   html += sec("review", swT("Seu link de avaliação do Google", "Your Google review link"),
-    '<p class="sw-lead">' + swT("Opcional. Os clientes tocam nele para deixar uma avaliação.", "Optional. Customers tap it to leave you a review.") + '</p><label class="sw-l" for="swReview">' + swT("Link de avaliação", "Review link") + '</label><input id="swReview" type="text" inputmode="url" autocomplete="off" data-bind="review"' + swH("brand", 5) + ' value="' + swEsc(s.google_review_link || "") + '" placeholder="' + swT("Cole o seu link de avaliação do Google", "Paste your Google review link") + '">' +
+    '<p class="sw-lead">' + swT("Opcional. Os clientes tocam nele para deixar uma avaliação.", "Optional. Customers tap it to leave you a review.") + '</p><label class="sw-l" for="swReview">' + swT("Link de avaliação", "Review link") + '</label><input id="swReview" type="text" inputmode="url" autocomplete="off" data-bind="review"' + swH("brand", 9) + ' value="' + swEsc(s.google_review_link || "") + '" placeholder="' + swT("Cole o seu link de avaliação do Google", "Paste your Google review link") + '">' +
     swCallout(swT("Você pode mudar tudo depois", "You can change all of this later"), swT("Tudo desta etapa fica em Configurações, a qualquer hora.", "Everything in this stage is in Settings, any time."), "brand", 5));
   return { html: html, need: need, ok: need.length === 0 };
 }
 function swSwRow(key, withNone) {
   var h = '<div class="sw-sws">', cur = SW.doc[key] || null;
-  SW.swatches.forEach(function(c) { h += '<button type="button" class="sw-sw" data-act="sw" data-k="' + key + '" data-c="' + c + '" style="background:' + c + '" aria-label="' + swT("Cor ", "Color ") + c + '" aria-pressed="' + (cur === c) + '"' + swH("brand", 4) + '></button>'; });
-  if (withNone) { h += '<button type="button" class="sw-sw" data-act="sw" data-k="' + key + '" data-c="" style="background:#2b2f36" aria-label="' + swT("Cinza neutro", "Neutral gray") + '" aria-pressed="' + (!cur) + '"' + swH("brand", 4) + '></button>'; }
-  h += '<label class="sw-own"' + swH("brand", 4) + '><input type="color" data-bind="color" data-k="' + key + '"' + swH("brand", 4) + ' value="' + (cur || "#2b2f36") + '" aria-label="' + swT("Escolha a sua própria cor", "Choose your own color") + '">' + swT("Outra", "Your own") + '</label></div>';
+  SW.swatches.forEach(function(c) { h += '<button type="button" class="sw-sw" data-act="sw" data-k="' + key + '" data-c="' + c + '" style="background:' + c + '" aria-label="' + swT("Cor ", "Color ") + c + '" aria-pressed="' + (cur === c) + '"' + swH("brand", 8) + '></button>'; });
+  if (withNone) { h += '<button type="button" class="sw-sw" data-act="sw" data-k="' + key + '" data-c="" style="background:#2b2f36" aria-label="' + swT("Cinza neutro", "Neutral gray") + '" aria-pressed="' + (!cur) + '"' + swH("brand", 8) + '></button>'; }
+  h += '<label class="sw-own"' + swH("brand", 8) + '><input type="color" data-bind="color" data-k="' + key + '"' + swH("brand", 8) + ' value="' + (cur || "#2b2f36") + '" aria-label="' + swT("Escolha a sua própria cor", "Choose your own color") + '">' + swT("Outra", "Your own") + '</label></div>';
   return h;
 }
 var SW_WEBLAB = { name: ["Nome do negócio", "Business name"], logo: ["Logo", "Logo"], phone: ["Telefone", "Phone"], addr: ["Endereço", "Address"], cat: ["Tipo de trabalho", "Kind of work"], review: ["Link de avaliação do Google", "Google review link"] };
 function swWebsiteHtml() {
   var w = SW.web, a = SW.d.answers;
   var h = '<h2 class="sw-h">' + swT("Comece pelo seu site", "Start from your website") + '</h2><p class="sw-lead">' + swT("Opcional. A Apex lê o seu site, mostra o que achou e você escolhe o que usar. O que não achar fica em branco para você.", "Optional. Apex reads your site, shows what it found, and you choose what to use. Anything it cannot find stays blank for you.") + '</p>';
-  h += '<label class="sw-l" for="swWebUrl">' + swT("Seu site", "Your website") + '</label><div class="sw-linkrow"><input id="swWebUrl" type="text" inputmode="url" autocomplete="url" data-bind="weburl"' + swH("brand", 6) + ' value="' + swEsc(w.url) + '" placeholder="' + swT("Por exemplo, suaempresa.com", "For example, yourcompany.com") + '">' +
-    '<button type="button" class="sw-btn solid" data-act="web-read"' + swH("brand", 6) + (w.st === "reading" ? " disabled" : "") + '>' + (w.st === "reading" ? swT("Lendo o seu site", "Reading your site") : swT("Preencher o que der", "Fill in what you can")) + '</button></div>';
+  h += '<label class="sw-l" for="swWebUrl">' + swT("Seu site", "Your website") + '</label><div class="sw-linkrow"><input id="swWebUrl" type="text" inputmode="url" autocomplete="url" data-bind="weburl"' + swH("brand", 2) + ' value="' + swEsc(w.url) + '" placeholder="' + swT("Por exemplo, suaempresa.com", "For example, yourcompany.com") + '">' +
+    '<button type="button" class="sw-btn solid" data-act="web-read"' + swH("brand", 3) + (w.st === "reading" ? " disabled" : "") + '>' + (w.st === "reading" ? swT("Lendo o seu site", "Reading your site") : swT("Preencher o que der", "Fill in what you can")) + '</button></div>';
   if (w.st === "error") { h += swCallout(swT("A Apex não conseguiu ler esse site", "Apex could not read that site"), w.err || swT("Confira o endereço ou preencha o resto você mesmo.", "Check the address, or fill in the rest yourself."), "brand", 6, true); }
   if (w.st === "found" || w.st === "applied") {
     var f = w.res.found, keys = ["name", "logo", "phone", "addr", "cat", "review"].filter(function(k) { return f[k]; });
@@ -326,15 +326,15 @@ function swWebsiteHtml() {
       if (k === "logo") { v = '<img class="sw-wlogo" alt="' + swT("Logo encontrado no seu site", "Logo found on your site") + '" src="' + swEsc(w.logoBlob || "") + '">'; }
       else if (k === "cat") { v = swEsc(f.cat.map(function(c) { var cc = swCat(c); return cc ? swCatLabel(cc) : c; }).join(", ")); }
       else { v = swEsc(f[k]); }
-      h += '<label class="sw-wrow"><input type="checkbox" data-bind="webuse" data-k="' + k + '"' + (w.use[k] !== 0 ? " checked" : "") + (w.st === "applied" ? " disabled" : "") + swH("brand", 6) + '><span><i>' + SW_WEBLAB[k][isEn() ? 1 : 0] + '</i>' + v + '</span></label>';
+      h += '<label class="sw-wrow"><input type="checkbox" data-bind="webuse" data-k="' + k + '"' + (w.use[k] !== 0 ? " checked" : "") + (w.st === "applied" ? " disabled" : "") + swH("brand", 4) + '><span><i>' + SW_WEBLAB[k][isEn() ? 1 : 0] + '</i>' + v + '</span></label>';
     });
     if (f.cat && f.cat.length > 1 && w.st === "found") {
       h += '<div class="sw-row" style="margin-top:12px"><label class="sw-l">' + swT("Qual é o seu trabalho principal?", "Which one is your main work?") + '</label><div class="sw-chips">';
-      f.cat.forEach(function(c) { var cc = swCat(c); h += '<button type="button" class="sw-chip" data-act="web-main" data-v="' + swEsc(c) + '" aria-pressed="' + ((w.main || f.cat[0]) === c) + '"' + swH("brand", 6) + '>' + swEsc(cc ? swCatLabel(cc) : c) + '</button>'; });
+      f.cat.forEach(function(c) { var cc = swCat(c); h += '<button type="button" class="sw-chip" data-act="web-main" data-v="' + swEsc(c) + '" aria-pressed="' + ((w.main || f.cat[0]) === c) + '"' + swH("brand", 4) + '>' + swEsc(cc ? swCatLabel(cc) : c) + '</button>'; });
       h += '</div></div>';
     }
     h += '<p class="sw-fine">' + swT("Não achamos, então você preenche abaixo: ", "Not found, so you fill them in below: ") + (miss.length ? miss.join(", ") : swT("nada", "nothing")) + '. ' + swT("Número da licença e horários nunca estão em um site.", "License number and hours are never on a website.") + '</p>';
-    if (w.st === "found" && keys.length) { h += '<button type="button" class="sw-btn solid" style="margin-top:12px" data-act="web-apply"' + swH("brand", 6) + '>' + swT("Usar os itens marcados", "Use the ticked items") + '</button>'; }
+    if (w.st === "found" && keys.length) { h += '<button type="button" class="sw-btn solid" style="margin-top:12px" data-act="web-apply"' + swH("brand", 4) + '>' + swT("Usar os itens marcados", "Use the ticked items") + '</button>'; }
     h += '</div>';
   }
   return h;
@@ -547,8 +547,10 @@ function swLicense() {
 }
 
 // ── Stage 5: your hours ───────────────────────────────────────────────────
+var SW_PAY_STEP = { valid: 2, late: 4, grace: 4, margin: 5 };
+var SW_HOURS_STEP = { start: 2, end: 2, dur: 3, notice: 4 };
 function swStepper(id, label, min, max, disMinus, disPlus) {
-  return '<span class="sw-ctl" data-id="' + id + '"><button type="button" data-act="step" data-id="' + id + '" data-d="-1" aria-label="' + swT("Menos", "Less") + '"' + (disMinus ? " disabled" : "") + swH(SW_STAGES[SW.stage - 1].key, 1) + '>&#8722;</button><span>' + label + '</span><button type="button" data-act="step" data-id="' + id + '" data-d="1" aria-label="' + swT("Mais", "More") + '"' + (disPlus ? " disabled" : "") + swH(SW_STAGES[SW.stage - 1].key, 1) + '>+</button></span>';
+  return '<span class="sw-ctl" data-id="' + id + '"><button type="button" data-act="step" data-id="' + id + '" data-d="-1" aria-label="' + swT("Menos", "Less") + '"' + (disMinus ? " disabled" : "") + (SW_HOURS_STEP[id] ? swH("hours", SW_HOURS_STEP[id]) : swH(SW_STAGES[SW.stage - 1].key, SW.stage === 6 ? (SW_PAY_STEP[id] || 2) : 1)) + '>&#8722;</button><span>' + label + '</span><button type="button" data-act="step" data-id="' + id + '" data-d="1" aria-label="' + swT("Mais", "More") + '"' + (disPlus ? " disabled" : "") + (SW_HOURS_STEP[id] ? swH("hours", SW_HOURS_STEP[id]) : swH(SW_STAGES[SW.stage - 1].key, SW.stage === 6 ? (SW_PAY_STEP[id] || 2) : 1)) + '>+</button></span>';
 }
 function swBk() { var b = SW.bk || {}; return { days: (b.work_days && b.work_days.length) ? b.work_days : SW.d.defaults.work_days, start: b.day_start || SW.d.defaults.day_start, end: b.day_end || SW.d.defaults.day_end, dur: b.duration_min || SW.d.defaults.duration_min, notice: (b.min_notice_hours === undefined || b.min_notice_hours === null) ? SW.d.defaults.min_notice_hours : b.min_notice_hours }; }
 function swHours() {
@@ -584,20 +586,20 @@ function swStripeHtml() {
   if (!st.available) {
     // Card payments are not switched on for Apex yet: today's pasted link stays.
     var det = (d.payment_methods && d.payment_methods.card_link) || "";
-    h += '<b>' + swT("Link de pagamento com cartão", "Card payment link") + '</b><p>' + swT("Cole o seu link de pagamento com cartão. Ele aparece nas suas faturas.", "Paste your card payment link. It appears on your invoices.") + '</p><input type="text" data-bind="cardlink"' + swH("payments", 3) + ' value="' + swEsc(det) + '" placeholder="https://" aria-label="' + swT("Link de pagamento", "Payment link") + '">';
+    h += '<b>' + swT("Link de pagamento com cartão", "Card payment link") + '</b><p>' + swT("Cole o seu link de pagamento com cartão. Ele aparece nas suas faturas.", "Paste your card payment link. It appears on your invoices.") + '</p><input type="text" data-bind="cardlink"' + swH("payments", 6) + ' value="' + swEsc(det) + '" placeholder="https://" aria-label="' + swT("Link de pagamento", "Payment link") + '">';
   } else if (!st.connected) {
     h += '<b>' + swT("Conecte a sua própria conta Stripe", "Connect your own Stripe account") + '</b><p>' + swT("Cada fatura ganha um botão para o cliente pagar com cartão, com o valor já preenchido. O dinheiro vai direto para a sua conta Stripe, e o Stripe cobra a taxa dele de você. A Apex não processa nem recebe pagamentos. O sistema da Apex lê os pagamentos feitos nas suas faturas da Apex e o status da sua conta Stripe, para marcá-las como pagas.", "Every invoice gets a button so the customer can pay by card, with the amount already filled in. The money goes straight to your Stripe account, and Stripe charges its fee to you. Apex does not process or receive payments. The Apex system reads the payments made on your Apex invoices and the status of your Stripe account, so it can mark invoices paid.") + '</p>' +
-      '<label class="sw-agree"><input type="checkbox" data-bind="stripeagree"' + (SW.stripeAgree ? " checked" : "") + swH("payments", 4) + '><span>' + gmStripeAgreeHtml() + '</span></label>' +
-      '<button type="button" class="sw-btn solid" data-act="stripe-connect"' + swH("payments", 5) + (SW.stripeAgree ? "" : " disabled") + '>' + swT("Conectar o Stripe", "Connect Stripe") + '</button><p class="sw-fine">' + swT("O Stripe abre em uma janela separada. Quando terminar, você volta para a Apex.", "Stripe opens in a separate window. When you are done, you come back to Apex.") + '</p>';
+      '<label class="sw-agree"><input type="checkbox" data-bind="stripeagree"' + (SW.stripeAgree ? " checked" : "") + swH("payments", 7) + '><span>' + gmStripeAgreeHtml() + '</span></label>' +
+      '<button type="button" class="sw-btn solid" data-act="stripe-connect"' + swH("payments", 8) + (SW.stripeAgree ? "" : " disabled") + '>' + swT("Conectar o Stripe", "Connect Stripe") + '</button><p class="sw-fine">' + swT("O Stripe abre em uma janela separada. Quando terminar, você volta para a Apex.", "Stripe opens in a separate window. When you are done, you come back to Apex.") + '</p>';
   } else if (!st.charges_enabled) {
-    h += '<b>' + swT("Termine a configuração do Stripe", "Finish setting up Stripe") + '</b><p>' + swT("O cadastro no Stripe ainda não terminou. Continue para liberar o pagamento com cartão.", "Stripe setup is not finished yet. Continue to turn on card payments.") + '</p><div class="sw-chips"><button type="button" class="sw-btn solid" data-act="stripe-connect"' + swH("payments", 5) + '>' + swT("Continuar no Stripe", "Continue on Stripe") + '</button><button type="button" class="sw-btn" style="margin-top:0" data-act="stripe-refresh"' + swH("payments", 6) + '>' + swT("Atualizar status", "Refresh status") + '</button></div>';
+    h += '<b>' + swT("Termine a configuração do Stripe", "Finish setting up Stripe") + '</b><p>' + swT("O cadastro no Stripe ainda não terminou. Continue para liberar o pagamento com cartão.", "Stripe setup is not finished yet. Continue to turn on card payments.") + '</p><div class="sw-chips"><button type="button" class="sw-btn solid" data-act="stripe-connect"' + swH("payments", 8) + '>' + swT("Continuar no Stripe", "Continue on Stripe") + '</button><button type="button" class="sw-btn" style="margin-top:0" data-act="stripe-refresh"' + swH("payments", 9) + '>' + swT("Atualizar status", "Refresh status") + '</button></div>';
   } else {
     h += '<b>' + swT("Stripe conectado", "Stripe connected") + '</b><p>' + swT("As faturas já mostram o botão de pagamento com cartão, e o pagamento é registrado automaticamente.", "Invoices now show the card payment button, and the payment is recorded automatically.") + '</p>';
     if (st.reaccept_needed) {
       h += '<div class="sw-callout err">' + SW_INFO + '<div><b>' + swT("Os Termos foram atualizados", "The Terms were updated") + '</b><span>' + swT("Revise e concorde novamente.", "Please review and agree again.") + '</span></div></div>' +
-        '<label class="sw-agree"><input type="checkbox" data-bind="reaccept"' + (SW.reaccept ? " checked" : "") + swH("payments", 4) + '><span>' + gmStripeAgreeHtml() + '</span></label><button type="button" class="sw-btn solid" data-act="stripe-reaccept"' + swH("payments", 7) + (SW.reaccept ? "" : " disabled") + '>' + swT("Concordo", "I agree") + '</button>';
+        '<label class="sw-agree"><input type="checkbox" data-bind="reaccept"' + (SW.reaccept ? " checked" : "") + swH("payments", 10) + '><span>' + gmStripeAgreeHtml() + '</span></label><button type="button" class="sw-btn solid" data-act="stripe-reaccept"' + swH("payments", 10) + (SW.reaccept ? "" : " disabled") + '>' + swT("Concordo", "I agree") + '</button>';
     }
-    h += '<p class="sw-fine">' + swT("Quer receber cartão presencialmente no iPhone? O Tap to Pay é explicado no Aprenda, em Pagamentos.", "Want to take cards in person on your iPhone? Tap to Pay is explained in Aprenda, under Payments.") + ' <button type="button" class="sw-link" style="min-height:44px" data-act="tap-help"' + swH("payments", 8) + '>' + swT("Abrir o Aprenda", "Open Aprenda") + '</button></p>';
+    h += '<p class="sw-fine">' + swT("Quer receber cartão presencialmente no iPhone? O Tap to Pay é explicado no Aprenda, em Pagamentos.", "Want to take cards in person on your iPhone? Tap to Pay is explained in Aprenda, under Payments.") + ' <button type="button" class="sw-link" style="min-height:44px" data-act="tap-help"' + swH("payments", 11) + '>' + swT("Abrir o Aprenda", "Open Aprenda") + '</button></p>';
   }
   return h + '</div>';
 }
@@ -611,11 +613,11 @@ function swPayments() {
   var vd = d.estimate_valid_days === null || d.estimate_valid_days === undefined ? SW.d.defaults.estimate_valid_days : d.estimate_valid_days;
   h += '<div class="sw-row"><div class="sw-l">' + swT("Seus orçamentos valem por", "Your estimates stay valid for") + '</div>' + swStepper("valid", vd + " " + swT("dias", "days"), 7, 90, vd <= 7, vd >= 90) + '</div>';
   var td = String(d.default_terms_days || 0);
-  h += '<div class="sw-row"><label class="sw-l" for="swTerms">' + swT("Prazo de pagamento", "Payment terms") + '</label><select id="swTerms" data-bind="terms"' + swH("payments", 2) + '>' + SW_TERMS.map(function(t) { return '<option value="' + t[0] + '"' + (t[0] === td ? " selected" : "") + '>' + swT(t[1], t[2]) + '</option>'; }).join("") + '</select></div>';
+  h += '<div class="sw-row"><label class="sw-l" for="swTerms">' + swT("Prazo de pagamento", "Payment terms") + '</label><select id="swTerms" data-bind="terms"' + swH("payments", 3) + '>' + SW_TERMS.map(function(t) { return '<option value="' + t[0] + '"' + (t[0] === td ? " selected" : "") + '>' + swT(t[1], t[2]) + '</option>'; }).join("") + '</select></div>';
   var presets = d.schedule_presets || [];
   if (presets.length) {
     var cur = SW.d.answers.schedule_pick || (presets[0] && presets[0].name);
-    h += '<div class="sw-row"><label class="sw-l" for="swSched">' + swT("Parcelamento de pagamento", "Payment schedule") + '</label><select id="swSched" data-bind="sched"' + swH("payments", 2) + '>' + presets.map(function(p) { return '<option value="' + swEsc(p.name) + '"' + (p.name === cur ? " selected" : "") + '>' + swEsc(p.name) + '</option>'; }).join("") + '</select><p class="sw-fine">' + swT("Os modelos ficam em Configurações, onde você pode editar.", "The templates are in Settings, where you can edit them.") + '</p></div>';
+    h += '<div class="sw-row"><label class="sw-l" for="swSched">' + swT("Parcelamento de pagamento", "Payment schedule") + '</label><select id="swSched" data-bind="sched"' + swH("payments", 3) + '>' + presets.map(function(p) { return '<option value="' + swEsc(p.name) + '"' + (p.name === cur ? " selected" : "") + '>' + swEsc(p.name) + '</option>'; }).join("") + '</select><p class="sw-fine">' + swT("Os modelos ficam em Configurações, onde você pode editar.", "The templates are in Settings, where you can edit them.") + '</p></div>';
   }
   var late = d.late_fee_annual_pct === null || d.late_fee_annual_pct === undefined ? 0 : d.late_fee_annual_pct, grace = d.late_fee_grace_days === null || d.late_fee_grace_days === undefined ? 0 : d.late_fee_grace_days;
   h += '<div class="sw-row sw-sentr"><span>' + swT("Juros por atraso", "Late fee") + '</span>' + swStepper("late", late + " " + swT("% ao ano", "percent a year"), 0, 18, late <= 0, late >= 18) + '<span>' + swT("depois de", "after") + '</span>' + swStepper("grace", grace + " " + swT("dias", "days"), 0, 30, grace <= 0, grace >= 30) + '</div><p class="sw-fine">' + swT("Um só valor: vale para a fatura e para o contrato.", "One value: it applies to the invoice and to the contract.") + '</p>';

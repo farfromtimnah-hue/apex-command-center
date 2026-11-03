@@ -31031,43 +31031,100 @@
             {
               "n": 1,
               "text": {
-                "pt": "Esta etapa define como os seus orçamentos, contratos e faturas aparecem. O orçamento no topo é o de verdade e muda enquanto você escolhe. Toque em Continuar quando tudo estiver preenchido.",
-                "en": "This stage sets how your estimates, contracts and invoices look. The estimate at the top is the real one and changes as you choose. Tap Continue when everything is filled in."
+                "pt": "Esta etapa define como os seus orçamentos, contratos e faturas aparecem. A prévia do orçamento (1) muda enquanto você escolhe. Toque em Continuar (2) quando tudo estiver preenchido.",
+                "en": "This stage sets how your estimates, contracts and invoices look. The estimate preview (1) changes as you choose. Tap Continue (2) when everything is filled in."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/brand-01.pt.jpg",
+                "en": "help/img/guides/setup-wizard/brand-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Toque na foto que mais se parece com o seu trabalho. A foto de capa já vem escolhida a partir dela.",
-                "en": "Tap the photo that looks most like your work. Your cover photo is already chosen from it."
+                "pt": "Opcional: digite o endereço do seu site na caixa Seu site (1). A Apex pode ler o seu site público e sugerir o nome e os dados do negócio.",
+                "en": "Optional: type your website address in the Your website box (1). Apex can read your public site and suggest your business name and details."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/brand-02.pt.jpg",
+                "en": "help/img/guides/setup-wizard/brand-02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Escreva o nome do seu negócio. Ele aparece no topo de cada documento.",
-                "en": "Type your business name. It shows at the top of every document."
+                "pt": "Toque em Preencher o que der (1). A Apex lê o site público e mostra o que achou. Nada é salvo ainda.",
+                "en": "Tap Fill in what you can (1). Apex reads the public site and shows what it found. Nothing is saved yet."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/brand-03.pt.jpg",
+                "en": "help/img/guides/setup-wizard/brand-03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Toque em Escolher um arquivo e escolha o seu logo (PNG, JPG ou WebP, até 5 MB). As cores são propostas a partir dele. Toque em uma cor para usá-la.",
-                "en": "Tap Choose a file and pick your logo (PNG, JPG or WebP, up to 5 MB). Colors are proposed from it. Tap a color to use it."
+                "pt": "Desmarque (1) o que você não quiser e toque em Usar os itens marcados (2). Só depois disso o que a Apex achou é salvo.",
+                "en": "Untick (1) anything you do not want, then tap Use the ticked items (2). Only after that is what Apex found saved."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/brand-04.pt.jpg",
+                "en": "help/img/guides/setup-wizard/brand-04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Opcional: cole o seu link de avaliação do Google. Os clientes tocam nele para avaliar você.",
-                "en": "Optional: paste your Google review link. Customers tap it to review you."
+                "pt": "Toque na foto que mais se parece com o seu trabalho (1). A foto de capa e as perguntas seguintes partem dela.",
+                "en": "Tap the photo that looks most like your work (1). Your cover photo and the questions that follow start from it."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/brand-05.pt.jpg",
+                "en": "help/img/guides/setup-wizard/brand-05.en.jpg"
               }
             },
             {
               "n": 6,
               "text": {
-                "pt": "Opcional: digite o endereço do seu site e toque em Preencher o que der. A Apex mostra o que achou, você desmarca o que não quiser e toca em Usar os itens marcados. Nada é salvo antes disso.",
-                "en": "Optional: type your website address and tap Fill in what you can. Apex shows what it found, you untick what you do not want and tap Use the ticked items. Nothing is saved before that."
+                "pt": "Escreva o nome do seu negócio (1). Ele aparece no topo de cada orçamento, contrato e fatura.",
+                "en": "Type your business name (1). It shows at the top of every estimate, contract and invoice."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/brand-06.pt.jpg",
+                "en": "help/img/guides/setup-wizard/brand-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Toque em Escolher um arquivo (1) e escolha o seu logo (PNG, JPG ou WebP, até 5 MB). Se já tem um logo, o botão diz Escolher outro arquivo.",
+                "en": "Tap Choose a file (1) and pick your logo (PNG, JPG or WebP, up to 5 MB). If you already have a logo, the button says Choose a different file."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/brand-07.pt.jpg",
+                "en": "help/img/guides/setup-wizard/brand-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Toque em uma cor para usá-la, ou em Outra (1) e (2) para escolher a cor principal e a de destaque. As cores são propostas a partir do logo.",
+                "en": "Tap a color to use it, or tap Your own (1) and (2) to pick the main and accent colors. Colors are proposed from your logo."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/brand-08.pt.jpg",
+                "en": "help/img/guides/setup-wizard/brand-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Opcional: cole o seu link de avaliação do Google (1). Os clientes tocam nele para avaliar você.",
+                "en": "Optional: paste your Google review link (1). Customers tap it to review you."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/brand-09.pt.jpg",
+                "en": "help/img/guides/setup-wizard/brand-09.en.jpg"
               }
             }
           ]
@@ -31082,43 +31139,67 @@
             {
               "n": 1,
               "text": {
-                "pt": "Escolha o estado onde você trabalha. A regra de licença e os termos do contrato dependem dele.",
-                "en": "Choose the state where you work. The license rule and the contract terms depend on it."
+                "pt": "Escolha o estado onde você trabalha (1). A regra de licença e os termos do contrato dependem dele.",
+                "en": "Choose the state where you work (1). The license rule and the contract terms depend on it."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/business-01.pt.jpg",
+                "en": "help/img/guides/setup-wizard/business-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Toque em LLC ou Empresário individual, conforme o seu negócio está registrado.",
-                "en": "Tap LLC or Sole owner, as your business is registered."
+                "pt": "Toque em LLC (1) ou Empresário(a) individual (2), conforme o seu negócio está registrado.",
+                "en": "Tap LLC (1) or Sole owner (2), as your business is registered."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/business-02.pt.jpg",
+                "en": "help/img/guides/setup-wizard/business-02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Escreva o telefone ou WhatsApp do negócio. Ele vale para todos os documentos.",
-                "en": "Type the business phone or WhatsApp number. It applies to all documents."
+                "pt": "Escreva o telefone ou WhatsApp do negócio (1). Ele vale para todos os documentos.",
+                "en": "Type the business phone or WhatsApp number (1). It applies to all documents."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/business-03.pt.jpg",
+                "en": "help/img/guides/setup-wizard/business-03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Escreva o endereço do negócio.",
-                "en": "Type the business address."
+                "pt": "Escreva o endereço do negócio (1). Os clientes veem o endereço nos orçamentos e contratos, assim como o telefone.",
+                "en": "Type the business address (1). Customers see it on your estimates and contracts, like the phone number."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/business-04.pt.jpg",
+                "en": "help/img/guides/setup-wizard/business-04.en.jpg"
               }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Opcional: o nome fantasia, só se os clientes conhecem você por outro nome.",
-                "en": "Optional: the name you do business as, only if customers know you by another name."
+                "pt": "Opcional: o nome fantasia (1), só se os clientes conhecem você por outro nome.",
+                "en": "Optional: the name you do business as (1), only if customers know you by another name."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/business-05.pt.jpg",
+                "en": "help/img/guides/setup-wizard/business-05.en.jpg"
               }
             },
             {
               "n": 6,
               "text": {
-                "pt": "Escolha o idioma que você usa com a Apex.",
-                "en": "Choose the language you use with Apex."
+                "pt": "Escolha o idioma que você usa com a Apex: English (1) ou Português (2).",
+                "en": "Choose the language you use with Apex: English (1) or Português (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/business-06.pt.jpg",
+                "en": "help/img/guides/setup-wizard/business-06.en.jpg"
               }
             }
           ]
@@ -31133,8 +31214,12 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em tudo o que você faz. A Apex só pergunta sobre o que serve para você.",
-                "en": "Tap everything you do. Apex only asks about what applies to you."
+                "pt": "Toque em tudo o que você faz (1). A Apex só pergunta sobre o que serve para você.",
+                "en": "Tap everything you do (1). Apex only asks about what applies to you."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/work-01.pt.jpg",
+                "en": "help/img/guides/setup-wizard/work-01.en.jpg"
               }
             },
             {
@@ -31156,15 +31241,23 @@
             {
               "n": 1,
               "text": {
-                "pt": "Escreva o número da sua licença. Ele sai nos seus contratos. Você pode adicionar até 10.",
-                "en": "Type your license number. It prints on your contracts. You can add up to 10."
+                "pt": "Escreva o número da sua licença (1). Ele sai nos seus contratos. Você pode adicionar até 10.",
+                "en": "Type your license number (1). It prints on your contracts. You can add up to 10."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/license-01.pt.jpg",
+                "en": "help/img/guides/setup-wizard/license-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Toque em Adicionar outra licença ou em Remover.",
-                "en": "Tap Add another license or Remove."
+                "pt": "Toque em Adicionar outra licença (1) para incluir mais números. Com dois ou mais, aparece Remover ao lado de cada um.",
+                "en": "Tap Add another license (1) to add more numbers. With two or more, a Remove button appears next to each one."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/license-02.pt.jpg",
+                "en": "help/img/guides/setup-wizard/license-02.en.jpg"
               }
             },
             {
@@ -31193,8 +31286,45 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque nos dias em que você trabalha, escolha o início e o fim com os botões mais e menos, a duração de cada agendamento e a antecedência mínima. O link de agendamento usa estes mesmos horários.",
-                "en": "Tap the days you work, set the start and end with the plus and minus buttons, the length of each booking and the minimum notice. Your booking link uses these same hours."
+                "pt": "Toque nos dias em que você trabalha (1). Os dias marcados ficam em dourado.",
+                "en": "Tap the days you work (1). The days you pick turn gold."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/hours-01.pt.jpg",
+                "en": "help/img/guides/setup-wizard/hours-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Escolha o início (1) e o fim (2) do seu dia de trabalho com os botões menos e mais.",
+                "en": "Set the start (1) and the end (2) of your work day with the minus and plus buttons."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/hours-02.pt.jpg",
+                "en": "help/img/guides/setup-wizard/hours-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Escolha a duração de cada agendamento (1) com os botões menos e mais.",
+                "en": "Choose the length of each booking (1) with the minus and plus buttons."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/hours-03.pt.jpg",
+                "en": "help/img/guides/setup-wizard/hours-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Escolha a antecedência mínima (1): com quanto tempo de aviso os clientes podem agendar. O link de agendamento usa estes mesmos dias e horários.",
+                "en": "Choose the minimum notice (1): how far ahead customers must book. Your booking link uses these same days and hours."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/hours-04.pt.jpg",
+                "en": "help/img/guides/setup-wizard/hours-04.en.jpg"
               }
             }
           ]
@@ -31209,57 +31339,102 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em cada forma de pagamento que os clientes podem usar.",
-                "en": "Tap every way customers can pay you."
+                "pt": "Toque em cada forma de pagamento que os clientes podem usar (1). É preciso marcar pelo menos uma para continuar.",
+                "en": "Tap every way customers can pay you (1). You need at least one ticked to continue."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/payments-01.pt.jpg",
+                "en": "help/img/guides/setup-wizard/payments-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Escolha por quantos dias o orçamento vale, o prazo de pagamento e o parcelamento.",
-                "en": "Choose how many days the estimate stays valid, the payment terms and the payment schedule."
+                "pt": "Toque em menos ou mais (1) para escolher por quantos dias o orçamento vale.",
+                "en": "Tap minus or plus (1) to choose how many days the estimate stays valid."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/payments-02.pt.jpg",
+                "en": "help/img/guides/setup-wizard/payments-02.en.jpg"
               }
             },
             {
               "n": 3,
+              "text": {
+                "pt": "Escolha o prazo de pagamento (1) e o parcelamento (2) nas listas.",
+                "en": "Choose the payment terms (1) and the payment schedule (2) from the lists."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/payments-03.pt.jpg",
+                "en": "help/img/guides/setup-wizard/payments-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Defina os juros por atraso (1) e depois de quantos dias eles começam (2). O valor vale para a fatura e para o contrato.",
+                "en": "Set the late fee (1) and how many days after the due date it starts (2). One value applies to the invoice and to the contract."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/payments-04.pt.jpg",
+                "en": "help/img/guides/setup-wizard/payments-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Defina a menor margem de lucro que você aceita (1). A Apex avisa quando um orçamento fica abaixo dela. 0 quer dizer sem aviso.",
+                "en": "Set the smallest profit margin you accept (1). Apex warns you when an estimate falls under it. 0 means no warning."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/payments-05.pt.jpg",
+                "en": "help/img/guides/setup-wizard/payments-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
               "text": {
                 "pt": "Se o Stripe ainda não está disponível, cole o seu link de pagamento com cartão.",
                 "en": "If Stripe is not available yet, paste your card payment link."
               }
             },
             {
-              "n": 4,
+              "n": 7,
               "text": {
-                "pt": "Marque a caixa para concordar com os Termos e a Política de Privacidade. Só depois o botão de conectar liga.",
-                "en": "Tick the box to agree to the Terms and the Privacy Policy. Only then does the connect button turn on."
+                "pt": "Se o Stripe ainda não está conectado, marque a caixa para concordar com os Termos e a Política de Privacidade. Só depois o botão de conectar liga.",
+                "en": "If Stripe is not connected yet, tick the box to agree to the Terms and the Privacy Policy. Only then does the connect button turn on."
               }
             },
             {
-              "n": 5,
+              "n": 8,
               "text": {
                 "pt": "Toque em Conectar o Stripe. O Stripe abre em outra janela. Tudo o que você respondeu já foi salvo, e você volta para esta mesma etapa.",
                 "en": "Tap Connect Stripe. Stripe opens in another window. Everything you answered is already saved, and you come back to this same stage."
               }
             },
             {
-              "n": 6,
+              "n": 9,
               "text": {
                 "pt": "Se o cadastro no Stripe não terminou, toque em Atualizar status ou Continuar no Stripe.",
                 "en": "If your Stripe setup is not finished, tap Refresh status or Continue on Stripe."
               }
             },
             {
-              "n": 7,
+              "n": 10,
               "text": {
                 "pt": "Se os Termos foram atualizados, marque a caixa e toque em Concordo.",
                 "en": "If the Terms were updated, tick the box and tap I agree."
               }
             },
             {
-              "n": 8,
+              "n": 11,
               "text": {
-                "pt": "Para receber cartão no iPhone, abra o Aprenda e veja Pagamentos. O Tap to Pay não faz parte desta configuração.",
-                "en": "To take cards on your iPhone, open Aprenda and see Payments. Tap to Pay is not part of this setup."
+                "pt": "Para receber cartão no iPhone, toque em Abrir o Aprenda (1) e veja Pagamentos. O Tap to Pay não faz parte desta configuração.",
+                "en": "To take cards on your iPhone, tap Open Aprenda (1) and see Payments. Tap to Pay is not part of this setup."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/payments-11.pt.jpg",
+                "en": "help/img/guides/setup-wizard/payments-11.en.jpg"
               }
             }
           ]
@@ -31274,29 +31449,45 @@
             {
               "n": 1,
               "text": {
-                "pt": "Leia cada linha. Mude a escolha ou o número se não estiver certo. Já vem preenchido com o padrão da Apex.",
-                "en": "Read each line. Change the choice or number if it is not right. It is filled in with Apex's standard."
+                "pt": "Leia cada linha (1). Já vem preenchido com o padrão da Apex. Mude a escolha ou o número se não estiver certo.",
+                "en": "Read each line (1). It is filled in with Apex's standard. Change the choice or number if it is not right."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/how-01.pt.jpg",
+                "en": "help/img/guides/setup-wizard/how-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Toque na lista de cada linha e escolha. Cada mudança é salva na hora.",
-                "en": "Tap each line's list and choose. Every change saves at once."
+                "pt": "Toque na lista de uma linha, como (1) ou (2), e escolha. Cada mudança é salva na hora.",
+                "en": "Tap the list on a line, such as (1) or (2), and choose. Every change saves at once."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/how-02.pt.jpg",
+                "en": "help/img/guides/setup-wizard/how-02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Toque no que se aplica ao seu seguro. As perguntas dependem do seu estado.",
-                "en": "Tap what applies to your insurance. The questions depend on your state."
+                "pt": "Toque no que se aplica ao seu seguro (1). As perguntas dependem do seu estado.",
+                "en": "Tap what applies to your insurance (1). The questions depend on your state."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/how-03.pt.jpg",
+                "en": "help/img/guides/setup-wizard/how-03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "O seu contrato parte do modelo padrão da Apex. A Apex não é um escritório de advocacia e não dá aconselhamento jurídico.",
-                "en": "Your contract starts from the Apex standard template. Apex is not a law firm and does not give legal advice."
+                "pt": "O seu contrato parte do modelo padrão da Apex (1). A Apex não é um escritório de advocacia e não dá aconselhamento jurídico.",
+                "en": "Your contract starts from the Apex standard template (1). Apex is not a law firm and does not give legal advice."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/how-04.pt.jpg",
+                "en": "help/img/guides/setup-wizard/how-04.en.jpg"
               }
             },
             {
@@ -31332,15 +31523,23 @@
             {
               "n": 2,
               "text": {
-                "pt": "Ligue ou desligue o agendamento online.",
-                "en": "Turn online booking on or off."
+                "pt": "Ligue ou desligue o agendamento online com o botão (1). Os clientes agendam dentro dos horários que você definiu.",
+                "en": "Turn online booking on or off with the button (1). Customers book inside the hours you set."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/connections-02.pt.jpg",
+                "en": "help/img/guides/setup-wizard/connections-02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Escolha o idioma da sua página de indicação.",
-                "en": "Choose the language of your referral page."
+                "pt": "Escolha o idioma da sua página de indicação: English (1) ou Português (2).",
+                "en": "Choose the language of your referral page: English (1) or Português (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/connections-03.pt.jpg",
+                "en": "help/img/guides/setup-wizard/connections-03.en.jpg"
               }
             }
           ]
@@ -31355,8 +31554,12 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em Sozinho(a) ou Com uma equipe. Com equipe, você adiciona as pessoas aqui mesmo: nome, acesso e celular, e envia o link privado por WhatsApp ou mensagem.",
-                "en": "Tap Alone or With a team. With a team, you add people right here: name, access and mobile, and send the private link by WhatsApp or text."
+                "pt": "Toque em Sozinho(a) (1) ou Com uma equipe (2). Com equipe, você adiciona as pessoas aqui mesmo: nome, acesso e celular, e envia o link privado por WhatsApp ou mensagem.",
+                "en": "Tap Alone (1) or With a team (2). With a team, you add people right here: name, access and mobile, and send the private link by WhatsApp or text."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/team-01.pt.jpg",
+                "en": "help/img/guides/setup-wizard/team-01.en.jpg"
               }
             },
             {
@@ -31378,8 +31581,12 @@
             {
               "n": 1,
               "text": {
-                "pt": "Veja a sua página como o cliente vê e toque em Copiar link para colar no perfil do Instagram.",
-                "en": "See your page as a customer sees it and tap Copy link to paste it into your Instagram profile."
+                "pt": "O seu link (1) abre a página que o cliente vê. Toque em Copiar link (2) e cole no perfil do Instagram.",
+                "en": "Your link (1) opens the page customers see. Tap Copy link (2) and paste it into your Instagram profile."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/bio-01.pt.jpg",
+                "en": "help/img/guides/setup-wizard/bio-01.en.jpg"
               }
             }
           ]
@@ -31394,22 +31601,34 @@
             {
               "n": 1,
               "text": {
-                "pt": "Leia cada linha e toque em Mudar no que não estiver certo. Toque em Começar quando terminar. Só aqui a configuração é concluída.",
-                "en": "Read each line and tap Change on anything that is not right. Tap Start when done. Setup is completed only here."
+                "pt": "Leia cada linha e toque em Mudar (1) no que não estiver certo. Toque em Começar (2) quando terminar. Só aqui a configuração é concluída.",
+                "en": "Read each line and tap Change (1) on anything that is not right. Tap Start (2) when done. Setup is completed only here."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/review-01.pt.jpg",
+                "en": "help/img/guides/setup-wizard/review-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Toque em Revisar cláusula por cláusula para abrir a tela de cláusulas do contrato, com a escolha padrão marcada e as outras opções visíveis.",
-                "en": "Tap Review clause by clause to open the contract clause screen, with the standard choice marked and the other options visible."
+                "pt": "Toque em Revisar cláusula por cláusula (1) para abrir a tela de cláusulas do contrato, com a escolha padrão marcada e as outras opções visíveis.",
+                "en": "Tap Review clause by clause (1) to open the contract clause screen, with the standard choice marked and the other options visible."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/review-02.pt.jpg",
+                "en": "help/img/guides/setup-wizard/review-02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Toque em Exportar um PDF para o meu advogado para baixar o contrato padrão com os seus valores preenchidos.",
-                "en": "Tap Export a PDF for my lawyer to get the standard contract with your values filled in."
+                "pt": "Toque em Exportar um PDF para o meu advogado (1) para baixar o contrato padrão com os seus valores preenchidos.",
+                "en": "Tap Export a PDF for my lawyer (1) to get the standard contract with your values filled in."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/review-03.pt.jpg",
+                "en": "help/img/guides/setup-wizard/review-03.en.jpg"
               }
             },
             {

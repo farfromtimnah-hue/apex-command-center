@@ -13,14 +13,15 @@ const FNS = [
   "apexErrorSignature", "apexErrorNormalizePath", "apexErrorMaskText", "apexErrorShouldReport",
   "apexErrorGateAndMark", "apexErrorTimeEt", "apexErrorAlertText", "apexErrorSlug",
   "apexErrorTicketId", "apexErrorTextFromResponse", "apexReportServerErrorDo", "apexReportServerError",
-  "notifyNicoleTelegram"
+  "notifyNicoleTelegram", "apexPushAutoTicket"
 ];
 const VARS = ["APEX_ERROR_REPORT_STATE"];
 const MIGRATIONS = ["migrations/support_tickets.sql"];
 
-function world(telegramCalls) {
+function world(telegramCalls, pushCalls) {
   const d = makeDb(MIGRATIONS);
   const stubs = {
+    pushToUsers: async function (env, emails, payload) { (pushCalls || []).push({ emails, payload }); },
     fetch: async function (url, opts) {
       telegramCalls.push({ url, opts });
       return { ok: true, json: async () => ({ ok: true }) };
@@ -252,6 +253,27 @@ function response5xx(status, errorMsg) {
   ok(w.F.apexErrorMaskText("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9 jwt").indexOf("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9") === -1, "a JWT shaped run is masked");
   ok(w.F.apexErrorMaskText("no such table: support_tickets") === "no such table: support_tickets", "short words and underscores under 20 characters are left alone");
   ok(w.F.apexErrorMaskText("mail maria@example.com here").indexOf("maria@example.com") === -1, "an email is still masked");
+}
+
+// ── 2026-11-03: every automatic ticket also pushes the developers ──────────
+{
+  const tg = [], pushes = [];
+  const w = world(tg, pushes);
+  await w.d.DB.prepare("CREATE TABLE users (email TEXT, role TEXT)").run();
+  await w.d.DB.prepare("INSERT INTO users (email, role) VALUES ('dev@example.com', 'developer'), ('alice@example.com', 'alice')").run();
+  const ctx = fakeCtx();
+  await w.F.apexReportServerError(w.env, ctx, "POST", "/api/clients/5551/gm/x", 500, "boom");
+  await ctx.flush();
+  ok(pushes.length === 1 && pushes[0].emails.length === 1 && pushes[0].emails[0] === "dev@example.com", "a new server-error ticket pushes the developer only");
+  ok(/Apex ticket/.test(pushes[0].payload.title) && pushes[0].payload.url === "/dashboard.html", "the push names the ticket and opens the dashboard");
+  await w.F.apexReportServerErrorDo(w.env, "POST", "/api/clients/:id/gm/x", 500, "boom", "alert", "POST /api/clients/:id/gm/x 500");
+  ok(pushes.length === 1, "the same failure in the same hour makes no second push");
+  await w.F.notifyNicoleTelegram(w.env, "Apex integration check failed:\n\nZoho Mail: boom");
+  const t = (await w.d.DB.prepare("SELECT page, status FROM support_tickets WHERE page = 'telegram-alert'").all()).results || [];
+  ok(t.length === 1 && t[0].status === "open", "a plain Telegram alert makes an open ticket");
+  ok(pushes.length === 2 && /telegram-alert/.test(pushes[1].payload.title), "a plain Telegram alert also pushes");
+  await w.F.notifyNicoleTelegram(w.env, "Apex integration check failed:\n\nZoho Mail: boom");
+  ok(pushes.length === 2, "the same plain alert in the same hour makes no second push");
 }
 
 console.log(fail ? ("\n" + fail + " FAILED") : "\nALL PASS");

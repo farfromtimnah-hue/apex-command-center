@@ -60537,6 +60537,22 @@ function apexErrorTicketId(signature) {
     return "auto-" + utcHour + "-" + apexErrorSlug(signature);
 }
 
+// 2026-11-03 (Nicole): every automatic ticket also pushes the developers, as a
+// backup for a Telegram message that never arrives. Only called when the ticket
+// row was really new, so the per-hour de-duplication also limits the pushes.
+// Never throws.
+async function apexPushAutoTicket(env, summary, page) {
+    try {
+        var devRows = (await env.DB.prepare("SELECT email FROM users WHERE role = 'developer'").all()).results || [];
+        var devEmails = devRows.map(function(r) { return r.email; }).filter(Boolean);
+        if (!devEmails.length) { return; }
+        var one = String(summary || "").replace(/\s+/g, " ").slice(0, 140);
+        await pushToUsers(env, devEmails, { title: "Apex ticket: " + String(page || "alert").slice(0, 60), body: one, url: "/dashboard.html" });
+    } catch (e) {
+        console.log("apexPushAutoTicket failed: " + (e && e.message));
+    }
+}
+
 // Does the actual Telegram-then-ticket work (step 7 of the brief). Order
 // matters: Telegram first, ticket second -- a ticket-insert failure must
 // never prevent the Telegram message that already told Nicole, and a
@@ -60552,10 +60568,11 @@ async function apexReportServerErrorDo(env, method, normalizedPath, status, errT
         var page = normalizedPath.slice(0, 200);
         var summaryEn = ("[Auto] Server error " + status + " on " + method + " " + normalizedPath + ": " +
             apexErrorMaskText(errText || "no message").slice(0, 200));
-        await env.DB.prepare(
+        var ins = await env.DB.prepare(
             "INSERT OR IGNORE INTO support_tickets (id, created_at, reporter_email, reporter_name, language, kind, page, transcript_json, original_words, summary_en, guidance, status) " +
             "VALUES (?, ?, 'system', 'System (auto)', 'en', 'broken', ?, '[]', ?, ?, NULL, 'open')"
         ).bind(ticketId, nowIso, page, alertText, summaryEn).run();
+        if (ins && ins.meta && ins.meta.changes === 1) { await apexPushAutoTicket(env, summaryEn, page); }
     } catch (e) {
         console.log("apexReportServerError: ticket insert failed: " + (e && e.message));
     }
@@ -60623,10 +60640,11 @@ async function notifyNicoleTelegram(env, message, opts) {
         var firstLine = text.split("\n").filter(function(l) { return l.trim(); })[0] || "alert";
         var ticketId = "tg-" + new Date().toISOString().slice(0, 13).replace(/[-T]/g, "") + "-" + apexErrorSlug(firstLine + " " + text).slice(0, 80);
         var nowIso = new Date().toISOString().replace("T", " ").slice(0, 19);
-        await env.DB.prepare(
+        var ins2 = await env.DB.prepare(
             "INSERT OR IGNORE INTO support_tickets (id, created_at, reporter_email, reporter_name, language, kind, page, transcript_json, original_words, summary_en, guidance, status) " +
             "VALUES (?, ?, 'system', 'System (auto)', 'en', 'broken', 'telegram-alert', '[]', ?, ?, NULL, 'open')"
         ).bind(ticketId, nowIso, text, "[Alert] " + text).run();
+        if (ins2 && ins2.meta && ins2.meta.changes === 1) { await apexPushAutoTicket(env, "[Alert] " + text, "telegram-alert"); }
     } catch (e) {
         console.log("notifyNicoleTelegram: ticket insert failed: " + (e && e.message));
     }

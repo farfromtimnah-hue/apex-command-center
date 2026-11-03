@@ -31108,8 +31108,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Toque em uma cor para usá-la, ou em Outra (1) e (2) para escolher a cor principal e a de destaque. As cores são propostas a partir do logo.",
-                "en": "Tap a color to use it, or tap Your own (1) and (2) to pick the main and accent colors. Colors are proposed from your logo."
+                "pt": "Toque em uma cor (1) para usá-la, ou em Outra (2) para escolher outra. A cor principal e a cor de destaque têm uma linha cada. As cores são propostas a partir do logo.",
+                "en": "Tap a color (1) to use it, or tap Your own (2) to pick another. The main color and the accent color each have a row. Colors are proposed from your logo."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/brand-08.pt.jpg",
@@ -31265,6 +31265,10 @@
               "text": {
                 "pt": "Se o seu trabalho não precisa de licença estadual, marque a caixa. Você precisa de um número ou dessa marca onde o estado exige.",
                 "en": "If your work does not need a state license, tick the box. You need a number or this tick where the state requires one."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/license-03.pt.jpg",
+                "en": "help/img/guides/setup-wizard/license-03.en.jpg"
               }
             },
             {
@@ -31286,8 +31290,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque nos dias em que você trabalha (1). Os dias marcados ficam em dourado.",
-                "en": "Tap the days you work (1). The days you pick turn gold."
+                "pt": "Toque nos dias em que você trabalha (1). Os dias marcados ficam em dourado, e o link de agendamento usa os mesmos dias.",
+                "en": "Tap the days you work (1). The days you pick turn gold, and your booking link uses the same days."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/hours-01.pt.jpg",
@@ -31430,8 +31434,8 @@
             {
               "n": 10,
               "text": {
-                "pt": "Se os Termos foram atualizados, marque a caixa e toque em Concordo.",
-                "en": "If the Terms were updated, tick the box and tap I agree."
+                "pt": "Se os Termos foram atualizados, um aviso pede para você revisar e concordar de novo. Marque a caixa e toque em Concordo.",
+                "en": "If the Terms were updated, a notice asks you to review and agree again. Tick the box and tap I agree."
               }
             },
             {
@@ -31479,8 +31483,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Toque no que se aplica ao seu seguro (1). As perguntas dependem do seu estado.",
-                "en": "Tap what applies to your insurance (1). The questions depend on your state."
+                "pt": "Toque no que se aplica ao seu seguro: responsabilidade civil geral (1) e acidentes de trabalho (2). As perguntas dependem do seu estado.",
+                "en": "Tap what applies to your insurance: general liability (1) and workers' compensation (2). The questions depend on your state."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/how-03.pt.jpg",
@@ -31531,8 +31535,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Ligue ou desligue o agendamento online com o botão (1). Os clientes agendam dentro dos horários que você definiu.",
-                "en": "Turn online booking on or off with the button (1). Customers book inside the hours you set."
+                "pt": "Ligue ou desligue o agendamento online com o botão (1). Ele mostra Ligado ou Desligado. Os clientes agendam dentro dos horários que você definiu.",
+                "en": "Turn online booking on or off with the button (1). It shows On or Off. Customers book inside the hours you set."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/connections-02.pt.jpg",
@@ -31573,8 +31577,12 @@
             {
               "n": 2,
               "text": {
-                "pt": "Escolha quem pode assinar contratos. Pelo menos você assina.",
-                "en": "Choose who can sign contracts. At least you can sign."
+                "pt": "Em Quem pode assinar contratos (1), escolha quem mais pode assinar por você. Você sempre pode assinar. Cada pessoa que assina precisa de um telefone.",
+                "en": "Under Who can sign contracts (1), choose who else can sign for you. You can always sign yourself. Each person who signs needs a phone number."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/team-02.pt.jpg",
+                "en": "help/img/guides/setup-wizard/team-02.en.jpg"
               }
             }
           ]
@@ -31620,8 +31628,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Toque em Revisar cláusula por cláusula (1) para abrir a tela de cláusulas do contrato, com a escolha padrão marcada e as outras opções visíveis.",
-                "en": "Tap Review clause by clause (1) to open the contract clause screen, with the standard choice marked and the other options visible."
+                "pt": "Toque em Revisar cláusula por cláusula (1). A configuração fecha e abre a tela Negócio, em Orçamentos. Os passos 5 e 6 mostram como chegar às cláusulas daí.",
+                "en": "Tap Review clause by clause (1). Setup closes and opens the Business screen, on Estimates. Steps 5 and 6 show how to reach the clauses from there."
               },
               "image": {
                 "pt": "help/img/guides/setup-wizard/review-02.pt.jpg",
@@ -31645,6 +31653,28 @@
                 "pt": "Se faltar o número da licença, o botão Começar avisa o que falta. Começar nunca é bloqueado pela conferência do contrato.",
                 "en": "If the license number is missing, Start tells you what is missing. Start is never blocked by the contract check."
               }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Na tela Negócio, toque em Configurações (1). A tela de configurações dos documentos abre.",
+                "en": "On the Business screen, tap Settings (1). The document settings screen opens."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/review-05.pt.jpg",
+                "en": "help/img/guides/setup-wizard/review-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Role até o cartão Contrato. Em Opção padrão por área (1), cada área mostra a escolha padrão, e você abre a lista para ver as outras opções.",
+                "en": "Scroll to the Contract card. Under Default option per clause area (1), each area shows the standard choice, and you can open the list to see the other options."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/review-06.pt.jpg",
+                "en": "help/img/guides/setup-wizard/review-06.en.jpg"
+              }
             }
           ]
         },
@@ -31660,6 +31690,10 @@
               "text": {
                 "pt": "Toque em Pedir à Apex um contrato para o meu negócio se você quer um contrato que a Apex ainda não tem para o seu tipo de trabalho. O pedido é registrado uma vez só, mesmo que você toque de novo.",
                 "en": "Tap Ask Apex for a contract for my business if you want a contract Apex does not have yet for your kind of work. The request is recorded once, even if you tap again."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/nocontract-01.pt.jpg",
+                "en": "help/img/guides/setup-wizard/nocontract-01.en.jpg"
               }
             },
             {
@@ -31674,6 +31708,10 @@
               "text": {
                 "pt": "Sem contrato, orçamentos, faturas e pagamentos funcionam do mesmo jeito, e Começar nunca é bloqueado. A Apex não dá aconselhamento jurídico.",
                 "en": "Without a contract, estimates, invoices and payments work the same, and Start is never blocked. Apex does not give legal advice."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/nocontract-03.pt.jpg",
+                "en": "help/img/guides/setup-wizard/nocontract-03.en.jpg"
               }
             }
           ]

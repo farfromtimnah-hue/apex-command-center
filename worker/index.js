@@ -60540,7 +60540,7 @@ function apexErrorTicketId(signature) {
 // Telegram failure must still leave the ticket as her history. Each step is
 // its own try block so neither failure can throw or stop the other.
 async function apexReportServerErrorDo(env, method, normalizedPath, status, errText, alertText, signature) {
-    try { await notifyNicoleTelegram(env, alertText); }
+    try { await notifyNicoleTelegram(env, alertText, { noTicket: true }); }
     catch (e) { console.log("apexReportServerError: Telegram send failed: " + (e && e.message)); }
 
     try {
@@ -60596,19 +60596,36 @@ async function apexReportServerError(env, ctx, method, path, status, errText) {
 // straight from the Worker to Telegram, so it still works even if that
 // other bot session is itself down. Best-effort: a failed alert is not
 // retried and does not throw, since this runs inside ctx.waitUntil().
-async function notifyNicoleTelegram(env, message) {
-    if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_ALERT_CHAT_ID) { return; }
+async function notifyNicoleTelegram(env, message, opts) {
+    if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_ALERT_CHAT_ID) {
+        try {
+            await fetch("https://api.telegram.org/bot" + env.TELEGRAM_BOT_TOKEN + "/sendMessage", {
+                method:  "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body:    new URLSearchParams({
+                    chat_id: env.TELEGRAM_ALERT_CHAT_ID,
+                    text:    message
+                }).toString()
+            });
+        } catch (e) {
+            // Nothing else to do -- no second alert channel exists.
+        }
+    }
+    // 2026-11-03 (Nicole): every Telegram alert also becomes an open ticket in
+    // the developer Support panel, so there is a history of what was fixed.
+    // The server-error path writes its own ticket and passes noTicket.
+    if (opts && opts.noTicket) { return; }
     try {
-        await fetch("https://api.telegram.org/bot" + env.TELEGRAM_BOT_TOKEN + "/sendMessage", {
-            method:  "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body:    new URLSearchParams({
-                chat_id: env.TELEGRAM_ALERT_CHAT_ID,
-                text:    message
-            }).toString()
-        });
+        var text = apexErrorMaskText(String(message || "")).slice(0, 1500);
+        var firstLine = text.split("\n").filter(function(l) { return l.trim(); })[0] || "alert";
+        var ticketId = "tg-" + new Date().toISOString().slice(0, 13).replace(/[-T]/g, "") + "-" + apexErrorSlug(firstLine + " " + text).slice(0, 80);
+        var nowIso = new Date().toISOString().replace("T", " ").slice(0, 19);
+        await env.DB.prepare(
+            "INSERT OR IGNORE INTO support_tickets (id, created_at, reporter_email, reporter_name, language, kind, page, transcript_json, original_words, summary_en, guidance, status) " +
+            "VALUES (?, ?, 'system', 'System (auto)', 'en', 'broken', 'telegram-alert', '[]', ?, ?, NULL, 'open')"
+        ).bind(ticketId, nowIso, text, "[Alert] " + text).run();
     } catch (e) {
-        // Nothing else to do -- no second alert channel exists.
+        console.log("notifyNicoleTelegram: ticket insert failed: " + (e && e.message));
     }
 }
 

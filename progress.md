@@ -1,3 +1,22 @@
+# Setup Wizard, round 3 (branch setup-wizard), 2026-11-02 night
+
+Nothing merged, deployed or uploaded. Test businesses only. Real sends blocked.
+
+## Done
+1. Lawyer PDF for every owner, cleaning included. The refusal ("not available for cleaning contracts yet") is gone. One builder prints a cover page (business facts, license statement from the license table, hours, payment terms, late fee, the list of clause areas, the Apex is not a law firm notice), then one part per contract kind the business makes (construction, cleaning, or both), with "Page N of M" in the footer. It uses the same headless browser PDF path as before, stored in the assets bucket, signed 10 minute link. Cleaning part: all 19 clause areas CL01 to CL19. Each area shows the standard choice (said plainly when the owner has not changed it), then the other options in full, labelled (optional wording, other option, not offered yet and why). CL16 and CL17 belong to the rental and office templates, so all four templates are covered. The attorney approved lists (damage caps, liability limits, conversion fee cap, arbitration rules) are printed, or the line says Apex has not loaded them yet. Today they are NOT loaded in the live database, so CL10-B, CL10-E, CL15-B and CL18-B show as not offered.
+2. Settings, Contracts now has the same button ("Exportar um PDF para o meu advogado") and a read only list of the cleaning clause areas (standard choice marked, other options visible, Portuguese titles). Review, "Revisar cláusula por cláusula", scrolls to that list for a cleaning business.
+3. Portuguese for the license result: data/license-notes-pt-v1.json (keyed by state, work type, status, with a hash of the English it was written from). 450 distinct notes, 629 table cells that can be shown, all 629 translated, 0 fall back. A note with no Portuguese (or whose English changed) shows "Detalhes em inglês:" then the English. Written and checked against the English meaning by me, not reviewed by a person.
+4. Review labels: state by name, "Empresário individual" / "LLC", hours on a 24 hour clock in Portuguese. A scan of every stage in both languages found no other leaks.
+5. Link in bio: no code fault. The page shows the owner's own logo, or the owner's name when there is none. The throwaway's stored logo is byte for byte Apex's own logo file (test data), which is why Apex showed.
+6. Tap delay, measured: the page paints a tapped chip in 6 to 14 ms; a new stage in 8 to 104 ms (stage 1 first draw is 365 ms in the iPhone simulator). The Worker round trip is 0.25 to 0.45 s per call, and a work tap chains several calls (0.5 to 1.1 s until Saved). The live Worker is not faster than the local dev Worker for a simple call (about 0.25 s against 0.17 s). No page code was found that blocks a screen on a save, so nothing was changed for speed.
+
+## Tests
+scripts/test-setup-wizard.mjs: 107 offline, 121 with the live checks on the test client. Aprenda 1053, pop up 20, iOS drift check passes. Already failing before this round (checked on the last commit): test-cleaning-contract 5 Florida golden checks, test-doc-settings-save 1, test-license-not-required (crashes at load).
+
+## Differences from the approved design
+- Cleaning defaults are not stored per owner (the contract builder picks per job), so the lawyer PDF and the settings list show Apex standard choices only.
+- The cleaning clause list in Settings is read only.
+
 # Setup Wizard, round 2 (branch setup-wizard), 2026-11-02 evening
 
 Nothing merged, deployed or uploaded. Test business only. Real sends blocked.

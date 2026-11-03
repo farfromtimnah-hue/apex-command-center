@@ -39,7 +39,7 @@ function swT(pt, en) { return isEn() ? en : pt; }
 function swH(stage, n) { return ' data-help="setup-wizard#' + stage + '#' + n + '"'; }
 function swCap(s) { s = String(s || ""); return s.charAt(0).toUpperCase() + s.slice(1); }
 function swEsc(s) { return escHtml(String(s === null || s === undefined ? "" : s)); }
-function swFmtHour(h) { var n = h % 12 === 0 ? 12 : h % 12; return n + ":00 " + (h < 12 ? "AM" : "PM"); }
+function swFmtHour(h) { if (!isEn()) { return (h < 10 ? "0" : "") + h + ":00"; } var n = h % 12 === 0 ? 12 : h % 12; return n + ":00 " + (h < 12 ? "AM" : "PM"); }
 function swFmtHHMM(t) { var h = parseInt(String(t).slice(0, 2), 10); return swFmtHour(h); }
 function swHour(t) { return parseInt(String(t || "09:00").slice(0, 2), 10); }
 function swHHMM(h) { return (h < 10 ? "0" : "") + h + ":00"; }
@@ -444,6 +444,14 @@ function swWork() {
 }
 
 // ── Stage 4: your license (the Worker decides; this only draws) ───────────
+// The note under a license line, in the owner's language. A note with no Portuguese yet
+// shows a plain label first, so English never appears alone inside a Portuguese screen.
+function swNoteHtml(x) {
+  if (!x.note) { return ""; }
+  if (isEn()) { return '<p>' + swEsc(x.note) + '</p>'; }
+  if (x.note_pt) { return '<p>' + swEsc(x.note_pt) + '</p>'; }
+  return '<p class="sw-fine">' + swT("Detalhes em inglês:", "Details in English:") + '</p><p lang="en">' + swEsc(x.note) + '</p>';
+}
 function swLicenseFetch() {
   var a = SW.d.answers, st = swCs().values.business_state;
   var key = [st, a.cat, (a.subs || []).join(",")].join("|");
@@ -488,7 +496,7 @@ function swLicense() {
   var list = '<div>';
   r.items.forEach(function(x) {
     list += '<div class="sw-lt"><b>' + swEsc(swCap(isEn() ? x.name_en : x.name_pt)) + '</b><span class="sw-ls ' + (x.kind === "need" || x.kind === "threshold" ? "need" : x.kind === "unsure" ? "unsure" : "") + '">' + swEsc(isEn() ? x.label_en : x.label_pt) + '</span>' +
-      (x.note ? '<p>' + swEsc(x.note) + '</p>' : '') + ((x.confidence === "LOW" || x.confidence === "MEDIUM") ? '<p>' + swT("Confiança: ", "Confidence: ") + (x.confidence === "LOW" ? swT("baixa", "low") : swT("média", "medium")) + swT(". Confirme com o conselho do seu estado.", ". Check with your state board.") + '</p>' : '') + '</div>';
+      swNoteHtml(x) + ((x.confidence === "LOW" || x.confidence === "MEDIUM") ? '<p>' + swT("Confiança: ", "Confidence: ") + (x.confidence === "LOW" ? swT("baixa", "low") : swT("média", "medium")) + swT(". Confirme com o conselho do seu estado.", ". Check with your state board.") + '</p>' : '') + '</div>';
   });
   list += '</div>';
   var showLic = a.lic_show || nums > 0;
@@ -769,6 +777,18 @@ function swBio() {
 }
 
 // ── Stage 11: review ──────────────────────────────────────────────────────
+// Review labels: the state by its name and the business kind in the owner's language
+// (the stored value stays the English words the contract prints).
+function swStateName(code) {
+  if (!code) { return swT("Não preenchido", "Not set"); }
+  var st = ((SW.cs && SW.cs.states) || []).filter(function(x) { return x.code === code; })[0];
+  return st ? st.name : code;
+}
+function swEntityLabel(raw) {
+  if (/limited liability/i.test(raw || "")) { return "LLC"; }
+  if (/sole/i.test(raw || "")) { return swT("Empresário individual", "Sole proprietorship"); }
+  return "";
+}
 function swReviewStage() {
   var d = SW.doc, a = SW.d.answers, cs = swCs(), v = cs.values || {}, b = swBk();
   var cat = swCat(a.cat);
@@ -779,7 +799,7 @@ function swReviewStage() {
   var lines = [
     [swT("Negócio", "Business"), d.legal_name || swT("Não preenchido", "Not set"), 1],
     [swT("Tipo de trabalho", "Kind of work"), a.cat === "other" ? (a.other_text || "") : ((cat ? swCatLabel(cat) : swT("Não preenchido", "Not set")) + ((a.subs || []).length ? ": " + a.subs.map(function(k) { var s = cat && cat.subtaps.filter(function(t) { return t.key === k; })[0]; return s ? (isEn() ? s.en : s.pt) : k; }).join(", ") : "")), 3],
-    [swT("Estado e tipo", "State and type"), (v.business_state || "") + (v.business_entity_type ? ", " + v.business_entity_type : ""), 2],
+    [swT("Estado e tipo", "State and type"), swStateName(v.business_state) + (swEntityLabel(v.business_entity_type) ? ", " + swEntityLabel(v.business_entity_type) : ""), 2],
     [swT("Telefone", "Phone"), d.phone || swT("Não preenchido", "Not set"), 2],
     [swT("Licença", "License"), d.license_not_required ? swT("Não precisa de licença estadual", "No state license needed") : (nums.join(", ") || swT("Nenhuma informada", "None added")), 4],
     [swT("Dias e horários", "Work days and hours"), days + ", " + swFmtHHMM(b.start) + " " + swT("às", "to") + " " + swFmtHHMM(b.end), 5],
@@ -969,7 +989,7 @@ function swOpenClauses() {
     if (typeof switchTab === "function") { try { switchTab("gmestimates"); } catch (e) {} }
     // The clause screen draws after its data loads, so look for it for a few seconds.
     var tries = 0, look = setInterval(function() {
-      var c = document.getElementById("gmConSettingsCard"); tries++;
+      var c = document.getElementById("gmConCleaningAreas") || document.getElementById("gmConSettingsCard"); tries++;
       if (c && c.scrollIntoView) { c.scrollIntoView({ block: "start" }); }
       if ((c && tries > 3) || tries > 20) { clearInterval(look); }
     }, 500);

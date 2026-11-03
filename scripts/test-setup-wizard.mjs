@@ -172,6 +172,40 @@ const none = core.parseSite("<html><head><title>Hello</title></head><body>Nothin
 ok(Object.keys(none.found).length === 1 && none.found.name === "Hello", "Reader returns only what it found, never invents");
 ok(core.sniffImage(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0])) === "image/png" && core.sniffImage(new TextEncoder().encode("<svg onload=x>")) === null, "Image check by bytes: png yes, svg and text no");
 
+// ── 9b. Lawyer PDF: no kind of contract is refused ────────────────────────
+ok(!/notYet|not_available|ainda não existe para contratos de limpeza/.test(WORKER.slice(WORKER.indexOf("async function wizLawyerHtml"), WORKER.indexOf("// GET /api/pdf/lawyer/:token"))), "Lawyer PDF: no refusal answer is left in the PDF code");
+const kindsSrc = /function wizLawyerKinds\(trades\) \{[\s\S]*?\n\}/.exec(WORKER);
+ok(!!kindsSrc, "Lawyer PDF: the trade to contract kind function exists");
+const CONSTRUCTION = ["pools", "tile", "remodeling", "hardscape", "general"];
+const wizLawyerKinds = new Function("CONTRACT_CONSTRUCTION_TRADE_KEYS", kindsSrc[0] + "; return wizLawyerKinds;")(CONSTRUCTION);
+let everyCat = true; const seenKinds = {};
+WIZ.categories.forEach(c => { const k = wizLawyerKinds(c.contract_trades); if (!k.length || k.some(x => ["construction", "cleaning"].indexOf(x) < 0)) { everyCat = false; } k.forEach(x => { seenKinds[x] = 1; }); });
+ok(everyCat && seenKinds.construction && seenKinds.cleaning, "Lawyer PDF: all " + WIZ.categories.length + " work categories the wizard can pick give a contract kind with a PDF part (cleaning and construction)");
+ok(wizLawyerKinds(["general", "cleaning"]).join() === "construction,cleaning" && wizLawyerKinds([]).join() === "construction", "Lawyer PDF: a mixed business gets both parts, a business with no trades gets the construction part");
+ok(/footerTemplate/.test(WORKER) && /pageNumber/.test(WORKER) && /Apex is not a law firm and gives no legal advice/.test(WORKER), "Lawyer PDF: page numbers in the footer and the not a law firm notice on the cover");
+ok(/wizLawyerCleaning/.test(WORKER) && /contractCleaningAreasView/.test(WORKER), "Lawyer PDF and Contract settings both build cleaning clause areas from the same helper");
+const GMJS = read("gm.js");
+ok(/function gmConLawyerPdf/.test(GMJS) && /Exportar um PDF para o meu advogado/.test(GMJS) && /gmConCleaningAreasHtml\(S\)/.test(GMJS), "Settings, Contracts: the lawyer PDF button and the cleaning clause areas are on the screen");
+ok(/getElementById\("gmConCleaningAreas"\)/.test(SRC), "Review: clause by clause scrolls to the cleaning clause areas when the business does cleaning");
+
+// ── 9c. License notes in Portuguese ──────────────────────────────────────
+const PT = JSON.parse(read("data/license-notes-pt-v1.json"));
+const wtShown = new Set(); WIZ.categories.forEach(c => c.subtaps.forEach(s => { if (s.work_type) { wtShown.add(s.work_type); } }));
+let shownCells = 0, withPt = 0, missingPt = [];
+Object.keys(TABLE).forEach(st => wtShown.forEach(wt => { const cell = TABLE[st].wt[wt]; if (cell && cell[2]) { shownCells++; const e = PT.states[st] && PT.states[st][wt] && PT.states[st][wt][cell[0]]; if (e && e.pt && e.h === core.noteHash(cell[2])) { withPt++; } else { missingPt.push(st + "/" + wt); } } }));
+console.log("INFO  license notes that can be shown: " + shownCells + ", in Portuguese: " + withPt + ", falling back to English with a label: " + missingPt.length);
+ok(shownCells > 0 && missingPt.length === 0, "Every license note that can be shown has Portuguese written from the current English");
+const lr = core.licenseResult(TABLE, WIZ, "FL", "cleaning", ["homes"], PT);
+ok(lr.items[0].note && lr.items[0].note_pt && lr.items[0].note_pt !== lr.items[0].note, "The license answer carries the Portuguese note next to the English one");
+const lrNone = core.licenseResult(TABLE, WIZ, "FL", "cleaning", ["homes"], { states: { FL: { "house cleaning and janitorial": { NO_STATE_LICENSE: { pt: "x", h: "0" } } } } });
+ok(lrNone.items[0].note_pt === "", "A Portuguese note written from different English is ignored, so the screen falls back");
+ok(/Detalhes em inglês/.test(SRC) && /function swNoteHtml/.test(SRC), "The license stage says \"Detalhes em inglês\" before an English only note in Portuguese");
+ok(/function swEntityLabel/.test(SRC) && /Empresário individual/.test(SRC) && /swStateName\(v\.business_state\)/.test(SRC), "Review: state name and business kind are shown in the owner's language");
+
+// ── 9d. Link in bio never shows Apex branding as the owner's ─────────────
+const LINKHTML = read("link.html");
+ok(!/apex-logo|LogoApex/i.test(LINKHTML) && /d\.has_logo && d\.logo_url/.test(LINKHTML) && /bizMark/.test(LINKHTML), "Link in bio: the owner's logo only, and the owner's name when there is none (no Apex logo fallback)");
+
 // ── 10. Live checks on the test client (only with a branch Worker) ───────
 const API = process.env.APEX_TEST_API, TOKEN = process.env.APEX_TEST_TOKEN;
 if (API && TOKEN) {
@@ -185,6 +219,7 @@ if (API && TOKEN) {
   ok(o.status === 200 && o.j.settings && o.j.settings.setup_completed_at === before.setup_completed_at, "OLD pages: PUT doc-settings (no wizard flag) answers as before");
   o = await call("contract-settings");
   ok(o.status === 200 && o.j.settings && Array.isArray(o.j.areas) && Array.isArray(o.j.options) && o.j.states, "OLD pages: GET contract-settings keeps areas, options, states");
+  ok(Array.isArray(o.j.cleaning_areas) && o.j.cleaning_areas.length === 19, "Contract settings carry the 19 cleaning clause areas (read only) next to the old fields");
   const cs = o.j.settings;
   o = await call("contract-settings", "PUT", { trades: cs.trades, builds_pools: cs.builds_pools, defaults: cs.defaults, signers: cs.signers, owner_signer_name: cs.owner_signer_name, owner_signer_phone: cs.owner_signer_phone, source: cs.source, values: cs.values });
   ok(o.status === 200 && o.j.saved === true, "OLD pages: PUT contract-settings in the old body shape still saves");
@@ -205,6 +240,8 @@ if (API && TOKEN) {
   ok(o.status === 200 && o.j.summary === "none", "The Worker answers the license question (Florida house cleaning: none)");
   o = await call("wizard/website", "POST", { url: "http://169.254.169.254/" });
   ok(o.status === 422 && o.j.error === "blocked_host", "The Worker refuses a private address in the website box");
+  o = await call("wizard/lawyer-pdf", "POST", {});
+  ok(o.status === 200 && /\/api\/pdf\/lawyer\/lwyr_/.test(o.j.url) && o.j.areas >= 19 && o.j.pages >= 2, "The lawyer PDF is made for this business (never a refusal): " + (o.j.areas || 0) + " clause areas, " + (o.j.pages || 0) + " pages");
   o = await call("wizard/finish", "POST", {});
   ok(o.status === 200 || o.status === 409, "Start answers (the test client is already complete)");
   // Gator shape: setup done, Stripe connected, no contract settings. The test client has all three kinds; read only.

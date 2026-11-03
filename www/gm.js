@@ -6209,7 +6209,9 @@ function gmConSettingsHtml() {
   h += gmConBizFactsHtml(d, S);
   vals.forEach(function(v) { h += '<label class="gm-field-label" for="gmConVal_' + v[0] + '">' + gmT(v[1], v[2]) + '</label><input type="text" id="gmConVal_' + v[0] + '" class="gm-input" value="' + escHtml(d.values[v[0]] || "") + '" oninput="gmConDraft.values[\'' + v[0] + '\'] = this.value">'; });
   h += '</div>';
+  if (d.trades.indexOf("cleaning") !== -1) { h += gmConCleaningAreasHtml(S); }
   if (d.trades.indexOf("cleaning") !== -1) { h += gmConCleaningSettingsHtml(d); }
+  h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Para o seu advogado", "For your lawyer") + '</p><p class="muted" style="font-size:13px;">' + gmT("Um PDF com o seu contrato inteiro e os seus valores preenchidos. A Apex não dá aconselhamento jurídico.", "A PDF of your whole contract with your own values filled in. Apex does not give legal advice.") + '</p><button type="button" class="gm-btn-secondary" id="gmConLawyerBtn" style="min-height:44px;" onclick="gmConLawyerPdf()">' + gmT("Exportar um PDF para o meu advogado", "Export a PDF for my lawyer") + '</button><p class="gm-warn" id="gmConLawyerMsg" hidden></p></div>';
   h += '<p class="gm-warn" id="gmConMsg" hidden></p><button type="button" class="gm-btn-primary" id="gmConSaveBtn" onclick="gmConSettingsSave()">' + gmT("Salvar contrato", "Save contract settings") + '</button></div>';
   return h;
 }
@@ -6458,6 +6460,47 @@ function gmConCleaningLockedHtml(c, outFl) {
 // its standard cleaning values. Shown only while the cleaning trade is ticked.
 var GM_CON_CLEANING_VALUES = ["cancel_contact_methods", "free_cancel_notice_hours", "late_cancel_fee", "excuse_notice_hours", "access_wait_minutes", "access_change_notice_hours", "termination_methods",
   "termination_notice_hours", "termination_notice_days", "suspension_days", "claim_window_hours", "reclean_window_hours", "reclean_return_days", "holiday_list", "schedule_change_notice_hours", "staff_status_description", "report_method"];
+// The cleaning clause areas, read only: each area, the options it can print, the
+// Apex standard choice marked. A job picks its own options in the contract builder.
+var GM_CON_TPL_PT = { T1: "Residencial recorrente", T2: "Limpeza única ou de mudança", T3: "Temporada (turnover)", T4: "Escritório pequeno" };
+var GM_CON_TPL_EN = { T1: "Residential recurring", T2: "One-time or move-out", T3: "Short-term-rental turnover", T4: "Small office" };
+function gmConCleaningAreasHtml(S) {
+  var areas = (S && S.cleaning_areas) || [];
+  if (!areas.length) { return ""; }
+  function tpl(t) { return isEn() ? GM_CON_TPL_EN[t] : GM_CON_TPL_PT[t]; }
+  var h = '<div class="gm-sheet-section" id="gmConCleaningAreas"><p class="gm-sheet-section-title">' + gmT("Cláusulas do contrato de limpeza", "Cleaning agreement clauses") +
+    ' <span class="gm-sheet-section-note">' + gmT("a escolha padrão da Apex vem marcada; cada contrato pode trocar", "the Apex standard choice is marked; each agreement can change it") + '</span></p>';
+  areas.forEach(function(a) {
+    h += '<p class="gm-field-label" style="margin-top:12px;"><b>' + escHtml(a.id + " · " + gmConAreaTitle(a)) + '</b></p>';
+    a.slots.forEach(function(sl) {
+      if (sl.virtual) { return; }
+      if (sl.title && sl.title !== a.title && a.slots.length > 1) { h += '<p class="muted" style="font-size:13px;margin:6px 0 2px;">' + escHtml(GmLabels && GmLabels.contractAreaTitle ? GmLabels.contractAreaTitle(sl.id, sl.title, isEn()) : sl.title) + '</p>'; }
+      sl.options.forEach(function(o) {
+        var std = (o.standard_for || []).length && !o.locked;
+        h += '<div style="margin:2px 0 8px;padding:6px 10px;border-left:3px solid ' + (std ? "#c9a43a" : "#8884") + ';">' +
+          '<div style="font-weight:' + (std ? "700" : "500") + ';">' + escHtml(o.id + " · " + gmConOptTitle(o)) +
+          (std ? ' <span style="font-size:12px;background:rgba(201,164,58,.2);border-radius:10px;padding:1px 8px;">' + gmT("Padrão Apex", "Apex standard") + ' · ' + escHtml(o.standard_for.map(tpl).join(", ")) + '</span>' : '') +
+          (sl.need === "optional" ? ' <span class="muted" style="font-size:12px;">' + gmT("(opcional)", "(optional)") + '</span>' : '') + '</div>' +
+          '<div class="muted" style="font-size:13px;">' + escHtml(gmConOptDesc(o)) + '</div>' +
+          (o.locked ? '<div class="muted" style="font-size:12px;">' + gmT("Ainda não disponível: ", "Not available yet: ") + escHtml(isEn() ? o.locked.en : o.locked.pt) + '</div>' : '') + '</div>';
+      });
+    });
+  });
+  return h + '</div>';
+}
+// The same PDF the wizard's Review stage makes: the whole contract with the owner's own values.
+function gmConLawyerPdf() {
+  var btn = document.getElementById("gmConLawyerBtn"), msg = document.getElementById("gmConLawyerMsg");
+  if (btn) { btn.disabled = true; btn.textContent = gmT("Preparando o PDF…", "Preparing the PDF…"); }
+  if (msg) { msg.hidden = true; }
+  gmApi("wizard/lawyer-pdf", { method: "POST", body: {} }).then(function(d) {
+    if (!d || !d.url) { throw new Error(gmT("O PDF não ficou pronto.", "The PDF was not ready.")); }
+    if (gmInApp()) { apexOpenExternal(d.url); } else { var lk = document.createElement("a"); lk.href = d.url; lk.target = "_blank"; lk.rel = "noopener"; document.body.appendChild(lk); lk.click(); document.body.removeChild(lk); }
+  }).catch(function(e) { if (msg) { msg.textContent = e.message; msg.hidden = false; } }).then(function() {
+    var b2 = document.getElementById("gmConLawyerBtn"); if (b2) { b2.disabled = false; b2.textContent = gmT("Exportar um PDF para o meu advogado", "Export a PDF for my lawyer"); }
+  });
+}
+
 function gmConCleaningSettingsHtml(d) {
   var v = d.values;
   function box(key, pt, en) {

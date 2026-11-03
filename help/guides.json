@@ -31323,7 +31323,7 @@
             {
               "n": 4,
               "text": {
-                "pt": "Escolha a antecedência mínima (1): com quanto tempo de aviso os clientes precisam agendar. Horários bloqueados ainda não existem: para fechar um horário, tire o dia ou mude a hora.",
+                "pt": "Escolha a antecedência mínima (1): com quanto tempo de aviso os clientes precisam agendar. Tempo bloqueado ainda não existe: para fechar um horário, desmarque o dia ou mude o horário de trabalho.",
                 "en": "Choose the minimum notice (1): how far ahead customers must book. Blocked time is not available yet: to close a time, take the day off or change the hours."
               },
               "image": {

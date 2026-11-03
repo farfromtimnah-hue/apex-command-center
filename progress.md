@@ -1,3 +1,30 @@
+# Setup Wizard, round 4 (branch setup-wizard), 2026-11-02 night: every kind of work checked
+
+Nothing merged, deployed or uploaded. Test business only (wizard-throwaway-001). Real sends blocked.
+
+## Question: was cleaning the only kind with a broken lawyer PDF or clause link?
+No. I ran all 13 kinds of work and "Something else" through the wizard's own save route (work save with two sub taps), then the lawyer PDF (real PDF fetched, opened with pdfinfo and pdftotext) and the contract settings the clause screen reads. Result before the fix: the PDF was produced for all 14, none was refused, but 4 got the wrong contract.
+- cakes, boutique, water: the wizard stores trade "general", and the PDF code treats "general" as remodeling. A baker, a boutique and a water filter business all got the Construction and remodeling contract, 9 pages, with no explanation.
+- Something else: it stored no trade at all, so it kept the trades of the last pick (the run showed the cleaning agreement, 20 pages). On a business with no trade set, wizLawyerKinds answers construction.
+- The other 10 (pools, pavers, outdoor living, tile, flooring, home exterior, interiors, stone, construction, cleaning) get the right contract. pools, pavers, outdoor living, tile, flooring, stone, home exterior, interiors, construction: construction, 8 to 9 pages, 19 clause areas. Cleaning: cleaning agreement, 20 pages, 19 clause areas.
+- Trades stored per kind: pools [pools]; pavers and outdoor living [hardscape]; tile, flooring, stone [tile]; home exterior, interiors, cakes, boutique, water [general]; construction [remodeling, general]; cleaning [cleaning]; Something else: nothing (before), [general] (now).
+
+## Fix
+1. wizLawyerKinds(trades, cat): a kind the wizard knows has no contract (cakes, boutique, water, marked contract_available false in data/wizard-v1.json, and Something else) ignores "general" and makes no contract. A baker who also ticks cleaning in Settings gets the cleaning agreement only. A business that never picked a kind in the wizard and has no trade set keeps construction (owners from before the wizard are unchanged).
+2. "general" is still stored for those kinds on purpose: with no trade at all, the estimate and contract screens answer "Set up the contract settings first". Not changed.
+3. Something else now stores [general] (and no pool box), so an earlier pick no longer leaks into it.
+4. GET gm/wizard and GET contract-settings carry contract: { kinds, available }.
+5. Review: with no contract, the PDF and clause by clause links are not drawn. The line says "A contract for this kind of work is not available in Apex yet. You can start now." (Portuguese too). Start is never disabled by it.
+6. Settings, Contracts: same line; the lawyer PDF section, the default option per clause area and the library note are hidden; saving no longer demands a trade for these kinds.
+7. The PDF call for a kind with no contract answers 200 { available: false, url: null } (not an error), for an old page still open.
+
+## Tests
+scripts/test-wizard-contract-kinds.mjs: 24 offline, 102 with the live part on the throwaway. Runs every kind plus Something else and fails on a refusal, a missing or tiny PDF (under 50000 bytes or under 3 pages), or a wrong contract kind. The live part restores the throwaway's trades. scripts/test-setup-wizard.mjs 107 offline (kind check updated). No popup check and iOS drift check clean.
+Browser check on the page copy: Review for cakes shows the line and no links, Start enabled; for pools the clause button opens the clause card with 19 defaults and the PDF button; Settings checked for all 14 kinds (cards drawn, line only for cakes, boutique, water, Something else).
+
+## Not verified
+Not read by a lawyer or a person: whether flooring and stone should use the tile contract, whether home exterior and interiors should use the general construction contract, and whether pressure washing fits. Estimate send with the contract for a baker still uses the construction contract builder (stored trade general); that is outside this round.
+
 # Setup Wizard, round 3 (branch setup-wizard), 2026-11-02 night
 
 Nothing merged, deployed or uploaded. Test businesses only. Real sends blocked.

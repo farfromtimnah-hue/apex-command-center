@@ -468,6 +468,7 @@
    "contract_trades": [
     "general"
    ],
+   "contract_available": false,
    "builds_pools": false,
    "keywords": [
     "cake",
@@ -508,6 +509,7 @@
    "contract_trades": [
     "general"
    ],
+   "contract_available": false,
    "builds_pools": false,
    "keywords": [
     "boutique",
@@ -542,6 +544,7 @@
    "contract_trades": [
     "general"
    ],
+   "contract_available": false,
    "builds_pools": false,
    "keywords": [
     "water filter",

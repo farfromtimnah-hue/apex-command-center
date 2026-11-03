@@ -37633,6 +37633,7 @@ async function handleGetContractSettings(id, request, env) {
             },
             owner_name_default: gmOwnerFirstName(client) ? String(client.owners).split(/\s*(?:&|;|,|\se\s|\sE\s|\sand\s)\s*/)[0].trim() : (doc.legal_name || (client && client.name) || ""),
             // Cleaning is offered once its library rows are loaded (contracts_e_cleaning.sql).
+            contract: await wizContractInfo(env, id, settings),
             trades: CONTRACT_TRADE_KEYS.filter(function(k) { return k !== "cleaning" || contractCleaningReady(lib); }).map(function(k) { return { key: k, label: CONTRACT_TRADE_LABELS[k] }; }),
             areas: lib ? lib.clause_areas.map(function(a) { return { id: a.id, title: a.title }; }) : [],
             // The cleaning clause areas (CL01 to CL19), shown read only in the settings: standard choice marked, the other options listed.
@@ -57052,6 +57053,7 @@ async function handleGetGmWizard(id, request, env) {
             done: info.done,
             missing: missing,
             catalog: wizCatalog(),
+            contract: await wizContractInfo(env, id, null),
             // The values the screens start from, read from the app's own code.
             defaults: { work_days: [1, 2, 3, 4, 5], day_start: "09:00", day_end: "17:00", duration_min: 60, min_notice_hours: 24, estimate_valid_days: 30 }
         });
@@ -57171,13 +57173,13 @@ async function handlePutGmWizardWork(id, request, env) {
             "INSERT INTO gm_wizard_state (client_id, stage, answers_json, started_at, updated_at) VALUES (?, 3, ?, datetime('now'), datetime('now')) " +
             "ON CONFLICT (client_id) DO UPDATE SET answers_json = excluded.answers_json, updated_at = datetime('now')"
         ).bind(id, JSON.stringify(ans)).run();
-        if (category) {
-            var r = await wizContractPatch(id, request, env, function(body) {
-                body.trades = category.contract_trades.slice();
-                body.builds_pools = !!category.builds_pools;
-            });
-            if (!r.ok) { return r.res; }
-        }
+        // "Something else" has no trade of its own: it clears the trades of an earlier pick and stores
+        // "general" (the same as the other kinds without a contract yet), so the estimate screens keep working.
+        var r = await wizContractPatch(id, request, env, function(body) {
+            body.trades = category ? category.contract_trades.slice() : ["general"];
+            body.builds_pools = category ? !!category.builds_pools : false;
+        });
+        if (!r.ok) { return r.res; }
         return jsonOk({ saved: true });
     } catch (e) {
         return jsonErr("Error saving the kind of work: " + e.message, 500);
@@ -57452,12 +57454,33 @@ function contractCleaningAreasView(ctx, cs, gate) {
 }
 
 // Which kinds of contract a business's trades make. The lawyer PDF prints one
-// part per kind, so there is no trade the PDF cannot be built for.
-function wizLawyerKinds(trades) {
+// part per kind. A category the wizard knows has no contract in Apex yet (cakes,
+// boutique, water, or "Something else") makes none: the wizard stores "general"
+// for those so the estimate screens keep working, and "general" alone must not
+// turn into a remodeling contract for a baker. A business that never picked a
+// category in the wizard and has no trade set keeps the old answer (construction).
+function wizNoContractCat(cat) {
+    if (cat === "other") { return true; }
+    var c = (WIZARD_V1.categories || []).filter(function(x) { return x.key === cat; })[0];
+    return !!c && c.contract_available === false;
+}
+function wizLawyerKinds(trades, cat) {
     var t = Array.isArray(trades) ? trades : [], out = [];
+    if (wizNoContractCat(cat)) {
+        t = t.filter(function(k) { return k !== "general"; });
+        if (!t.length) { return out; }
+    }
     if (!t.length || t.some(function(k) { return CONTRACT_CONSTRUCTION_TRADE_KEYS.indexOf(k) !== -1; })) { out.push("construction"); }
     if (t.indexOf("cleaning") !== -1) { out.push("cleaning"); }
     return out;
+}
+// What the Review stage and Settings, Contracts show about the contract.
+async function wizContractInfo(env, id, cs) {
+    var st = null;
+    try { st = await wizStateRow(env, id); } catch (e) { st = null; }
+    var cat = wizAnswers(st).cat;
+    var kinds = wizLawyerKinds((cs || await contractSettingsRow(env, id)).trades, cat);
+    return { kinds: kinds, available: kinds.length > 0 };
 }
 
 function wizMd(text) { return wizEsc(text).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>"); }
@@ -57648,7 +57671,8 @@ async function wizLawyerHtml(env, id) {
     var cs = await contractSettingsRow(env, id);
     var doc = await gmDocSettingsRow(env, id);
     var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first() || {};
-    var kinds = wizLawyerKinds(cs.trades);
+    var kinds = wizLawyerKinds(cs.trades, wizAnswers(await wizStateRow(env, id)).cat);
+    if (!kinds.length) { return { html: null, areas: 0, kinds: [] }; }
     var lib = await contractLibraryForClient(env, id, 1, cs.trades.length ? cs.trades : null);
     if (!lib) { return null; }
     var admin = await contractAdminSettings(env);
@@ -57673,6 +57697,8 @@ async function handlePostGmWizardLawyerPdf(id, request, env) {
         if (a.err) { return a.err; }
         var built = await wizLawyerHtml(env, id);
         if (!built) { return jsonErr2("A biblioteca de cláusulas não está disponível.", "The clause library is not available.", 503); }
+        // No contract for this kind of work yet: the pages hide the button, and an old page that still asks gets a plain answer, not an error.
+        if (!built.kinds.length) { return jsonOk({ available: false, url: null, areas: 0, kinds: [], pages: 0 }); }
         var puppeteer = (await import("@cloudflare/puppeteer")).default;
         var browser = await docPdfLaunch(puppeteer, env), bytes;
         try {

@@ -119,12 +119,18 @@ function swLoad() {
   return Promise.all([gmApi("wizard"), gmApi("doc-settings"), gmApi("contract-settings"), gmApi("booking-settings")]).then(function(r) {
     SW.d = r[0]; SW.doc = r[1].settings; SW.cs = r[2]; SW.bk = r[3].settings || r[3];
     gmDocSettings = SW.doc;
-    SW.ready = true;
+    SW.ready = true; SW.contractFresh = true;
     if (!SW.d.ready) { throw new Error(swT("O assistente ainda não está pronto.", "The setup wizard is not ready yet.")); }
     SW.web.url = (SW.d.answers && SW.d.answers.website_url) || SW.web.url;
   }).catch(function(e) {
     SW.ready = false; SW.loadErr = e.message || String(e); console.error("wizard load: " + SW.loadErr);
   });
+}
+// Review shows the lawyer links only when Apex has a contract for the owner's kind of work.
+// The answer comes from the server, fresh each time Review opens (the kind of work may have just changed).
+function swContractRefresh() {
+  SW.contractFresh = false;
+  return gmApi("wizard").then(function(d) { SW.d.contract = d.contract; SW.contractFresh = true; if (SW.stage === 11) { swRender(); } }).catch(function() { SW.contractFresh = true; if (SW.stage === 11) { swRender(); } });
 }
 function swRefreshStatus() {
   return gmApi("wizard").then(function(d) { SW.d.done = d.done; SW.d.missing = d.missing; SW.d.setup_completed_at = d.setup_completed_at; });
@@ -165,6 +171,7 @@ function swRenderError() {
 function swGo(n, noSave) {
   swFlush();
   SW.stage = Math.max(1, Math.min(11, n));
+  if (SW.stage === 11) { swContractRefresh(); }
   if (!noSave) { swSaveQuiet("stage", function() { return swStageSave(SW.stage); }); }
   swRender();
   var root = swEl("swRoot"); if (root) { root.scrollTop = 0; }
@@ -812,9 +819,14 @@ function swReviewStage() {
   var h = '<h1>' + swT("Revisão", "Review") + '</h1><p class="sw-lead">' + swT("Leia tudo. Toque em Mudar no que não estiver certo.", "Read it over. Tap Change on anything that is not right.") + '</p><div>';
   lines.forEach(function(l) { h += '<div class="sw-rl"><div><span class="sw-rk">' + swEsc(l[0]) + '</span><span class="sw-rv">' + swEsc(l[1]) + '</span></div><button type="button" class="sw-link" data-act="jump" data-i="' + l[2] + '"' + swH("review", 1) + '>' + swT("Mudar", "Change") + '</button></div>'; });
   h += '</div>';
-  h += '<div style="margin-top:26px"><p class="sw-lead" style="margin:0 0 6px">' + swT("Recomendamos que um advogado confira o seu contrato antes de você usá-lo. A Apex não dá aconselhamento jurídico. Você pode começar agora.", "We recommend that a lawyer checks your contract before you use it. Apex does not give legal advice. You can start now.") + '</p>' +
-    '<div class="sw-chips"><button type="button" class="sw-link" data-act="clauses"' + swH("review", 2) + '>' + swT("Revisar cláusula por cláusula", "Review clause by clause") + '</button><button type="button" class="sw-link" data-act="lawyer-pdf"' + swH("review", 3) + (SW.pdfBusy ? " disabled" : "") + '>' + (SW.pdfBusy ? swT("Preparando o PDF…", "Preparing the PDF…") : swT("Exportar um PDF para o meu advogado", "Export a PDF for my lawyer")) + '</button></div>' +
-    (SW.pdfErr ? '<p class="sw-fine" style="color:var(--sw-err)">' + swEsc(SW.pdfErr) + '</p>' : '') + '</div>';
+  var noContract = SW.d.contract && SW.d.contract.available === false;
+  if (noContract) {
+    h += '<div style="margin-top:26px"><p class="sw-lead" style="margin:0" id="swNoContract">' + swT("Um contrato para este tipo de trabalho ainda não está disponível na Apex. Você pode começar agora.", "A contract for this kind of work is not available in Apex yet. You can start now.") + '</p></div>';
+  } else if (SW.contractFresh) {
+    h += '<div style="margin-top:26px"><p class="sw-lead" style="margin:0 0 6px">' + swT("Recomendamos que um advogado confira o seu contrato antes de você usá-lo. A Apex não dá aconselhamento jurídico. Você pode começar agora.", "We recommend that a lawyer checks your contract before you use it. Apex does not give legal advice. You can start now.") + '</p>' +
+      '<div class="sw-chips"><button type="button" class="sw-link" data-act="clauses"' + swH("review", 2) + '>' + swT("Revisar cláusula por cláusula", "Review clause by clause") + '</button><button type="button" class="sw-link" data-act="lawyer-pdf"' + swH("review", 3) + (SW.pdfBusy ? " disabled" : "") + '>' + (SW.pdfBusy ? swT("Preparando o PDF…", "Preparing the PDF…") : swT("Exportar um PDF para o meu advogado", "Export a PDF for my lawyer")) + '</button></div>' +
+      (SW.pdfErr ? '<p class="sw-fine" style="color:var(--sw-err)">' + swEsc(SW.pdfErr) + '</p>' : '') + '</div>';
+  }
   if (SW.finishErr) { h += swCallout(swT("Não deu para começar", "Could not start"), SW.finishErr, "review", 4, true); }
   return { html: h, need: [], ok: true };
 }
@@ -1001,6 +1013,7 @@ function swLawyerPdf() {
   if (SW.pdfBusy) { return; }
   SW.pdfBusy = true; SW.pdfErr = ""; swRender();
   gmApi("wizard/lawyer-pdf", { method: "POST", body: {} }).then(function(d) {
+    if (d && d.available === false) { SW.d.contract = { available: false, kinds: [] }; return; }
     if (!d || !d.url) { throw new Error(swT("O PDF não ficou pronto.", "The PDF was not ready.")); }
     if (gmInApp()) { apexOpenExternal(d.url); } else { var lk = document.createElement("a"); lk.href = d.url; lk.target = "_blank"; lk.rel = "noopener"; document.body.appendChild(lk); lk.click(); document.body.removeChild(lk); }
   }).catch(function(e) { SW.pdfErr = e.message; }).then(function() { SW.pdfBusy = false; swRender(); });

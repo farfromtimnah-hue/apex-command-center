@@ -174,14 +174,14 @@ ok(core.sniffImage(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0])) === "image/png" 
 
 // ── 9b. Lawyer PDF: no kind of contract is refused ────────────────────────
 ok(!/notYet|not_available|ainda não existe para contratos de limpeza/.test(WORKER.slice(WORKER.indexOf("async function wizLawyerHtml"), WORKER.indexOf("// GET /api/pdf/lawyer/:token"))), "Lawyer PDF: no refusal answer is left in the PDF code");
-const kindsSrc = /function wizLawyerKinds\(trades\) \{[\s\S]*?\n\}/.exec(WORKER);
+const kindsSrc = /function wizNoContractCat\(cat\) \{[\s\S]*?\n\}\nfunction wizLawyerKinds\(trades, cat\) \{[\s\S]*?\n\}/.exec(WORKER);
 ok(!!kindsSrc, "Lawyer PDF: the trade to contract kind function exists");
 const CONSTRUCTION = ["pools", "tile", "remodeling", "hardscape", "general"];
-const wizLawyerKinds = new Function("CONTRACT_CONSTRUCTION_TRADE_KEYS", kindsSrc[0] + "; return wizLawyerKinds;")(CONSTRUCTION);
+const wizLawyerKinds = new Function("CONTRACT_CONSTRUCTION_TRADE_KEYS", "WIZARD_V1", kindsSrc[0] + "; return wizLawyerKinds;")(CONSTRUCTION, WIZ);
 let everyCat = true; const seenKinds = {};
-WIZ.categories.forEach(c => { const k = wizLawyerKinds(c.contract_trades); if (!k.length || k.some(x => ["construction", "cleaning"].indexOf(x) < 0)) { everyCat = false; } k.forEach(x => { seenKinds[x] = 1; }); });
-ok(everyCat && seenKinds.construction && seenKinds.cleaning, "Lawyer PDF: all " + WIZ.categories.length + " work categories the wizard can pick give a contract kind with a PDF part (cleaning and construction)");
-ok(wizLawyerKinds(["general", "cleaning"]).join() === "construction,cleaning" && wizLawyerKinds([]).join() === "construction", "Lawyer PDF: a mixed business gets both parts, a business with no trades gets the construction part");
+WIZ.categories.forEach(c => { const k = wizLawyerKinds(c.contract_trades, c.key); if (c.contract_available === false) { if (k.length) { everyCat = false; } return; } if (!k.length || k.some(x => ["construction", "cleaning"].indexOf(x) < 0)) { everyCat = false; } k.forEach(x => { seenKinds[x] = 1; }); });
+ok(everyCat && seenKinds.construction && seenKinds.cleaning, "Lawyer PDF: every work category the wizard can pick gives a contract kind with a PDF part, or says plainly it has none (" + WIZ.categories.length + " checked)");
+ok(wizLawyerKinds(["general", "cleaning"]).join() === "construction,cleaning" && wizLawyerKinds([]).join() === "construction", "Lawyer PDF: a mixed business gets both parts, a business that never picked a kind in the wizard and has no trades keeps the construction part");
 ok(/footerTemplate/.test(WORKER) && /pageNumber/.test(WORKER) && /Apex is not a law firm and gives no legal advice/.test(WORKER), "Lawyer PDF: page numbers in the footer and the not a law firm notice on the cover");
 ok(/wizLawyerCleaning/.test(WORKER) && /contractCleaningAreasView/.test(WORKER), "Lawyer PDF and Contract settings both build cleaning clause areas from the same helper");
 const GMJS = read("gm.js");

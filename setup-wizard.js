@@ -795,7 +795,18 @@ function swTeam() {
       if (typeof portalPeopleLoad === "function") { portalPeopleLoad().then(function() { var sg = swEl("swSigners"); if (sg && SW.stage === 9) { sg.innerHTML = swSignersHtml(); } }); }
     };
   }
-  return { html: h, need: [swT("se você trabalha sozinho ou com equipe", "whether you work alone or with a team")], ok: !!mode, after: after };
+  // Contracts cannot be sent without a name that signs for the company: ask for it here, never guess it.
+  var cs0 = swCs(), osn = String(cs0.owner_signer_name || "").trim(), hasSigner = !!osn || (cs0.signers || []).length > 0;
+  if (mode) {
+    var sug = String((SW.cs && SW.cs.suggested && SW.cs.suggested.qualifier_name) || "").trim();
+    h += '<div class="sw-row"><label class="sw-l" for="swf-osign"' + swH("team", 2) + '>' + swT("Nome de quem assina os seus contratos", "Name of the person who signs your contracts") + '</label><input id="swf-osign" type="text" data-bind="osign"' + swH("team", 2) + ' value="' + swEsc(osn) + '" placeholder="' + swEsc(sug || swT("Nome e sobrenome", "First and last name")) + '" autocomplete="name">';
+    if (!osn && sug) { h += '<button type="button" class="sw-link" data-act="osign-use" data-n="' + swEsc(sug) + '"' + swH("team", 2) + '>' + swT("Usar ", "Use ") + swEsc(sug) + '</button>'; }
+    h += '</div>';
+  }
+  var need = [];
+  if (!mode) { need.push(swT("se você trabalha sozinho ou com equipe", "whether you work alone or with a team")); }
+  else if (!hasSigner) { need.push(swT("o nome de quem assina os contratos", "the name of the person who signs contracts")); }
+  return { html: h, need: need, ok: need.length === 0, after: after };
 }
 function swSignersHtml() {
   var cs = swCs(), list = cs.signers || [], d = SW.signerDraft || { name: "", phone: "" };
@@ -964,6 +975,7 @@ function swBind(root) {
     if (act === "booking") { var bk = SW.bk || {}, cur = bk.exists !== undefined ? !!bk.enabled : true; SW.bk = Object.assign({}, bk, { enabled: !cur, exists: true }); swSaveQuiet("booking", function() { return gmApi("booking-settings", { method: "PUT", body: { enabled: !cur } }); }); swRender(); return; }
     if (act === "reflang") { a.ref_lang = v; swSaveQuiet("reflang", function() { return apiFetch("/api/clients/" + clientId + "/referral-settings", { method: "PUT", body: { language: v } }).then(function(r) { if (!r.ok) { throw new Error("HTTP " + r.status); } return gmApi("wizard", { method: "PUT", body: { answers: { ref_lang: v } } }); }); }); swRender(); return; }
     if (act === "team") { a.team_mode = v; swAnswer({ team_mode: v }).catch(function() {}); swRender(); return; }
+    if (act === "osign-use") { var nm = el.getAttribute("data-n") || ""; swCs().owner_signer_name = nm; swSaveQuiet("osign", function() { return gmApi("contract-settings", { method: "PUT", body: { owner_signer_name: nm } }); }); swRender(); return; }
     if (act === "signer-pick") { SW.signerDraft = { name: el.getAttribute("data-n"), phone: "" }; SW.signerErr = ""; swRender(); return; }
     if (act === "signer-rm") { var sl = (swCs().signers || []).slice(); sl.splice(parseInt(el.getAttribute("data-i"), 10), 1); swSignersSave(sl); return; }
     if (act === "signer-add") {
@@ -1000,6 +1012,7 @@ function swBind(root) {
     if (bind === "color") { var ck = t.getAttribute("data-k"); d[ck] = t.value; if (ev.type === "change") { var cb = {}; cb[ck] = t.value; swSaveQuiet("color", function() { return swDocPut(cb); }); swRender(); } else { swRefreshHero(); } return; }
     if (bind === "state") { swCs().values.business_state = t.value; SW.licKey = ""; swSaveQuiet("state", function() { return gmApi("wizard/business", { method: "PUT", body: { state: t.value } }); }); swGate(); return; }
     if (bind === "phone" || bind === "address") { d[bind] = t.value; var pv = t.value, pb = {}; pb[bind] = pv; swTyped("biz-" + bind, function() { swSaveQuiet("business", function() { return gmApi("wizard/business", { method: "PUT", body: pb }); }); }); swGate(); return; }
+    if (bind === "osign") { swCs().owner_signer_name = t.value; var ov2 = t.value; swTyped("osign", function() { swSaveQuiet("osign", function() { return gmApi("contract-settings", { method: "PUT", body: { owner_signer_name: ov2 || null } }); }); }); swGate(); return; }
     if (bind === "dba") { swCs().values.business_dba = t.value; var dv = t.value; swTyped("dba", function() { swSaveQuiet("dba", function() { return gmApi("wizard/business", { method: "PUT", body: { dba: dv } }); }); }); return; }
     if (bind === "other") { a.other_text = t.value; var ov = t.value; swTyped("other", function() { swSaveQuiet("other", function() { return gmApi("wizard/work", { method: "PUT", body: { cat: "other", subs: [], other_text: ov } }).then(function() { if (ov.trim().length > 2) { return gmApi("wizard/other-work", { method: "POST", body: { text: ov } }); } }); }); }); swGate(); return; }
     if (bind === "lic") { var li = parseInt(t.getAttribute("data-i"), 10), L = (d.license_numbers && d.license_numbers.length) ? d.license_numbers.slice() : [""]; L[li] = t.value; d.license_numbers = L; swTyped("lic", swSaveLic); swGate(); return; }

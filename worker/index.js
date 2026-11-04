@@ -55730,7 +55730,7 @@ async function docPdfByToken(env, kind, token) {
     }
     if (kind === "estimate") {
         r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token, valid_until, link_disabled_at, link_enabled_at FROM gm_estimates WHERE public_token = ?").bind(token).first();
-        if (!r || r.status === "draft" || r.status === "void" || gmEstLinkDead(r)) { return null; }
+        if (!r || r.status === "void" || gmEstLinkDead(r)) { return null; }
         if (r.status === "superseded") {
             r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token FROM gm_estimates WHERE client_id = ? AND number = ? AND status NOT IN ('void','superseded','draft') ORDER BY revision DESC LIMIT 1").bind(r.client_id, r.number).first();
             if (!r) { return null; }

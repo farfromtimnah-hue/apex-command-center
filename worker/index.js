@@ -32494,8 +32494,8 @@ async function handleGetPublicEstimate(token, request, env) {
         if (limited) { return limited; }
         var est = await gmEstByToken(env, token);
         if (!est) { return jsonErr("Not found", 404); }
-        if (est.status === "draft") { return jsonErr("Not found", 404); }
-        // First load = viewed. Guarded: only a 'sent' row becomes 'viewed'.
+        // A draft is readable by its own secret link so the team can use "Preview as customer" and "Download PDF" before sending.
+        // Customers never get a draft link: it is only handed out on send. First load = viewed. Guarded: only a 'sent' row becomes 'viewed'.
         await env.DB.prepare(
             "UPDATE gm_estimates SET first_viewed_at = COALESCE(first_viewed_at, datetime('now')), last_viewed_at = datetime('now'), " +
             "status = CASE WHEN status = 'sent' THEN 'viewed' ELSE status END, updated_at = datetime('now') WHERE id = ?"

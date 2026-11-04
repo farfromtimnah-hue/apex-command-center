@@ -307,7 +307,7 @@
       if (est.customer_email) { whoLines.push(est.customer_email); }
       var rows = [["Date", escHtml(fmtDate(est.issued_on))], ["Valid until", escHtml(fmtDate(est.valid_until))], ["Job", escHtml(est.job_name || "")]];
       if (est.mode === "tiered") { rows.push(["Options", "Best / Better / Good"]); }
-      var stamp = est.status === "accepted" ? '<span class="stamp ok">ACCEPTED ' + escHtml(fmtDate(est.accepted_at)) + '</span>' : "";
+      var stamp = est.status === "draft" ? '<span class="stamp">DRAFT, NOT SENT</span>' : est.status === "accepted" ? '<span class="stamp ok">ACCEPTED ' + escHtml(fmtDate(est.accepted_at)) + '</span>' : "";
       var o = currentOption();
       var tile = { label: est.mode === "tiered" ? (est.accepted_option_id ? "Accepted option" : escHtml(tierLabel(o)) + " option") + " total" : "Estimate total", value: money(o ? o.total_cents : 0) };
       var card = byId("cardMeta");

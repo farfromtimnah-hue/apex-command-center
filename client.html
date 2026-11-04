@@ -4559,7 +4559,7 @@
         .split("{username}").join(generatedSellerCredentials.username)
         .split("{tempPassword}").join(generatedSellerCredentials.temp_password);
       var digits = ((clientData && (clientData.whatsapp || clientData.phone)) || "").replace(/\D/g, "");
-      var waUrl = (digits.length >= 10 ? "https://wa.me/" + digits : "https://wa.me/") +
+      var waUrl = (digits.length >= 10 ? "https://wa.me/" + (digits.length === 10 ? "1" + digits : digits) : "https://wa.me/") +
                   "?text=" + encodeURIComponent(msg);
       var waTab = window.open(waUrl, "_blank");
       if (!waTab) {
@@ -5012,7 +5012,7 @@
       var res = ownerInvite.result;
       if (!res) { return; }
       var digits = String(res.whatsapp_digits || "").replace(/\D/g, "");
-      var waUrl = (digits.length >= 10 ? "https://wa.me/" + digits : "https://wa.me/") +
+      var waUrl = (digits.length >= 10 ? "https://wa.me/" + (digits.length === 10 ? "1" + digits : digits) : "https://wa.me/") +
                   "?text=" + encodeURIComponent(res.message || res.invite_url);
       var waTab = window.open(waUrl, "_blank");
       if (!waTab) {
@@ -5321,7 +5321,7 @@
         "Entre com o mesmo usuário e senha que você usa no portal.";
       var msg = tpl.split("{appUrl}").join(APEX_APP_STORE_URL);
       var digits = ((clientData && (clientData.whatsapp || clientData.phone)) || "").replace(/\D/g, "");
-      var waUrl = (digits.length >= 10 ? "https://wa.me/" + digits : "https://wa.me/") +
+      var waUrl = (digits.length >= 10 ? "https://wa.me/" + (digits.length === 10 ? "1" + digits : digits) : "https://wa.me/") +
                   "?text=" + encodeURIComponent(msg);
       var waTab = window.open(waUrl, "_blank");
       if (!waTab) {
@@ -5347,7 +5347,7 @@
         .split("{username}").join(generatedCredentials.username)
         .split("{tempPassword}").join(generatedCredentials.temp_password);
       var digits = ((clientData && (clientData.whatsapp || clientData.phone)) || "").replace(/\D/g, "");
-      var waUrl = (digits.length >= 10 ? "https://wa.me/" + digits : "https://wa.me/") +
+      var waUrl = (digits.length >= 10 ? "https://wa.me/" + (digits.length === 10 ? "1" + digits : digits) : "https://wa.me/") +
                   "?text=" + encodeURIComponent(msg);
       var waTab = window.open(waUrl, "_blank");
       if (!waTab) {

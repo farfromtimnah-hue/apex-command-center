@@ -3813,7 +3813,7 @@
       var inv = peopleState.lastInvite;
       if (!inv) { return; }
       var digits = String(inv.whatsapp_digits || "").replace(/\D/g, "");
-      var waUrl = (digits.length >= 10 ? "https://wa.me/" + digits : "https://wa.me/") +
+      var waUrl = (digits.length >= 10 ? "https://wa.me/" + (digits.length === 10 ? "1" + digits : digits) : "https://wa.me/") +
         "?text=" + encodeURIComponent(inv.message || inv.invite_url);
       var waTab = window.open(waUrl, "_blank");
       if (!waTab) {

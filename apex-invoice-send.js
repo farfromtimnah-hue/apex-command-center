@@ -42,7 +42,7 @@
 
   function waUrlFor(inv, message) {
     return "https://wa.me/" +
-      (inv.client_whatsapp ? String(inv.client_whatsapp).replace(/[^0-9]/g, "") : "") +
+      (inv.client_whatsapp ? (function (d) { return d.length === 10 ? "1" + d : d; })(String(inv.client_whatsapp).replace(/[^0-9]/g, "")) : "") +
       "?text=" + encodeURIComponent(message);
   }
 

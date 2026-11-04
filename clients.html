@@ -1582,7 +1582,7 @@
       // window.open must run synchronously in the click handler — any await gap
       // before it lets the popup blocker fire (confirmed project lesson).
       var digits = (p.client_whatsapp || p.client_phone || "").replace(/\D/g, "");
-      var waUrl  = (digits.length >= 10 ? "https://wa.me/" + digits : "https://wa.me/") +
+      var waUrl  = (digits.length >= 10 ? "https://wa.me/" + (digits.length === 10 ? "1" + digits : digits) : "https://wa.me/") +
                    "?text=" + encodeURIComponent(buildResourceMessage(p));
       var waTab = window.open(waUrl, "_blank");
       if (!waTab) {

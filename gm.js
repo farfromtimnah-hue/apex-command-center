@@ -14353,7 +14353,7 @@ function gmEstWizStep8() {
   h += '<div class="gm-est-preview-cat">Terms</div>';
   if (w.terms_included) { h += '<p><strong>Included</strong><br>' + escHtml(w.terms_included) + '</p>'; }
   if (w.terms_excluded) { h += '<p><strong>Not included</strong><br>' + escHtml(w.terms_excluded) + '</p>'; }
-  if (w.customer_notes) { h += '<p><strong>Notes</strong><br>' + escHtml(w.customer_notes) + '</p>'; }
+  if (w.customer_notes) { h += '<p style="white-space:pre-wrap;"><strong>Notes</strong><br>' + escHtml(w.customer_notes) + '</p>'; }
   h += '<p><strong>Validity</strong><br>This estimate is valid until ' + escHtml(formatDate(w.valid_until)) + '.</p>';
   if (ds.late_fee_annual_pct) {
     h += '<p><strong>Late payment</strong><br>Payments more than ' + escHtml(String(ds.late_fee_grace_days || 0)) + ' days late accrue interest at ' + escHtml(String(ds.late_fee_annual_pct)) + '% per year.</p>';

@@ -391,7 +391,7 @@
       var t = "";
       if (est.terms_included) { t += '<b>Included</b><p>' + escHtml(est.terms_included) + '</p>'; }
       if (est.terms_excluded) { t += '<b>Not included</b><p>' + escHtml(est.terms_excluded) + '</p>'; }
-      if (est.customer_notes) { t += '<b>Notes</b><p>' + escHtml(est.customer_notes) + '</p>'; }
+      if (est.customer_notes) { t += '<b>Notes</b><p style="white-space:pre-wrap;">' + escHtml(est.customer_notes) + '</p>'; }
       t += '<b>Validity</b><p>This estimate is valid until ' + escHtml(fmtDate(est.valid_until)) + '.</p>';
       t += lateFeeTerms(b);
       var te = byId("terms"); if (te) { te.innerHTML = t; }

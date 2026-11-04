@@ -31687,7 +31687,7 @@ async function gmEstParseBody(env, id, body, settings) {
     f.schedule_json = JSON.stringify(sched.steps);
     f.terms_included = gmStr(body.terms_included, 4000);
     f.terms_excluded = gmStr(body.terms_excluded, 4000);
-    f.customer_notes = gmStr(body.customer_notes, 4000);
+    f.customer_notes = gmStr(body.customer_notes, 12000);
     f.internal_notes = gmStr(body.internal_notes, 4000);
     var parsed = await gmEstParseOptions(env, id, body, !!(settings && settings._trust_body_costs));
     if (parsed.error) { return { error: parsed.error }; }

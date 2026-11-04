@@ -318,7 +318,7 @@
       var terms = "";
       if (est.terms_included) { terms += '<b>Included</b><p>' + escHtml(est.terms_included) + '</p>'; }
       if (est.terms_excluded) { terms += '<b>Not included</b><p>' + escHtml(est.terms_excluded) + '</p>'; }
-      if (est.customer_notes) { terms += '<b>Notes</b><p>' + escHtml(est.customer_notes) + '</p>'; }
+      if (est.customer_notes) { terms += '<b>Notes</b><p>' + String(est.customer_notes).split(/\n\s*\n/).map(escHtml).join('</p><p>') + '</p>'; }
       terms += '<b>Validity</b><p>This estimate is valid until ' + escHtml(fmtDate(est.valid_until)) + '.</p>';
       if (b.late_fee_annual_pct) { terms += '<b>Late payment</b><p>Payments more than ' + escHtml(String(b.late_fee_grace_days || 0)) + ' days late accrue interest at ' + escHtml(String(b.late_fee_annual_pct)) + '% per year on the unpaid balance, counted from the due date.</p>'; }
       blocks.push({ html: '<div class="blk sec-title">Terms</div>', kind: "block", keepWithNext: true });

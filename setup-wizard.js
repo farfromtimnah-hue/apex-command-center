@@ -458,7 +458,7 @@ function swBusiness() {
 function swWork() {
   var a = SW.d.answers, cat = a.cat, c = swCat(cat);
   var h = '<h1>' + swT("O que você faz", "What you do") + '</h1><p class="sw-lead">' + swT("Toque em tudo o que você faz. A Apex só pergunta o que serve para você.", "Tap everything you do. Apex only asks about what applies to you.") + '</p>';
-  if (!cat) { return { html: h + swCallout(swT("Escolha o seu ramo primeiro", "Choose your kind of work first"), swT("Volte à etapa Sua marca e toque no seu ramo.", "Go back to Your brand and tap your kind of work."), "brand", 5), need: [swT("o seu ramo (etapa 1)", "your kind of work (stage 1)")], ok: false }; }
+  if (!cat) { return { html: h + swCallout(swT("Escolha o seu ramo primeiro", "Choose your kind of work first"), swT("Volte à etapa Sua marca e toque no seu ramo.", "Go back to Your brand and tap your kind of work."), "brand", 5) + '<button type="button" class="sw-link" data-act="goto" data-v="1"' + swH("brand", 5) + '>' + swT("Escolher o meu ramo agora", "Choose my kind of work now") + '</button>', need: [swT("o seu ramo (etapa 1)", "your kind of work (stage 1)")], ok: false }; }
   if (cat === "other") {
     h += '<div class="sw-row"><label class="sw-l" for="swOther"' + swH("work", 2) + '>' + swT("Conte o que você faz", "Tell us what you do") + '</label><input id="swOther" type="text" maxlength="200" data-bind="other"' + swH("work", 2) + ' value="' + swEsc(a.other_text || "") + '" placeholder="' + swT("Por exemplo, fazenda de árvores de Natal", "For example, Christmas tree farm") + '"></div>';
     h += swCallout(swT("Vamos configurar para você", "We will set this up for you"), swT("O seu tipo de trabalho é novo para a Apex. A nossa equipe é avisada e vai adicionar o que você precisa. Você pode continuar agora.", "Your kind of work is new to Apex. Our team is alerted and will add what you need. You can keep going now."), "work", 2);
@@ -902,6 +902,7 @@ function swBind(root) {
     if (act === "close") { swClose(); return; }
     if (act === "reload") { swOpen(SW.stage); return; }
     if (act === "back") { swGo(SW.stage - 1); return; }
+    if (act === "goto") { swGo(Number(v) || 1); return; }
     if (act === "next") { swNext(); return; }
     if (act === "retry-save") { if (SW.saveRetry) { var fn = SW.saveRetry; swSaveQuiet("retry", fn); } return; }
     if (act === "jump") { swGo(parseInt(el.getAttribute("data-i"), 10)); return; }

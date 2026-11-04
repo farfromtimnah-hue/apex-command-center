@@ -188,8 +188,18 @@ function swRenderError() {
     swCallout(swT("Não foi possível abrir a configuração", "Could not open the setup"), SW.loadErr || "", "brand", 1, true) +
     '<button type="button" class="sw-btn" data-act="reload"' + swH("brand", 1) + '>' + swT("Tentar de novo", "Try again") + '</button></div>';
 }
+// Anything a later step depends on that was never answered is asked for now, on the step that holds it,
+// instead of letting the owner reach a screen that cannot go on (Gator Outdoor Living, 2026-11-04: filled in on the old setup, so the kind of work was never asked).
+function swAskMissing(n) {
+  var a = (SW.d && SW.d.answers) || {}, v = (swCs() && swCs().values) || {};
+  SW.ask = "";
+  if (n > 1 && !a.cat) { SW.ask = swT("Antes de continuar, escolha o seu ramo de trabalho.", "Before you continue, pick your kind of work."); return 1; }
+  if (n > 3 && !v.business_state) { SW.ask = swT("Antes de continuar, informe o estado onde você trabalha.", "Before you continue, tell us the state where you work."); return 2; }
+  return n;
+}
 function swGo(n, noSave) {
   swFlush();
+  n = swAskMissing(Math.max(1, Math.min(11, n)));
   SW.stage = Math.max(1, Math.min(11, n));
   if (SW.stage === 7 || SW.stage === 9 || SW.stage === 11) { swContractRefresh(); }
   if (!noSave) { swSaveQuiet("stage", function() { return swStageSave(SW.stage); }); }
@@ -213,6 +223,7 @@ function swRender() {
   var root = swRoot();
   var y = root.scrollTop;
   var st = swStageHtml();
+  if (SW.ask && !st.ok) { st.html = swCallout(swT("Falta uma resposta", "One answer is missing"), SW.ask, "brand", 5, true) + st.html; }
   var wide = SW.stage === 1;
   var body = wide
     ? '<div class="sw-layout"><div class="sw-herocol">' + swHeroHtml() + '</div><div class="sw-q">' + st.html + '</div></div>'
@@ -507,7 +518,7 @@ function swLicense() {
   var okLic = nums > 0 || d.license_not_required === true;
   var h = '<h1>' + swT("Sua licença", "Your license") + '</h1>';
   if (!st || !a.cat || (a.cat !== "other" && !(a.subs || []).length)) {
-    h += swCallout(swT("Falta uma resposta antes", "An earlier answer is needed first"), swT("Informe o estado e o que você faz nas etapas anteriores. A Apex confere a regra do seu estado com isso.", "Give your state and your kind of work in the earlier stages. Apex checks your state's rule with them."), "business", 1);
+    h += swCallout(swT("Falta uma resposta antes", "An earlier answer is needed first"), swT("Informe o estado e o que você faz nas etapas anteriores. A Apex confere a regra do seu estado com isso.", "Give your state and your kind of work in the earlier stages. Apex checks your state's rule with them."), "business", 1) + '<button type="button" class="sw-link" data-act="goto" data-v="' + (!st ? 2 : 1) + '"' + swH("business", 1) + '>' + swT("Responder agora", "Answer it now") + '</button>';
     return { html: h, need: [swT("estado e tipo de trabalho", "state and kind of work")], ok: false };
   }
   swLicenseFetch();

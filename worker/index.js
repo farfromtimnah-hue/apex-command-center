@@ -240,6 +240,12 @@ var DOC_PAGE_ORIGIN = "https://doc.resonateai.online";
 
 function corsOriginFor(request) {
     var origin = request && request.headers ? request.headers.get("Origin") : null;
+    // Website lead intake is posted from the CLIENT's own website, an origin we
+    // cannot list. The link slug in the path is the only credential and the
+    // route returns nothing but {created:true}, so any origin may call it.
+    if (origin) {
+        try { if (new URL(request.url).pathname.indexOf("/api/website-lead/") === 0) { return "*"; } } catch (e) {}
+    }
     if (origin && (ALLOWED_ORIGINS.indexOf(origin) !== -1 || (typeof DEV_TEST_ORIGINS !== "undefined" && DEV_TEST_ORIGINS.indexOf(origin) !== -1))) { return origin; }
     if (origin === DOC_PAGE_ORIGIN) {
         try { if (PUBLIC_DOC_PATH_RE.test(new URL(request.url).pathname)) { return origin; } } catch (e) {}
@@ -26461,6 +26467,81 @@ async function handlePostLinkPageLead(slug, request, env) {
             observacao: "Recebido pela página pública (link na bio)."
         });   // no actor: public form, no authenticated user
         // Deliberately no lead id / no data in the public response.
+        return jsonOk({ created: true });
+    } catch (e) {
+        return jsonErr("Error submitting lead", 500);
+    }
+}
+
+// PUBLIC website-form intake. The client's own website posts here and the lead
+// lands in gm_leads as a new lead with origem "Site". Same slug and same rate
+// ledger as the link-in-bio intake. Accepts JSON or a normal form post.
+async function handlePostWebsiteLead(slug, request, env) {
+    try {
+        var client = await gmClientByLinkSlug(env, slug);
+        if (!client) { return jsonErr("Not found", 404); }
+        var ip = request.headers.get("CF-Connecting-IP") || "";
+        var hitKey = "wl:" + slug;
+        var slugHits = await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM gm_referral_hits WHERE slug = ? AND created_at > datetime('now', '-1 hour')"
+        ).bind(hitKey).first();
+        var ipHits = ip ? await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM gm_referral_hits WHERE ip = ? AND created_at > datetime('now', '-1 hour')"
+        ).bind(ip).first() : { c: 0 };
+        if ((slugHits && slugHits.c >= 60) || (ipHits && ipHits.c >= 20)) {
+            return jsonErr("Too many attempts. Try again later.", 429);
+        }
+        await env.DB.prepare("INSERT INTO gm_referral_hits (id, slug, ip) VALUES (?, ?, ?)")
+            .bind(crypto.randomUUID(), hitKey, ip || null).run();
+
+        var body = {};
+        var ctype = String(request.headers.get("Content-Type") || "").toLowerCase();
+        try {
+            if (ctype.indexOf("application/json") !== -1 || ctype.indexOf("text/plain") !== -1) {
+                body = JSON.parse(await request.text());
+            } else {
+                var fd = await request.formData();
+                fd.forEach(function(v, k) { if (typeof v === "string") { body[k] = v; } });
+            }
+        } catch (e2) { body = {}; }
+
+        // Honeypot: a hidden field named apex_hp that people never fill in.
+        if (gmStr(body.apex_hp, 200) !== null) { return jsonOk({ created: true }); }
+
+        function pick(keys, max) {
+            for (var i = 0; i < keys.length; i++) {
+                var v = gmStr(body[keys[i]], max);
+                if (v) { return v; }
+            }
+            return null;
+        }
+        var first = pick(["first_name", "firstName", "fname"], 100);
+        var last = pick(["last_name", "lastName", "lname"], 100);
+        var nome = pick(["name", "full_name", "fullName", "nome"], 200) ||
+            [first, last].filter(Boolean).join(" ") || null;
+        var telefone = pick(["phone", "telephone", "tel", "mobile", "telefone"], 60);
+        var email = pick(["email", "e-mail"], 200);
+        var address = pick(["address", "street", "street_address", "endereco"], 300);
+        var service = pick(["service", "servico", "project_type", "service_needed"], 300);
+        var message = pick(["message", "comments", "notes", "details", "description", "mensagem"], 2000);
+        if (!nome && !telefone && !email) { return jsonErr("Name, phone or email is required", 400); }
+        if (!nome) { nome = "Lead do site"; }
+
+        var now = gmNyNowParts();
+        var mesLead = GM_MONTH_NAMES_PT[Number(now.month) - 1];
+        var config = await gmGetConfig(env, client.id);
+        if (config.cycle_months.indexOf(mesLead) === -1) { mesLead = null; }
+
+        var obs = ["Recebido pelo formulário do site."];
+        if (service) { obs.push("Serviço: " + service); }
+        if (message) { obs.push("Mensagem: " + message); }
+        await gmInsertLead(env, client.id, {
+            cliente: nome, telefone: telefone, email: email,
+            address: address,
+            origem: "Site", estagio: "novo_lead",
+            data_lead: now.year + "-" + now.month + "-" + now.day + "T" + now.hour + ":" + now.minute,
+            mes_lead: mesLead, observacao: obs.join("\n")
+        });
         return jsonOk({ created: true });
     } catch (e) {
         return jsonErr("Error submitting lead", 500);
@@ -58235,6 +58316,8 @@ async function handleFetch(request, env, ctx) {
         // Separate path/slug space from /api/referral/ above: that one is a
         // PARTNER's link; this one is the business's own public page, with
         // no referring-person attribution at all.
+        var webLeadMatch = path.match(/^\/api\/website-lead\/([a-z2-7]{10,40})$/);
+        if (webLeadMatch && method === "POST") { return handlePostWebsiteLead(webLeadMatch[1], request, env); }
         var linkMatch = path.match(/^\/api\/link\/([a-z2-7]{10,40})$/);
         if (linkMatch) {
             if (method === "GET")  { return handleGetLinkPageInfo(linkMatch[1], request, env); }

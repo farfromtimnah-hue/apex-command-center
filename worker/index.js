@@ -26548,6 +26548,97 @@ async function handlePostWebsiteLead(slug, request, env) {
     }
 }
 
+// PUBLIC lead-source intake for Angi and Roofle. Each source posts to its own
+// address that carries the client's link slug; the slug is the credential.
+// Replaces the paid Zapier hop. Angi: JSON, wants {"status":"success"} within
+// seconds, retries on anything else. Roofle: webhook "Contact Form Completed",
+// field names confirmed from the first real lead, so the whole payload is kept.
+function leadInWalk(obj, out, depth) {
+    if (!obj || typeof obj !== "object" || depth > 4) { return; }
+    Object.keys(obj).forEach(function(k) {
+        var v = obj[k];
+        if (v && typeof v === "object") { leadInWalk(v, out, depth + 1); }
+        else if (v !== null && v !== undefined && String(v).trim() !== "") { if (!(k in out)) { out[k] = String(v).trim(); } }
+    });
+}
+async function handlePostLeadIn(source, slug, request, env) {
+    var angi = source === "angi";
+    function reply(status, extra) {
+        return jsonOk(angi ? Object.assign({ status: status }, extra || {}) : { created: status === "success" });
+    }
+    try {
+        var client = await gmClientByLinkSlug(env, slug);
+        if (!client) { return jsonErr("Not found", 404); }
+        var hitKey = "li:" + source + ":" + slug;
+        var hits = await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM gm_referral_hits WHERE slug = ? AND created_at > datetime('now', '-1 hour')"
+        ).bind(hitKey).first();
+        if (hits && hits.c >= 120) { return jsonErr("Too many requests", 429); }
+        await env.DB.prepare("INSERT INTO gm_referral_hits (id, slug, ip) VALUES (?, ?, NULL)")
+            .bind(crypto.randomUUID(), hitKey).run();
+
+        var body = {};
+        try { body = JSON.parse(await request.text()); } catch (e2) { body = {}; }
+        var flat = {};
+        leadInWalk(body, flat, 0);
+        function pick(keys, max) {
+            for (var i = 0; i < keys.length; i++) {
+                var v = flat[keys[i]];
+                if (v) { return String(v).slice(0, max); }
+            }
+            return null;
+        }
+        var first = pick(["firstName", "first_name", "firstname"], 100);
+        var last = pick(["lastName", "last_name", "lastname"], 100);
+        var nome = pick(["name", "full_name", "fullName", "contact_name", "customer_name"], 200) ||
+            [first, last].filter(Boolean).join(" ") || null;
+        var telefone = pick(["primaryPhone", "phone", "phone_number", "phoneNumber", "mobile", "telephone"], 60);
+        var email = pick(["email", "email_address", "emailAddress"], 200);
+        var street = pick(["address", "street", "street_address", "address1", "address_line_1"], 300);
+        var city = pick(["city"], 100);
+        var stateP = pick(["stateProvince", "state"], 60);
+        var zip = pick(["postalCode", "zip", "zipcode", "zip_code", "postal_code"], 20);
+        var fullAddr = [street, city, [stateP, zip].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null;
+        var leadId = pick(["leadOid", "lead_id", "leadId", "id"], 80);
+        var obs = [angi ? "Recebido do Angi." : "Recebido do Roofle."];
+        if (leadId) { obs.push((angi ? "Angi" : "Roofle") + " lead ID: " + leadId); }
+        if (angi) {
+            var task = pick(["taskName"], 300), desc = pick(["leadDescription"], 600), notes = pick(["comments"], 2000);
+            if (task) { obs.push("Serviço: " + task); }
+            if (desc && desc !== task) { obs.push(desc); }
+            if (notes) { obs.push("Notas do cliente: " + notes); }
+            if (Array.isArray(body.interview)) {
+                body.interview.slice(0, 20).forEach(function(q) {
+                    if (q && q.question) { obs.push(String(q.question).slice(0, 200) + ": " + String(q.answer || "").slice(0, 300)); }
+                });
+            }
+        } else {
+            obs.push("Dados do Roofle: " + JSON.stringify(body).slice(0, 1800));
+        }
+        if (!nome && !telefone && !email) { return angi ? jsonErr("No contact details", 400) : jsonOk({ created: false }); }
+        if (leadId) {
+            var dup = await env.DB.prepare(
+                "SELECT id FROM gm_leads WHERE client_id = ? AND origem = ? AND observacao LIKE ? LIMIT 1"
+            ).bind(client.id, angi ? "Angi" : "Roofle", "%lead ID: " + leadId + "%").first();
+            if (dup) { return reply("success", { leadId: dup.id }); }
+        }
+        var now = gmNyNowParts();
+        var config = await gmGetConfig(env, client.id);
+        var mesLead = GM_MONTH_NAMES_PT[Number(now.month) - 1];
+        if (config.cycle_months.indexOf(mesLead) === -1) { mesLead = null; }
+        var newId = await gmInsertLead(env, client.id, {
+            cliente: nome || (angi ? "Lead do Angi" : "Lead do Roofle"), telefone: telefone, email: email,
+            address: fullAddr, city: city,
+            origem: angi ? "Angi" : "Roofle", estagio: "novo_lead",
+            data_lead: now.year + "-" + now.month + "-" + now.day + "T" + now.hour + ":" + now.minute,
+            mes_lead: mesLead, observacao: obs.join("\n")
+        });
+        return reply("success", { leadId: newId });
+    } catch (e) {
+        return jsonErr("Error submitting lead", 500);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Route: GET/POST /api/clients/:id/gm/finance, PUT /gm/finance/:rowId
 // tipo is DERIVED from categoria via gm_config — a request body's tipo is
@@ -58316,6 +58407,8 @@ async function handleFetch(request, env, ctx) {
         // Separate path/slug space from /api/referral/ above: that one is a
         // PARTNER's link; this one is the business's own public page, with
         // no referring-person attribution at all.
+        var leadInMatch = path.match(/^\/api\/lead-in\/(angi|roofle)\/([a-z2-7]{10,40})$/);
+        if (leadInMatch && method === "POST") { return handlePostLeadIn(leadInMatch[1], leadInMatch[2], request, env); }
         var webLeadMatch = path.match(/^\/api\/website-lead\/([a-z2-7]{10,40})$/);
         if (webLeadMatch && method === "POST") { return handlePostWebsiteLead(webLeadMatch[1], request, env); }
         var linkMatch = path.match(/^\/api\/link\/([a-z2-7]{10,40})$/);

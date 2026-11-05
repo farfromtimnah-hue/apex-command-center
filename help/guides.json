@@ -1069,8 +1069,8 @@
             {
               "n": 11,
               "text": {
-                "pt": "Passo 7 de 8: Termos. Escreva o que está incluído e o que não está incluído. Você também define até quando o orçamento vale.",
-                "en": "Step 7 of 8: Terms. Write what is included and what is not included. You also set how long the estimate is valid."
+                "pt": "Passo 7 de 8: Termos. Escreva o que está incluído e o que não está incluído. Você também define até quando o orçamento vale. Se você salvou os seus termos padrão em Negócio, Configurações, Termos do orçamento, estes campos já vêm preenchidos. Você ainda pode mudá-los neste orçamento.",
+                "en": "Step 7 of 8: Terms. Write what is included and what is not included. You also set how long the estimate is valid. If you saved your standard terms in Business, Settings, Estimate terms, these boxes already come filled in. You can still change them for this estimate."
               },
               "image": {
                 "pt": "help/img/guides/estimate/create-send-11.jpg",
@@ -3666,7 +3666,10 @@
           "dias de carência",
           "zelle",
           "cheque",
-          "validade do orçamento"
+          "validade do orçamento",
+          "termos padrão",
+          "termos salvos",
+          "termos do orçamento"
         ],
         "en": [
           "payment methods",
@@ -3679,7 +3682,11 @@
           "grace days",
           "zelle",
           "check",
-          "estimate valid"
+          "estimate valid",
+          "standard terms",
+          "saved terms",
+          "default terms",
+          "estimate terms"
         ]
       },
       "video": null,
@@ -3854,6 +3861,37 @@
               "image": {
                 "pt": "help/img/guides/payments-and-terms/terms-15.pt.jpg",
                 "en": "help/img/guides/payments-and-terms/terms-15.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "estimate-terms",
+          "title": {
+            "pt": "Termos padrão do orçamento",
+            "en": "Saved estimate terms"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Toque em Negócio, depois Configurações, e role até Termos do orçamento. Escreva os seus textos padrão: Incluído (1), Não incluído (2) e Notas ao cliente (3). Eles são salvos enquanto você digita. As Notas ao cliente são impressas em todo orçamento.",
+                "en": "Tap Business, then Settings, and scroll to Estimate terms. Write your standard texts: Included (1), Not included (2) and Notes to customer (3). They save as you type. Notes to customer is printed on every estimate."
+              },
+              "image": {
+                "pt": "help/img/guides/payments-and-terms/estimate-terms-01.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/estimate-terms-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Comece um orçamento novo. Na etapa 7 de 8, Termos, os três campos já vêm preenchidos (1). Mude o que precisar neste orçamento. Os orçamentos que você já fez ficam com o próprio texto. Os orçamentos novos de um vendedor começam com os mesmos textos, mas só você pode mudá-los em Configurações.",
+                "en": "Start a new estimate. At step 7 of 8, Terms, the three boxes are already filled in (1). Change anything you need for this estimate. Estimates you already made keep their own text. A salesperson's new estimates start with the same texts, but only you can change them in Settings."
+              },
+              "image": {
+                "pt": "help/img/guides/payments-and-terms/estimate-terms-02.pt.jpg",
+                "en": "help/img/guides/payments-and-terms/estimate-terms-02.en.jpg"
               }
             }
           ]
@@ -19417,8 +19455,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Escreva os termos. A etapa 7 de 8 é Termos. Válido até (1) é o último dia do orçamento. Incluído (2) e Não incluído (3) dizem o que o preço cobre e o que não cobre.",
-                "en": "Write the terms. Step 7 of 8 is Terms. Valid until (1) is the last day of the estimate. Included (2) and Excluded (3) say what the price covers and what it does not."
+                "pt": "Escreva os termos. A etapa 7 de 8 é Termos. Válido até (1) é o último dia do orçamento. Incluído (2) e Não incluído (3) dizem o que o preço cobre e o que não cobre. Os dois já vêm preenchidos quando você salvou os seus termos padrão em Negócio, Configurações, Termos do orçamento.",
+                "en": "Write the terms. Step 7 of 8 is Terms. Valid until (1) is the last day of the estimate. Included (2) and Excluded (3) say what the price covers and what it does not. Both start filled in when you saved your standard terms in Business, Settings, Estimate terms."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/numbers-05.pt.jpg",
@@ -19428,8 +19466,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Notas ao cliente (1) é impressa no orçamento, então o seu cliente lê. Notas internas (2) nunca é impressa: é só para você e sua equipe.",
-                "en": "Notes to customer (1) is printed on the estimate, so your customer reads it. Internal notes (2) is never printed: it is only for you and your team."
+                "pt": "Notas ao cliente (1) é impressa no orçamento, então o seu cliente lê. Notas internas (2) nunca é impressa: é só para você e sua equipe. Ele também já vem preenchido com os seus termos padrão salvos. Mudar aqui muda só este orçamento.",
+                "en": "Notes to customer (1) is printed on the estimate, so your customer reads it. Internal notes (2) is never printed: it is only for you and your team. It also starts filled in from your saved standard terms. Changing it here changes only this estimate."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/numbers-06.pt.jpg",

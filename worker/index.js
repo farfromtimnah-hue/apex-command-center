@@ -16233,6 +16233,8 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "meta/status") { return true; }
                 // Thumbtack leads (2026-10-27): the owner's connection and phone numbers (owner only: the handler refuses a seller).
                 if (gmRest === "thumbtack/status" || gmRest === "thumbtack/phones") { return true; }
+                // ABC Supply (2026-11-04): the owner's connection, accounts and orders list (owner only: the handler refuses a seller).
+                if (gmRest === "abc/status" || gmRest === "abc/accounts" || gmRest === "abc/orders") { return true; }
                 // Hero follow-up (B3): the client's private hero collections
                 // (empty for every client not on a collection's list).
                 if (gmRest === "hero-gallery-private") { return true; }
@@ -16320,6 +16322,8 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "meta/connect" || gmRest === "meta/pages" || gmRest === "meta/disconnect") { return true; }
                 // Thumbtack leads (2026-10-27): connect, disconnect, add a phone number (owner only).
                 if (gmRest === "thumbtack/connect" || gmRest === "thumbtack/disconnect" || gmRest === "thumbtack/phones" || gmRest === "thumbtack/test-lead") { return true; }
+                // ABC Supply (2026-11-04): connect, disconnect, choose the account, price lines, send an order (owner only).
+                if (gmRest === "abc/connect" || gmRest === "abc/disconnect" || gmRest === "abc/account" || gmRest === "abc/price" || gmRest === "abc/order") { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 // G5e: a hand-made project becomes a lead (owner only; never
                 // on the seller list, the handler refuses sellers too).

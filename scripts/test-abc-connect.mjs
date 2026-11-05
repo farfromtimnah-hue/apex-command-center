@@ -26,7 +26,7 @@ const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientA
   "abcPriceInput", "abcOrderInput", "abcOrderBody", "abcValidDate", "abcText", "abcOwnerStart", "abcRefreshToken", "abcServerError", "abcUpstreamError", "abcCron",
   "handleGetGmAbcStatus", "handlePostGmAbcConnect", "handleGetAbcCallback", "handlePostGmAbcDisconnect", "handleGetGmAbcAccounts",
   "handlePostGmAbcAccount", "handlePostGmAbcPrice", "handlePostGmAbcOrder", "handleGetGmAbcOrders", "handlePostAbcWebhook",
-  "handleGetAbcSandboxPing"].filter(hasFn);
+  "handleGetAbcSandboxPing", "clientRequestAllowed", "sellerRequestAllowed"].filter(hasFn);
 const VARS = ["DEFAULT_ORIGIN", "CORS_HEADERS", "GM_ACTOR_KEY_RE", "GM_HIDDEN_ACTORS", "TOKEN_SEAL_PREFIX", "ABC", "ABC_NA_PT", "ABC_NA_EN",
   "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "ABC_REFRESHING", "ABC_SHIPTO_RE", "ABC_BRANCH_RE", "ABC_ITEM_RE", "ABC_UOM_RE"].filter(function (v) { try { varSrc(v); return true; } catch (e) { return false; } });
 
@@ -594,6 +594,22 @@ await check("hosts", async () => {
   ok(w.abc.calls.length > 5, "the run really made calls to the fake ABC");
   ok(!HIDDEN.some((h) => seen.join("\n").indexOf(h) !== -1 && h !== ""), "no secret or token appeared in any answer");
   ok(!HIDDEN.some((h) => logged.join("\n").indexOf(h) !== -1), "no secret or token appeared in any log line");
+});
+
+
+// ── 13. The client gate in front of every route ─────────────────────────
+// A business login only reaches the gm paths this gate names. Without these
+// entries every ABC route answers 403 before its handler runs.
+await check("gate-list", async () => {
+  const w = world();
+  const base = "/api/clients/c1/gm/abc/";
+  const routes = [["status", "GET"], ["accounts", "GET"], ["orders", "GET"], ["connect", "POST"], ["disconnect", "POST"], ["account", "POST"], ["price", "POST"], ["order", "POST"]];
+  routes.forEach(function (r) {
+    ok(w.F.clientRequestAllowed(base + r[0], r[1], "c1") === true, "the owner's login reaches " + r[1] + " abc/" + r[0]);
+    ok(w.F.sellerRequestAllowed(base + r[0], r[1], "c1") !== true, "a salesperson's login does not reach " + r[1] + " abc/" + r[0]);
+  });
+  ok(w.F.clientRequestAllowed(base + "status", "POST", "c1") !== true && w.F.clientRequestAllowed(base + "connect", "GET", "c1") !== true, "the wrong method is not let through");
+  ok(w.F.clientRequestAllowed("/api/clients/c2/gm/abc/status", "GET", "c1") !== true, "another business's path is not let through");
 });
 
 console.log(fail ? "\n" + fail + " check(s) FAILED" : "\nAll ABC connect checks passed");

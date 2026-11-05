@@ -188,9 +188,9 @@ function fnSrc(name) {
 }
 function front(settings, extra) {
   const calls = { api: [], started: [] };
-  const code = ["gmEstWizNewState", "gmEstWizFromDetail", "gmEstWizardOpenForLead"].map(fnSrc).join("\n") +
-    "\nreturn { gmEstWizNewState: gmEstWizNewState, gmEstWizFromDetail: gmEstWizFromDetail, gmEstWizardOpenForLead: gmEstWizardOpenForLead, setSettings: function(s){ gmDocSettings = s; }, getSettings: function(){ return gmDocSettings; } };";
-  const fn = new Function("calls", "extra", "var gmDocSettings = " + JSON.stringify(settings) + ";" +
+  const code = ["gmEstWizNewState", "gmEstWizFromDetail", "gmEstWizardOpenForLead", "gmEstWizApplyDefaultTerms"].map(fnSrc).join("\n") +
+    "\nreturn { gmEstWizNewState: gmEstWizNewState, gmEstWizFromDetail: gmEstWizFromDetail, gmEstWizardOpenForLead: gmEstWizardOpenForLead, gmEstWizApplyDefaultTerms: gmEstWizApplyDefaultTerms, setWiz: function(w){ gmEstWiz = w; }, getWiz: function(){ return gmEstWiz; }, setSettings: function(s){ gmDocSettings = s; }, getSettings: function(){ return gmDocSettings; } };";
+  const fn = new Function("calls", "extra", "var gmEstWiz = null; var gmDocSettings = " + JSON.stringify(settings) + ";" +
     "function gmServicoList(s){ return s ? [s] : []; } function gmLeadAddressLine(){ return ''; } function localDateStr(){ return '2026-12-01'; }" +
     "function gmEstHeadlineOption(){ return null; } function gmIsSeller(){ return !!extra.seller; }" +
     "function gmEstWizStart(l){ calls.started.push({ lead: l, settings: gmDocSettings }); } function gmToast(){}" +
@@ -231,6 +231,31 @@ const D = { default_terms_included: "INC\n\n- a", default_terms_excluded: "Não 
   f = front({ x: 1 }, { seller: true });
   f.gmEstWizardOpenForLead({ id: "l1" });
   ok(f.calls.api.length === 0 && f.calls.started.length === 1, "salesperson: never calls the owner-only route");
+}
+
+// a salesperson: the wizard exists before the settings slice arrives; the saved defaults are filled in after it
+{
+  let f = front({}, { seller: true });
+  f.setWiz(f.gmEstWizNewState({ id: "l1" }));
+  f.setSettings({ estimate_valid_days: 30, default_terms_included: D.default_terms_included, default_terms_excluded: null, default_customer_notes: D.default_customer_notes });
+  f.gmEstWizApplyDefaultTerms();
+  let w = f.getWiz();
+  ok(w.terms_included === D.default_terms_included && w.terms_excluded === "" && w.customer_notes === D.default_customer_notes, "salesperson: the three boxes are filled from the saved defaults once the settings slice has loaded");
+  f = front({}, { seller: true });
+  f.setWiz({ terms_included: "typed", terms_excluded: "", customer_notes: "" });
+  f.setSettings({ default_terms_included: D.default_terms_included, default_customer_notes: D.default_customer_notes });
+  f.gmEstWizApplyDefaultTerms();
+  w = f.getWiz();
+  ok(w.terms_included === "typed" && w.customer_notes === "", "salesperson: nothing is written over text already typed");
+  f = front({}, { seller: true });
+  f.setWiz({ terms_included: "", terms_excluded: "", customer_notes: "" });
+  f.setSettings({ estimate_valid_days: 30 });
+  f.gmEstWizApplyDefaultTerms();
+  w = f.getWiz();
+  ok(w.terms_included === "" && w.terms_excluded === "" && w.customer_notes === "", "salesperson: no defaults saved, the boxes stay empty (never 'undefined')");
+  f = front({}, { seller: true });
+  f.gmEstWizApplyDefaultTerms();
+  ok(f.getWiz() === null, "no wizard open: nothing happens");
 }
 
 console.log(fail ? "\n" + fail + " FAILED" : "\nall passed");

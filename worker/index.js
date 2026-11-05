@@ -25462,9 +25462,10 @@ async function gmReviewLinkRead(env, clientId) {
 }
 
 // Saved default estimate terms: the three texts every NEW estimate starts
-// with. Owner-only: they are added to the doc-settings GET and PUT answers,
-// never to gmDocSettingsRow (the public document routes and the seller slice
-// also read that). est is the estimate column each one fills.
+// with. Only the owner can change them (doc-settings PUT). They are added to
+// the doc-settings GET and PUT answers and to the narrow settings_lite slice a
+// salesperson reads, never to gmDocSettingsRow (the public document routes also
+// read that). est is the estimate column each one fills.
 var GM_TERMS_DEFAULT_KEYS = [
     { key: "default_terms_included", est: "terms_included", max: 4000 },
     { key: "default_terms_excluded", est: "terms_excluded", max: 4000 },
@@ -32429,6 +32430,7 @@ async function handleGetGmDocMessages(id, request, env) {
         var client = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
         // Send with contract (one link) is offered only to a person who may sign for the
         // company, at a business whose contract settings name the trades and the signers.
+        var termsDefaults = await gmTermsDefaultsRead(env, id);
         var ffSettings = await contractSettingsRow(env, id);
         var ffNone = await wizContractNone(env, id);
         var ffSigner = (!ffNone && ffSettings.trades.length && (ffSettings.owner_signer_name || (ffSettings.signers || []).length)) ? contractSignerAllowed(user, ffSettings, client) : null;
@@ -32442,6 +32444,11 @@ async function handleGetGmDocMessages(id, request, env) {
             sender_first_name: await gmDocSenderFirstName(env, user, id, client, s),
             estimate_valid_days: s.estimate_valid_days, schedule_presets: s.schedule_presets,
             min_margin_pct: s.min_margin_pct, setup_completed_at: s.setup_completed_at,
+            // The saved default estimate terms: customer facing text, so a salesperson's new estimates start with them too.
+            // Only the owner can change them (the doc-settings PUT stays owner only).
+            default_terms_included: termsDefaults.default_terms_included,
+            default_terms_excluded: termsDefaults.default_terms_excluded,
+            default_customer_notes: termsDefaults.default_customer_notes,
             contract_none: ffNone,
             full_flow_signer: ffSigner && ffSigner.ok ? ffSigner.name : null,
             full_flow_requestable: !!(ffSigner && !ffSigner.ok)

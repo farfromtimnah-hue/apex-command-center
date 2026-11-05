@@ -14329,10 +14329,20 @@ function gmEstWizFromDetail(est) {
 function gmEstWizardOpenForLead(lead) {
   // The saved default terms must be in gmDocSettings before the wizard
   // starts (null = none saved; undefined = not loaded). A salesperson has no
-  // doc-settings route and starts with empty boxes.
+  // doc-settings route: gmEstWizStart fills the boxes from the settings_lite slice.
   if (gmIsSeller() || (gmDocSettings && gmDocSettings.default_terms_included !== undefined)) { gmEstWizStart(lead); return; }
   gmApi("doc-settings").then(function(d) { gmDocSettings = d.settings; gmEstWizStart(lead); })
     .catch(function(e) { gmToast(e.message); console.error(e); });
+}
+
+// A salesperson's wizard is made before the settings slice arrives. Once it has, fill the three
+// boxes from the saved defaults, but only while all three are still empty (never over typed text).
+function gmEstWizApplyDefaultTerms() {
+  var dt = gmDocSettings || {};
+  if (!gmEstWiz || gmEstWiz.terms_included || gmEstWiz.terms_excluded || gmEstWiz.customer_notes) { return; }
+  gmEstWiz.terms_included = dt.default_terms_included || "";
+  gmEstWiz.terms_excluded = dt.default_terms_excluded || "";
+  gmEstWiz.customer_notes = dt.default_customer_notes || "";
 }
 
 function gmEstWizStart(lead) {
@@ -14344,7 +14354,7 @@ function gmEstWizStart(lead) {
   var pr = gmApi("pricing").then(function(d) { gmPricingData = d; gmEstWizPreselectService(); });
   // A seller has no doc-settings route; the send-message route carries the
   // non-sensitive slice the wizard needs (validity days, presets, min margin).
-  var ms = gmIsSeller() ? gmDocMsgLoad().then(function(d) { gmDocSettings = d.settings_lite || gmDocSettings; }) : Promise.resolve(null);
+  var ms = gmIsSeller() ? gmDocMsgLoad().then(function(d) { gmDocSettings = d.settings_lite || gmDocSettings; gmEstWizApplyDefaultTerms(); }) : Promise.resolve(null);
   Promise.all([pr, ms]).then(function() { gmEstWizRender(); }).catch(function(e) { gmToast(e.message); console.error(e); });
 }
 

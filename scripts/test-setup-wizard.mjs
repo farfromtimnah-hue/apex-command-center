@@ -22,6 +22,50 @@ const GUIDES = JSON.parse(read("help/guides.json"));
 const SRC = read("setup-wizard.js");
 const WORKER = read("worker/index.js");
 
+// ── 0. The starting balance question (optional, saves through the config route) ──
+{
+  function swFn(name) {
+    const i = SRC.indexOf("\nfunction " + name + "(");
+    if (i < 0) { throw new Error("not in setup-wizard.js: " + name); }
+    return SRC.slice(i + 1, SRC.indexOf("\n}", i + 1) + 2);
+  }
+  const reqLine = /var SW_REQUIRED = \[([^\]]*)\]/.exec(SRC)[1];
+  ok(!/opening|balance|saldo/i.test(reqLine), "wizard (f): the starting balance question is not in SW_REQUIRED");
+  const payFn = swFn("swPayments");
+  ok(/return \{ html: h, need: \[swT\("pelo menos uma forma de pagamento", "at least one payment method"\)\], ok: Object\.keys\(pm\)\.length > 0 \}/.test(payFn) && payFn.indexOf("swOpeningHtml()") > 0, "wizard (f): the payments stage is finished by payment methods alone; the question only adds HTML");
+  ok(/var SW_STAGES = \[\s*\{ key: "brand"[\s\S]*?key: "payments"[\s\S]*?key: "how"[\s\S]*?key: "review"/.test(SRC) && (SRC.match(/\{ key: "[a-z]+", pt:/g) || []).length === 11, "wizard (f): still 11 stages in the same order, so the Learn help numbers do not move");
+  function rig(cfgObj, answers) {
+    const calls = []; let rendered = 0;
+    const SW = { open: true, stage: 6, obTried: false, saveErr: "" };
+    const body = ["swOpeningHtml", "swObSave"].map(swFn).join("\n");
+    const maker = new Function("SW", "gmConfig", "gmLoadConfig", "gmApi", "gmParseMoney", "gmFinTodayStart", "gmTodayLocal", "gmFinMonthLabel", "fmtNum", "isEn",
+      "swT", "swH", "swEsc", "swEl", "swSaveQuiet", "swRender", "swStatusRender",
+      body + "\nreturn { swOpeningHtml, swObSave };");
+    const holder = { value: answers };
+    const api = (path, opts) => { calls.push([path, opts && opts.method, opts && opts.body]); return Promise.resolve(path === "finance" ? { entries: [{ data: "2026-11-02", tipo: "Entrada", valor: 100 }] } : { config: { opening_balance_cents: 1, opening_balance_month: "2026-11-01", opening_balance_available: true } }); };
+    const fns = maker(SW, cfgObj ? { config: cfgObj } : null, () => Promise.resolve({}), api,
+      (v) => { const n = Number(String(v).replace(/[$\s,]/g, "")); return isFinite(n) && String(v).trim() ? n : null; },
+      (entries, cents, iso) => ({ cents: cents - 10000, month: iso.slice(0, 7) + "-01" }), () => "2026-11-05", () => "Novembro de 2026", (n) => "$" + n.toFixed(2), () => false,
+      (pt, en) => pt, () => "", (x) => String(x), () => ({ value: holder.value }), (label, fn) => fn(), () => { rendered++; }, () => {});
+    return { fns, calls, SW, holder, rendered: () => rendered };
+  }
+  let r = rig({ opening_balance_available: true, opening_balance_cents: null, opening_balance_month: null }, "");
+  const html = r.fns.swOpeningHtml();
+  ok(html.indexOf('data-act="ob-save"') > 0 && html.indexOf("Pode pular e informar depois na aba Financeiro.") > 0 && html.indexOf("inputmode=\"decimal\"") > 0, "wizard (f): the question shows with the skip line, a decimal field and a save button");
+  eq0(r.calls.length === 0, "wizard (f): showing the question writes nothing");
+  r = rig({ opening_balance_available: false }, "");
+  ok(r.fns.swOpeningHtml() === "", "wizard (f): columns not available hides the question");
+  r = rig({ opening_balance_available: true, opening_balance_cents: null }, "abc");
+  r.fns.swObSave();
+  ok(r.calls.length === 0 && r.SW.saveErr !== "", "wizard (f): a typed value that is not a number saves nothing and says so");
+  r = rig({ opening_balance_available: true, opening_balance_cents: null }, "5,000.00");
+  r.fns.swObSave(); await new Promise((res) => setTimeout(res, 5));
+  const put = r.calls.filter((c) => c[1] === "PUT");
+  ok(put.length === 1 && put[0][0] === "config" && put[0][2].opening_balance_cents === 490000 && put[0][2].opening_balance_month === "2026-11-01", "wizard (f): answering saves once through the config route as cents plus the month's first day (5,000.00 today minus the month so far)");
+  ok(r.calls.every((c) => c[0] === "finance" || c[0] === "config"), "wizard (f): nothing else is called");
+  function eq0(c, m) { ok(c, m); }
+}
+
 // ── 1. License answers come from the server table ─────────────────────────
 function lic(st, cat, subs) { return core.licenseResult(TABLE, WIZ, st, cat, subs); }
 ok(lic("FL", "cleaning", ["homes"]).summary === "none", "Florida house cleaning: no state license");

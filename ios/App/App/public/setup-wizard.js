@@ -634,7 +634,47 @@ function swPayments() {
   h += '<div class="sw-row sw-sentr"><span>' + swT("Juros por atraso", "Late fee") + '</span>' + swStepper("late", late + " " + swT("% ao ano", "percent a year"), 0, 18, late <= 0, late >= 18) + '<span>' + swT("depois de", "after") + '</span>' + swStepper("grace", grace + " " + swT("dias", "days"), 0, 30, grace <= 0, grace >= 30) + '</div><p class="sw-fine">' + swT("Um só valor: vale para a fatura e para o contrato.", "One value: it applies to the invoice and to the contract.") + '</p>';
   var mm = d.min_margin_pct === null || d.min_margin_pct === undefined ? 0 : d.min_margin_pct;
   h += '<div class="sw-row"><div class="sw-l">' + swT("Menor margem de lucro que você aceita", "Smallest profit margin you accept") + '</div>' + swStepper("margin", mm + " " + swT("%", "percent"), 0, 60, mm <= 0, mm >= 60) + '<p class="sw-fine">' + swT("A Apex avisa quando um orçamento fica abaixo disso. 0 quer dizer sem aviso.", "Apex warns you when an estimate falls under this. 0 means no warning.") + '</p></div>';
+  h += swOpeningHtml();
   return { html: h, need: [swT("pelo menos uma forma de pagamento", "at least one payment method")], ok: Object.keys(pm).length > 0 };
+}
+// The starting balance question. Optional on purpose: it is not in SW_REQUIRED and
+// it never changes the "ok" of the stage. It saves through the same config route as
+// the Finance tab card, from "I know my balance today".
+function swOpeningHtml() {
+  if (!gmConfig) {
+    if (!SW.obTried) {
+      SW.obTried = true;
+      gmLoadConfig().then(function() { if (SW.open && SW.stage === 6) { swRender(); } }).catch(function(e) { console.error("wizard config: " + (e && e.message)); });
+    }
+    return "";
+  }
+  var cfg = (gmConfig && gmConfig.config) || {};
+  if (cfg.opening_balance_available !== true) { return ""; }
+  var answered = cfg.opening_balance_cents !== null && cfg.opening_balance_cents !== undefined;
+  var cur = answered ? '<p class="sw-fine">' + swEsc(fmtNum(cfg.opening_balance_cents / 100, "currency") + " " + swT("no início de ", "at the start of ") + gmFinMonthLabel(String(cfg.opening_balance_month).slice(0, 7), isEn())) + '</p>' : '';
+  return '<div class="sw-row"><label class="sw-l" for="swObAmt"' + swH("payments", 1) + '>' + swT("Saldo de hoje (opcional)", "Your balance today (optional)") + '</label>' +
+    '<p class="sw-fine">' + swT("Quanto dinheiro a empresa tem hoje. Com ele o saldo de cada mês fica certo.", "How much money the company has today. With it, each month's balance is right.") + '</p>' +
+    '<input type="text" inputmode="decimal" id="swObAmt" placeholder="0.00"' + swH("payments", 1) + '>' +
+    '<button type="button" class="sw-chip" data-act="ob-save"' + swH("payments", 1) + '>' + swT("Salvar saldo", "Save balance") + '</button>' + cur +
+    '<p class="sw-fine">' + swT("Pode pular e informar depois na aba Financeiro.", "You can skip this and enter it later in the Finance tab.") + '</p></div>';
+}
+function swObSave() {
+  var el = swEl("swObAmt");
+  if (!el) { return; }
+  var n = gmParseMoney(el.value);
+  if (n === null || Math.abs(Math.round(n * 100)) > 10000000000) {
+    SW.saveErr = swT("Valor inválido.", "The amount is not valid."); swStatusRender(); return;
+  }
+  var cents = Math.round(n * 100);
+  swSaveQuiet("opening", function() {
+    return gmApi("finance").then(function(f) {
+      var r = gmFinTodayStart((f && f.entries) || [], cents, gmTodayLocal());
+      return gmApi("config", { method: "PUT", body: { opening_balance_cents: r.cents, opening_balance_month: r.month } });
+    }).then(function(d) {
+      if (gmConfig && d && d.config) { gmConfig.config = d.config; }
+      if (SW.open && SW.stage === 6) { swRender(); }
+    });
+  });
 }
 function swPaySave() {
   var pm = SW.doc.payment_methods || {};
@@ -940,6 +980,7 @@ function swBind(root) {
     if (act === "next") { swNext(); return; }
     if (act === "retry-save") { if (SW.saveRetry) { var fn = SW.saveRetry; swSaveQuiet("retry", fn); } return; }
     if (act === "jump") { swGo(parseInt(el.getAttribute("data-i"), 10)); return; }
+    if (act === "ob-save") { swObSave(); return; }
     if (act === "web-read") { swWebRead(); return; }
     if (act === "web-apply") { swWebApply(); return; }
     if (act === "web-main") { SW.web.main = v; swRender(); return; }

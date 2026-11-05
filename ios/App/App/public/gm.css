@@ -1185,3 +1185,6 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
   font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600;
 }
 .gm-app-viewer-body { flex: 1 1 auto; width: 100%; border: 0; object-fit: contain; background: #fff; }
+
+/* The starting balance card while the client has not answered yet. */
+.gm-opening-hl { border: 2px solid var(--gold); background: rgba(201,164,58,0.10); }

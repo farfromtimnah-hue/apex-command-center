@@ -4664,6 +4664,7 @@ function gmLoadFinance() {
       gmJobsData = results[2];
       gmFinInitRange();
       gmRenderFinance();
+      gmFinOpeningAutoOpen();
     })
     .catch(function(e) {
       body.innerHTML = '<div class="content-card"><p class="muted">' + escHtml(e.message) + '</p></div>';
@@ -5074,35 +5075,117 @@ function gmFinOpeningHas(cfg) {
     cfg.opening_balance_cents !== null && cfg.opening_balance_cents !== undefined && !!cfg.opening_balance_month;
 }
 
+// "Answered" is a saved amount, and a saved 0 is an answer: only null and
+// undefined mean unanswered.
+function gmFinOpeningAnswered(cfg) {
+  return cfg.opening_balance_cents !== null && cfg.opening_balance_cents !== undefined;
+}
+
+// The client is asked while the columns exist, nothing is saved yet and this
+// is not a staff preview.
+function gmFinOpeningNeedsAnswer(cfg, preview) {
+  return cfg.opening_balance_available === true && !gmFinOpeningAnswered(cfg) && !preview;
+}
+
+function gmFinIsPreview() {
+  return typeof PREVIEW_AS !== "undefined" && !!PREVIEW_AS;
+}
+
+// "I know my balance today": the balance at the start of the current month is
+// today's balance minus what moved from the 1st through today (inclusive).
+// Entries dated after today and entries with no date are ignored.
+function gmFinTodayStart(entries, todayCents, todayIso) {
+  var first = String(todayIso).slice(0, 7) + "-01";
+  var moved = 0;
+  (entries || []).forEach(function(e) {
+    var d = gmFinEntryDateKey(e);
+    if (!d || d < first || d > todayIso) { return; }
+    moved += gmFinTotals([e]).resultado;
+  });
+  return { cents: Math.round(Number(todayCents) || 0) - moved, month: first };
+}
+
+// "I started from zero": 0 cents at the first day of the earliest dated
+// entry's month, or of the current month when no entry has a date.
+function gmFinZeroStart(entries, todayIso) {
+  var earliest = "";
+  (entries || []).forEach(function(e) {
+    var d = gmFinEntryDateKey(e);
+    if (d && (!earliest || d < earliest)) { earliest = d; }
+  });
+  return { cents: 0, month: (earliest || String(todayIso)).slice(0, 7) + "-01" };
+}
+
+function gmFinOpeningLiveText(cents, monthIso) {
+  return gmT("Saldo no início de ", "Balance at the start of ") + gmFinMonthLabel(String(monthIso).slice(0, 7), isEn()) +
+    ": " + fmtNum(cents / 100, "currency");
+}
+
 function gmFinOpeningCardHtml() {
   var cfg = gmFinOpeningCfg();
   var avail = cfg.opening_balance_available === true;
   var has = gmFinOpeningHas(cfg);
-  var readOnly = (typeof PREVIEW_AS !== "undefined" && !!PREVIEW_AS);
+  var preview = gmFinIsPreview();
+  var asked = gmFinOpeningNeedsAnswer(cfg, preview);
   var line;
   if (!avail) {
     line = gmT("Ainda não disponível", "Not available yet");
+  } else if (asked) {
+    line = gmT("Informe o saldo de abertura para o saldo do mês ficar certo.",
+               "Enter your starting balance so the monthly balance is right.");
   } else if (!has) {
     line = gmT("Sem saldo de abertura definido", "No starting balance set");
   } else {
     line = fmtNum(cfg.opening_balance_cents / 100, "currency") + " " + gmT("no início de ", "at the start of ") +
       gmFinMonthLabel(String(cfg.opening_balance_month).slice(0, 7), isEn());
   }
-  var html = '<div class="content-card" data-tour="finance-opening">' +
+  var html = '<div class="content-card' + (asked ? ' gm-opening-hl' : '') + '" data-tour="finance-opening">' +
     '<div class="card-title">' + gmT("Saldo de abertura", "Starting balance") + '</div>' +
     '<p class="muted" style="margin:0 0 8px;">' + escHtml(line) + '</p>';
-  if (avail && !readOnly) {
-    html += '<button type="button" class="btn-outline gm-add-btn" onclick="gmFinOpeningOpen()">' +
-      (has ? gmT("Alterar", "Change") : gmT("Definir", "Set")) + '</button>';
+  if (avail && !preview) {
+    html += '<button type="button" class="' + (asked ? 'btn-gold' : 'btn-outline') + ' gm-add-btn" onclick="gmFinOpeningOpen()">' +
+      (asked ? gmT("Informar saldo", "Enter balance") : (has ? gmT("Alterar", "Change") : gmT("Definir", "Set"))) + '</button>';
   }
   return html + '</div>';
+}
+
+// The short line under the month cards while nothing has been answered.
+function gmFinUnansweredNoteHtml(cfg) {
+  if (cfg.opening_balance_available !== true || gmFinOpeningAnswered(cfg)) { return ""; }
+  return '<p class="muted" style="font-size:12px;margin:8px 0 0;">' +
+    escHtml(gmT("Este saldo só conta os lançamentos do Apex. Informe o saldo de abertura para corrigir.",
+                "This balance only counts entries in Apex. Enter your starting balance to correct it.")) + '</p>';
+}
+
+var gmFinObMode = "month";
+var gmFinOpeningAskedMem = false;
+
+// Opens the sheet by itself once per browser session while the client has not
+// answered. sessionStorage remembers it; when storage fails the in-page flag
+// still keeps it to once per page load.
+function gmFinOpeningAutoOpen() {
+  if (gmFinOpeningAskedMem) { return; }
+  if (!gmFinOpeningNeedsAnswer(gmFinOpeningCfg(), gmFinIsPreview())) { return; }
+  var key = "gmFinOpeningAsked:" + clientId;
+  gmFinOpeningAskedMem = true;
+  var seen = false;
+  try {
+    seen = !!window.sessionStorage.getItem(key);
+    if (!seen) { window.sessionStorage.setItem(key, "1"); }
+  } catch (e) {
+    seen = false;
+  }
+  if (seen) { return; }
+  gmFinOpeningOpen();
 }
 
 function gmFinOpeningOpen() {
   var cfg = gmFinOpeningCfg();
   if (cfg.opening_balance_available !== true) { return; }
-  if (typeof PREVIEW_AS !== "undefined" && PREVIEW_AS) { return; }
+  if (gmFinIsPreview()) { return; }
   var has = gmFinOpeningHas(cfg);
+  var answered = gmFinOpeningAnswered(cfg);
+  gmFinObMode = "month";
   var now = new Date();
   var selY = now.getFullYear(), selM = now.getMonth() + 1;
   var amount = "";
@@ -5123,6 +5206,12 @@ function gmFinOpeningOpen() {
     yearOpts += '<option value="' + k + '"' + (k === selY ? " selected" : "") + '>' + k + '</option>';
   }
   var body =
+    '<div class="gm-chip-set" style="margin-bottom:10px;">' +
+    '<button type="button" id="gmFinObTabMonth" class="gm-choice-chip gm-chip-sel" onclick="gmFinOpeningMode(\'month\')">' +
+      gmT("Sei o saldo do início de um mês", "I know the balance at the start of a month") + '</button>' +
+    '<button type="button" id="gmFinObTabToday" class="gm-choice-chip" onclick="gmFinOpeningMode(\'today\')">' +
+      gmT("Sei o saldo de hoje", "I know my balance today") + '</button></div>' +
+    '<div id="gmFinObMonthBox">' +
     '<label class="gm-field-label" for="gmFinObAmount">' + gmT("Valor", "Amount") + '</label>' +
     '<input type="text" inputmode="decimal" id="gmFinObAmount" class="gm-input" placeholder="0.00" value="' + escHtml(amount) + '">' +
     '<label class="gm-field-label" for="gmFinObMonth">' + gmT("Mês", "Month") + '</label>' +
@@ -5131,21 +5220,55 @@ function gmFinOpeningOpen() {
     '<select id="gmFinObYear" class="gm-input">' + yearOpts + '</select>' +
     '<p class="muted" style="font-size:12px;margin:8px 0;">' +
     gmT("Este é o dinheiro que a empresa já tinha no início desse mês, antes do primeiro lançamento no Apex.",
-        "This is the money the company already had at the start of that month, before the first entry in Apex.") + '</p>' +
+        "This is the money the company already had at the start of that month, before the first entry in Apex.") + '</p></div>' +
+    '<div id="gmFinObTodayBox" style="display:none;">' +
+    '<label class="gm-field-label" for="gmFinObTodayAmt">' + gmT("Saldo de hoje", "Balance today") + '</label>' +
+    '<input type="text" inputmode="decimal" id="gmFinObTodayAmt" class="gm-input" placeholder="0.00" oninput="gmFinOpeningLive()">' +
+    '<p class="muted" id="gmFinObLive" style="font-size:12px;margin:8px 0;"></p></div>' +
     '<div class="gm-editor-actions">' +
     '<button type="button" class="btn-outline" onclick="gmSheetClose()">' + gmT("Cancelar", "Cancel") + '</button>' +
+    (answered ? '' : '<button type="button" class="btn-outline" id="gmFinObZero" onclick="gmFinOpeningZero()">' + gmT("Comecei do zero", "I started from zero") + '</button>') +
     (has ? '<button type="button" class="btn-outline" id="gmFinObRemove" onclick="gmFinOpeningRemove()">' + gmT("Remover", "Remove") + '</button>' : '') +
     '<button type="button" class="btn-gold" id="gmFinObSave" onclick="gmFinOpeningSave()">' + gmT("Salvar", "Save") + '</button></div>';
   gmSheetOpen(gmT("Saldo de abertura", "Starting balance"), body);
 }
 
+// The two buttons act like tabs: one box shows at a time.
+function gmFinOpeningMode(mode) {
+  var mBox = document.getElementById("gmFinObMonthBox");
+  var tBox = document.getElementById("gmFinObTodayBox");
+  var mTab = document.getElementById("gmFinObTabMonth");
+  var tTab = document.getElementById("gmFinObTabToday");
+  if (!mBox || !tBox || !mTab || !tTab) { return; }
+  gmFinObMode = mode === "today" ? "today" : "month";
+  mBox.style.display = gmFinObMode === "month" ? "" : "none";
+  tBox.style.display = gmFinObMode === "today" ? "" : "none";
+  mTab.className = "gm-choice-chip" + (gmFinObMode === "month" ? " gm-chip-sel" : "");
+  tTab.className = "gm-choice-chip" + (gmFinObMode === "today" ? " gm-chip-sel" : "");
+  if (gmFinObMode === "today") { gmFinOpeningLive(); }
+}
+
+function gmFinOpeningTodayResult() {
+  var el = document.getElementById("gmFinObTodayAmt");
+  if (!el) { return null; }
+  var n = gmParseMoney(el.value);
+  if (n === null) { return null; }
+  return gmFinTodayStart((gmFinanceData && gmFinanceData.entries) || [], Math.round(n * 100), gmTodayLocal());
+}
+
+function gmFinOpeningLive() {
+  var out = document.getElementById("gmFinObLive");
+  if (!out) { return; }
+  var res = gmFinOpeningTodayResult();
+  out.textContent = res ? gmFinOpeningLiveText(res.cents, res.month) : "";
+}
+
 // One PUT with both fields (or both null), then the screen reloads the way
 // it already does after an entry is saved.
 function gmFinOpeningPut(payload) {
-  var saveBtn = document.getElementById("gmFinObSave");
-  var rmBtn = document.getElementById("gmFinObRemove");
-  if (saveBtn) { saveBtn.disabled = true; }
-  if (rmBtn) { rmBtn.disabled = true; }
+  var ids = ["gmFinObSave", "gmFinObRemove", "gmFinObZero"];
+  var btns = ids.map(function(id) { return document.getElementById(id); });
+  btns.forEach(function(b) { if (b) { b.disabled = true; } });
   return gmApi("config", { method: "PUT", body: payload })
     .then(function(d) {
       if (gmConfig && d && d.config) { gmConfig.config = d.config; }
@@ -5153,13 +5276,19 @@ function gmFinOpeningPut(payload) {
       return gmReloadFinance();
     })
     .catch(function(e) {
-      if (saveBtn) { saveBtn.disabled = false; }
-      if (rmBtn) { rmBtn.disabled = false; }
+      btns.forEach(function(b) { if (b) { b.disabled = false; } });
       gmToast(e.message);
     });
 }
 
 function gmFinOpeningSave() {
+  if (gmFinObMode === "today") {
+    var res = gmFinOpeningTodayResult();
+    if (!res) { gmToast(gmT("Valor inválido.", "The amount is not valid.")); return; }
+    if (Math.abs(res.cents) > 10000000000) { gmToast(gmT("Valor grande demais.", "The amount is too large.")); return; }
+    gmFinOpeningPut({ opening_balance_cents: res.cents, opening_balance_month: res.month });
+    return;
+  }
   var amountEl = document.getElementById("gmFinObAmount");
   var monthEl = document.getElementById("gmFinObMonth");
   var yearEl = document.getElementById("gmFinObYear");
@@ -5171,6 +5300,11 @@ function gmFinOpeningSave() {
   var m = parseInt(monthEl.value, 10), y = parseInt(yearEl.value, 10);
   if (!(m >= 1 && m <= 12) || !(y >= 2000 && y <= 2100)) { gmToast(gmT("Escolha o mês e o ano.", "Choose the month and the year.")); return; }
   gmFinOpeningPut({ opening_balance_cents: cents, opening_balance_month: y + "-" + gmFinPad2(m) + "-01" });
+}
+
+function gmFinOpeningZero() {
+  var z = gmFinZeroStart((gmFinanceData && gmFinanceData.entries) || [], gmTodayLocal());
+  gmFinOpeningPut({ opening_balance_cents: z.cents, opening_balance_month: z.month });
 }
 
 function gmFinOpeningRemove() {
@@ -5214,6 +5348,7 @@ function gmRenderFinance() {
     }
   }
   html += '</div>';
+  if (monthly.some(function(m) { return m.saldo_inicial !== undefined; })) { html += gmFinUnansweredNoteHtml(cfg); }
   var undated = gmFinUndatedCount(allEntries);
   if (undated > 0) {
     html += '<p class="muted" style="font-size:12px;margin:8px 0 0;">' + escHtml(gmFinUndatedNoteText(undated, isEn())) + '</p>';

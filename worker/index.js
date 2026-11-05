@@ -15438,8 +15438,8 @@ async function handlePostZohoContactsResync(request, env) {
 var ENTRY_SECTIONS = ["financeiro", "clientes_mercado", "processos", "crescimento", "rotina"];
 
 var INDICATORS = [
-    { key: "receita",                section: "financeiro",       type: "currency", labelPt: "Receita do Dia",             labelEn: "Revenue Today" },
-    { key: "saida",                  section: "financeiro",       type: "currency", labelPt: "Saída do Dia",          labelEn: "Expenses Today", inverse: true },
+    { key: "receita",                section: "financeiro",       type: "currency", labelPt: "Entradas ($)",             labelEn: "Money In ($)" },
+    { key: "saida",                  section: "financeiro",       type: "currency", labelPt: "Saídas ($)",          labelEn: "Money Out ($)", inverse: true },
     { key: "lucro_liquido",          section: "financeiro",       type: "computed", labelPt: "Lucro Líquido",         labelEn: "Net Profit" },
     { key: "margem_lucro",           section: "financeiro",       type: "computed", labelPt: "Margem de Lucro %",          labelEn: "Profit Margin %" },
     { key: "vendas_fechadas",        section: "financeiro",       type: "count",    labelPt: "Vendas Fechadas",            labelEn: "Closed Sales" },

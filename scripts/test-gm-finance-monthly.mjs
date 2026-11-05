@@ -66,7 +66,8 @@ const FN_NAMES = [
   "gmFinMonthFirstLastDay", "gmFinDefaultRange", "gmFinPad2", "gmFinQuickRange",
   "gmFinFilterEntries", "gmFinTotals", "gmFinMonthlyFromEntries",
   "gmFinBalanceBefore", "gmFinAddBalances", "gmFinPeriodWithBalances", "gmFinUndatedCount",
-  "gmFinUndatedNoteText", "gmFinCentsPlain", "gmFinReportOpenPrefill"
+  "gmFinUndatedNoteText", "gmFinCentsPlain", "gmFinReportOpenPrefill",
+  "gmFinOpeningAnswered", "gmFinOpeningNeedsAnswer", "gmFinTodayStart", "gmFinZeroStart"
 ];
 const varNames = ["GM_FIN_MONTH_NAMES_PT", "GM_FIN_MONTH_NAMES_EN"];
 function varFromGm(name) {
@@ -143,10 +144,10 @@ eq(allTimeGrouped.find((m) => m.month_key === "2026-09"), { entradas: 1000, said
 
 // ───────────────── Saldo inicial / Saldo final (2026-11-05 build) ─────────────
 // Every case is a real run of the functions cut out of gm.js.
-const cardBody = ["gmFinBalanceLineHtml", "gmFinMonthCardHtml", "gmFinOpeningHas", "gmFinOpeningCfg", "gmFinOpeningCardHtml", "gmFinMonthLabel", "varsHere"]
-  .filter((n) => n !== "varsHere").map(fnFromGm).join("\n");
+const cardBody = ["gmFinBalanceLineHtml", "gmFinMonthCardHtml", "gmFinOpeningHas", "gmFinOpeningCfg", "gmFinOpeningCardHtml", "gmFinMonthLabel",
+  "gmFinOpeningAnswered", "gmFinOpeningNeedsAnswer", "gmFinIsPreview", "gmFinOpeningLiveText", "gmFinUnansweredNoteHtml"].map(fnFromGm).join("\n");
 const cardMaker = new Function("gmT", "escHtml", "fmtNum", "isEn", "PREVIEW_AS", "GM_FIN_MONTH_NAMES_PT", "GM_FIN_MONTH_NAMES_EN", "getConfig",
-  "var gmConfig = getConfig();\n" + cardBody + "\nreturn { gmFinMonthCardHtml, gmFinOpeningCardHtml };");
+  "var gmConfig = getConfig();\n" + cardBody + "\nreturn { gmFinMonthCardHtml, gmFinOpeningCardHtml, gmFinOpeningLiveText, gmFinUnansweredNoteHtml };");
 const money = (n) => (n < 0 ? "-" : "") + "$" + Math.abs(n).toFixed(2);
 const cards = (lang, cfgObj, preview) => cardMaker(
   (pt, en) => (lang === "en" ? en : pt), (x) => String(x), (n, k) => (k === "percent" ? n + "%" : money(n)), () => lang === "en",
@@ -252,7 +253,7 @@ eq(F.gmFinReportOpenPrefill(base, NOCFG, ""), "", "report (j): no From date leav
 
 // The starting balance card: the three states and the read-only preview
 const cardNone = cards("pt", { opening_balance_available: true, opening_balance_cents: null, opening_balance_month: null }).gmFinOpeningCardHtml();
-ok(cardNone.indexOf("Sem saldo de abertura definido") > 0 && cardNone.indexOf(">Definir<") > 0, "opening card: nothing set shows the text and Definir");
+ok(cardNone.indexOf("Informe o saldo de abertura para o saldo do mês ficar certo.") > 0 && cardNone.indexOf(">Informar saldo<") > 0 && cardNone.indexOf("gm-opening-hl") > 0, "opening card: unanswered shows the highlighted ask and Informar saldo (corrected from the earlier build's plain Definir, which is now the answered-or-preview look)");
 const cardSet = cards("en", CFG).gmFinOpeningCardHtml();
 ok(cardSet.indexOf("$18000.00 at the start of October 2026") > 0 && cardSet.indexOf(">Change<") > 0, "opening card: a set balance shows amount, month and Change");
 const cardOff = cards("en", { opening_balance_available: false }).gmFinOpeningCardHtml();
@@ -362,6 +363,118 @@ const pv = await w.WW.previewWriteGate({ url: "https://x.test/api/clients/c1/gm/
 ok(pv && pv.status === 403 && w.dd.writes.length === 0, "worker (k): a staff preview of a client cannot write config (403)");
 ok(/method !== "GET" && new URL\(request\.url\)\.searchParams\.get\("previewAs"\)\) \{\s*return jsonErr\("Preview is read-only", 403\)/.test(workerSrcText()), "worker (k): the router blocks every non-GET that carries previewAs");
 function workerSrcText() { return readFileSync(new URL("../worker/index.js", import.meta.url), "utf8"); }
+
+
+// ───────────── Part A follow-up: ask for the starting balance (2026-11-05) ─────────────
+const UNANS = { opening_balance_available: true, opening_balance_cents: null, opening_balance_month: null };
+const ZERO = { opening_balance_available: true, opening_balance_cents: 0, opening_balance_month: "2026-09-01" };
+
+// (a) answered versus unanswered drives the highlight, the auto open and the warning line
+ok(F.gmFinOpeningNeedsAnswer(UNANS, false) === true, "ask (a): unanswered is asked");
+ok(F.gmFinOpeningNeedsAnswer(CFG, false) === false, "ask (a): an answered balance is not asked");
+ok(F.gmFinOpeningAnswered(ZERO) === true && F.gmFinOpeningNeedsAnswer(ZERO, false) === false, "ask (d): a saved 0 is an answer, never treated as empty");
+const hlCard = cards("en", UNANS).gmFinOpeningCardHtml();
+ok(hlCard.indexOf("gm-opening-hl") > 0 && hlCard.indexOf("Enter your starting balance so the monthly balance is right.") > 0 && hlCard.indexOf(">Enter balance<") > 0, "ask (a): unanswered card is highlighted, English text and button");
+const doneCard = cards("en", CFG).gmFinOpeningCardHtml();
+ok(doneCard.indexOf("gm-opening-hl") < 0 && doneCard.indexOf(">Change<") > 0, "ask (a): answered card is not highlighted");
+const zeroCard = cards("pt", ZERO).gmFinOpeningCardHtml();
+ok(zeroCard.indexOf("gm-opening-hl") < 0 && zeroCard.indexOf(">Alterar<") > 0 && zeroCard.indexOf("$0.00 no início de Setembro de 2026") > 0, "ask (d): a saved 0 shows as an answered balance of $0.00");
+ok(cards("pt", UNANS).gmFinUnansweredNoteHtml(UNANS).indexOf("Este saldo só conta os lançamentos do Apex. Informe o saldo de abertura para corrigir.") > 0, "ask (a): the warning line shows while unanswered (PT)");
+ok(cards("en", UNANS).gmFinUnansweredNoteHtml(UNANS).indexOf("This balance only counts entries in Apex. Enter your starting balance to correct it.") > 0, "ask (a): the warning line shows while unanswered (EN)");
+eq(cards("en", ZERO).gmFinUnansweredNoteHtml(ZERO), "", "ask (a): the warning line disappears once answered, even with 0");
+eq(cards("en", CFG).gmFinUnansweredNoteHtml({ opening_balance_available: false }), "", "ask (c): no warning line when the columns are not available");
+
+// (b) staff preview: no button, no highlight, never asked
+const pvCard = cards("pt", UNANS, true).gmFinOpeningCardHtml();
+ok(pvCard.indexOf("<button") < 0 && pvCard.indexOf("gm-opening-hl") < 0 && pvCard.indexOf("Sem saldo de abertura definido") > 0, "ask (b): a staff preview shows the card read only, no button, no highlight");
+ok(F.gmFinOpeningNeedsAnswer(UNANS, true) === false, "ask (b): a staff preview is never asked");
+
+// (c) columns missing: no button, no ask
+const offUnans = { opening_balance_available: false, opening_balance_cents: null, opening_balance_month: null };
+ok(F.gmFinOpeningNeedsAnswer(offUnans, false) === false && cards("pt", offUnans).gmFinOpeningCardHtml().indexOf("<button") < 0, "ask (c): columns missing gives no button and no ask");
+
+// the auto open, with sessionStorage working, failing, and a preview / unavailable client
+const autoBody = ["gmFinOpeningCfg", "gmFinOpeningAnswered", "gmFinOpeningNeedsAnswer", "gmFinIsPreview", "gmFinOpeningAutoOpen"].map(fnFromGm).join("\n");
+function autoRig(cfgObj, store, preview) {
+  let opened = 0;
+  const maker = new Function("window", "clientId", "PREVIEW_AS", "gmFinOpeningOpen", "getConfig",
+    "var gmConfig = getConfig(); var gmFinOpeningAskedMem = false;\n" + autoBody + "\nreturn gmFinOpeningAutoOpen;");
+  const fn = maker({ sessionStorage: store }, "c1", preview ? "c1" : "", () => { opened++; }, () => ({ config: cfgObj }));
+  return { run: fn, count: () => opened };
+}
+const mem = () => { const m = {}; return { getItem: (k) => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }; };
+let rg = autoRig(UNANS, mem(), false); rg.run(); rg.run(); rg.run();
+eq(rg.count(), 1, "ask (b): the sheet opens by itself once, not on every visit");
+const sharedStore = mem();
+rg = autoRig(UNANS, sharedStore, false); rg.run();
+const rg2 = autoRig(UNANS, sharedStore, false); rg2.run();
+eq([rg.count(), rg2.count()], [1, 0], "ask (b): remembered in sessionStorage, a later visit in the same session does not ask again");
+const brokenStore = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } };
+let g7 = null, threw7 = false;
+try { g7 = autoRig(UNANS, brokenStore, false); g7.run(); g7.run(); g7.run(); } catch (e) { threw7 = true; }
+ok(!threw7 && g7.count() === 1, "ask (g): sessionStorage failing neither throws nor loops, it opens once per page load");
+rg = autoRig(UNANS, mem(), true); rg.run();
+eq(rg.count(), 0, "ask (b): a staff preview never opens the sheet");
+rg = autoRig(offUnans, mem(), false); rg.run();
+eq(rg.count(), 0, "ask (c): columns missing never opens the sheet");
+rg = autoRig(CFG, mem(), false); rg.run();
+eq(rg.count(), 0, "ask (a): an answered client is never opened");
+rg = autoRig(ZERO, mem(), false); rg.run();
+eq(rg.count(), 0, "ask (d): a saved 0 counts as answered, nothing opens");
+
+// (d) "I started from zero"
+eq(F.gmFinZeroStart([{ data: "2026-09-20", tipo: E, valor: 1 }, { data: "2026-08-11", tipo: E, valor: 1 }, { data: null, created_at: null, tipo: E, valor: 1 }], "2026-11-05"), { cents: 0, month: "2026-08-01" }, "zero (d): 0 cents at the first day of the earliest dated entry's month");
+eq(F.gmFinZeroStart([{ data: null, created_at: null, tipo: E, valor: 1 }], "2026-11-05"), { cents: 0, month: "2026-11-01" }, "zero (d): no dated entries means the current month");
+eq(F.gmFinZeroStart([], "2026-11-05"), { cents: 0, month: "2026-11-01" }, "zero (d): no entries at all means the current month");
+let wz = cfgWorld(true, OWNER);
+const rz = await put(wz, { opening_balance_cents: 0, opening_balance_month: "2026-08-01" });
+eq([rz.status, rz.data.config.opening_balance_cents, rz.data.config.opening_balance_month], [200, 0, "2026-08-01"], "zero (d): the Worker saves a 0 and returns 0, not null");
+const gz = await getCfg(wz);
+ok(gz.opening_balance_cents === 0 && F.gmFinOpeningAnswered(gz), "zero (d): the next load counts as answered");
+eq(F.gmFinBalanceBefore(base, gz, "2026-09-01"), 0, "zero (d): a 0 starting balance feeds the balance math (not skipped as empty)");
+
+// (e) today's balance
+const tData = [
+  { data: "2026-11-01", tipo: E, valor: 1000 }, { data: "2026-11-03", tipo: S, valor: 250.5 },
+  { data: "2026-10-30", tipo: E, valor: 999 },                       // last month: not subtracted
+  { data: "2026-11-20", tipo: E, valor: 5000 },                      // future: ignored
+  { data: null, created_at: null, tipo: S, valor: 77 }               // undated: ignored
+];
+const t1 = F.gmFinTodayStart(tData, 500000, "2026-11-05");
+eq(t1, { cents: 500000 - (100000 - 25050), month: "2026-11-01" }, "today (e): 5,000.00 today minus the month's net so far (1,000.00 in, 250.50 out) gives the opening of November");
+eq(F.gmFinTodayStart([{ data: "2026-11-05", tipo: E, valor: 10 }], 100000, "2026-11-05").cents, 99000, "today (e): an entry dated today is included");
+eq(F.gmFinTodayStart([{ data: "2026-11-06", tipo: E, valor: 10 }], 100000, "2026-11-05").cents, 100000, "today (e): an entry dated tomorrow is ignored");
+eq(F.gmFinTodayStart([{ data: "2026-11-01", tipo: E, valor: 0.1 }, { data: "2026-11-02", tipo: E, valor: 0.2 }], 0, "2026-11-05").cents, -30, "today (e): 0.1 and 0.2 are exact cents");
+eq(F.gmFinTodayStart([], -123456, "2026-11-05").cents, -123456, "today (e): a negative typed balance with no entries is kept as is");
+{ // round trip: type today's balance, save it, then the card's Saldo final for the month is exactly the typed balance
+  const typed = 1234567; const noLater = tData.filter((e) => !(e.data && e.data > "2026-11-05"));
+  const res = F.gmFinTodayStart(noLater, typed, "2026-11-05");
+  const cfgRound = { opening_balance_cents: res.cents, opening_balance_month: res.month };
+  const mm = monthsFor(noLater, cfgRound, "2026-11-01", "2026-11-30");
+  eq(byKey(mm, "2026-11").saldo_final, typed, "today (e): reading the month's Saldo final back through the card math returns exactly the typed balance");
+}
+ok(cards("pt", CFG).gmFinOpeningLiveText(123456, "2026-11-01") === "Saldo no início de Novembro de 2026: $1234.56", "today (e): live line, Portuguese");
+ok(cards("en", CFG).gmFinOpeningLiveText(-500, "2026-11-01") === "Balance at the start of November 2026: -$5.00", "today (e): live line, English");
+
+// the new screen code keeps the house rules
+const newSrc2 = gmSrc.slice(gmSrc.indexOf("function gmFinOpeningCfg("), gmSrc.indexOf("function gmRenderFinance()"));
+ok(!/=>/.test(newSrc2) && !/\b(const|let)\s/.test(newSrc2.replace(/\/\/[^\n]*/g, "")) && !/\b(alert|confirm|prompt)\(/.test(newSrc2), "house rules: the ask code has no arrows, const, let or browser pop-ups");
+ok(!/type="(month|date|radio)"/.test(newSrc2), "house rules: the sheet uses no type=month, type=date or radio");
+
+// (h) the two catalog entries
+const WSRC = readFileSync(new URL("../worker/index.js", import.meta.url), "utf8");
+const rec = /\{ key: "receita",[^\n]*\}/.exec(WSRC)[0], sai = /\{ key: "saida",[^\n]*\}/.exec(WSRC)[0];
+ok(/labelPt: "Entradas \(\$\)"/.test(rec) && /labelEn: "Money In \(\$\)"/.test(rec) && /section: "financeiro"/.test(rec) && /type: "currency"/.test(rec) && !/inverse/.test(rec), "labels (h): receita carries Entradas ($) and Money In ($), same key, section and type, no inverse");
+ok(/labelPt: "Saídas \(\$\)"/.test(sai) && /labelEn: "Money Out \(\$\)"/.test(sai) && /inverse: true/.test(sai) && /section: "financeiro"/.test(sai) && /type: "currency"/.test(sai), "labels (h): saida carries Saídas ($) and Money Out ($), same key, inverse still true");
+const OLDWORDS = ["Receita do Dia", "Saída do Dia", "Saida do Dia", "Revenue Today", "Expenses Today"];
+const { execSync } = await import("node:child_process");
+const repoRoot = new URL("../", import.meta.url).pathname;
+const tracked = execSync("git ls-files", { cwd: repoRoot, maxBuffer: 1 << 26 }).toString().split("\n").filter((f) => f && !/^(ios\/|www\/|build\/|node_modules\/|.claude\/)/.test(f) && /\.(js|html|json|mjs|md|css)$/.test(f) && f !== "scripts/test-gm-finance-monthly.mjs");
+const leftovers = [];
+for (const f of tracked) { let t = ""; try { t = readFileSync(new URL("../" + f, import.meta.url), "utf8"); } catch (e) { continue; } for (const w of OLDWORDS) { if (t.indexOf(w) >= 0) { leftovers.push(f + ": " + w); } } }
+eq(leftovers, [], "labels (h): no source file still contains the old labels");
+const GUIDES_TXT = readFileSync(new URL("../help/guides.json", import.meta.url), "utf8");
+ok(GUIDES_TXT.indexOf("Entradas ($), Saídas ($), Lucro Líquido") > 0 && GUIDES_TXT.indexOf("Money In ($), Money Out ($), Net Profit") > 0 && GUIDES_TXT.indexOf("Para Entradas ($), as duas caixas Hoje (1) e Média por dia (2)") > 0 && GUIDES_TXT.indexOf("For Money In ($), the two boxes Today (1) and Average per day (2)") > 0, "labels (h): the two Learn steps use the new labels in both languages");
 
 console.log(fail ? "\n" + fail + " FAILED" : "\nall passed");
 process.exit(fail ? 1 : 0);

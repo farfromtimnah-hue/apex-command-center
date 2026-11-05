@@ -6697,8 +6697,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Os botões redondos (1) são os seus números: Receita do Dia, Saída do Dia, Lucro Líquido, Margem de Lucro %, Vendas Fechadas e outros.",
-                "en": "The round buttons (1) are your numbers: Revenue Today, Expenses Today, Net Profit, Profit Margin %, Closed Sales and more."
+                "pt": "Os botões redondos (1) são os seus números: Entradas ($), Saídas ($), Lucro Líquido, Margem de Lucro %, Vendas Fechadas e outros.",
+                "en": "The round buttons (1) are your numbers: Money In ($), Money Out ($), Net Profit, Profit Margin %, Closed Sales and more."
               },
               "image": {
                 "pt": "help/img/guides/analytics/analytics-03.pt.jpg",
@@ -6730,8 +6730,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Para Receita do Dia, as duas caixas Hoje (1) e Média por dia (2) dizem quanto você precisa por dia útil para bater a meta e qual foi o seu ritmo até agora.",
-                "en": "For Revenue Today, the two boxes Today (1) and Average per day (2) tell you how much you need per working day to hit the goal and what your pace has been so far."
+                "pt": "Para Entradas ($), as duas caixas Hoje (1) e Média por dia (2) dizem quanto você precisa por dia útil para bater a meta e qual foi o seu ritmo até agora.",
+                "en": "For Money In ($), the two boxes Today (1) and Average per day (2) tell you how much you need per working day to hit the goal and what your pace has been so far."
               },
               "image": {
                 "pt": "help/img/guides/analytics/analytics-06.pt.jpg",

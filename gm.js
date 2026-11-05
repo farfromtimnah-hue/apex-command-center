@@ -4827,6 +4827,103 @@ function gmFinMonthlyFromEntries(entries) {
   });
 }
 
+// Balance in cents at the very start of isoDate (YYYY-MM-DD): the starting
+// balance (0 when none) plus money in minus money out of every dated entry
+// from the starting month's first day up to, not including, isoDate. null
+// when a starting balance is set and isoDate is before its month (the balance
+// is not known then). An entry with no usable date is left out. Always run
+// over ALL the client's entries, never only the filtered ones.
+function gmFinBalanceBefore(entries, cfg, isoDate) {
+  var start = null, base = 0;
+  var oc = cfg ? cfg.opening_balance_cents : null;
+  var om = cfg ? cfg.opening_balance_month : null;
+  if (oc !== null && oc !== undefined && om) {
+    start = String(om).slice(0, 10);
+    base = Math.round(Number(oc)) || 0;
+  }
+  if (start && isoDate < start) { return null; }
+  var sum = base;
+  (entries || []).forEach(function(e) {
+    var d = gmFinEntryDateKey(e);
+    if (!d) { return; }
+    if (start && d < start) { return; }
+    if (d >= isoDate) { return; }
+    sum += gmFinTotals([e]).resultado;
+  });
+  return sum;
+}
+
+// Adds saldo_inicial / saldo_final (cents) to each dated month row. The
+// opening balance of a card is the balance at the later of the month's first
+// day and the filter's From date, so a month cut short by the filter still
+// adds up. A month with no known balance (before the starting month) and the
+// no-date group get no balance fields.
+function gmFinAddBalances(monthly, entries, cfg, from) {
+  (monthly || []).forEach(function(m) {
+    if (!m.month_key) { return; }
+    var at = gmFinMonthFirstLastDay(m.month_key).from;
+    if (from && from > at) { at = from; }
+    var b = gmFinBalanceBefore(entries, cfg, at);
+    if (b === null) { return; }
+    m.saldo_inicial = b;
+    m.saldo_final = b + m.resultado;
+  });
+  return monthly;
+}
+
+// The Period total card: the opening balance of the earliest month that has
+// one and the closing balance of the latest. Shown only when the identity
+// closing - opening = period Resultado really holds, which it does not when
+// the period also holds entries the balance leaves out (dated before the
+// starting month, or with no date). Returns a copy of period.
+function gmFinPeriodWithBalances(period, monthly) {
+  var out = {};
+  Object.keys(period).forEach(function(k) { out[k] = period[k]; });
+  var withBal = (monthly || []).filter(function(m) { return m.saldo_inicial !== undefined; });
+  if (!withBal.length) { return out; }
+  var earliest = withBal[0], latest = withBal[0], net = 0;
+  withBal.forEach(function(m) {
+    if (m.month_key < earliest.month_key) { earliest = m; }
+    if (m.month_key > latest.month_key) { latest = m; }
+    net += m.resultado;
+  });
+  if (net !== period.resultado) { return out; }
+  out.saldo_inicial = earliest.saldo_inicial;
+  out.saldo_final = latest.saldo_final;
+  return out;
+}
+
+function gmFinUndatedCount(entries) {
+  var n = 0;
+  (entries || []).forEach(function(e) { if (!gmFinEntryDateKey(e)) { n++; } });
+  return n;
+}
+
+function gmFinUndatedNoteText(n, en) {
+  if (en) {
+    return n === 1 ? "1 entry with no date is not counted in the balance."
+                   : n + " entries with no date are not counted in the balance.";
+  }
+  return n === 1 ? "1 lançamento sem data não entra no saldo."
+                 : n + " lançamentos sem data não entram no saldo.";
+}
+
+// Whole cents as a plain decimal, "18000.00" / "-12.05", no floating point.
+function gmFinCentsPlain(cents) {
+  var c = Math.round(Number(cents) || 0);
+  var a = Math.abs(c);
+  var rest = a % 100;
+  return (c < 0 ? "-" : "") + Math.floor(a / 100) + "." + (rest < 10 ? "0" : "") + rest;
+}
+
+// What the report's opening box starts with: the balance at the From date as
+// a plain decimal, empty when it is unknown or zero.
+function gmFinReportOpenPrefill(entries, cfg, from) {
+  if (!from) { return ""; }
+  var b = gmFinBalanceBefore(entries, cfg, from);
+  return (b === null || b === 0) ? "" : gmFinCentsPlain(b);
+}
+
 // Sets gmFinFrom/gmFinTo/gmFinQuick to the opening default. Called once per
 // tab load, before the first render; never on a language toggle re-render,
 // so the chosen dates survive a language switch.
@@ -4945,15 +5042,139 @@ function gmFinanceChartSvg(monthly) {
   return svg;
 }
 
+function gmFinBalanceLineHtml(label, cents) {
+  var neg = cents < 0;
+  return '<div class="gm-month-line"><span>' + label + '</span><span' + (neg ? ' class="gm-warn"' : '') + '>' +
+    (neg ? '▼ ' : '') + fmtNum(cents / 100, "currency") + '</span></div>';
+}
+
 function gmFinMonthCardHtml(title, t) {
   var band = t.resultado >= 0 ? "gm-ok" : "gm-warn";
   var glyph = t.resultado >= 0 ? "▲" : "▼";
+  var hasBal = t.saldo_inicial !== undefined && t.saldo_inicial !== null;
   return '<div class="gm-month-card"><div class="gm-month-title">' + escHtml(title) + '</div>' +
+    (hasBal ? gmFinBalanceLineHtml(gmT("Saldo inicial", "Opening balance"), t.saldo_inicial) : '') +
     '<div class="gm-month-line"><span>' + gmT("Entradas", "In") + '</span><span>' + fmtNum(t.entradas / 100, "currency") + '</span></div>' +
     '<div class="gm-month-line"><span>' + gmT("Saídas", "Out") + '</span><span>' + fmtNum(t.saidas / 100, "currency") + '</span></div>' +
     '<div class="gm-month-line"><span>' + gmT("Resultado", "Net") + '</span><span class="' + band + '">' + glyph + ' ' + fmtNum(t.resultado / 100, "currency") + '</span></div>' +
     '<div class="gm-month-line"><span>' + gmT("Margem líquida", "Net margin") + '</span><span class="' + band + '">' +
-    (t.margem_pct === null ? "--" : glyph + ' ' + fmtNum(t.margem_pct, "percent")) + '</span></div></div>';
+    (t.margem_pct === null ? "--" : glyph + ' ' + fmtNum(t.margem_pct, "percent")) + '</span></div>' +
+    (hasBal ? gmFinBalanceLineHtml(gmT("Saldo final", "Closing balance"), t.saldo_final) : '') +
+    '</div>';
+}
+
+// ── The starting balance card and its sheet ──
+
+function gmFinOpeningCfg() {
+  return (gmConfig && gmConfig.config) || {};
+}
+
+function gmFinOpeningHas(cfg) {
+  return cfg.opening_balance_available === true &&
+    cfg.opening_balance_cents !== null && cfg.opening_balance_cents !== undefined && !!cfg.opening_balance_month;
+}
+
+function gmFinOpeningCardHtml() {
+  var cfg = gmFinOpeningCfg();
+  var avail = cfg.opening_balance_available === true;
+  var has = gmFinOpeningHas(cfg);
+  var readOnly = (typeof PREVIEW_AS !== "undefined" && !!PREVIEW_AS);
+  var line;
+  if (!avail) {
+    line = gmT("Ainda não disponível", "Not available yet");
+  } else if (!has) {
+    line = gmT("Sem saldo de abertura definido", "No starting balance set");
+  } else {
+    line = fmtNum(cfg.opening_balance_cents / 100, "currency") + " " + gmT("no início de ", "at the start of ") +
+      gmFinMonthLabel(String(cfg.opening_balance_month).slice(0, 7), isEn());
+  }
+  var html = '<div class="content-card" data-tour="finance-opening">' +
+    '<div class="card-title">' + gmT("Saldo de abertura", "Starting balance") + '</div>' +
+    '<p class="muted" style="margin:0 0 8px;">' + escHtml(line) + '</p>';
+  if (avail && !readOnly) {
+    html += '<button type="button" class="btn-outline gm-add-btn" onclick="gmFinOpeningOpen()">' +
+      (has ? gmT("Alterar", "Change") : gmT("Definir", "Set")) + '</button>';
+  }
+  return html + '</div>';
+}
+
+function gmFinOpeningOpen() {
+  var cfg = gmFinOpeningCfg();
+  if (cfg.opening_balance_available !== true) { return; }
+  if (typeof PREVIEW_AS !== "undefined" && PREVIEW_AS) { return; }
+  var has = gmFinOpeningHas(cfg);
+  var now = new Date();
+  var selY = now.getFullYear(), selM = now.getMonth() + 1;
+  var amount = "";
+  if (has) {
+    amount = gmFinCentsPlain(cfg.opening_balance_cents);
+    selY = parseInt(String(cfg.opening_balance_month).slice(0, 4), 10);
+    selM = parseInt(String(cfg.opening_balance_month).slice(5, 7), 10);
+  }
+  var firstY = now.getFullYear() - 5, lastY = now.getFullYear();
+  if (selY < firstY) { firstY = selY; }
+  if (selY > lastY) { lastY = selY; }
+  var monthOpts = "", yearOpts = "", k;
+  for (k = 0; k < 12; k++) {
+    monthOpts += '<option value="' + (k + 1) + '"' + (k + 1 === selM ? " selected" : "") + '>' +
+      escHtml(isEn() ? GM_FIN_MONTH_NAMES_EN[k] : GM_FIN_MONTH_NAMES_PT[k].charAt(0).toUpperCase() + GM_FIN_MONTH_NAMES_PT[k].slice(1)) + '</option>';
+  }
+  for (k = firstY; k <= lastY; k++) {
+    yearOpts += '<option value="' + k + '"' + (k === selY ? " selected" : "") + '>' + k + '</option>';
+  }
+  var body =
+    '<label class="gm-field-label" for="gmFinObAmount">' + gmT("Valor", "Amount") + '</label>' +
+    '<input type="text" inputmode="decimal" id="gmFinObAmount" class="gm-input" placeholder="0.00" value="' + escHtml(amount) + '">' +
+    '<label class="gm-field-label" for="gmFinObMonth">' + gmT("Mês", "Month") + '</label>' +
+    '<select id="gmFinObMonth" class="gm-input">' + monthOpts + '</select>' +
+    '<label class="gm-field-label" for="gmFinObYear">' + gmT("Ano", "Year") + '</label>' +
+    '<select id="gmFinObYear" class="gm-input">' + yearOpts + '</select>' +
+    '<p class="muted" style="font-size:12px;margin:8px 0;">' +
+    gmT("Este é o dinheiro que a empresa já tinha no início desse mês, antes do primeiro lançamento no Apex.",
+        "This is the money the company already had at the start of that month, before the first entry in Apex.") + '</p>' +
+    '<div class="gm-editor-actions">' +
+    '<button type="button" class="btn-outline" onclick="gmSheetClose()">' + gmT("Cancelar", "Cancel") + '</button>' +
+    (has ? '<button type="button" class="btn-outline" id="gmFinObRemove" onclick="gmFinOpeningRemove()">' + gmT("Remover", "Remove") + '</button>' : '') +
+    '<button type="button" class="btn-gold" id="gmFinObSave" onclick="gmFinOpeningSave()">' + gmT("Salvar", "Save") + '</button></div>';
+  gmSheetOpen(gmT("Saldo de abertura", "Starting balance"), body);
+}
+
+// One PUT with both fields (or both null), then the screen reloads the way
+// it already does after an entry is saved.
+function gmFinOpeningPut(payload) {
+  var saveBtn = document.getElementById("gmFinObSave");
+  var rmBtn = document.getElementById("gmFinObRemove");
+  if (saveBtn) { saveBtn.disabled = true; }
+  if (rmBtn) { rmBtn.disabled = true; }
+  return gmApi("config", { method: "PUT", body: payload })
+    .then(function(d) {
+      if (gmConfig && d && d.config) { gmConfig.config = d.config; }
+      gmSheetClose();
+      return gmReloadFinance();
+    })
+    .catch(function(e) {
+      if (saveBtn) { saveBtn.disabled = false; }
+      if (rmBtn) { rmBtn.disabled = false; }
+      gmToast(e.message);
+    });
+}
+
+function gmFinOpeningSave() {
+  var amountEl = document.getElementById("gmFinObAmount");
+  var monthEl = document.getElementById("gmFinObMonth");
+  var yearEl = document.getElementById("gmFinObYear");
+  if (!amountEl || !monthEl || !yearEl) { return; }
+  var n = gmParseMoney(amountEl.value);
+  if (n === null) { gmToast(gmT("Valor inválido.", "The amount is not valid.")); return; }
+  var cents = Math.round(n * 100);
+  if (Math.abs(cents) > 10000000000) { gmToast(gmT("Valor grande demais.", "The amount is too large.")); return; }
+  var m = parseInt(monthEl.value, 10), y = parseInt(yearEl.value, 10);
+  if (!(m >= 1 && m <= 12) || !(y >= 2000 && y <= 2100)) { gmToast(gmT("Escolha o mês e o ano.", "Choose the month and the year.")); return; }
+  gmFinOpeningPut({ opening_balance_cents: cents, opening_balance_month: y + "-" + gmFinPad2(m) + "-01" });
+}
+
+function gmFinOpeningRemove() {
+  gmFinOpeningPut({ opening_balance_cents: null, opening_balance_month: null });
 }
 
 function gmRenderFinance() {
@@ -4966,7 +5187,9 @@ function gmRenderFinance() {
   var filtered = gmFinFilterEntries(allEntries, from, to, includeNoDate);
 
   var monthly = gmFinMonthlyFromEntries(filtered);
-  var period = gmFinTotals(filtered);
+  var cfg = gmFinOpeningCfg();
+  gmFinAddBalances(monthly, allEntries, cfg, from);
+  var period = gmFinPeriodWithBalances(gmFinTotals(filtered), monthly);
   var singleMonth = false;
   if (monthly.length === 1 && monthly[0].month_key && from && to) {
     var mrange = gmFinMonthFirstLastDay(monthly[0].month_key);
@@ -4974,6 +5197,7 @@ function gmRenderFinance() {
   }
 
   var html = gmFinFilterCardHtml();
+  html += gmFinOpeningCardHtml();
 
   html += '<div class="content-card">' +
     '<div class="card-title">' + gmT("Resumo mensal", "Monthly summary") + '</div>' +
@@ -4989,7 +5213,12 @@ function gmRenderFinance() {
       html += gmFinMonthCardHtml(gmT("Total do período", "Period total"), period);
     }
   }
-  html += '</div></div>';
+  html += '</div>';
+  var undated = gmFinUndatedCount(allEntries);
+  if (undated > 0) {
+    html += '<p class="muted" style="font-size:12px;margin:8px 0 0;">' + escHtml(gmFinUndatedNoteText(undated, isEn())) + '</p>';
+  }
+  html += '</div>';
 
   html += '<div class="content-card"><div class="card-title">' + gmT("Lançamentos", "Entries") + '</div>';
   if (!filtered.length) {
@@ -5050,7 +5279,7 @@ function gmOpenFinanceReport() {
     '<button data-help="finances#finances#17" type="button" class="gm-choice-chip" onclick="gmFinRepQuick(\'last_year\')">' + gmT("Ano passado", "Last year") + '</button>' +
     '</div>' +
     '<label class="gm-field-label" for="gmFinRepFrom">' + gmT("De", "From") + '</label>' +
-    '<input type="date" id="gmFinRepFrom" class="gm-input" value="' + escHtml(from) + '">' +
+    '<input type="date" id="gmFinRepFrom" class="gm-input" value="' + escHtml(from) + '" onchange="gmFinRepOpenRefresh()">' +
     '<label class="gm-field-label" for="gmFinRepTo">' + gmT("Até", "To") + '</label>' +
     '<input type="date" id="gmFinRepTo" class="gm-input" value="' + escHtml(to) + '">' +
     '<label class="gm-field-label" for="gmFinRepFor">' + gmT("Preparado para", "Prepared for") + '</label>' +
@@ -5059,7 +5288,8 @@ function gmOpenFinanceReport() {
     '<input type="text" id="gmFinRepTitle" class="gm-input" maxlength="120" placeholder="' +
       escHtml(gmT("Relatório financeiro", "Financial report")) + '">' +
     '<label class="gm-field-label" for="gmFinRepOpen">' + gmT("Saldo inicial", "Opening balance") + '</label>' +
-    '<input type="text" inputmode="decimal" id="gmFinRepOpen" class="gm-input" placeholder="0.00">' +
+    '<input type="text" inputmode="decimal" id="gmFinRepOpen" class="gm-input" placeholder="0.00" value="' +
+      escHtml(gmFinReportOpenPrefill((gmFinanceData && gmFinanceData.entries) || [], gmFinOpeningCfg(), from)) + '">' +
     '<div class="gm-editor-actions">' +
     '<button type="button" class="btn-outline" onclick="gmSheetClose()">' + gmT("Cancelar", "Cancel") + '</button>' +
     '<button type="button" class="btn-gold" onclick="gmFinanceReportOpen()">' + gmT("Abrir relatório", "Open report") + '</button></div>';
@@ -5074,6 +5304,17 @@ function gmFinRepQuick(choice) {
   var toEl = document.getElementById("gmFinRepTo");
   if (fromEl) { fromEl.value = r.from; }
   if (toEl) { toEl.value = r.to; }
+  gmFinRepOpenRefresh();
+}
+
+// The opening box follows the From date, so it always agrees with the cards.
+// Typing a different number afterwards still wins (gmFinanceReportOpen reads
+// the box as it is).
+function gmFinRepOpenRefresh() {
+  var fromEl = document.getElementById("gmFinRepFrom");
+  var openEl = document.getElementById("gmFinRepOpen");
+  if (!fromEl || !openEl) { return; }
+  openEl.value = gmFinReportOpenPrefill((gmFinanceData && gmFinanceData.entries) || [], gmFinOpeningCfg(), String(fromEl.value || ""));
 }
 
 function gmFinanceReportOpen() {

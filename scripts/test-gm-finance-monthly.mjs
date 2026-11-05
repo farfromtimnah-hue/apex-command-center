@@ -64,7 +64,9 @@ function fnFromGm(name) {
 const FN_NAMES = [
   "gmFinMonthLabel", "gmFinEntryDateKey", "gmFinEntryMonthKey", "gmFinMonthList",
   "gmFinMonthFirstLastDay", "gmFinDefaultRange", "gmFinPad2", "gmFinQuickRange",
-  "gmFinFilterEntries", "gmFinTotals", "gmFinMonthlyFromEntries"
+  "gmFinFilterEntries", "gmFinTotals", "gmFinMonthlyFromEntries",
+  "gmFinBalanceBefore", "gmFinAddBalances", "gmFinPeriodWithBalances", "gmFinUndatedCount",
+  "gmFinUndatedNoteText", "gmFinCentsPlain", "gmFinReportOpenPrefill"
 ];
 const varNames = ["GM_FIN_MONTH_NAMES_PT", "GM_FIN_MONTH_NAMES_EN"];
 function varFromGm(name) {
@@ -137,6 +139,229 @@ const allTimeGrouped = F.gmFinMonthlyFromEntries([
   { data: "2026-10-01", tipo: E, valor: 20 }, { data: "2026-10-15", tipo: S, valor: 1.5 }
 ]);
 eq(allTimeGrouped.find((m) => m.month_key === "2026-09"), { entradas: 1000, saidas: 300, resultado: 700, margem_pct: 70, count: 2, month_key: "2026-09" }, "front/worker parity: September group matches the worker's shape and sums");
+
+
+// ───────────────── Saldo inicial / Saldo final (2026-11-05 build) ─────────────
+// Every case is a real run of the functions cut out of gm.js.
+const cardBody = ["gmFinBalanceLineHtml", "gmFinMonthCardHtml", "gmFinOpeningHas", "gmFinOpeningCfg", "gmFinOpeningCardHtml", "gmFinMonthLabel", "varsHere"]
+  .filter((n) => n !== "varsHere").map(fnFromGm).join("\n");
+const cardMaker = new Function("gmT", "escHtml", "fmtNum", "isEn", "PREVIEW_AS", "GM_FIN_MONTH_NAMES_PT", "GM_FIN_MONTH_NAMES_EN", "getConfig",
+  "var gmConfig = getConfig();\n" + cardBody + "\nreturn { gmFinMonthCardHtml, gmFinOpeningCardHtml };");
+const money = (n) => (n < 0 ? "-" : "") + "$" + Math.abs(n).toFixed(2);
+const cards = (lang, cfgObj, preview) => cardMaker(
+  (pt, en) => (lang === "en" ? en : pt), (x) => String(x), (n, k) => (k === "percent" ? n + "%" : money(n)), () => lang === "en",
+  preview ? "client-1" : "", ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"],
+  ["January","February","March","April","May","June","July","August","September","October","November","December"], () => ({ config: cfgObj }));
+
+const NOCFG = {};
+const base = [
+  { data: "2026-09-05", tipo: E, valor: 1000 }, { data: "2026-09-20", tipo: S, valor: 300 },
+  { data: "2026-10-01", tipo: E, valor: 2000 }, { data: "2026-10-15", tipo: S, valor: 150 }
+];
+const monthsFor = (all, cfg, from, to) => {
+  const filtered = F.gmFinFilterEntries(all, from, to, false);
+  return F.gmFinAddBalances(F.gmFinMonthlyFromEntries(filtered), all, cfg, from);
+};
+const byKey = (ms, k) => ms.find((m) => m.month_key === k);
+
+// (a) two whole months: the second opens exactly where the first closed
+const a = monthsFor(base, NOCFG, "2026-09-01", "2026-10-31");
+eq([byKey(a, "2026-09").saldo_inicial, byKey(a, "2026-09").saldo_final], [0, 70000], "balance (a): the earliest month opens at 0 and closes at its Resultado");
+eq(byKey(a, "2026-10").saldo_inicial, byKey(a, "2026-09").saldo_final, "balance (a): October's Saldo inicial is exactly September's Saldo final");
+eq(byKey(a, "2026-10").saldo_final, 70000 + 185000, "balance (a): October closes at 2,550.00");
+
+// (b) same data, filter on the second month only: identical balances
+const b = monthsFor(base, NOCFG, "2026-10-01", "2026-10-31");
+eq([byKey(b, "2026-10").saldo_inicial, byKey(b, "2026-10").saldo_final], [byKey(a, "2026-10").saldo_inicial, byKey(a, "2026-10").saldo_final], "balance (b): a This-month filter shows the same carried balance as the full view");
+
+// (c) more out than in: negative closing balance, warning styling
+const negData = [{ data: "2026-11-02", tipo: E, valor: 100 }, { data: "2026-11-03", tipo: S, valor: 500 }];
+const c = monthsFor(negData, NOCFG, "2026-11-01", "2026-11-30");
+eq(c[0].saldo_final, -40000, "balance (c): Saldo final is negative when out is larger than in");
+const cHtmlPt = cards("pt", NOCFG).gmFinMonthCardHtml("Novembro", c[0]);
+ok(/Saldo final<\/span><span class="gm-warn">▼ -\$400\.00/.test(cHtmlPt), "balance (c): a negative Saldo final uses gm-warn and the down triangle");
+const posHtml = cards("en", NOCFG).gmFinMonthCardHtml("October", byKey(a, "2026-10"));
+ok(/Closing balance<\/span><span>\$2550\.00/.test(posHtml), "balance (c): a positive balance is plain text, no class, no triangle");
+const lines = (h) => [...h.matchAll(/<div class="gm-month-line"><span>([^<]+)<\/span>/g)].map((m) => m[1]);
+eq(lines(posHtml), ["Opening balance", "In", "Out", "Net", "Net margin", "Closing balance"], "card (EN): lines top to bottom, existing labels unchanged");
+eq(lines(cHtmlPt), ["Saldo inicial", "Entradas", "Saídas", "Resultado", "Margem líquida", "Saldo final"], "card (PT): lines top to bottom, existing labels unchanged");
+
+// (d) starting balance 18000.00 at 2026-10-01
+const CFG = { opening_balance_cents: 1800000, opening_balance_month: "2026-10-01", opening_balance_available: true };
+const dData = base.concat([{ data: "2026-11-04", tipo: E, valor: 500 }, { data: "2026-11-09", tipo: S, valor: 200 }]);
+const d1 = monthsFor(dData, CFG, "2026-09-01", "2026-11-30");
+eq(byKey(d1, "2026-10").saldo_inicial, 1800000, "balance (d): October opens at the starting balance 18,000.00");
+eq(byKey(d1, "2026-11").saldo_inicial, byKey(d1, "2026-10").saldo_final, "balance (d): November opens at October's Saldo final");
+ok(byKey(d1, "2026-09").saldo_inicial === undefined && byKey(d1, "2026-09").saldo_final === undefined, "balance (d): the September card has no balance fields");
+const sepHtml = cards("en", CFG).gmFinMonthCardHtml("September", byKey(d1, "2026-09"));
+eq(lines(sepHtml), ["In", "Out", "Net", "Net margin"], "balance (d): the September card is drawn exactly as before, no balance lines");
+eq(F.gmFinBalanceBefore(dData, CFG, "2026-09-30"), null, "balance (d): before the starting month the balance is not known (null)");
+
+// (e) entries before the starting month: ignored by the balance, kept in their own month's In and Out
+eq([byKey(d1, "2026-09").entradas, byKey(d1, "2026-09").saidas], [100000, 30000], "balance (e): September still shows its own In and Out");
+eq(F.gmFinBalanceBefore(dData, CFG, "2026-12-01"), 1800000 + (200000 - 15000) + (50000 - 20000), "balance (e): the balance at Dec 1 counts only October and November on top of the start (18,000 + 1,850 + 300)");
+
+// (f) undated entries: never change a balance, never throw, note with the right plural
+const withUndated = base.concat([{ data: null, created_at: null, tipo: E, valor: 999 }, { tipo: S, valor: 5 }, { data: "garbage", tipo: E, valor: 7 }]);
+let threw = false, f1 = null;
+try { f1 = F.gmFinAddBalances(F.gmFinMonthlyFromEntries(withUndated), withUndated, NOCFG, ""); } catch (e) { threw = true; }
+ok(!threw, "balance (f): entries with no usable date do not throw");
+eq(F.gmFinBalanceBefore(withUndated, NOCFG, "2026-12-01"), F.gmFinBalanceBefore(base, NOCFG, "2026-12-01"), "balance (f): undated entries never change a balance");
+eq(F.gmFinUndatedCount(withUndated), 3, "balance (f): three undated entries counted (garbage data with no created_at is undated too)");
+ok(byKey(f1, null) && byKey(f1, null).saldo_inicial === undefined, "balance (f): the no-date group shows no balance lines");
+eq(F.gmFinUndatedNoteText(1, false), "1 lançamento sem data não entra no saldo.", "note (f): PT singular");
+eq(F.gmFinUndatedNoteText(3, false), "3 lançamentos sem data não entram no saldo.", "note (f): PT plural");
+eq(F.gmFinUndatedNoteText(1, true), "1 entry with no date is not counted in the balance.", "note (f): EN singular");
+eq(F.gmFinUndatedNoteText(2, true), "2 entries with no date are not counted in the balance.", "note (f): EN plural");
+
+// (g) a filter that starts mid month
+const g = monthsFor(base, NOCFG, "2026-10-10", "2026-10-31");
+eq(byKey(g, "2026-10").saldo_inicial, F.gmFinBalanceBefore(base, NOCFG, "2026-10-10"), "balance (g): the cut-short month opens at the balance on the From date");
+eq(byKey(g, "2026-10").saldo_final, byKey(g, "2026-10").saldo_inicial + byKey(g, "2026-10").resultado, "balance (g): Saldo final = Saldo inicial + the card's Resultado");
+eq(byKey(g, "2026-10").saldo_inicial, 70000 + 200000, "balance (g): the Oct 1 sale is before the From date, so it is already in the opening (700.00 + 2,000.00)");
+eq(byKey(g, "2026-10").saldo_final, 270000 - 15000, "balance (g): Saldo final is 2,700.00 - 150.00 = 2,550.00");
+
+// (h) Period total
+const h = monthsFor(base, NOCFG, "2026-09-01", "2026-10-31");
+const hp = F.gmFinPeriodWithBalances(F.gmFinTotals(F.gmFinFilterEntries(base, "2026-09-01", "2026-10-31", false)), h);
+eq(hp.saldo_final - hp.saldo_inicial, hp.resultado, "period (h): Saldo final minus Saldo inicial equals the period Resultado");
+eq(hp.saldo_inicial, byKey(h, "2026-09").saldo_inicial, "period (h): Saldo inicial is the first month's");
+eq(hp.saldo_final, byKey(h, "2026-10").saldo_final, "period (h): Saldo final is the last month's");
+const d1p = F.gmFinPeriodWithBalances(F.gmFinTotals(F.gmFinFilterEntries(dData, "2026-09-01", "2026-11-30", false)), d1);
+ok(d1p.saldo_inicial === undefined && d1p.saldo_final === undefined, "period (h): when September's entries sit before the starting month the identity cannot hold, so the Period total shows no balance lines");
+const dOnly = monthsFor(dData, CFG, "2026-10-01", "2026-11-30");
+const dOnlyP = F.gmFinPeriodWithBalances(F.gmFinTotals(F.gmFinFilterEntries(dData, "2026-10-01", "2026-11-30", false)), dOnly);
+eq([dOnlyP.saldo_inicial, dOnlyP.saldo_final - dOnlyP.saldo_inicial === dOnlyP.resultado], [1800000, true], "period (h): with a starting balance, the identity holds from the starting month on");
+
+// (i) cents arithmetic
+const tenths = [];
+for (let i = 1; i <= 10; i++) { tenths.push({ data: "2026-09-" + String(i).padStart(2, "0"), tipo: E, valor: 0.1 }); }
+eq(F.gmFinBalanceBefore(tenths, NOCFG, "2026-10-01"), 100, "cents (i): ten entries of 0.10 add to exactly 1.00");
+eq(F.gmFinBalanceBefore([{ data: "2026-09-01", tipo: E, valor: 0.1 }, { data: "2026-09-02", tipo: E, valor: 0.2 }], NOCFG, "2026-10-01"), 30, "cents (i): 0.1 + 0.2 is exactly 30 cents");
+eq(F.gmFinBalanceBefore([{ data: "2026-09-01", tipo: E, valor: 12345678.91 }, { data: "2026-09-02", tipo: S, valor: 0.01 }], { opening_balance_cents: 9999999999, opening_balance_month: "2026-09-01" }, "2026-10-01"), 9999999999 + 1234567891 - 1, "cents (i): large values add exactly");
+eq(F.gmFinCentsPlain(1800000), "18000.00", "cents (i): plain decimal of 1800000 cents");
+eq(F.gmFinCentsPlain(-1205), "-12.05", "cents (i): plain decimal of a negative amount");
+eq(F.gmFinCentsPlain(5), "0.05", "cents (i): plain decimal pads the cents");
+
+// (j) the report box starts with the card's Saldo inicial
+eq(F.gmFinReportOpenPrefill(base, NOCFG, "2026-10-10"), F.gmFinCentsPlain(byKey(g, "2026-10").saldo_inicial), "report (j): the opening box equals the card's Saldo inicial for the same From date");
+eq(F.gmFinReportOpenPrefill(dData, CFG, "2026-10-01"), "18000.00", "report (j): with the 18,000.00 starting balance the box reads 18000.00");
+eq(F.gmFinReportOpenPrefill(base, NOCFG, "2026-09-01"), "", "report (j): a zero balance leaves the box empty");
+eq(F.gmFinReportOpenPrefill(dData, CFG, "2026-09-01"), "", "report (j): an unknown balance (null) leaves the box empty");
+eq(F.gmFinReportOpenPrefill(base, NOCFG, ""), "", "report (j): no From date leaves the box empty");
+
+// The starting balance card: the three states and the read-only preview
+const cardNone = cards("pt", { opening_balance_available: true, opening_balance_cents: null, opening_balance_month: null }).gmFinOpeningCardHtml();
+ok(cardNone.indexOf("Sem saldo de abertura definido") > 0 && cardNone.indexOf(">Definir<") > 0, "opening card: nothing set shows the text and Definir");
+const cardSet = cards("en", CFG).gmFinOpeningCardHtml();
+ok(cardSet.indexOf("$18000.00 at the start of October 2026") > 0 && cardSet.indexOf(">Change<") > 0, "opening card: a set balance shows amount, month and Change");
+const cardOff = cards("en", { opening_balance_available: false }).gmFinOpeningCardHtml();
+ok(cardOff.indexOf("Not available yet") > 0 && cardOff.indexOf("<button") < 0, "opening card: columns missing shows Not available yet and no button");
+const cardPrev = cards("pt", CFG, true).gmFinOpeningCardHtml();
+ok(cardPrev.indexOf("<button") < 0 && cardPrev.indexOf("no início de Outubro de 2026") > 0, "opening card: a staff preview is read only, no button");
+
+// The screen code obeys the house rules (var, no arrows, no pop-ups, null checks)
+const newSrc = gmSrc.slice(gmSrc.indexOf("function gmFinBalanceBefore("), gmSrc.indexOf("function gmFinInitRange()")) +
+  gmSrc.slice(gmSrc.indexOf("function gmFinBalanceLineHtml("), gmSrc.indexOf("function gmRenderFinance()"));
+ok(!/=>/.test(newSrc) && !/\b(const|let)\s/.test(newSrc.replace(/\/\/[^\n]*/g, "")), "house rules: no arrow functions, no const or let in the new screen code");
+ok(!/\b(alert|confirm|prompt)\(/.test(newSrc), "house rules: no browser pop-ups in the new screen code");
+
+// ───────────── worker: starting balance on gm/config (2026-11-05) ─────────────
+const MIG_OB = readFileSync(new URL("../migrations/2026-11-05_gm_opening_balance.sql", import.meta.url), "utf8");
+ok((MIG_OB.match(/ALTER TABLE gm_config ADD COLUMN/g) || []).length === 2 && !/DROP|CREATE|RENAME/i.test(MIG_OB), "migration: exactly two ALTER TABLE gm_config ADD COLUMN statements, no rebuild");
+const MIG_SM = readFileSync(new URL("../migrations/2026-10-07_clients_staff_manage.sql", import.meta.url), "utf8");
+
+const WNAMES = ["handlePutGmConfig", "handleGetGmConfig", "gmGetConfig", "gmOpeningBalanceAvailable", "gmOpeningBalanceParse", "gmEnsureConfigRow",
+  "gmRunUpdate", "gmStr", "gmNum", "gmParseJsonList", "gmParseJsonListNonEmpty", "isAdminRole", "requireClientAccess", "previewWriteGate"];
+const WVARS = ["GM_DEFAULT_FINANCE_CATEGORIES", "GM_DEFAULT_VIEW_THRESHOLD", "gmOpeningColumnsKnown", "gmOpeningColumnsCheckedAt", "PREVIEW_READONLY_MSG", "STAFF_MANAGE_BLOCKED_MSG"];
+function cfgWorld(withColumns, asUser) {
+  const dd = makeDb(["migrations/gm_growth_management.sql"]);
+  try { dd.raw.exec(MIG_SM); } catch (e) { /* the shim table already has it */ }
+  dd.raw.exec("ALTER TABLE gm_config ADD COLUMN event_types_json TEXT");
+  dd.raw.exec("CREATE TABLE IF NOT EXISTS message_templates (template_key TEXT PRIMARY KEY, template_text TEXT)");
+  if (withColumns) { MIG_OB.replace(/^\s*--[^\n]*$/gm, "").split(";").forEach((st) => { if (st.trim()) { dd.raw.exec(st); } }); }
+  dd.raw.prepare("INSERT INTO clients (id, name, staff_manage) VALUES ('c1', 'Dipro', 0)").run();
+  dd.raw.prepare("INSERT INTO clients (id, name, staff_manage) VALUES ('c2', 'Other', 0)").run();
+  const WW = build(WNAMES, WVARS, Object.assign({}, baseStubs, {
+    URL: globalThis.URL, authenticate: async () => asUser,
+    GM_STAGES: [], GM_STAGE_DEFS: [], GM_ACTIVE_PIPELINE_STAGES: [], GM_LIVE_STAGES: [], GM_ORIGENS: [], GM_ROADMAP_STATUSES: [], GM_FRENTES: [],
+    GM_BASE_OURO_STATUSES: [], GM_PARTNER_STATUSES: [], GM_JOB_STATUSES: [], DEFAULT_WHATSAPP_TEMPLATES: { partner_referral_share: "x" }
+  }));
+  return { dd, WW, env: { DB: dd.DB } };
+}
+const OWNER = { role: "client", client_id: "c1", login_role: "client", display_name: "Dipro" };
+const put = (w, body, id) => w.WW.handlePutGmConfig(id || "c1", req(body, "https://api.x.test/api/clients/" + (id || "c1") + "/gm/config"), w.env);
+const getCfg = async (w) => (await w.WW.handleGetGmConfig("c1", req({}), w.env)).data.config;
+const cfgRows = (w) => w.dd.q("SELECT * FROM gm_config");
+
+// valid pair saves, in one UPDATE
+let w = cfgWorld(true, OWNER);
+let r1 = await put(w, { opening_balance_cents: 1800000, opening_balance_month: "2026-10-01" });
+eq(r1.status, 200, "worker (k): a valid pair saves");
+eq([r1.data.config.opening_balance_cents, r1.data.config.opening_balance_month, r1.data.config.opening_balance_available], [1800000, "2026-10-01", true], "worker (k): the answer carries the saved pair and available: true");
+eq(w.dd.writes.filter((x) => /^UPDATE gm_config/.test(x[0])).length, 1, "worker (k): one UPDATE per save");
+r1 = await put(w, { opening_balance_cents: -250, opening_balance_month: "2026-01-01" });
+eq([r1.status, r1.data.config.opening_balance_cents], [200, -250], "worker (k): a negative balance saves");
+r1 = await put(w, { opening_balance_cents: null, opening_balance_month: null });
+eq([r1.status, r1.data.config.opening_balance_cents, r1.data.config.opening_balance_month], [200, null, null], "worker (k): both null clears it");
+
+// every bad input: right 4xx, nothing written (not even the config row)
+const BAD = [
+  ["amount without month", { opening_balance_cents: 100 }, 400],
+  ["month without amount", { opening_balance_month: "2026-10-01" }, 400],
+  ["amount with null month", { opening_balance_cents: 100, opening_balance_month: null }, 400],
+  ["null amount with month", { opening_balance_cents: null, opening_balance_month: "2026-10-01" }, 400],
+  ["a string amount", { opening_balance_cents: "100", opening_balance_month: "2026-10-01" }, 400],
+  ["a fractional cents value", { opening_balance_cents: 100.5, opening_balance_month: "2026-10-01" }, 400],
+  ["a huge value", { opening_balance_cents: 10000000001, opening_balance_month: "2026-10-01" }, 400],
+  ["a huge negative value", { opening_balance_cents: -10000000001, opening_balance_month: "2026-10-01" }, 400],
+  ["not the first day", { opening_balance_cents: 100, opening_balance_month: "2026-10-02" }, 400],
+  ["not a real month", { opening_balance_cents: 100, opening_balance_month: "2026-13-01" }, 400],
+  ["month 00", { opening_balance_cents: 100, opening_balance_month: "2026-00-01" }, 400],
+  ["year 1999", { opening_balance_cents: 100, opening_balance_month: "1999-12-01" }, 400],
+  ["year 2101", { opening_balance_cents: 100, opening_balance_month: "2101-01-01" }, 400],
+  ["a date with a time", { opening_balance_cents: 100, opening_balance_month: "2026-10-01T00:00" }, 400]
+];
+for (const [name, body, want] of BAD) {
+  const wb = cfgWorld(true, OWNER);
+  const rb = await put(wb, body);
+  ok(rb.status === want && wb.dd.writes.length === 0 && cfgRows(wb).length === 0, "worker (k): " + name + " gives " + want + " and writes nothing");
+}
+w = cfgWorld(true, OWNER);
+const r403 = await put(w, { opening_balance_cents: 100, opening_balance_month: "2026-10-01" }, "c2");
+ok(r403.status === 403 && w.dd.writes.length === 0 && cfgRows(w).length === 0, "worker (k): a client without access to that business gets 403 and nothing is written");
+
+// columns missing: 409 and no write; GET answers false
+w = cfgWorld(false, OWNER);
+const r409 = await put(w, { opening_balance_cents: 100, opening_balance_month: "2026-10-01" });
+ok(r409.status === 409 && /Not available yet/.test(r409.error) && w.dd.writes.length === 0 && cfgRows(w).length === 0, "worker (k): columns missing gives 409 (not 500), writes nothing");
+const g0 = await getCfg(w);
+eq([g0.opening_balance_available, g0.opening_balance_cents, g0.opening_balance_month], [false, null, null], "worker (k): GET config without the columns: available false, nulls (no row)");
+w.dd.raw.prepare("INSERT INTO gm_config (client_id) VALUES ('c1')").run();
+w = Object.assign(w, {});
+const g0b = await getCfg(w);
+eq(g0b.opening_balance_available, false, "worker (k): GET config without the columns, row present: still false");
+// a save that does not touch the balance still works before the migration
+const rOther = await put(w, { vendedores: ["Ana"] });
+eq(rOther.status, 200, "worker (k): other config saves keep working before the migration");
+
+// columns present: GET answers true with and without a row, plus every old key
+w = cfgWorld(true, OWNER);
+const g1 = await getCfg(w);
+eq([g1.opening_balance_available, g1.opening_balance_cents, g1.opening_balance_month], [true, null, null], "worker (k): GET config with the columns and no row: available true");
+for (const key of ["servicos", "vendedores", "finance_categories", "partner_types", "cycle_months", "event_types", "target_margin", "target_margin_set_by", "target_margin_set_at", "pipeline_view_threshold", "pipeline_view_override"]) {
+  ok(Object.prototype.hasOwnProperty.call(g1, key), "worker (k): GET config still returns " + key);
+}
+await put(w, { opening_balance_cents: 500, opening_balance_month: "2026-02-01" });
+const g2 = await getCfg(w);
+eq([g2.opening_balance_available, g2.opening_balance_cents, g2.opening_balance_month], [true, 500, "2026-02-01"], "worker (k): GET config returns the saved pair");
+
+// a staff preview session cannot write (the router's own gate, same rule as every other write)
+w = cfgWorld(true, OWNER);
+const pv = await w.WW.previewWriteGate({ url: "https://x.test/api/clients/c1/gm/config?previewAs=c1" }, w.env, "/api/clients/c1/gm/config");
+ok(pv && pv.status === 403 && w.dd.writes.length === 0, "worker (k): a staff preview of a client cannot write config (403)");
+ok(/method !== "GET" && new URL\(request\.url\)\.searchParams\.get\("previewAs"\)\) \{\s*return jsonErr\("Preview is read-only", 403\)/.test(workerSrcText()), "worker (k): the router blocks every non-GET that carries previewAs");
+function workerSrcText() { return readFileSync(new URL("../worker/index.js", import.meta.url), "utf8"); }
 
 console.log(fail ? "\n" + fail + " FAILED" : "\nall passed");
 process.exit(fail ? 1 : 0);

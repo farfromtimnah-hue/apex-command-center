@@ -23422,6 +23422,74 @@ function gmParseJsonListNonEmpty(s, fallback) {
     return fallback;
 }
 
+// Do the two starting balance columns exist yet? Answered from the row that
+// was already read when there is one (SELECT * carries every column, so no
+// extra query), and from one read-only pragma lookup when there is no row.
+// "Yes" is remembered for the life of the isolate (columns are never dropped);
+// "no" is remembered for a minute so a pending migration does not cost one
+// lookup per request. It never runs a query that can fail on a missing column.
+var gmOpeningColumnsKnown = null;
+var gmOpeningColumnsCheckedAt = 0;
+async function gmOpeningBalanceAvailable(env, row) {
+    if (row) {
+        var has = Object.prototype.hasOwnProperty.call(row, "opening_balance_cents") &&
+                  Object.prototype.hasOwnProperty.call(row, "opening_balance_month");
+        gmOpeningColumnsKnown = has;
+        gmOpeningColumnsCheckedAt = Date.now();
+        return has;
+    }
+    if (gmOpeningColumnsKnown === true) { return true; }
+    if (gmOpeningColumnsKnown === false && Date.now() - gmOpeningColumnsCheckedAt < 60000) { return false; }
+    var found = null;
+    try {
+        found = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM pragma_table_info('gm_config') WHERE name IN ('opening_balance_cents', 'opening_balance_month')"
+        ).first();
+    } catch (e) {
+        // A database that will not answer the pragma: look at any one row.
+        found = null;
+        try {
+            var anyRow = await env.DB.prepare("SELECT * FROM gm_config LIMIT 1").first();
+            if (anyRow) {
+                found = { n: (Object.prototype.hasOwnProperty.call(anyRow, "opening_balance_cents") &&
+                              Object.prototype.hasOwnProperty.call(anyRow, "opening_balance_month")) ? 2 : 0 };
+            }
+        } catch (e2) {
+            found = null;
+        }
+    }
+    gmOpeningColumnsKnown = !!found && Number(found.n) === 2;
+    gmOpeningColumnsCheckedAt = Date.now();
+    return gmOpeningColumnsKnown;
+}
+
+// Validates the starting balance pair from a PUT body. Returns
+// { present: false } when neither key was sent, { error: "..." } for a bad
+// value, else { present: true, cents: n|null, month: "YYYY-MM-01"|null }.
+// Both keys or neither; both null clears the balance.
+function gmOpeningBalanceParse(body) {
+    var hasC = typeof body.opening_balance_cents !== "undefined";
+    var hasM = typeof body.opening_balance_month !== "undefined";
+    if (!hasC && !hasM) { return { present: false }; }
+    var c = body.opening_balance_cents, m = body.opening_balance_month;
+    if (!hasC || !hasM) {
+        return { error: "Envie o valor e o m\u00eas juntos, ou os dois vazios. / Send the amount and the month together, or both empty." };
+    }
+    if (c === null && m === null) { return { present: true, cents: null, month: null }; }
+    if (c === null || m === null) {
+        return { error: "Envie o valor e o m\u00eas juntos, ou os dois vazios. / Send the amount and the month together, or both empty." };
+    }
+    if (typeof c !== "number" || !isFinite(c) || Math.floor(c) !== c || Math.abs(c) > 10000000000) {
+        return { error: "O saldo de abertura deve ser um n\u00famero inteiro de centavos, at\u00e9 100 milh\u00f5es de d\u00f3lares. / The starting balance must be a whole number of cents, up to 100 million dollars." };
+    }
+    var mm = typeof m === "string" ? /^(\d{4})-(\d{2})-01$/.exec(m) : null;
+    var yr = mm ? parseInt(mm[1], 10) : 0, mo = mm ? parseInt(mm[2], 10) : 0;
+    if (!mm || yr < 2000 || yr > 2100 || mo < 1 || mo > 12) {
+        return { error: "O m\u00eas do saldo de abertura deve ser o primeiro dia de um m\u00eas real (AAAA-MM-01). / The starting balance month must be the first day of a real month (YYYY-MM-01)." };
+    }
+    return { present: true, cents: c === 0 ? 0 : c, month: m };
+}
+
 // Read a client's gm_config. A READ NEVER WRITES.
 //
 // ⚠️ THIS FUNCTION USED TO INSERT A ROW WHEN ONE WAS MISSING, seeded with a
@@ -23453,8 +23521,19 @@ async function gmGetConfig(env, clientId) {
     var row = await env.DB.prepare("SELECT * FROM gm_config WHERE client_id = ?").bind(clientId).first();
     // No row is not an error and is not a reason to create one. Answer from
     // the same shape the parse helpers would produce for an unset column.
+    var hadRow = !!row;
     if (!row) { row = {}; }
+    var obAvailable = await gmOpeningBalanceAvailable(env, hadRow ? row : null);
     return {
+        // The starting balance (Financeiro tab). Whole cents, or null when
+        // none is set; the month is always the first day (YYYY-MM-01).
+        // opening_balance_available is false until the migration
+        // 2026-11-05_gm_opening_balance.sql has been applied, so the screens
+        // work before and after it.
+        opening_balance_cents: (obAvailable && row.opening_balance_cents !== null && row.opening_balance_cents !== undefined)
+                                  ? row.opening_balance_cents : null,
+        opening_balance_month: (obAvailable && row.opening_balance_month) ? row.opening_balance_month : null,
+        opening_balance_available: obAvailable,
         // Empty, never a seed list. An empty list is honest and prompts
         // the client to enter their own; a borrowed list is a lie about their
         // business that they then have to notice and delete.
@@ -23616,9 +23695,16 @@ async function handlePutGmConfig(id, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         var isAdmin = isAdminRole(user);
         if (!isAdmin && !requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
-        await gmEnsureConfigRow(env, id);   // deliberate write: create the row if absent
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
+        // The starting balance is checked BEFORE the row is created: a bad
+        // value, or a database without the columns yet, writes nothing at all.
+        var openBal = gmOpeningBalanceParse(body);
+        if (openBal.error) { return jsonErr(openBal.error, 400); }
+        if (openBal.present && !(await gmOpeningBalanceAvailable(env, null))) {
+            return jsonErr("Ainda n\u00e3o dispon\u00edvel. / Not available yet.", 409);
+        }
+        await gmEnsureConfigRow(env, id);   // deliberate write: create the row if absent
         var sets = [], binds = [];
         function listOfStrings(v) {
             if (Object.prototype.toString.call(v) !== "[object Array]") { return null; }
@@ -23695,6 +23781,15 @@ async function handlePutGmConfig(id, request, env) {
             sets.push("target_margin_set_by = ?");
             binds.push(actorName(user));
             sets.push("target_margin_set_at = datetime('now')");
+        }
+        // The starting balance (Financeiro tab) is CLIENT-WRITABLE the same way
+        // target_margin is: the owner's own money, set or cleared as a pair, in
+        // the same single UPDATE as everything else in this save.
+        if (openBal.present) {
+            sets.push("opening_balance_cents = ?");
+            binds.push(openBal.cents);
+            sets.push("opening_balance_month = ?");
+            binds.push(openBal.month);
         }
         var thr = isAdmin ? gmNum(body.pipeline_view_threshold) : null;
         if (thr !== null && thr >= 1) { sets.push("pipeline_view_threshold = ?"); binds.push(Math.round(thr)); }

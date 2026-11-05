@@ -5378,6 +5378,8 @@ function gmLoadPricing() {
   var body = document.getElementById("gmPricingBody");
   if (!body) { return; }
   body.innerHTML = '<div class="content-card"><p class="muted">' + gmT("Carregando…", "Loading…") + '</p></div>';
+  gmAbcPlStatus = null;
+  gmAbcPlLoad();
   gmApi("pricing")
     .then(function(d) { gmPricingData = d; gmRenderPricing(); })
     .catch(function(e) {
@@ -5488,7 +5490,8 @@ function gmRenderPricing() {
       var kindWord = GmLabels.pricingKindLabel(it.kind || "product", isEn());
       html += '<button type="button" class="gm-row" onclick="gmOpenPricing(' + i + ')">' +
         '<span class="gm-lead-main">' +
-        '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(it.item) + (it.needs_info ? ' <span class="gm-pill gm-gold">● ' + gmT("Faltam dados", "Needs info") + '</span>' : "") + '</span>' +
+        '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(it.item) + (it.needs_info ? ' <span class="gm-pill gm-gold">● ' + gmT("Faltam dados", "Needs info") + '</span>' : "") +
+        (!ro && it.abc_item_number ? ' <span class="gm-pill gm-muted">ABC</span>' : "") + '</span>' +
         '<div class="gm-lead-sub">' +
         [it.category || null, it.kind === "addon" ? kindWord : null, it.unit,
          (!ro && it.cost_total !== null && it.cost_total !== undefined) ? gmT("custo ", "cost ") + gmMoney(Math.round(it.cost_total * 100)) : null,
@@ -5505,6 +5508,7 @@ function gmRenderPricing() {
     });
   }
 
+  if (!ro) { html += gmAbcPlPricingHtml(items); }
   if (!ro) {
     html += '<button type="button" class="btn-gold gm-add-btn" onclick="gmOpenPricing(-1)">' +
       gmT("+ Novo item", "+ New item") + '</button>' +
@@ -5552,6 +5556,9 @@ function gmOpenPricing(idx) {
     unit:  src.unit || "",
     price: (src.price === null || src.price === undefined) ? "" : String(src.price),
     notes: src.notes || "",
+    abc_item_number: src.abc_item_number || null, abc_unit: src.abc_unit || null,
+    abc_units_per_apex_unit: src.abc_units_per_apex_unit === undefined ? null : src.abc_units_per_apex_unit,
+    abc_cost: src.abc_cost === undefined ? null : src.abc_cost, abc_cost_synced_at: src.abc_cost_synced_at || null,
     lines: (src.cost_breakdown || []).map(function(l) {
       return { label: l.label || "", amount: (l.amount === null || l.amount === undefined) ? "" : String(l.amount),
                type: gmCostLineType(l.type) };
@@ -5612,6 +5619,8 @@ function gmRenderPricingSheet() {
     '<textarea id="gmPricingNotes" class="gm-input" rows="3" ' +
       'oninput="gmPricingDraftSet(\'notes\', this.value)">' + escHtml(d.notes) + '</textarea>' +
     '</div>';
+
+  body += gmAbcPlItemSectionHtml(d);
 
   body += '<button type="button" class="gm-btn-primary" onclick="gmPricingSave()">' +
     gmT("Salvar", "Save") + '</button>';
@@ -5781,6 +5790,278 @@ function gmPricingDeleteDo() {
 // portal page load. .csv / .tsv go straight to the Worker as before (TSV is
 // just re-delimited to the same comma/quote CSV text gmCsvParse already
 // reads, so the Worker payload format never changes).
+
+// ── ABC Supply price list (2026-11-05) ────────────────────────────────────
+// The owner pulls items and their OWN ABC account costs into the Price list.
+// An ABC cost is what the owner PAYS: it goes into one cost line labeled
+// "ABC Supply" and never touches the sale price. Nothing here runs by itself:
+// items are searched when the owner types a search, and costs are refreshed
+// only when the owner presses the button. A salesperson never reaches any of it
+// (the Worker refuses a seller on every route behind it).
+var gmAbcPlStatus = null;     // GET gm/abc/status, read each time the Price list opens
+var gmAbcPlLoading = false;
+var gmAbcPlBusy = false;
+var gmAbcPlMsg = "";          // plain result of the last add or refresh
+var gmAbcPlFind = null;       // the open search: { q, loading, items, skipped, picked, unit, conv, result, error }
+var GM_ABC_PL_HELP = ' data-help="pricing-item-and-import#item"';
+
+function gmAbcPlReady() {
+  var s = gmAbcPlStatus;
+  return !gmIsSeller() && !!(s && s.available && s.connected && !s.needs_reconnect && s.ship_to && s.branch);
+}
+function gmAbcPlLoad() {
+  if (gmIsSeller() || gmAbcPlLoading) { return; }
+  gmAbcPlLoading = true;
+  gmApi("abc/status").then(function(d) {
+    gmAbcPlLoading = false; gmAbcPlStatus = d || { available: false, connected: false };
+    if (gmCurrentTab === "gmpricing") { gmRenderPricing(); }
+  }).catch(function(e) {
+    gmAbcPlLoading = false; gmAbcPlStatus = { available: false, connected: false };
+    console.error("abc status: " + e.message);
+  });
+}
+// The latest "last update from ABC" among the linked items, or "".
+function gmAbcPlLastSync(items) {
+  var last = "";
+  (items || []).forEach(function(it) { if (it.abc_cost_synced_at && it.abc_cost_synced_at > last) { last = it.abc_cost_synced_at; } });
+  return last;
+}
+function gmAbcPlPricingHtml(items) {
+  if (!gmAbcPlReady()) { return ""; }
+  var linked = (items || []).filter(function(it) { return !!it.abc_item_number; });
+  var last = gmAbcPlLastSync(items);
+  var h = '<div style="margin:14px 0 4px;">' +
+    '<button type="button" class="btn-gold gm-add-btn"' + GM_ABC_PL_HELP + ' onclick="gmAbcPlOpen()">' + escHtml(gmT("Adicionar da ABC Supply", "Add from ABC Supply")) + '</button>';
+  if (linked.length) {
+    h += '<button type="button" class="btn-gold gm-add-btn"' + GM_ABC_PL_HELP + (gmAbcPlBusy ? " disabled" : "") + ' onclick="gmAbcPlRefresh(this)">' + escHtml(gmT("Atualizar custos da ABC", "Update costs from ABC")) + '</button>' +
+      '<p class="muted" style="margin:6px 0 0;">' + escHtml(last ? gmT("Última atualização da ABC: ", "Last update from ABC: ") + formatDateUTC(last) : gmT("Ainda sem atualização da ABC.", "No update from ABC yet.")) + '</p>';
+  }
+  h += '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT(
+    "Atualizar muda só a tabela de preços. Orçamentos, contratos e faturas que você já fez mantêm os valores que salvaram.",
+    "Updating changes the Price list only. Estimates, contracts and invoices you already made keep the rates they saved.")) + '</p>';
+  if (gmAbcPlMsg) { h += '<p style="margin:8px 0 0;">' + escHtml(gmAbcPlMsg) + '</p>'; }
+  return h + '</div>';
+}
+function gmAbcPlRefresh(btn) {
+  if (gmAbcPlBusy) { return; }
+  gmAbcPlBusy = true; gmAbcPlMsg = "";
+  if (btn) { btn.disabled = true; }
+  gmApi("abc/refresh-costs", { method: "POST", body: {} }).then(function(d) {
+    gmAbcPlBusy = false;
+    var parts = [d.updated + gmT(" atualizados", " updated"), d.unchanged + gmT(" sem mudança", " unchanged")];
+    if (d.no_price) { parts.push(d.no_price + gmT(" sem preço da ABC", " with no price returned")); }
+    if (d.needs_conversion) { parts.push(d.needs_conversion + gmT(" precisam da conversão de unidade", " need the unit conversion")); }
+    if (d.changed_meanwhile) { parts.push(d.changed_meanwhile + gmT(" mudaram enquanto isso", " changed meanwhile")); }
+    gmAbcPlMsg = parts.join(" · ") + ".";
+    if (d.no_price_items && d.no_price_items.length) { gmAbcPlMsg += " " + gmT("Sem preço: ", "No price: ") + d.no_price_items.map(function(x) { return x.item; }).join(", ") + "."; }
+    gmLoadPricing();
+  }).catch(function(e) { gmAbcPlBusy = false; if (btn) { btn.disabled = false; } gmToast(e.message); console.error("abc refresh: " + e.message); });
+}
+
+// ── Add from ABC Supply: the search sheet ──
+function gmAbcPlOpen() {
+  gmAbcPlFind = { q: "", loading: false, items: null, skipped: 0, picked: {}, unit: {}, conv: {}, result: null, error: "" };
+  gmAbcPlRenderSheet();
+}
+function gmAbcPlDiffers(it, typed) {
+  var t = String(typed || "").trim().toLowerCase();
+  return !!t && t !== String(it.unit_name || "").trim().toLowerCase() && t !== String(it.unit_code || "").trim().toLowerCase();
+}
+function gmAbcPlReasonText(r) {
+  var map = {
+    name_exists: gmT("já existe um item com esse nome", "an item with that name already exists"),
+    already_linked: gmT("já está ligado a outro item", "already linked to another item"),
+    no_price: gmT("a ABC não devolveu preço", "ABC returned no price"),
+    needs_conversion: gmT("informe a conversão de unidade", "set the unit conversion"),
+    not_found: gmT("a ABC não encontrou o item", "ABC did not find the item")
+  };
+  return map[r] || r;
+}
+function gmAbcPlRenderSheet() {
+  var f = gmAbcPlFind;
+  if (!f) { return; }
+  var body = '<div class="gm-sheet-section">' +
+    '<label class="gm-field-label" for="gmAbcPlQ">' + escHtml(gmT("Buscar na ABC Supply", "Search ABC Supply")) + '</label>' +
+    '<input type="text" id="gmAbcPlQ" class="gm-input" maxlength="40" value="' + escHtml(f.q) + '" ' +
+      'placeholder="' + escHtml(gmT("Pelo menos 3 letras", "At least 3 characters")) + '" ' +
+      'oninput="gmAbcPlFind.q = this.value" onkeydown="if (event.key === \'Enter\') { gmAbcPlSearch(null); }">' +
+    '<button type="button" class="gm-btn-primary"' + GM_ABC_PL_HELP + (f.loading ? " disabled" : "") + ' onclick="gmAbcPlSearch(this)">' + escHtml(gmT("Buscar", "Search")) + '</button>' +
+    '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("Os custos mostrados são os da sua própria conta da ABC.", "The costs shown are those of your own ABC account.")) + '</p>' +
+    '</div>';
+  if (f.error) { body += '<p class="gm-warn" style="margin:0 0 10px;">' + escHtml(f.error) + '</p>'; }
+  if (f.loading) { body += '<p class="muted">' + escHtml(gmT("Buscando...", "Searching...")) + '</p>'; }
+  if (f.items && !f.items.length && !f.loading) {
+    body += '<p class="muted">' + escHtml(gmT("Nenhum item encontrado.", "No items found.")) + '</p>';
+  }
+  if (f.skipped) {
+    body += '<p class="muted">' + escHtml(f.skipped + gmT(" itens com comprimento variável não aparecem.", " items sold by length are not shown.")) + '</p>';
+  }
+  var pickedCount = 0;
+  (f.items || []).forEach(function(it, i) {
+    var on = !!f.picked[i];
+    if (on) { pickedCount++; }
+    body += '<div class="gm-sheet-section" style="margin-bottom:8px;">' +
+      '<label style="display:block;"><input type="checkbox"' + (on ? " checked" : "") + (it.has_price ? "" : " disabled") + ' onchange="gmAbcPlPick(' + i + ', this.checked)"> ' +
+      '<strong>' + escHtml(it.description) + '</strong></label>' +
+      '<div class="muted">' + escHtml([it.item_number, it.category,
+        it.has_price ? gmT("Seu custo ", "Your cost ") + gmMoney(Math.round(it.cost * 100)) + gmT(" por ", " per ") + (it.unit_name || it.unit_code || "") : gmT("A ABC não devolveu preço", "ABC returned no price")]
+        .filter(function(x) { return !!x; }).join(" · ")) + '</div>';
+    if (on) {
+      var typed = f.unit[i] || "";
+      body += '<label class="gm-field-label" for="gmAbcPlUnit' + i + '">' + escHtml(gmT("Sua unidade (opcional)", "Your unit (optional)")) + '</label>' +
+        '<input type="text" id="gmAbcPlUnit' + i + '" class="gm-input" maxlength="40" value="' + escHtml(typed) + '" placeholder="' + escHtml(it.unit_name || "") + '" onchange="gmAbcPlUnitSet(' + i + ', this.value)">';
+      if (gmAbcPlDiffers(it, typed)) {
+        body += '<label class="gm-field-label" for="gmAbcPlConv' + i + '">' + escHtml(gmT("Quantas ", "How many ") + typed.trim() + gmT(" cabem em 1 ", " are in 1 ") + (it.unit_name || it.unit_code || "")) + '</label>' +
+          '<input type="text" inputmode="decimal" id="gmAbcPlConv' + i + '" class="gm-input" value="' + escHtml(f.conv[i] || "") + '" onchange="gmAbcPlConvSet(' + i + ', this.value)">';
+      }
+    }
+    body += '</div>';
+  });
+  if (f.items && f.items.length) {
+    body += '<button type="button" class="gm-btn-primary"' + GM_ABC_PL_HELP + (pickedCount && !gmAbcPlBusy ? "" : " disabled") + ' onclick="gmAbcPlAdd(this)">' +
+      escHtml(gmT("Adicionar itens selecionados", "Add selected items")) + '</button>';
+  }
+  if (f.result) {
+    body += '<p style="margin:10px 0 4px;">' + escHtml(f.result.created.length + gmT(" itens adicionados. O preço de venda fica em branco para você preencher.", " items added. The sale price stays empty for you to fill in.")) + '</p>';
+    f.result.skipped.forEach(function(s) { body += '<p class="muted" style="margin:2px 0;">' + escHtml(s.item_number + ": " + gmAbcPlReasonText(s.reason)) + '</p>'; });
+  }
+  gmSheetOpen(escHtml(gmT("Adicionar da ABC Supply", "Add from ABC Supply")), body, null, "pricing-item-and-import#item");
+}
+function gmAbcPlPick(i, on) { if (!gmAbcPlFind) { return; } if (on) { gmAbcPlFind.picked[i] = true; } else { delete gmAbcPlFind.picked[i]; } gmAbcPlRenderSheet(); }
+function gmAbcPlUnitSet(i, v) { if (!gmAbcPlFind) { return; } gmAbcPlFind.unit[i] = v; gmAbcPlRenderSheet(); }
+function gmAbcPlConvSet(i, v) { if (!gmAbcPlFind) { return; } gmAbcPlFind.conv[i] = v; }
+function gmAbcPlSearch(btn) {
+  var f = gmAbcPlFind;
+  if (!f || f.loading) { return; }
+  var q = String(f.q || "").trim();
+  if (q.length < 3) { f.error = gmT("Digite pelo menos 3 letras para buscar.", "Type at least 3 characters to search."); gmAbcPlRenderSheet(); return; }
+  f.loading = true; f.error = ""; f.result = null; f.picked = {}; f.unit = {}; f.conv = {};
+  gmAbcPlRenderSheet();
+  gmApi("abc/items?q=" + encodeURIComponent(q)).then(function(d) {
+    f.loading = false; f.items = d.items || []; f.skipped = d.skipped_dimensional || 0;
+    gmAbcPlRenderSheet();
+  }).catch(function(e) {
+    f.loading = false; f.items = null; f.error = e.message;
+    gmAbcPlRenderSheet(); console.error("abc items: " + e.message);
+  });
+}
+function gmAbcPlAdd(btn) {
+  var f = gmAbcPlFind;
+  if (!f || gmAbcPlBusy) { return; }
+  var list = [];
+  var bad = false;
+  (f.items || []).forEach(function(it, i) {
+    if (!f.picked[i]) { return; }
+    var o = { item_number: it.item_number };
+    var typed = String(f.unit[i] || "").trim();
+    if (typed) {
+      o.apex_unit = typed;
+      if (gmAbcPlDiffers(it, typed)) {
+        var c = Number(String(f.conv[i] || "").trim());
+        if (!String(f.conv[i] || "").trim() || !isFinite(c) || c <= 0) { bad = true; return; }
+        o.units_per_apex_unit = c;
+      }
+    }
+    list.push(o);
+  });
+  if (bad) { f.error = gmT("Informe a conversão de unidade com um número maior que zero.", "Enter the unit conversion as a number above zero."); gmAbcPlRenderSheet(); return; }
+  if (!list.length) { return; }
+  gmAbcPlBusy = true; f.error = "";
+  if (btn) { btn.disabled = true; }
+  gmApi("abc/add-items", { method: "POST", body: { items: list } }).then(function(d) {
+    gmAbcPlBusy = false; f.result = d; f.picked = {}; f.unit = {}; f.conv = {};
+    gmAbcPlRenderSheet();
+    gmLoadPricing();
+  }).catch(function(e) { gmAbcPlBusy = false; f.error = e.message; gmAbcPlRenderSheet(); console.error("abc add: " + e.message); });
+}
+
+// ── One item: the ABC Supply section of the item sheet ──
+function gmAbcPlItemSectionHtml(d) {
+  if (!d || !d.id) { return ""; }
+  var linked = !!d.abc_item_number;
+  if (!linked && !gmAbcPlReady()) { return ""; }
+  var h = '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("ABC Supply", "ABC Supply")) + '</div>';
+  if (linked) {
+    var costed = d.abc_cost !== null && d.abc_cost !== undefined;
+    h += '<p style="margin:2px 0;"><strong>' + escHtml(gmT("Item da ABC: ", "ABC item: ") + d.abc_item_number) + '</strong></p>' +
+      '<p class="muted" style="margin:2px 0;">' + escHtml(gmT("Unidade da ABC: ", "ABC unit: ") + (d.abc_unit || "")) + '</p>' +
+      '<p class="muted" style="margin:2px 0;">' + escHtml(d.abc_units_per_apex_unit !== null && d.abc_units_per_apex_unit !== undefined
+        ? gmT("Conversão: ", "Conversion: ") + d.abc_units_per_apex_unit + gmT(" da sua unidade em 1 da ABC", " of your unit in 1 ABC unit")
+        : (costed ? gmT("Mesma unidade, sem conversão", "Same unit, no conversion") : "")) + '</p>';
+    if (costed) {
+      h += '<p class="muted" style="margin:2px 0;">' + escHtml(gmT("Custo ABC: ", "ABC cost: ") + gmMoney(Math.round(d.abc_cost * 100)) + (d.unit ? gmT(" por ", " per ") + d.unit : "")) + '</p>' +
+        '<p class="muted" style="margin:2px 0 8px;">' + escHtml(d.abc_cost_synced_at ? gmT("Última atualização da ABC: ", "Last update from ABC: ") + formatDateUTC(d.abc_cost_synced_at) : "") + '</p>';
+    } else {
+      h += '<p class="gm-warn" style="margin:6px 0;">' + escHtml(gmT("Informe a conversão de unidade", "Set the unit conversion")) + '</p>' +
+        '<label class="gm-field-label" for="gmAbcPlConvItem">' + escHtml(gmT("Quantas ", "How many ") + (d.unit || "") + gmT(" cabem em 1 ", " are in 1 ") + (d.abc_unit || "")) + '</label>' +
+        '<input type="text" inputmode="decimal" id="gmAbcPlConvItem" class="gm-input" value="">' +
+        '<button type="button" class="gm-btn-primary"' + GM_ABC_PL_HELP + ' onclick="gmAbcPlItemLink(true)">' + escHtml(gmT("Salvar conversão", "Save conversion")) + '</button>';
+    }
+    if (costed && gmAbcPlReady()) {
+      h += '<button type="button" class="gm-btn-secondary"' + GM_ABC_PL_HELP + ' onclick="gmAbcPlItemLink(false)">' + escHtml(gmT("Atualizar este item", "Update this item")) + '</button>';
+    }
+    h += '<button type="button" class="gm-btn-secondary"' + GM_ABC_PL_HELP + ' onclick="gmAbcPlUnlinkAsk()">' + escHtml(gmT("Desligar da ABC", "Unlink from ABC")) + '</button>';
+  } else {
+    h += '<p class="muted" style="margin:2px 0 8px;">' + escHtml(gmT("Salve as mudanças do item antes de ligar. O custo da ABC entra como uma linha de custo; o preço de venda não muda.",
+      "Save the item's changes before linking. The ABC cost is added as one cost line; the sale price does not change.")) + '</p>' +
+      '<label class="gm-field-label" for="gmAbcPlNum">' + escHtml(gmT("Número do item na ABC", "ABC item number")) + '</label>' +
+      '<input type="text" id="gmAbcPlNum" class="gm-input" maxlength="30" value="">' +
+      '<label class="gm-field-label" for="gmAbcPlConvItem">' + escHtml(gmT("Só se a unidade for diferente: quantas unidades suas cabem em 1 unidade da ABC", "Only if the unit differs: how many of your units are in 1 ABC unit")) + '</label>' +
+      '<input type="text" inputmode="decimal" id="gmAbcPlConvItem" class="gm-input" value="">' +
+      '<button type="button" class="gm-btn-primary"' + GM_ABC_PL_HELP + ' onclick="gmAbcPlItemLink(false)">' + escHtml(gmT("Ligar à ABC", "Link to ABC")) + '</button>';
+  }
+  return h + '</div>';
+}
+// Reloads the list and opens the same item again, so the sheet shows what the Worker saved.
+function gmAbcPlReopen(id) {
+  gmApi("pricing").then(function(d) {
+    gmPricingData = d; gmRenderPricing();
+    var idx = -1;
+    ((d && d.items) || []).forEach(function(it, i) { if (it.id === id) { idx = i; } });
+    if (idx >= 0) { gmOpenPricing(idx); } else { gmSheetClose(); }
+  }).catch(function(e) { gmToast(e.message); console.error("abc reopen: " + e.message); });
+}
+function gmAbcPlItemLink(useTyped) {
+  var d = gmPricingDraft;
+  if (!d || !d.id || gmAbcPlBusy) { return; }
+  var numEl = document.getElementById("gmAbcPlNum");
+  var convEl = document.getElementById("gmAbcPlConvItem");
+  var num = d.abc_item_number || (numEl ? String(numEl.value || "").trim() : "");
+  if (!num) { gmToast(gmT("Digite o número do item da ABC.", "Enter the ABC item number.")); return; }
+  var body = { item_number: num };
+  var typed = convEl ? String(convEl.value || "").trim() : "";
+  if (typed) {
+    var c = Number(typed);
+    if (!isFinite(c) || c <= 0) { gmToast(gmT("Informe a conversão como um número maior que zero.", "Enter the conversion as a number above zero.")); return; }
+    body.units_per_apex_unit = c;
+  } else if (useTyped) {
+    gmToast(gmT("Informe a conversão de unidade.", "Enter the unit conversion.")); return;
+  } else if (d.abc_units_per_apex_unit !== null && d.abc_units_per_apex_unit !== undefined && d.abc_item_number) {
+    body.units_per_apex_unit = d.abc_units_per_apex_unit;
+  }
+  gmAbcPlBusy = true;
+  gmApi("pricing/" + d.id + "/abc-link", { method: "POST", body: body }).then(function(r) {
+    gmAbcPlBusy = false;
+    gmToast(r.needs_conversion ? gmT("Ligado. Informe a conversão de unidade para trazer o custo.", "Linked. Set the unit conversion to bring in the cost.") : gmT("Custo da ABC atualizado.", "ABC cost updated."));
+    gmAbcPlReopen(d.id);
+  }).catch(function(e) { gmAbcPlBusy = false; gmToast(e.message); console.error("abc link: " + e.message); });
+}
+function gmAbcPlUnlinkAsk() {
+  gmAsk({
+    message: gmT("Desligar este item da ABC?\n\nA linha de custo ABC Supply sai deste item. As outras linhas e o preço de venda ficam como estão.",
+                 "Unlink this item from ABC?\n\nThe ABC Supply cost line is removed from this item. Its other lines and the sale price stay as they are."),
+    yes: gmT("Sim, desligar da ABC", "Yes, unlink from ABC"), keep: gmT("Manter ligado", "Keep it linked"),
+    onYes: function() { gmAbcPlUnlinkDo(); }
+  });
+}
+function gmAbcPlUnlinkDo() {
+  var d = gmPricingDraft;
+  if (!d || !d.id) { return; }
+  gmApi("pricing/" + d.id + "/abc-unlink", { method: "POST", body: {} }).then(function() {
+    gmToast(gmT("Item desligado da ABC.", "Item unlinked from ABC."));
+    gmAbcPlReopen(d.id);
+  }).catch(function(e) { gmToast(e.message); console.error("abc unlink: " + e.message); });
+}
 
 var gmPricingCsvText = null;
 var gmPricingColumnMap = null;

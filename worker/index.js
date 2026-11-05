@@ -16234,7 +16234,7 @@ function clientRequestAllowed(path, method, clientId) {
                 // Thumbtack leads (2026-10-27): the owner's connection and phone numbers (owner only: the handler refuses a seller).
                 if (gmRest === "thumbtack/status" || gmRest === "thumbtack/phones") { return true; }
                 // ABC Supply (2026-11-04): the owner's connection, accounts and orders list (owner only: the handler refuses a seller).
-                if (gmRest === "abc/status" || gmRest === "abc/accounts" || gmRest === "abc/orders") { return true; }
+                if (gmRest === "abc/status" || gmRest === "abc/accounts" || gmRest === "abc/orders" || gmRest === "abc/items") { return true; }
                 // Hero follow-up (B3): the client's private hero collections
                 // (empty for every client not on a collection's list).
                 if (gmRest === "hero-gallery-private") { return true; }
@@ -16324,6 +16324,8 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "thumbtack/connect" || gmRest === "thumbtack/disconnect" || gmRest === "thumbtack/phones" || gmRest === "thumbtack/test-lead") { return true; }
                 // ABC Supply (2026-11-04): connect, disconnect, choose the account, price lines, send an order (owner only).
                 if (gmRest === "abc/connect" || gmRest === "abc/disconnect" || gmRest === "abc/account" || gmRest === "abc/price" || gmRest === "abc/order") { return true; }
+                // ABC Supply price list (2026-11-05): add items, refresh costs, link or unlink one item (owner only).
+                if (gmRest === "abc/add-items" || gmRest === "abc/refresh-costs" || /^pricing\/[A-Za-z0-9-]+\/abc-(link|unlink)$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 // G5e: a hand-made project becomes a lead (owner only; never
                 // on the seller list, the handler refuses sellers too).
@@ -40481,6 +40483,12 @@ var ABC = {
     test_client: "test-client-temp-001",
     state_minutes: 15,
     refresh_margin_seconds: 120,
+    // Price list import: the cost line's label, ABC's Price Items batch limit, the most
+    // items one search shows and one add takes.
+    cost_label: "ABC Supply",
+    price_batch: 50,
+    items_max: 40,
+    add_max: 25,
     portal_return: DEFAULT_ORIGIN + "/portal.html?tab=gmestimates"
 };
 var ABC_NA_PT = "Ainda não disponível.";
@@ -41262,6 +41270,523 @@ async function abcCron(env) {
         await env.DB.prepare("DELETE FROM gm_abc_oauth_states WHERE created_at < datetime('now', '-1 day')").run();
     } catch (e) {
         console.error("abc cron failed: " + metaScrub(e && e.message));
+    }
+}
+
+// ── ABC Supply price list import (2026-11-05) ────────────────────────────
+// A Price list item (gm_pricing) can be linked to an ABC item. The contractor's
+// OWN account cost is kept as ONE cost line labeled "ABC Supply" in
+// cost_breakdown. It is what the contractor PAYS: the selling price (price) is
+// never read, computed or changed here. Everything is per business and on
+// request: items are searched when a person types a search (no catalog is
+// stored), and a cost refresh runs only when the owner presses the button,
+// because ABC wants the contractor present for pricing (no background refresh).
+// The columns arrive in migrations/abc_price_list.sql; without them the routes
+// answer "not available yet".
+//
+// ABC docs (read 2026-11-05): Price Items takes at most 50 lines per call, the
+// rate limit is NOT SPECIFIED, and whether the price depends on the quantity
+// is NOT SPECIFIED (quantity 1 is asked). With no uom ABC prices the item in
+// its stocking unit and answers the uom it used; that answered uom is the ABC
+// unit stored on the row. Units are never converted by Apex on its own.
+
+// Looks up an ABC item (Search Items or Get Item answer) as the few fields used.
+function abcPlShape(it) {
+    if (!it || typeof it !== "object") { return null; }
+    var desc = gmStr(it.itemDescription, 200);
+    if (!desc) { return null; }
+    var uoms = [];
+    (Array.isArray(it.uoms) ? it.uoms : []).forEach(function(u) {
+        if (!u || typeof u.code !== "string" || !/^[A-Za-z0-9]{1,6}$/.test(u.code)) { return; }
+        uoms.push({ code: u.code, name: gmStr(u.name, 40) || u.code, stocking: /stocking/i.test(String(u.description || "")) });
+    });
+    var cat = it.hierarchy && it.hierarchy.category && it.hierarchy.category.name ? gmStr(it.hierarchy.category.name, 80) : null;
+    return { description: desc, category: cat, uoms: uoms, dimensional: it.isDimensional === true, inactive: /^inactive$/i.test(String(it.status || "")) };
+}
+
+// The name ABC gives a unit code, or the code itself.
+function abcPlUnitName(shape, code) {
+    var hit = null;
+    ((shape && shape.uoms) || []).forEach(function(u) { if (u.code.toLowerCase() === String(code).toLowerCase()) { hit = u; } });
+    return hit ? hit.name : String(code);
+}
+
+// False until migrations/abc_price_list.sql has run.
+async function abcPlColumnsReady(env) {
+    try {
+        await env.DB.prepare("SELECT abc_item_number, abc_apex_unit FROM gm_pricing LIMIT 1").first();
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function abcNorm(u) {
+    return String(u === null || u === undefined ? "" : u).trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+// Same word (the unit the owner uses, against ABC's name or code): the cost is
+// used as it is. Different words: only a typed number (a positive number of
+// Price list units one ABC unit covers) gives a factor; otherwise null.
+function abcUnitPlan(abcNames, apexUnit, conversion) {
+    var a = abcNorm(apexUnit);
+    var same = !!a && (abcNames || []).some(function(n) { return abcNorm(n) === a; });
+    if (same) { return { same: true, factor: 1, conversion: null }; }
+    if (typeof conversion === "number" && isFinite(conversion) && conversion > 0 && conversion <= 1000000) {
+        return { same: false, factor: conversion, conversion: conversion };
+    }
+    return { same: false, factor: null, conversion: null };
+}
+
+// ABC's price per ABC unit becomes dollars per Price list unit, to 4 decimals
+// (the Price list total is rounded to the cent where it is summed).
+function abcCostPerUnit(price, factor) {
+    if (typeof price !== "number" || !isFinite(price) || price <= 0) { return null; }
+    if (typeof factor !== "number" || !isFinite(factor) || factor <= 0) { return null; }
+    var c = Math.round((price / factor) * 10000) / 10000;
+    return c > 0 ? c : null;
+}
+
+// The cost lines with the ABC Supply line replaced (or added). Every other line is kept as it is.
+function abcBreakdownWith(breakdown, amount) {
+    var out = abcBreakdownWithout(breakdown);
+    out.push({ label: ABC.cost_label, amount: amount, type: "material" });
+    return out;
+}
+
+function abcBreakdownWithout(breakdown) {
+    return (Array.isArray(breakdown) ? breakdown : []).filter(function(l) { return !(l && l.label === ABC.cost_label); });
+}
+
+// The text a person typed to search ABC items, or null.
+function abcItemsQuery(q) {
+    if (typeof q !== "string") { return null; }
+    var t = q.trim();
+    if (t.length < 3 || t.length > 40 || !/^[A-Za-z0-9 .,'&#\/()-]+$/.test(t)) { return null; }
+    return t;
+}
+
+// POST body of the link route, or null.
+function abcPlLinkInput(body) {
+    if (!body || typeof body !== "object" || typeof body.item_number !== "string" || !ABC_ITEM_RE.test(body.item_number)) { return null; }
+    var conv = null;
+    if (body.units_per_apex_unit !== undefined && body.units_per_apex_unit !== null) {
+        var c = body.units_per_apex_unit;
+        if (typeof c !== "number" || !isFinite(c) || c <= 0 || c > 1000000) { return null; }
+        conv = c;
+    }
+    return { item_number: body.item_number, conversion: conv };
+}
+
+// POST body of add-items, or null. A conversion only makes sense with an Apex unit.
+function abcPlAddInput(body) {
+    var list = body && body.items;
+    if (!Array.isArray(list) || list.length < 1 || list.length > ABC.add_max) { return null; }
+    var out = [];
+    var seen = {};
+    for (var i = 0; i < list.length; i++) {
+        var l = list[i];
+        if (!l || typeof l !== "object" || typeof l.item_number !== "string" || !ABC_ITEM_RE.test(l.item_number) || seen[l.item_number]) { return null; }
+        seen[l.item_number] = true;
+        var unit = null;
+        if (l.apex_unit !== undefined && l.apex_unit !== null) {
+            unit = abcText(l.apex_unit, 40);
+            if (!unit) { return null; }
+        }
+        var conv = null;
+        if (l.units_per_apex_unit !== undefined && l.units_per_apex_unit !== null) {
+            if (!unit || typeof l.units_per_apex_unit !== "number" || !isFinite(l.units_per_apex_unit) || l.units_per_apex_unit <= 0 || l.units_per_apex_unit > 1000000) { return null; }
+            conv = l.units_per_apex_unit;
+        }
+        out.push({ item_number: l.item_number, apex_unit: unit, conversion: conv });
+    }
+    return out;
+}
+
+// Get Item, as the few fields used, or null when ABC does not know the item.
+async function abcPlItemInfo(cfg, token, itemNumber, secrets) {
+    var res = null;
+    try {
+        res = await abcApi(cfg, token, "GET", "/api/product/v1/items/" + encodeURIComponent(itemNumber), null, secrets);
+    } catch (e) {
+        if (e && e.abcStatus === 404) { return null; }
+        throw e;
+    }
+    return abcPlShape(res && res.item && typeof res.item === "object" ? res.item : res);
+}
+
+// Price Items for the saved ship-to and branch, in batches of 50. Answers
+// { itemNumber: { uom, price } } or { none: true } when ABC gave no usable
+// price (a line status other than OK, a missing unit, or $0.00).
+async function abcFetchPrices(cfg, token, conn, itemNumbers, secrets) {
+    var out = {};
+    for (var s = 0; s < itemNumbers.length; s += ABC.price_batch) {
+        var chunk = itemNumbers.slice(s, s + ABC.price_batch);
+        var res = await abcApi(cfg, token, "POST", "/api/pricing/v2/prices", {
+            shipToNumber: conn.ship_to_number, branchNumber: conn.branch_number, purpose: "estimating",
+            lines: chunk.map(function(n, i) { return { id: String(i + 1), itemNumber: n, quantity: 1 }; })
+        }, secrets);
+        chunk.forEach(function(n) { out[n] = { none: true }; });
+        ((res && res.lines) || []).forEach(function(l) {
+            var i = Number(l && l.id) - 1;
+            if (!(i >= 0 && i < chunk.length) || l.itemNumber !== chunk[i]) { return; }
+            var good = l.status && typeof l.status.code === "string" && l.status.code.toUpperCase() === "OK";
+            if (!good || typeof l.unitPrice !== "number" || !isFinite(l.unitPrice) || l.unitPrice <= 0) { return; }
+            if (typeof l.uom !== "string" || !/^[A-Za-z0-9]{1,6}$/.test(l.uom)) { return; }
+            out[chunk[i]] = { uom: l.uom, price: l.unitPrice };
+        });
+    }
+    return out;
+}
+
+// Owner only, the new columns exist, and the request is inside its limit.
+async function abcPlOwnerOnly(request, env, id, bucket, limit) {
+    var user = await authenticate(request, env);
+    var block = abcOwnerGuard(user, id);
+    if (block) { return { err: block }; }
+    if (publicReadRateLimited(request, bucket, id, 0, limit)) {
+        return { err: jsonErr2("Muitas tentativas. Tente de novo em alguns minutos.", "Too many attempts. Try again in a few minutes.", 429) };
+    }
+    if (!(await abcPlColumnsReady(env))) { return { err: abcNotAvailable() }; }
+    return { user: user };
+}
+
+// The common start of every route that asks ABC: owner only, the feature on
+// for this business, the columns there, inside the limit, and a connection
+// that can be used with a saved account. Each failure says what to do.
+async function abcPlStart(request, env, id, bucket, limit) {
+    var a = await abcOwnerStart(request, env, id);
+    if (a.err) { return a; }
+    if (publicReadRateLimited(request, bucket, id, 0, limit)) {
+        return { err: jsonErr2("Muitas tentativas. Tente de novo em alguns minutos.", "Too many attempts. Try again in a few minutes.", 429) };
+    }
+    if (!(await abcPlColumnsReady(env))) { return { err: abcNotAvailable() }; }
+    var conn = await env.DB.prepare("SELECT ship_to_number, branch_number, needs_reconnect, environment FROM gm_abc_connections WHERE client_id = ?").bind(id).first();
+    if (!conn) {
+        return { err: jsonErr2("A ABC Supply não está conectada. Conecte em Configurações.", "ABC Supply is not connected. Connect it in Settings.", 409, { connected: false }) };
+    }
+    if (conn.needs_reconnect || conn.environment !== a.cfg.mode) {
+        return { err: jsonErr2("A ABC Supply precisa ser reconectada. Reconecte em Configurações.", "ABC Supply needs to be reconnected. Reconnect it in Settings.", 409, { connected: true, needs_reconnect: true }) };
+    }
+    if (!conn.ship_to_number || !conn.branch_number) {
+        return { err: jsonErr2("Escolha a conta e a filial da ABC em Configurações.", "Choose the ABC account and branch in Settings.", 409, { connected: true, account_needed: true }) };
+    }
+    a.conn = conn;
+    return a;
+}
+
+function abcPlBad() {
+    return jsonErr2("Confira os dados enviados.", "Check the data sent.", 400);
+}
+
+// GET /api/clients/:id/gm/abc/items?q=   (owner only)
+// Searches ABC items for the text typed and prices them in the contractor's own
+// account. Stores nothing.
+async function handleGetGmAbcItems(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcPlStart(request, env, id, "abcitems", 60);
+        if (a.err) { return a.err; }
+        var q = abcItemsQuery(new URL(request.url).searchParams.get("q"));
+        if (!q) { return jsonErr2("Digite pelo menos 3 letras para buscar.", "Type at least 3 characters to search.", 400); }
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var byNumber = {};
+        var order = [];
+        var searches = [{ key: "itemDescription", value: q }];
+        if (/^[A-Za-z0-9]+$/.test(q)) { searches.push({ key: "itemNumber", value: q }); }
+        for (var s = 0; s < searches.length; s++) {
+            var res = await abcApi(a.cfg, token, "POST", "/api/product/v1/search/items", {
+                filters: [
+                    { key: searches[s].key, condition: "contains", values: [searches[s].value], joinCondition: "and" },
+                    { key: "branchNumber", condition: "equals", values: [a.conn.branch_number], joinCondition: null }
+                ],
+                pagination: { itemsPerPage: ABC.items_max, pageNumber: 1 }
+            }, secrets);
+            ((res && res.items) || []).forEach(function(it) {
+                var n = it && typeof it.itemNumber === "string" ? it.itemNumber : "";
+                if (!ABC_ITEM_RE.test(n) || byNumber[n]) { return; }
+                var shape = abcPlShape(it);
+                if (!shape) { return; }
+                byNumber[n] = shape;
+                order.push(n);
+            });
+        }
+        var skippedDim = 0;
+        var numbers = [];
+        order.forEach(function(n) {
+            if (byNumber[n].inactive) { return; }
+            if (byNumber[n].dimensional) { skippedDim++; return; }
+            if (numbers.length < ABC.items_max) { numbers.push(n); }
+        });
+        var prices = numbers.length ? await abcFetchPrices(a.cfg, token, a.conn, numbers, secrets) : {};
+        var items = numbers.map(function(n) {
+            var sh = byNumber[n];
+            var p = prices[n] && !prices[n].none ? prices[n] : null;
+            var stock = null;
+            sh.uoms.forEach(function(u) { if (u.stocking) { stock = u.code; } });
+            var code = p ? p.uom : stock;
+            return { item_number: n, description: sh.description, category: sh.category,
+                unit_code: code, unit_name: code ? abcPlUnitName(sh, code) : null,
+                cost: p ? p.price : null, has_price: !!p };
+        });
+        return jsonOk({ items: items, skipped_dimensional: skippedDim, ship_to: a.conn.ship_to_number, branch: a.conn.branch_number, retrieved_at: new Date().toISOString() });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("items", e, secrets); }
+        return abcServerError("items", e, secrets);
+    }
+}
+
+// The row a new Price list item is written as (the ? placeholders are bound by the caller).
+var ABC_PL_INSERT = "INSERT OR IGNORE INTO gm_pricing (id, client_id, item, unit, cost_breakdown, cost_total, price, sort_order, kind, created_by, updated_by, " +
+    "abc_item_number, abc_unit, abc_units_per_apex_unit, abc_cost, abc_cost_synced_at, abc_ship_to, abc_branch, abc_apex_unit) " +
+    "VALUES (?, ?, ?, ?, ?, ?, NULL, 0, 'product', ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?, ?)";
+
+// POST /api/clients/:id/gm/abc/add-items   { items: [{ item_number, apex_unit?, units_per_apex_unit? }] }   (owner only)
+// Creates new Price list items from ABC items. The name, unit and cost come
+// from ABC, never from the request; the selling price stays empty. An item that
+// cannot be added is skipped and says why; nothing is overwritten.
+async function handlePostGmAbcAddItems(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcPlStart(request, env, id, "abcadd", 20);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var list = abcPlAddInput(body);
+        if (!list) { return abcPlBad(); }
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var infos = await Promise.all(list.map(function(l) { return abcPlItemInfo(a.cfg, token, l.item_number, secrets); }));
+        var skipped = [];
+        var found = [];
+        list.forEach(function(l, i) {
+            if (!infos[i]) { skipped.push({ item_number: l.item_number, reason: "not_found" }); return; }
+            found.push({ input: l, info: infos[i] });
+        });
+        // Names and links that already exist for THIS business (one read each).
+        var taken = {};
+        var linked = {};
+        if (found.length) {
+            var names = found.map(function(f) { return f.info.description; });
+            var nameStmt = env.DB.prepare("SELECT item FROM gm_pricing WHERE client_id = ? AND item COLLATE NOCASE IN (" + names.map(function() { return "?"; }).join(",") + ")");
+            var nameRows = (await nameStmt.bind.apply(nameStmt, [id].concat(names)).all()).results || [];
+            nameRows.forEach(function(r) { taken[abcNorm(r.item)] = true; });
+            var nums = found.map(function(f) { return f.input.item_number; });
+            var linkSql = "SELECT abc_item_number FROM gm_pricing WHERE client_id = ? AND abc_item_number IN (" + nums.map(function() { return "?"; }).join(",") + ")";
+            var linkStmt = env.DB.prepare(linkSql);
+            var linkRows = (await linkStmt.bind.apply(linkStmt, [id].concat(nums)).all()).results || [];
+            linkRows.forEach(function(r) { linked[r.abc_item_number] = true; });
+        }
+        var candidates = [];
+        found.forEach(function(f) {
+            var key = abcNorm(f.info.description);
+            if (linked[f.input.item_number]) { skipped.push({ item_number: f.input.item_number, reason: "already_linked" }); return; }
+            if (taken[key]) { skipped.push({ item_number: f.input.item_number, reason: "name_exists" }); return; }
+            taken[key] = true;
+            candidates.push(f);
+        });
+        var prices = candidates.length ? await abcFetchPrices(a.cfg, token, a.conn, candidates.map(function(f) { return f.input.item_number; }), secrets) : {};
+        var stmts = [];
+        var planned = [];
+        var who = actorName(a.user);
+        candidates.forEach(function(f) {
+            var p = prices[f.input.item_number];
+            if (!p || p.none) { skipped.push({ item_number: f.input.item_number, reason: "no_price" }); return; }
+            var unitName = abcPlUnitName(f.info, p.uom);
+            var plan = f.input.apex_unit ? abcUnitPlan([unitName, p.uom], f.input.apex_unit, f.input.conversion) : { same: true, factor: 1, conversion: null };
+            if (!plan.factor) { skipped.push({ item_number: f.input.item_number, reason: "needs_conversion", abc_unit: p.uom }); return; }
+            var cost = abcCostPerUnit(p.price, plan.factor);
+            if (cost === null) { skipped.push({ item_number: f.input.item_number, reason: "no_price" }); return; }
+            var unit = f.input.apex_unit || unitName;
+            var json = JSON.stringify(abcBreakdownWith([], cost));
+            var rowId = crypto.randomUUID();
+            planned.push(rowId);
+            stmts.push(env.DB.prepare(ABC_PL_INSERT).bind(rowId, id, f.info.description, unit, json, gmPricingCachedTotal(json), who, who,
+                f.input.item_number, p.uom, plan.conversion, cost, a.conn.ship_to_number, a.conn.branch_number, unit));
+            stmts.push(gmServiceFromPricingStmt(env, id, f.info.description));
+        });
+        var created = [];
+        if (stmts.length) {
+            await env.DB.batch(stmts);
+            var rbSql = "SELECT * FROM gm_pricing WHERE client_id = ? AND id IN (" + planned.map(function() { return "?"; }).join(",") + ")";
+            var rbStmt = env.DB.prepare(rbSql);
+            var rows = (await rbStmt.bind.apply(rbStmt, [id].concat(planned)).all()).results || [];
+            rows.forEach(function(r) {
+                var comp = gmPricingComputed(r);
+                Object.keys(comp).forEach(function(k) { r[k] = comp[k]; });
+                r.kind = gmPricingKind(r.kind);
+                r.needs_info = !r.category || !r.unit || !r.description;
+                created.push(r);
+            });
+            // A row that did not land was beaten by a same-name or same-item row written meanwhile.
+            var landed = {};
+            created.forEach(function(r) { landed[r.abc_item_number] = true; });
+            candidates.forEach(function(f) {
+                var n = f.input.item_number;
+                var already = skipped.some(function(s) { return s.item_number === n; });
+                if (!landed[n] && !already) { skipped.push({ item_number: n, reason: "name_exists" }); }
+            });
+        }
+        return jsonOk({ created: created, skipped: skipped });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("add-items", e, secrets); }
+        return abcServerError("add-items", e, secrets);
+    }
+}
+
+// POST /api/clients/:id/gm/pricing/:pid/abc-link   { item_number, units_per_apex_unit? }   (owner only)
+// Links an existing Price list item to an ABC item and writes its cost once.
+// Different unit words and no conversion: the link is saved, no cost is written.
+async function handlePostGmPricingAbcLink(id, pid, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcPlStart(request, env, id, "abclink", 40);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var input = abcPlLinkInput(body);
+        if (!input) { return abcPlBad(); }
+        var row = await gmOwnedRow(env, "gm_pricing", String(pid), id);
+        if (!row) { return jsonErr2("Item não encontrado.", "Item not found.", 404); }
+        if (!abcNorm(row.unit)) { return jsonErr2("Defina a unidade deste item primeiro.", "Set a unit for this item first.", 409, { unit_needed: true }); }
+        var other = await env.DB.prepare("SELECT id FROM gm_pricing WHERE client_id = ? AND abc_item_number = ? AND id <> ?").bind(id, input.item_number, row.id).first();
+        if (other) { return jsonErr2("Esse item da ABC já está ligado a outro item da tabela.", "That ABC item is already linked to another Price list item.", 409, { already_linked: true }); }
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var info = await abcPlItemInfo(a.cfg, token, input.item_number, secrets);
+        if (!info) { return jsonErr2("A ABC não encontrou esse item.", "ABC did not find that item.", 404); }
+        var prices = await abcFetchPrices(a.cfg, token, a.conn, [input.item_number], secrets);
+        var p = prices[input.item_number];
+        if (!p || p.none) { return jsonErr2("A ABC não devolveu preço para esse item na sua conta.", "ABC returned no price for that item on your account.", 409, { no_price: true }); }
+        var unitName = abcPlUnitName(info, p.uom);
+        var plan = abcUnitPlan([unitName, p.uom], row.unit, input.conversion);
+        var who = actorName(a.user);
+        var parsed = gmPricingParseBreakdown(row.cost_breakdown);
+        var res = null;
+        if (!plan.factor) {
+            var plain = JSON.stringify(abcBreakdownWithout(parsed));
+            res = await env.DB.prepare(
+                "UPDATE gm_pricing SET cost_breakdown = ?, cost_total = ?, abc_item_number = ?, abc_unit = ?, abc_units_per_apex_unit = NULL, abc_cost = NULL, abc_cost_synced_at = NULL, " +
+                "abc_ship_to = ?, abc_branch = ?, abc_apex_unit = NULL, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND client_id = ? AND cost_breakdown = ? AND unit = ?"
+            ).bind(plain, gmPricingCachedTotal(plain), input.item_number, p.uom, a.conn.ship_to_number, a.conn.branch_number, who, row.id, id, row.cost_breakdown, row.unit).run();
+        } else {
+            var cost = abcCostPerUnit(p.price, plan.factor);
+            if (cost === null) { return jsonErr2("A ABC não devolveu preço para esse item na sua conta.", "ABC returned no price for that item on your account.", 409, { no_price: true }); }
+            var json = JSON.stringify(abcBreakdownWith(parsed, cost));
+            res = await env.DB.prepare(
+                "UPDATE gm_pricing SET cost_breakdown = ?, cost_total = ?, abc_item_number = ?, abc_unit = ?, abc_units_per_apex_unit = ?, abc_cost = ?, abc_cost_synced_at = datetime('now'), " +
+                "abc_ship_to = ?, abc_branch = ?, abc_apex_unit = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND client_id = ? AND cost_breakdown = ? AND unit = ?"
+            ).bind(json, gmPricingCachedTotal(json), input.item_number, p.uom, plan.conversion, cost, a.conn.ship_to_number, a.conn.branch_number, row.unit, who, row.id, id, row.cost_breakdown, row.unit).run();
+        }
+        if (!res.meta || res.meta.changes !== 1) {
+            return jsonErr2("O item mudou enquanto a ABC respondia. Tente de novo.", "The item changed while ABC was answering. Try again.", 409, { changed: true });
+        }
+        var saved = await gmOwnedRow(env, "gm_pricing", row.id, id);
+        var comp = gmPricingComputed(saved);
+        Object.keys(comp).forEach(function(k) { saved[k] = comp[k]; });
+        return jsonOk({ linked: true, needs_conversion: !plan.factor, abc_unit: p.uom, abc_unit_name: unitName, item: saved });
+    } catch (e) {
+        if (String(e && e.message || "").indexOf("UNIQUE") !== -1) {
+            return jsonErr2("Esse item da ABC já está ligado a outro item da tabela.", "That ABC item is already linked to another Price list item.", 409, { already_linked: true });
+        }
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("link", e, secrets); }
+        return abcServerError("link", e, secrets);
+    }
+}
+
+// POST /api/clients/:id/gm/pricing/:pid/abc-unlink   (owner only)
+// Removes the ABC columns and the ABC Supply line. Every other line stays.
+// Works without a connection: the owner can always let go of a link.
+async function handlePostGmPricingAbcUnlink(id, pid, request, env) {
+    try {
+        var a = await abcPlOwnerOnly(request, env, id, "abcunlink", 40);
+        if (a.err) { return a.err; }
+        var row = await gmOwnedRow(env, "gm_pricing", String(pid), id);
+        if (!row) { return jsonErr2("Item não encontrado.", "Item not found.", 404); }
+        var parsed = gmPricingParseBreakdown(row.cost_breakdown);
+        var rest = abcBreakdownWithout(parsed);
+        if (row.abc_item_number === null && rest.length === parsed.length) {
+            var same = gmPricingComputed(row);
+            Object.keys(same).forEach(function(k) { row[k] = same[k]; });
+            return jsonOk({ unlinked: true, item: row });
+        }
+        var json = JSON.stringify(rest);
+        var res = await env.DB.prepare(
+            "UPDATE gm_pricing SET cost_breakdown = ?, cost_total = ?, abc_item_number = NULL, abc_unit = NULL, abc_units_per_apex_unit = NULL, abc_cost = NULL, abc_cost_synced_at = NULL, " +
+            "abc_ship_to = NULL, abc_branch = NULL, abc_apex_unit = NULL, updated_at = datetime('now'), updated_by = ? WHERE id = ? AND client_id = ? AND cost_breakdown = ?"
+        ).bind(json, gmPricingCachedTotal(json), actorName(a.user), row.id, id, row.cost_breakdown).run();
+        if (!res.meta || res.meta.changes !== 1) {
+            return jsonErr2("O item mudou. Tente de novo.", "The item changed. Try again.", 409, { changed: true });
+        }
+        var saved = await gmOwnedRow(env, "gm_pricing", row.id, id);
+        var comp = gmPricingComputed(saved);
+        Object.keys(comp).forEach(function(k) { saved[k] = comp[k]; });
+        return jsonOk({ unlinked: true, item: saved });
+    } catch (e) {
+        return abcServerError("unlink", e);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/refresh-costs   (owner only, only when the owner presses the button)
+// Reads the current cost of every linked item from ABC and updates ONLY the ABC
+// Supply line, abc_cost, the sync date and the derived total. Each update is
+// guarded in the SQL by what was read, so an edit made meanwhile, an unlink or a
+// second press at the same time is never overwritten. The Price list keeps no
+// cost log, so none is written.
+async function handlePostGmAbcRefreshCosts(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcPlStart(request, env, id, "abcrefresh", 6);
+        if (a.err) { return a.err; }
+        var rows = (await env.DB.prepare(
+            "SELECT id, item, unit, cost_breakdown, abc_item_number, abc_unit, abc_units_per_apex_unit, abc_cost, abc_apex_unit FROM gm_pricing " +
+            "WHERE client_id = ? AND abc_item_number IS NOT NULL ORDER BY item COLLATE NOCASE LIMIT 201"
+        ).bind(id).all()).results || [];
+        var truncated = rows.length > 200;
+        rows = rows.slice(0, 200);
+        var out = { updated: 0, unchanged: 0, no_price: 0, needs_conversion: 0, changed_meanwhile: 0, no_price_items: [], truncated: truncated };
+        // A usable row: the Price list unit is still the one the cost was converted for.
+        var usable = [];
+        rows.forEach(function(r) {
+            var stillSame = !!abcNorm(r.abc_apex_unit) && abcNorm(r.unit) === abcNorm(r.abc_apex_unit);
+            var factor = !stillSame ? null : (r.abc_units_per_apex_unit === null ? 1 : r.abc_units_per_apex_unit);
+            if (!factor || !(factor > 0)) { out.needs_conversion++; return; }
+            usable.push({ row: r, factor: factor });
+        });
+        if (!usable.length) { return jsonOk(out); }
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var prices = await abcFetchPrices(a.cfg, token, a.conn, usable.map(function(u) { return u.row.abc_item_number; }), secrets);
+        var stmts = [];
+        var kinds = [];
+        var who = actorName(a.user);
+        usable.forEach(function(u) {
+            var r = u.row;
+            var p = prices[r.abc_item_number];
+            if (!p || p.none) { out.no_price++; out.no_price_items.push({ item: r.item, item_number: r.abc_item_number }); return; }
+            if (p.uom !== r.abc_unit) { out.needs_conversion++; return; }
+            var cost = abcCostPerUnit(p.price, u.factor);
+            if (cost === null) { out.no_price++; out.no_price_items.push({ item: r.item, item_number: r.abc_item_number }); return; }
+            var parsed = gmPricingParseBreakdown(r.cost_breakdown);
+            var hadLine = parsed.some(function(l) { return l.label === ABC.cost_label && l.amount === cost; });
+            var json = JSON.stringify(abcBreakdownWith(parsed, cost));
+            kinds.push(r.abc_cost === cost && hadLine ? "unchanged" : "updated");
+            stmts.push(env.DB.prepare(
+                "UPDATE gm_pricing SET cost_breakdown = ?, cost_total = ?, abc_cost = ?, abc_cost_synced_at = datetime('now'), abc_ship_to = ?, abc_branch = ?, updated_at = datetime('now'), updated_by = ? " +
+                "WHERE id = ? AND client_id = ? AND abc_item_number = ? AND cost_breakdown = ? AND unit = ?"
+            ).bind(json, gmPricingCachedTotal(json), cost, a.conn.ship_to_number, a.conn.branch_number, who, r.id, id, r.abc_item_number, r.cost_breakdown, r.unit));
+        });
+        for (var s = 0; s < stmts.length; s += 40) {
+            var results = await env.DB.batch(stmts.slice(s, s + 40));
+            results.forEach(function(res, j) {
+                if (res.meta && res.meta.changes === 1) { out[kinds[s + j]]++; } else { out.changed_meanwhile++; }
+            });
+        }
+        return jsonOk(out);
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("refresh-costs", e, secrets); }
+        return abcServerError("refresh-costs", e, secrets);
     }
 }
 
@@ -59948,6 +60473,11 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 6 && gmCol === "pricing" && segs[5] === "import" && method === "POST") {
                     return handlePostGmPricingImport(cid, request, env);
                 }
+                // ABC Supply price list (2026-11-05): link or unlink one Price list item (owner only).
+                if (segs.length === 7 && gmCol === "pricing" && method === "POST") {
+                    if (segs[6] === "abc-link") { return handlePostGmPricingAbcLink(cid, segs[5], request, env); }
+                    if (segs[6] === "abc-unlink") { return handlePostGmPricingAbcUnlink(cid, segs[5], request, env); }
+                }
                 if (segs.length === 6 && gmCol === "pricing" && method === "PUT") {
                     return handlePutGmPricing(cid, segs[5], request, env);
                 }
@@ -59999,6 +60529,9 @@ async function handleFetch(request, env, ctx) {
                     if (segs[5] === "price" && method === "POST") { return handlePostGmAbcPrice(cid, request, env); }
                     if (segs[5] === "order" && method === "POST") { return handlePostGmAbcOrder(cid, request, env); }
                     if (segs[5] === "orders" && method === "GET") { return handleGetGmAbcOrders(cid, request, env); }
+                    if (segs[5] === "items" && method === "GET") { return handleGetGmAbcItems(cid, request, env); }
+                    if (segs[5] === "add-items" && method === "POST") { return handlePostGmAbcAddItems(cid, request, env); }
+                    if (segs[5] === "refresh-costs" && method === "POST") { return handlePostGmAbcRefreshCosts(cid, request, env); }
                 }
                 // Estimates & invoices build: the business's document settings.
                 if (segs.length === 5 && gmCol === "doc-settings") {

@@ -5143,7 +5143,7 @@ function gmFinOpeningCardHtml() {
     '<div class="card-title">' + gmT("Saldo de abertura", "Starting balance") + '</div>' +
     '<p class="muted" style="margin:0 0 8px;">' + escHtml(line) + '</p>';
   if (avail && !preview) {
-    html += '<button type="button" class="' + (asked ? 'btn-gold' : 'btn-outline') + ' gm-add-btn" onclick="gmFinOpeningOpen()">' +
+    html += '<button data-help="finances#balance#' + (has ? '6' : '1') + '" type="button" class="' + (asked ? 'btn-gold' : 'btn-outline') + ' gm-add-btn" onclick="gmFinOpeningOpen()">' +
       (asked ? gmT("Informar saldo", "Enter balance") : (has ? gmT("Alterar", "Change") : gmT("Definir", "Set"))) + '</button>';
   }
   return html + '</div>';
@@ -5207,9 +5207,9 @@ function gmFinOpeningOpen() {
   }
   var body =
     '<div class="gm-chip-set" style="margin-bottom:10px;">' +
-    '<button type="button" id="gmFinObTabMonth" class="gm-choice-chip gm-chip-sel" onclick="gmFinOpeningMode(\'month\')">' +
+    '<button data-help="finances#balance#3" type="button" id="gmFinObTabMonth" class="gm-choice-chip gm-chip-sel" onclick="gmFinOpeningMode(\'month\')">' +
       gmT("Sei o saldo do início de um mês", "I know the balance at the start of a month") + '</button>' +
-    '<button type="button" id="gmFinObTabToday" class="gm-choice-chip" onclick="gmFinOpeningMode(\'today\')">' +
+    '<button data-help="finances#balance#4" type="button" id="gmFinObTabToday" class="gm-choice-chip" onclick="gmFinOpeningMode(\'today\')">' +
       gmT("Sei o saldo de hoje", "I know my balance today") + '</button></div>' +
     '<div id="gmFinObMonthBox">' +
     '<label class="gm-field-label" for="gmFinObAmount">' + gmT("Valor", "Amount") + '</label>' +
@@ -5227,8 +5227,8 @@ function gmFinOpeningOpen() {
     '<p class="muted" id="gmFinObLive" style="font-size:12px;margin:8px 0;"></p></div>' +
     '<div class="gm-editor-actions">' +
     '<button type="button" class="btn-outline" onclick="gmSheetClose()">' + gmT("Cancelar", "Cancel") + '</button>' +
-    (answered ? '' : '<button type="button" class="btn-outline" id="gmFinObZero" onclick="gmFinOpeningZero()">' + gmT("Comecei do zero", "I started from zero") + '</button>') +
-    (has ? '<button type="button" class="btn-outline" id="gmFinObRemove" onclick="gmFinOpeningRemove()">' + gmT("Remover", "Remove") + '</button>' : '') +
+    (answered ? '' : '<button data-help="finances#balance#5" type="button" class="btn-outline" id="gmFinObZero" onclick="gmFinOpeningZero()">' + gmT("Comecei do zero", "I started from zero") + '</button>') +
+    (has ? '<button data-help="finances#balance#7" type="button" class="btn-outline" id="gmFinObRemove" onclick="gmFinOpeningRemove()">' + gmT("Remover", "Remove") + '</button>' : '') +
     '<button type="button" class="btn-gold" id="gmFinObSave" onclick="gmFinOpeningSave()">' + gmT("Salvar", "Save") + '</button></div>';
   gmSheetOpen(gmT("Saldo de abertura", "Starting balance"), body);
 }

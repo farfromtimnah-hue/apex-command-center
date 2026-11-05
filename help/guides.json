@@ -6309,8 +6309,8 @@
         "en": "Finances: entries and reports"
       },
       "summary": {
-        "pt": "Veja entradas, saídas e resultado de cada mês, adicione um lançamento e abra um relatório.",
-        "en": "See money in, money out and the result of each month, add an entry and open a report."
+        "pt": "Veja entradas, saídas, resultado e saldo de cada mês, informe o saldo de abertura, adicione um lançamento e abra um relatório.",
+        "en": "See money in, money out, the result and the balance of each month, set your starting balance, add an entry and open a report."
       },
       "keywords": {
         "pt": [
@@ -6326,7 +6326,13 @@
           "período",
           "mês",
           "dinheiro que entrou",
-          "despesas"
+          "despesas",
+          "saldo",
+          "saldo inicial",
+          "saldo final",
+          "saldo de abertura",
+          "comecei do zero",
+          "saldo de hoje"
         ],
         "en": [
           "finances",
@@ -6341,7 +6347,13 @@
           "period",
           "month",
           "expenses",
-          "income"
+          "income",
+          "balance",
+          "opening balance",
+          "closing balance",
+          "starting balance",
+          "i started from zero",
+          "balance today"
         ]
       },
       "video": null,
@@ -6433,12 +6445,12 @@
             {
               "n": 8,
               "text": {
-                "pt": "Embaixo das barras, a tabela (2) mostra Entradas, Saídas, Resultado e Margem líquida. O Resultado é o que sobra: Entradas menos Saídas. A Margem líquida mostra esse resultado em percentual.",
-                "en": "Under the bars, the table (2) shows In, Out, Net and Net margin. Net is what is left: In minus Out. Net margin shows that result as a percent."
+                "pt": "Embaixo das barras, a tabela (2) mostra Saldo inicial, Entradas, Saídas, Resultado, Margem líquida e Saldo final. O Resultado é o que sobra: Entradas menos Saídas. A Margem líquida mostra esse resultado em percentual. O Saldo final é o Saldo inicial mais o Resultado. O passo 1 da parte Saldo de abertura explica como acertar o Saldo inicial.",
+                "en": "Under the bars, the table (2) shows Opening balance, In, Out, Net, Net margin and Closing balance. Net is what is left: In minus Out. Net margin shows that result as a percent. Closing balance is Opening balance plus Net. Step 1 of the Starting balance part explains how to set the Opening balance right."
               },
               "image": {
-                "pt": "help/img/guides/finances/finances-08.pt.jpg",
-                "en": "help/img/guides/finances/finances-08.en.jpg"
+                "pt": "help/img/guides/finances/finances-08r.pt.jpg",
+                "en": "help/img/guides/finances/finances-08r.en.jpg"
               }
             },
             {
@@ -6554,12 +6566,12 @@
             {
               "n": 19,
               "text": {
-                "pt": "Preparado para (1), Título (2) e Saldo inicial (3) não têm asterisco, então podem ficar vazios. O Título sugere Relatório financeiro e o Saldo inicial sugere 0.00.",
-                "en": "Prepared for (1), Title (2) and Opening balance (3) have no star, so you can leave them empty. Title suggests Financial report and Opening balance suggests 0.00."
+                "pt": "Preparado para (1), Título (2) e Saldo inicial (3) não têm asterisco, então podem ficar vazios. O Título sugere Relatório financeiro. O Saldo inicial já vem preenchido com o saldo que o Apex calculou para a data De, por exemplo 10165.00. Você pode digitar outro número.",
+                "en": "Prepared for (1), Title (2) and Opening balance (3) have no star, so you can leave them empty. Title suggests Financial report. Opening balance already shows the balance Apex worked out for the From date, for example 10165.00. You can type another number."
               },
               "image": {
-                "pt": "help/img/guides/finances/finances-19.pt.jpg",
-                "en": "help/img/guides/finances/finances-19.en.jpg"
+                "pt": "help/img/guides/finances/finances-19r.pt.jpg",
+                "en": "help/img/guides/finances/finances-19r.en.jpg"
               }
             },
             {
@@ -6571,6 +6583,103 @@
               "image": {
                 "pt": "help/img/guides/finances/finances-20.pt.jpg",
                 "en": "help/img/guides/finances/finances-20.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "balance",
+          "title": {
+            "pt": "Saldo de abertura e saldo de cada mês",
+            "en": "Starting balance and the balance of each month"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "No alto do Financeiro fica o cartão Saldo de abertura. Ele pergunta quanto dinheiro a sua empresa já tinha antes do seu primeiro lançamento no Apex. Toque em Informar saldo (1). O formulário também abre sozinho uma vez a cada visita ao Financeiro, até você responder.",
+                "en": "At the top of Finances there is a Starting balance card. It asks for the money your company already had before your first entry in Apex. Tap Enter balance (1). The form also opens by itself once each time you visit Finances, until you answer."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/balance-01.pt.jpg",
+                "en": "help/img/guides/finances/balance-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Enquanto você não responde, o Resumo mensal já mostra Saldo inicial (1) e Saldo final (2), mas eles contam só os lançamentos do Apex. O aviso embaixo do cartão (3) diz isso.",
+                "en": "Until you answer, the Monthly summary still shows Opening balance (1) and Closing balance (2), but they count only the entries in Apex. The note under the card (3) says so."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/balance-02.pt.jpg",
+                "en": "help/img/guides/finances/balance-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Se você sabe o saldo do início de um mês, deixe o primeiro botão escolhido. Digite o Valor (1), escolha o Mês (2) e o Ano (3). Use o saldo do seu banco no primeiro dia desse mês. Depois toque em Salvar.",
+                "en": "If you know the balance at the start of a month, keep the first button selected. Type the Amount (1), choose the Month (2) and the Year (3). Use the balance from your bank on the first day of that month. Then tap Save."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/balance-03.pt.jpg",
+                "en": "help/img/guides/finances/balance-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Se você só sabe o saldo de hoje, toque em Sei o saldo de hoje (1). Digite o valor em Saldo de hoje (2). A linha embaixo (3) mostra o saldo do início deste mês que o Apex calcula para você, com os lançamentos que você já tem. Depois toque em Salvar.",
+                "en": "If you only know your balance today, tap I know my balance today (1). Type it in Balance today (2). The line under it (3) shows the balance at the start of this month that Apex works out for you, using the entries you already have. Then tap Save."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/balance-04.pt.jpg",
+                "en": "help/img/guides/finances/balance-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Se a sua empresa começou sem dinheiro nenhum, toque em Comecei do zero (1). Isso salva um saldo de abertura de 0.00 e a pergunta para de aparecer.",
+                "en": "If your company started with no money at all, tap I started from zero (1). It saves a starting balance of 0.00 and stops the question."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/balance-05.pt.jpg",
+                "en": "help/img/guides/finances/balance-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Depois de salvar, o cartão mostra o valor e o mês (1), por exemplo $1,000.00 no início de Setembro de 2026. Toque em Alterar (2) para editar.",
+                "en": "After you save, the card shows the amount and the month (1), for example $1,000.00 at the start of September 2026. Tap Change (2) to edit it."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/balance-06.pt.jpg",
+                "en": "help/img/guides/finances/balance-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Para tirar o saldo de abertura, toque em Alterar e depois em Remover (1). O cartão volta a pedir o saldo.",
+                "en": "To take the starting balance away, tap Change and then Remove (1). The card goes back to asking for the balance."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/balance-07.pt.jpg",
+                "en": "help/img/guides/finances/balance-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Daí em diante é automático. O Saldo final de um mês (1) vira o Saldo inicial do mês seguinte (2). Você não digita de novo. Os meses antes do mês de abertura (3) não mostram as linhas de saldo, porque o Apex não sabe o saldo daquela época.",
+                "en": "From then on it is automatic. The Closing balance of a month (1) becomes the Opening balance of the next month (2). You never type it again. Months before your starting month (3) show no balance lines, because Apex does not know the balance then."
+              },
+              "image": {
+                "pt": "help/img/guides/finances/balance-08.pt.jpg",
+                "en": "help/img/guides/finances/balance-08.en.jpg"
               }
             }
           ]
@@ -6612,6 +6721,80 @@
           },
           "section": "finances",
           "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Informar saldo",
+              "Definir"
+            ],
+            "en": [
+              "Enter balance",
+              "Set"
+            ]
+          },
+          "section": "balance",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Sei o saldo do início de um mês"
+            ],
+            "en": [
+              "I know the balance at the start of a month"
+            ]
+          },
+          "section": "balance",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Sei o saldo de hoje"
+            ],
+            "en": [
+              "I know my balance today"
+            ]
+          },
+          "section": "balance",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Comecei do zero"
+            ],
+            "en": [
+              "I started from zero"
+            ]
+          },
+          "section": "balance",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Alterar"
+            ],
+            "en": [
+              "Change"
+            ]
+          },
+          "section": "balance",
+          "step": 6
+        },
+        {
+          "labels": {
+            "pt": [
+              "Remover"
+            ],
+            "en": [
+              "Remove"
+            ]
+          },
+          "section": "balance",
+          "step": 7
         }
       ]
     },
@@ -32404,8 +32587,8 @@
         "finances"
       ],
       "overview": {
-        "pt": "Aqui você escolhe o período, vê o resumo do mês com entradas, saídas e resultado, adiciona lançamentos e abre um relatório.",
-        "en": "Here you choose the period, see the month's summary with money in, money out and the result, add entries and open a report."
+        "pt": "Aqui você escolhe o período, informa o saldo de abertura, vê o resumo do mês com saldo inicial, entradas, saídas, resultado e saldo final, adiciona lançamentos e abre um relatório.",
+        "en": "Here you choose the period, set your starting balance, see the month's summary with opening balance, money in, money out, the result and closing balance, add entries and open a report."
       }
     },
     "analytics": {

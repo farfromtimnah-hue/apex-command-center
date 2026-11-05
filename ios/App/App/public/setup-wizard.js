@@ -652,10 +652,10 @@ function swOpeningHtml() {
   if (cfg.opening_balance_available !== true) { return ""; }
   var answered = cfg.opening_balance_cents !== null && cfg.opening_balance_cents !== undefined;
   var cur = answered ? '<p class="sw-fine">' + swEsc(fmtNum(cfg.opening_balance_cents / 100, "currency") + " " + swT("no início de ", "at the start of ") + gmFinMonthLabel(String(cfg.opening_balance_month).slice(0, 7), isEn())) + '</p>' : '';
-  return '<div class="sw-row"><label class="sw-l" for="swObAmt"' + swH("payments", 1) + '>' + swT("Saldo de hoje (opcional)", "Your balance today (optional)") + '</label>' +
+  return '<div class="sw-row"><label class="sw-l" for="swObAmt"' + swH("payments", 12) + '>' + swT("Saldo de hoje (opcional)", "Your balance today (optional)") + '</label>' +
     '<p class="sw-fine">' + swT("Quanto dinheiro a empresa tem hoje. Com ele o saldo de cada mês fica certo.", "How much money the company has today. With it, each month's balance is right.") + '</p>' +
-    '<input type="text" inputmode="decimal" id="swObAmt" placeholder="0.00"' + swH("payments", 1) + '>' +
-    '<button type="button" class="sw-chip" data-act="ob-save"' + swH("payments", 1) + '>' + swT("Salvar saldo", "Save balance") + '</button>' + cur +
+    '<input type="text" inputmode="decimal" id="swObAmt" placeholder="0.00"' + swH("payments", 12) + '>' +
+    '<button type="button" class="sw-chip" data-act="ob-save"' + swH("payments", 12) + '>' + swT("Salvar saldo", "Save balance") + '</button>' + cur +
     '<p class="sw-fine">' + swT("Pode pular e informar depois na aba Financeiro.", "You can skip this and enter it later in the Finance tab.") + '</p></div>';
 }
 function swObSave() {

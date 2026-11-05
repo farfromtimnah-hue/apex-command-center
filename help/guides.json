@@ -31774,6 +31774,17 @@
                 "pt": "help/img/guides/setup-wizard/payments-11.pt.jpg",
                 "en": "help/img/guides/setup-wizard/payments-11.en.jpg"
               }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "No fim desta etapa há uma pergunta opcional. Digite o saldo de hoje (1) e toque em Salvar saldo (2). O Apex acerta o saldo de cada mês a partir dele. Sem certeza? Pule (3) e informe depois no Financeiro.",
+                "en": "Last on this stage is an optional question. Type your balance today (1) and tap Save balance (2). Apex makes each month's balance right from it. Not sure? Skip it (3) and enter it later in Finances."
+              },
+              "image": {
+                "pt": "help/img/guides/setup-wizard/payments-12.pt.jpg",
+                "en": "help/img/guides/setup-wizard/payments-12.en.jpg"
+              }
             }
           ]
         },
@@ -32233,6 +32244,18 @@
           },
           "section": "nocontract",
           "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Salvar saldo"
+            ],
+            "en": [
+              "Save balance"
+            ]
+          },
+          "section": "payments",
+          "step": 12
         }
       ]
     },

@@ -23,10 +23,10 @@ class FakeDate extends Date { constructor(...a) { if (a.length) { super(...a); }
 const FNS = ["helpGuideAudience", "helpViewerRoleToken", "helpGuideVisibleTo", "helpFilterGuides", "helpViewerRole", "helpIndexFor", "helpBuildIndex",
   "helpBuildOtherList", "helpClampResult", "helpGuideMap", "helpFileGuideMap", "helpFileOwner", "helpFileOwners", "helpB64hex", "helpLinkSig", "helpSameText", "helpMintLink", "helpPickLang",
   "helpUrlPath", "helpBuildPayload", "helpNoStoreJson", "helpNotFound", "helpParseRange", "handleGetHelpFile", "handleGetHelpGuides", "handleGetHelpPublic",
-  "publicReadRateLimited", "handlePostHelpAsk", "validateHelpReply", "supportStaffAuthed", "helpSystemText", "helpPageKey", "supportFeatureGuideFor", "supportPageIsPortal"];
+  "publicReadRateLimited", "handlePostHelpAsk", "validateHelpReply", "supportStaffAuthed", "helpSystemText", "helpPageKey", "supportFeatureGuideFor", "supportPageIsPortal", "helpSoonNormalize", "helpComingSoonClean", "helpComingSoonList", "helpComingSoonMatch", "helpComingSoonText"];
 const VARS = ["HELP_ADMIN_TOKENS", "HELP_CLIENT_TOKENS", "HELP_ROLE_SET", "HELP_DEFAULT_WHO", "HELP_LINK_TTL_SEC", "HELP_FILE_IP_LIMIT", "HELP_LINK_KEY_CACHE",
   "HELP_TYPES", "HELP_ROLE_INDEXES", "HELP_GUIDE_BY_ID", "HELP_FILE_GUIDES", "HELP_INDEXES", "HELP_OTHERS", "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "HELP_AI_MODEL",
-  "SUPPORT_FEATURE_GUIDE_STAFF_PT", "SUPPORT_FEATURE_GUIDE_STAFF_EN", "SUPPORT_FEATURE_GUIDE_PORTAL_PT", "SUPPORT_FEATURE_GUIDE_PORTAL_EN"];
+  "SUPPORT_FEATURE_GUIDE_STAFF_PT", "SUPPORT_FEATURE_GUIDE_STAFF_EN", "SUPPORT_FEATURE_GUIDE_PORTAL_PT", "SUPPORT_FEATURE_GUIDE_PORTAL_EN", "HELP_COMING_SOON_FALLBACK", "HELP_COMING_SOON_CACHE", "HELP_COMING_SOON_TTL_MS", "HELP_COMING_SOON_FAIL_TTL_MS"];
 
 let currentUser = null;
 let claudeCalls = [];
@@ -74,7 +74,7 @@ function fakeAssets(extra) {
     }
   };
 }
-const dbEnv = (status) => ({ prepare: () => ({ bind: () => ({ first: async () => (status === undefined ? null : { status }), run: async () => { throw new Error("D1 write in a help route"); } }) }) });
+const dbEnv = (status) => ({ prepare: () => ({ all: async () => ({ results: [] }), bind: () => ({ first: async () => (status === undefined ? null : { status }), run: async () => { throw new Error("D1 write in a help route"); } }) }) });
 const mkEnv = (status, secret) => ({ HELP_LINK_SECRET: secret === undefined ? "test-secret-not-real" : secret, ASSETS: fakeAssets(), DB: dbEnv(status) });
 const ORIGIN = "https://apex-api.test";
 const getReq = (path, headers, method) => new Request(ORIGIN + path, { method: method || "GET", headers: Object.assign({ "CF-Connecting-IP": "1.2.3.4" }, headers || {}) });
@@ -483,6 +483,28 @@ async function bodyBytes(res) { return new Uint8Array(await res.arrayBuffer()); 
     ok(tried > 0 && leaked === 0, (role || "signed out") + ": hand made links for files outside its list are refused unless one of the file's guides is visible to it (" + tried + " tried)");
     void staffAdmin;
   }
+}
+
+// ---- coming soon (the saved list): a forged model answer can never carry its own words
+{
+  const askSoon = async (user, question, answer, lang) => {
+    currentUser = user; claudeCalls = []; claudeAnswer = answer;
+    const w = build(FNS, VARS, stubsFor());
+    const res = await w.handlePostHelpAsk({ url: ORIGIN + "/api/help/ask", headers: { get: () => null }, json: async () => ({ question, language: lang || "pt" }) }, mkEnv(user.role === "client" ? "active" : undefined));
+    return { res, calls: claudeCalls.length, sys: claudeCalls[0] ? claudeCalls[0].system[0].text : "" };
+  };
+  const fb = W.helpComingSoonList ? null : null;
+  void fb;
+  const direct = await askSoon(USERS.seller, "connect my ABC Supply account so I can order materials", { kind: "answer", guide_ids: ["estimate"], reply: "x" }, "en");
+  ok(direct.res.status === 200 && direct.res.data.kind === "coming_soon" && direct.res.data.coming_soon_id === "abc-supply" && direct.calls === 0 && direct.res.data.reply.indexOf("ABC Supply is coming soon to Apex.") === 0, "a seller asking about ABC Supply gets coming_soon from the saved text and the model is never called");
+  ok(direct.res.data.guide_ids.length === 0 && direct.res.data.best === null && direct.res.data.found === false && direct.res.data.logged === false, "the coming soon answer carries no guide, no best and nothing logged");
+  const viaModel = await askSoon(USERS.seller, "quero ver os precos do fornecedor de telhas", { kind: "coming_soon", coming_soon_id: "abc-supply", guide_ids: ["finances"], reply: "Texto do modelo que nao pode aparecer" }, "pt");
+  ok(viaModel.res.data.kind === "coming_soon" && viaModel.res.data.reply.indexOf("A ABC Supply está chegando ao Apex.") === 0 && viaModel.res.data.reply.indexOf("modelo") === -1 && viaModel.res.data.guide_ids.length === 0, "a model coming_soon answer is replaced by the saved Portuguese text and carries no forged guide id");
+  ok(viaModel.sys.indexOf("COMING SOON") !== -1 && viaModel.sys.indexOf("abc-supply: ABC Supply.") !== -1, "the system text sent to the model lists the coming soon features");
+  const bad = await askSoon(USERS.seller, "quero ver os precos do fornecedor de telhas", { kind: "coming_soon", coming_soon_id: "nao-existe", reply: "x" }, "pt");
+  ok(bad.res.data.kind === "unclear" && bad.res.data.reply === "" && bad.res.data.coming_soon_id === undefined, "a model coming_soon with an unknown id is unclear");
+  ok(JSON.stringify(W.validateHelpReply(JSON.stringify({ kind: "coming_soon", coming_soon_id: "srs" }), { ids: {} }, [{ id: "srs" }])) === JSON.stringify({ found: false, guide_ids: [], best: null, reply: "", other_side: [], kind: "coming_soon", coming_soon_id: "srs" }), "validateHelpReply accepts coming_soon for an id in the list");
+  ok(W.validateHelpReply(JSON.stringify({ kind: "coming_soon", coming_soon_id: "srs" }), { ids: {} }).kind === "unclear", "validateHelpReply turns coming_soon into unclear when no list is passed");
 }
 
 console.log("\n" + pass + " passed, " + fail + " failed");

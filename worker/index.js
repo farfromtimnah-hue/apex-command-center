@@ -70647,12 +70647,119 @@ async function handleGetHelpFile(request, env, path) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// COMING SOON features (Learn / Aprenda). The list lives in the help_coming_soon
+// table (migrations/help_coming_soon.sql) so the owner can change it by hand with
+// no deploy. HELP_COMING_SOON_FALLBACK holds the same first three rows so the
+// help route still answers right before the migration is applied, or when the
+// table is empty or cannot be read. Rows have the table's own shape.
+// ---------------------------------------------------------------------------
+var HELP_COMING_SOON_FALLBACK = [
+    { id: "abc-supply", name_en: "ABC Supply", name_pt: "ABC Supply",
+      aliases: "abc supply, abcsupply, abc supplies, abc roofing",
+      description_en: "Supplier connection for roofing contractors: see your own ABC prices and order materials.",
+      text_en: "ABC Supply is coming soon to Apex. You will be able to see your own ABC prices and order materials from inside Apex. It is not available yet, so there is nothing to set up today.",
+      text_pt: "A ABC Supply está chegando ao Apex. Você vai poder ver os seus preços da ABC e pedir material direto no Apex. Ainda não está disponível, então não há nada para configurar hoje." },
+    { id: "srs", name_en: "SRS Distribution", name_pt: "SRS Distribution",
+      aliases: "srs, srs distribution, roof hub, roofhub",
+      description_en: "Supplier connection for roofing contractors: see your own SRS prices and order materials.",
+      text_en: "SRS Distribution is coming soon to Apex. You will be able to see your own SRS prices and order materials from inside Apex. It is not available yet, so there is nothing to set up today.",
+      text_pt: "A SRS Distribution está chegando ao Apex. Você vai poder ver os seus preços da SRS e pedir material direto no Apex. Ainda não está disponível, então não há nada para configurar hoje." },
+    { id: "qxo", name_en: "QXO", name_pt: "QXO",
+      aliases: "qxo, beacon roofing, beacon supply",
+      description_en: "Supplier connection for roofing contractors: see your own QXO prices and order materials.",
+      text_en: "QXO is coming soon to Apex. You will be able to see your own QXO prices and order materials from inside Apex. It is not available yet, so there is nothing to set up today.",
+      text_pt: "A QXO está chegando ao Apex. Você vai poder ver os seus preços da QXO e pedir material direto no Apex. Ainda não está disponível, então não há nada para configurar hoje." }
+];
+var HELP_COMING_SOON_CACHE = { rows: null, at: 0, ttl: 0 };
+var HELP_COMING_SOON_TTL_MS = 300000;
+var HELP_COMING_SOON_FAIL_TTL_MS = 60000;
+
+// Lowercase, no accents, spaces collapsed. Used for the question and the aliases.
+function helpSoonNormalize(v) {
+    return String(v).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").replace(/^ | $/g, "");
+}
+
+// Keeps the good rows only. Every field must be a string with the length the
+// table promises; a bad row is skipped, never repaired. Returns new objects with
+// aliases as a list.
+function helpComingSoonClean(rows) {
+    var out = [];
+    var seen = {};
+    if (!Array.isArray(rows)) { return out; }
+    function text(v, max) {
+        if (typeof v !== "string") { return null; }
+        var x = v.replace(/^\s+|\s+$/g, "");
+        return (x.length >= 1 && x.length <= max) ? x : null;
+    }
+    for (var i = 0; i < rows.length && out.length < 50; i++) {
+        var r = rows[i];
+        if (!r || typeof r !== "object" || Array.isArray(r)) { continue; }
+        if (typeof r.id !== "string" || !/^[A-Za-z0-9-]{1,40}$/.test(r.id) || Object.prototype.hasOwnProperty.call(seen, r.id)) { continue; }
+        var nameEn = text(r.name_en, 60), namePt = text(r.name_pt, 60), desc = text(r.description_en, 200);
+        var txtEn = text(r.text_en, 400), txtPt = text(r.text_pt, 400);
+        if (nameEn === null || namePt === null || desc === null || txtEn === null || txtPt === null || typeof r.aliases !== "string") { continue; }
+        var aliases = [];
+        r.aliases.split(",").forEach(function(a) {
+            var x = helpSoonNormalize(a);
+            if (x.length >= 3 && x.length <= 40 && aliases.indexOf(x) === -1 && aliases.length < 12) { aliases.push(x); }
+        });
+        seen[r.id] = true;
+        out.push({ id: r.id, name_en: nameEn, name_pt: namePt, aliases: aliases, description_en: desc, text_en: txtEn, text_pt: txtPt });
+    }
+    return out;
+}
+
+// The active coming soon rows. One read per five minutes per Worker instance. A
+// failed read, a missing table or a table with no good rows gives the built in
+// list and is remembered for one minute only. Never throws.
+async function helpComingSoonList(env) {
+    var now = Date.now();
+    if (HELP_COMING_SOON_CACHE.rows && now >= HELP_COMING_SOON_CACHE.at && now - HELP_COMING_SOON_CACHE.at < HELP_COMING_SOON_CACHE.ttl) {
+        return HELP_COMING_SOON_CACHE.rows;
+    }
+    var rows = [];
+    try {
+        var res = await env.DB.prepare("SELECT id, name_en, name_pt, aliases, description_en, text_en, text_pt FROM help_coming_soon WHERE active = 1 ORDER BY id LIMIT 50").all();
+        rows = helpComingSoonClean(res && res.results);
+    } catch (e) {
+        console.error("help coming soon: could not read the table (" + (e && e.name) + ")");
+        rows = [];
+    }
+    var ttl = HELP_COMING_SOON_TTL_MS;
+    if (!rows.length) {
+        rows = helpComingSoonClean(HELP_COMING_SOON_FALLBACK);
+        ttl = HELP_COMING_SOON_FAIL_TTL_MS;
+    }
+    HELP_COMING_SOON_CACHE = { rows: rows, at: now, ttl: ttl };
+    return rows;
+}
+
+// The first row whose alias appears in the question as a whole word or phrase,
+// or null. An alias never matches inside another word.
+function helpComingSoonMatch(rows, question) {
+    if (!Array.isArray(rows) || typeof question !== "string") { return null; }
+    var q = helpSoonNormalize(question);
+    for (var i = 0; i < rows.length; i++) {
+        var al = rows[i] && Array.isArray(rows[i].aliases) ? rows[i].aliases : [];
+        for (var j = 0; j < al.length; j++) {
+            var a = helpSoonNormalize(al[j]);
+            if (!a) { continue; }
+            var re = new RegExp("(?<![a-z0-9])" + a.replace(/[.*+?^${}()|[\]\\\/-]/g, "\\$&") + "(?![a-z0-9])");
+            if (re.test(q)) { return rows[i]; }
+        }
+    }
+    return null;
+}
+
+function helpComingSoonText(row, lang) { return lang === "en" ? row.text_en : row.text_pt; }
+
 // staff true adds the other side list and the other_side field. For anyone else
 // the other side is never put into the prompt. The feature guide is the one the
 // support chat uses, chosen by the audience the route computed: the staff app
 // for admin, the client portal for client. It tells the model what Apex does, so
 // it can tell a missing guide from a feature Apex does not have.
-function helpSystemText(lang, audience, staff, index) {
+function helpSystemText(lang, audience, staff, index, comingSoon) {
     var side = audience === "admin" ? "admin" : "client";
     var idxText = (index && typeof index.text === "string") ? index.text : HELP_INDEXES[side].text;
     var other = staff ? HELP_OTHERS[side] : null;
@@ -70664,22 +70771,27 @@ function helpSystemText(lang, audience, staff, index) {
         "Write the reply in " + (lang === "en" ? "English" : "Brazilian Portuguese") + ". " +
         "Output ONLY a JSON object, with no other text: " +
         (staff
-            ? "{\"kind\":\"answer\" or \"missing_guide\" or \"new_feature\" or \"unclear\",\"guide_ids\":[up to 3 guide ids from the index],\"best\":{\"guide\":\"id\",\"section\":\"section id\"} or null,\"reply\":\"one or two short sentences saying which guide helps and why, no steps\",\"other_side\":[up to 2 ids from the OTHER SIDE list]}. " +
+            ? "{\"kind\":\"answer\" or \"missing_guide\" or \"new_feature\" or \"coming_soon\" or \"unclear\",\"guide_ids\":[up to 3 guide ids from the index],\"best\":{\"guide\":\"id\",\"section\":\"section id\"} or null,\"reply\":\"one or two short sentences saying which guide helps and why, no steps\",\"other_side\":[up to 2 ids from the OTHER SIDE list],\"coming_soon_id\":\"id from the COMING SOON list, only for kind coming_soon\" or null}. " +
               "other_side may hold ids ONLY when nothing in the index fits; otherwise it is an empty list. "
-            : "{\"kind\":\"answer\" or \"missing_guide\" or \"new_feature\" or \"unclear\",\"guide_ids\":[up to 3 guide ids from the index],\"best\":{\"guide\":\"id\",\"section\":\"section id\"} or null,\"reply\":\"one or two short sentences saying which guide helps and why, no steps\"}. ") +
+            : "{\"kind\":\"answer\" or \"missing_guide\" or \"new_feature\" or \"coming_soon\" or \"unclear\",\"guide_ids\":[up to 3 guide ids from the index],\"best\":{\"guide\":\"id\",\"section\":\"section id\"} or null,\"reply\":\"one or two short sentences saying which guide helps and why, no steps\",\"coming_soon_id\":\"id from the COMING SOON list, only for kind coming_soon\" or null}. ") +
         "kind: \"answer\" when a guide in the index fits the question. " +
         "\"missing_guide\" when the APP FEATURES below show that Apex does this, but no guide in the index covers it. " +
         "\"new_feature\" ONLY when the APP FEATURES and the guide index clearly show that Apex does NOT do what the person asks for (they want Apex to start doing something new). " +
+        (comingSoon && comingSoon.length ? "\"coming_soon\" when the person asks about, or asks for what would be done by, a feature in the COMING SOON list below: set coming_soon_id to its id and leave reply empty. " : "") +
         "\"unclear\" when you are not sure, or it is not clear whether the person wants to learn something Apex does or wants Apex to do something new. When unsure, always use \"unclear\". " +
         "If nothing in the index fits the question, output " + (staff ? "{\"kind\":\"...\",\"guide_ids\":[],\"best\":null,\"reply\":\"\",\"other_side\":[]}" : "{\"kind\":\"...\",\"guide_ids\":[],\"best\":null,\"reply\":\"\"}") + " with kind set by the rule above.\n\n" +
         "APP FEATURES (what Apex does, for deciding the kind only; do not explain steps from it):\n" + featureGuide + "\n\n" +
+        (comingSoon && comingSoon.length
+            ? "COMING SOON (features Apex is building that are NOT available yet; if the person asks about one of these, or asks for what one of these would do, such as seeing a supplier's prices or ordering roofing material from a supplier inside Apex, answer kind coming_soon and put its id in the coming_soon_id field):\n" +
+              comingSoon.map(function(c) { return c.id + ": " + c.name_en + ". " + c.description_en; }).join("\n") + "\n\n"
+            : "") +
         "GUIDE INDEX (one guide per line):\n" + idxText +
         (other && other.text ? "\n\nOTHER SIDE GUIDES (id, titles and summary only; use these ids only for other_side):\n" + other.text : "");
 }
 
 // Same rules as HelpCore.validateReply in help-core.js (both are tested against
 // the same cases). The model's text is never run and never trusted as HTML.
-function validateHelpReply(text, index) {
+function validateHelpReply(text, index, comingSoon) {
     var none = { found: false, guide_ids: [], best: null, reply: "", other_side: [], kind: "unclear" };
     if (typeof text !== "string" || !index || !index.ids) { return none; }
     var t = text.replace(/^\s+|\s+$/g, "");
@@ -70688,7 +70800,21 @@ function validateHelpReply(text, index) {
     try { obj = JSON.parse(t); } catch (e) { return none; }
     if (obj === null || typeof obj !== "object" || Array.isArray(obj)) { return none; }
     var own = Object.prototype.hasOwnProperty;
-    var kind = (typeof obj.kind === "string" && ["answer", "missing_guide", "new_feature", "unclear"].indexOf(obj.kind) !== -1) ? obj.kind : "unclear";
+    var kind = (typeof obj.kind === "string" && ["answer", "missing_guide", "new_feature", "coming_soon", "unclear"].indexOf(obj.kind) !== -1) ? obj.kind : "unclear";
+    if (kind === "coming_soon") {
+        // Only an id from the list passed in counts. Anything else is unclear.
+        var soonOk = false;
+        if (typeof obj.coming_soon_id === "string" && Array.isArray(comingSoon)) {
+            for (var c = 0; c < comingSoon.length; c++) {
+                var item = comingSoon[c];
+                if ((typeof item === "string" ? item : (item && item.id)) === obj.coming_soon_id) { soonOk = true; }
+            }
+        }
+        if (!soonOk) { return none; }
+        none.kind = "coming_soon";
+        none.coming_soon_id = obj.coming_soon_id;
+        return none;
+    }
     var ids = [];
     if (Array.isArray(obj.guide_ids)) {
         for (var i = 0; i < obj.guide_ids.length && ids.length < 3; i++) {
@@ -70757,6 +70883,15 @@ async function handlePostHelpAsk(request, env) {
             return jsonErr(language === "en" ? "Too many questions in a short time. Try again in a few minutes." : "Muitas perguntas em pouco tempo. Tente de novo em alguns minutos.", 429);
         }
 
+        // A feature Apex is building but has not released: answered here, before any
+        // model call, from the saved list. Nothing is counted against the Claude budget
+        // and nothing is written. The reply is always the row's own text.
+        var soon = await helpComingSoonList(env);
+        var soonHit = helpComingSoonMatch(soon, question);
+        if (soonHit) {
+            return jsonOk({ found: false, kind: "coming_soon", guide_ids: [], best: null, reply: helpComingSoonText(soonHit, language), coming_soon_id: soonHit.id, logged: false, audience: audience, other_side: [] });
+        }
+
         // log_gap true: the person chose "Aprender" after an unclear question. No model
         // call; the question is noted as a missing guide, exactly as a miss would be.
         var result = { found: false, guide_ids: [], best: null, reply: "", other_side: [], kind: "missing_guide" };
@@ -70771,7 +70906,7 @@ async function handlePostHelpAsk(request, env) {
                     headers: { "Content-Type": "application/json", "x-api-key": env.CLAUDE_API_KEY, "anthropic-version": "2023-06-01" },
                     body: JSON.stringify({
                         model: HELP_AI_MODEL, max_tokens: 400,
-                        system: [{ type: "text", text: helpSystemText(language, audience, isStaff, index), cache_control: { type: "ephemeral" } }],
+                        system: [{ type: "text", text: helpSystemText(language, audience, isStaff, index, soon), cache_control: { type: "ephemeral" } }],
                         messages: [{ role: "user", content: question }]
                     })
                 });
@@ -70786,7 +70921,14 @@ async function handlePostHelpAsk(request, env) {
             var data = await res.json().catch(function() { return null; });
             var blocks = (data && Array.isArray(data.content)) ? data.content : [];
             var text = blocks.filter(function(x) { return x && x.type === "text" && x.text; }).map(function(x) { return x.text; }).join("");
-            result = helpClampResult(validateHelpReply(text, index), viewerRole, audience);
+            result = helpClampResult(validateHelpReply(text, index, soon), viewerRole, audience);
+            if (result.kind === "coming_soon") {
+                // The words come from the saved row, never from the model.
+                var soonRow = null;
+                soon.forEach(function(c) { if (c.id === result.coming_soon_id) { soonRow = c; } });
+                if (!soonRow) { result = { found: false, guide_ids: [], best: null, reply: "", other_side: [], kind: "unclear" }; }
+                else { result = { found: false, guide_ids: [], best: null, reply: helpComingSoonText(soonRow, language), other_side: [], kind: "coming_soon", coming_soon_id: soonRow.id }; }
+            }
         }
 
         var logged = false;
@@ -70804,7 +70946,7 @@ async function handlePostHelpAsk(request, env) {
                 console.error("help ask: could not write help_gaps (" + (e && e.name) + ")");
             }
         }
-        return jsonOk({ found: result.found, kind: result.kind, guide_ids: result.guide_ids, best: result.best, reply: result.reply, logged: logged, audience: audience, other_side: result.other_side });
+        return jsonOk(Object.assign({ found: result.found, kind: result.kind, guide_ids: result.guide_ids, best: result.best, reply: result.reply, logged: logged, audience: audience, other_side: result.other_side }, result.kind === "coming_soon" ? { coming_soon_id: result.coming_soon_id } : {}));
     } catch (e) {
         console.error("help ask failed (" + (e && e.name) + ")");
         return jsonErr("Something went wrong", 500);
@@ -71000,6 +71142,16 @@ async function handlePostHelpSuggest(request, env) {
         if (publicReadRateLimited(request, "helpsuggest", who, 40, 16)) {
             return jsonErr(language === "en" ? "Too many messages in a short time. Try again in a few minutes." : "Muitas mensagens em pouco tempo. Tente de novo em alguns minutos.", 429);
         }
+        // First turn only: a feature Apex is already building is not a suggestion. No
+        // question, no model call, no ticket; the person gets the saved text instead.
+        if (transcript.length === 1) {
+            var soonRows = await helpComingSoonList(env);
+            var soonRow = helpComingSoonMatch(soonRows, transcript[0].text);
+            if (soonRow) {
+                return jsonOk({ done: true, logged: false, coming_soon: true, coming_soon_id: soonRow.id, reply: helpComingSoonText(soonRow, language) });
+            }
+        }
+
         // The same daily cap as the support tickets: a person at the cap gets the friendly message and no ticket.
         if (await supportRateLimited(env, who)) {
             return jsonOk({ done: true, capped: true, logged: false,

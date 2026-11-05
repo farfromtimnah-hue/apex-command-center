@@ -747,6 +747,13 @@
     out.appendChild(el("p", "aph-state", msg));
   }
 
+  // A feature Apex is building: one plain paragraph, the text comes from the Worker.
+  function renderComingSoon(out, r) {
+    var msg = (r && typeof r.reply === "string") ? r.reply : "";
+    if (!msg) { msg = t("Este recurso está chegando ao Apex. Ainda não está disponível.", "This feature is coming soon to Apex. It is not available yet."); }
+    out.appendChild(el("p", "aph-state", msg));
+  }
+
   var GENERIC_ERROR = function () { return t("Algo deu errado. Tente de novo.", "Something went wrong. Try again."); };
 
   // Apex does not do this: one calm line and two buttons. No thanks only closes the offer.
@@ -952,6 +959,7 @@
         return;
       }
       var kind = HC.replyKind(r);
+      if (kind === "coming_soon") { renderComingSoon(out, r); return; }
       if (kind === "new_feature") { renderOffer(out, question, askedSide); return; }
       if (kind === "unclear") { renderClarify(out, question, askedSide); return; }
       renderMissing(out, r);

@@ -422,11 +422,11 @@
   // up to 2 ids from it, and only when no guide on the requested side fits.
   var NOT_FOUND = function (kind) { return { found: false, guide_ids: [], best: null, reply: "", other_side: [], kind: kind || "unclear" }; };
 
-  // The four kinds of answer. Anything else the model says is unclear.
-  var KINDS = ["answer", "missing_guide", "new_feature", "unclear"];
+  // The five kinds of answer. Anything else the model says is unclear.
+  var KINDS = ["answer", "missing_guide", "new_feature", "coming_soon", "unclear"];
   function normalizeKind(k) { return (typeof k === "string" && KINDS.indexOf(k) !== -1) ? k : "unclear"; }
 
-  function validateReply(text, index) {
+  function validateReply(text, index, comingSoon) {
     if (typeof text !== "string" || !index || !isObj(index.ids)) { return NOT_FOUND(); }
     var t = text.replace(/^\s+|\s+$/g, "");
     if (t.indexOf("```") === 0) { t = t.replace(/^```[A-Za-z]*\s*/, "").replace(/\s*```$/, ""); }
@@ -434,6 +434,20 @@
     try { obj = JSON.parse(t); } catch (e) { return NOT_FOUND(); }
     if (!isObj(obj)) { return NOT_FOUND(); }
     var kind = normalizeKind(obj.kind);
+    if (kind === "coming_soon") {
+      // Only an id from the list passed in counts. Anything else is unclear.
+      var soonOk = false;
+      if (typeof obj.coming_soon_id === "string" && Array.isArray(comingSoon)) {
+        for (var c = 0; c < comingSoon.length; c++) {
+          var item = comingSoon[c];
+          if ((typeof item === "string" ? item : (isObj(item) ? item.id : null)) === obj.coming_soon_id) { soonOk = true; }
+        }
+      }
+      if (!soonOk) { return NOT_FOUND(); }
+      var soon = NOT_FOUND("coming_soon");
+      soon.coming_soon_id = obj.coming_soon_id;
+      return soon;
+    }
 
     var ids = [];
     if (Array.isArray(obj.guide_ids)) {
@@ -535,7 +549,7 @@
       return {
         phase: "done", transcript: base,
         reply: typeof apiResult.reply === "string" ? plainText(apiResult.reply, 400) : "",
-        sent: logged, retry: !logged && apiResult.capped !== true
+        sent: logged, retry: !logged && apiResult.capped !== true && apiResult.coming_soon !== true
       };
     }
     var q = typeof apiResult.question === "string" ? plainText(apiResult.question, 300) : "";

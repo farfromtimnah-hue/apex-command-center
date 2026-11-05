@@ -224,9 +224,9 @@ const workerSrc = read("worker/index.js");
 const WORKER_FNS = ["handlePostHelpAsk", "validateHelpReply", "helpBuildIndex", "helpBuildOtherList", "helpGuideAudience", "supportStaffAuthed", "helpSystemText", "helpPageKey", "publicReadRateLimited",
   "supportFeatureGuideFor", "supportPageIsPortal", "supportRateLimited", "supportIncrementDailyCount",
   "handlePostHelpSuggest", "validateSuggestTurn", "helpCleanTranscript", "helpSuggestSystem", "suggestReadiness", "helpSuggestSummary", "helpSpecFromModel", "helpPlainText",
-  "helpViewerRole", "helpViewerRoleToken", "helpGuideVisibleTo", "helpFilterGuides", "helpIndexFor", "helpClampResult"];
+  "helpViewerRole", "helpViewerRoleToken", "helpGuideVisibleTo", "helpFilterGuides", "helpIndexFor", "helpClampResult", "helpSoonNormalize", "helpComingSoonClean", "helpComingSoonList", "helpComingSoonMatch", "helpComingSoonText"];
 const WORKER_VARS = ["HELP_ADMIN_TOKENS", "HELP_ROLE_SET", "HELP_DEFAULT_WHO", "HELP_ROLE_INDEXES", "HELP_AI_MODEL", "HELP_INDEXES", "HELP_OTHERS", "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "HELP_SUGGEST_MAX_QUESTIONS", "HELP_SUGGEST_MAX_ITEMS",
-  "SUPPORT_FEATURE_GUIDE_STAFF_PT", "SUPPORT_FEATURE_GUIDE_STAFF_EN", "SUPPORT_FEATURE_GUIDE_PORTAL_PT", "SUPPORT_FEATURE_GUIDE_PORTAL_EN"];
+  "SUPPORT_FEATURE_GUIDE_STAFF_PT", "SUPPORT_FEATURE_GUIDE_STAFF_EN", "SUPPORT_FEATURE_GUIDE_PORTAL_PT", "SUPPORT_FEATURE_GUIDE_PORTAL_EN", "HELP_COMING_SOON_FALLBACK", "HELP_COMING_SOON_CACHE", "HELP_COMING_SOON_TTL_MS", "HELP_COMING_SOON_FAIL_TTL_MS"];
 const STAFF = { role: "alice", email: "a@x.test", display_name: "A" };
 const CLIENT = { role: "client", client_id: "c1", username: "loja1", login_role: "client" };
 
@@ -237,13 +237,20 @@ function mkEnv(opts) {
   opts = opts || {};
   const inserts = [];
   const reads = [];
+  const soonReads = [];
   return {
-    inserts, reads,
+    inserts, reads, soonReads,
     env: {
       CLAUDE_API_KEY: "test-key",
       DB: {
         prepare(sql) {
           return {
+            // the coming soon table: opts.soonRows is the table, opts.soonThrow makes the read fail
+            all: async () => {
+              soonReads.push(sql);
+              if (opts.soonThrow) { throw new Error("no such table: help_coming_soon"); }
+              return { results: typeof opts.soonRows === "function" ? opts.soonRows() : (opts.soonRows || []) };
+            },
             bind(...a) {
               return {
                 run: async () => { inserts.push({ sql, args: a }); if (opts.failInsert || (opts.failTicket && /INTO support_tickets/.test(sql)) || (opts.failCount && /support_ticket_daily_counts/.test(sql))) { throw new Error("no such table: help_gaps"); } return { meta: { changes: 1 } }; },
@@ -274,6 +281,7 @@ function mkWorker(o) {
     fetch: async (url, init) => { calls.push({ url, init }); return o.fetchImpl ? o.fetchImpl(url, init) : claudeOk({ guide_ids: ["estimate"], best: { guide: "estimate", section: "send" }, reply: "Veja o guia de orçamento." }); },
     console: { error: (...a) => errors.push(a.join(" ")), log: (...a) => logs.push(a.join(" ")), warn: () => {} }
   };
+  if (o.clock) { stubs.Date = class FakeDate extends Date { constructor(...a) { if (a.length) { super(...a); } else { super(o.clock.t); } } static now() { return o.clock.t; } }; }
   const w = build(WORKER_FNS, WORKER_VARS, stubs);
   return { w, calls, errors, logs };
 }
@@ -2014,6 +2022,191 @@ const configSrc = read("help-config.js");
     ok(read(f) === read("ios/App/App/public/" + f), "(h) the iPhone copy of " + f + " is identical to the root copy");
   });
   ok(!/\b(Ajuda|Help)\b/.test(sliceBetween(read("nav.js"), "var LEARN_ITEM", "};")) && !/\b(Ajuda|Help)\b/.test(sliceBetween(read("portal.html"), "var PORTAL_LINKS", "var PORTAL_GROUPS")), "(h) the new entry never uses the words Ajuda or Help");
+
+  // ------------------------------------------------------------ coming soon (the saved list)
+  {
+    const MIG = read("migrations/help_coming_soon.sql");
+    // seed rows parsed from the migration file itself
+    const seedRows = [];
+    MIG.replace(/^--[^\n]*$/gm, "").split(";").forEach((stmt) => {
+      if (!/INSERT OR IGNORE INTO help_coming_soon/.test(stmt)) { return; }
+      const vals = stmt.slice(stmt.indexOf("VALUES") + 6);
+      const strs = []; vals.replace(/'((?:[^']|'')*)'/g, (m, g) => { strs.push(g.replace(/''/g, "'")); return m; });
+      seedRows.push({ id: strs[0], name_en: strs[1], name_pt: strs[2], aliases: strs[3], description_en: strs[4], text_en: strs[5], text_pt: strs[6], active: 1 });
+    });
+    const soonQ = async (question, o) => {
+      o = o || {};
+      const m = mkWorker({ user: o.user === undefined ? CLIENT : o.user, fetchImpl: o.fetchImpl });
+      const e = mkEnv(o.env);
+      const r = await m.w.handlePostHelpAsk(askReq({ question, language: o.language || "en" }), e.env);
+      return { r, calls: m.calls, inserts: e.inserts, errors: m.errors, soonReads: e.soonReads };
+    };
+    const ABC_EN = "ABC Supply is coming soon to Apex. You will be able to see your own ABC prices and order materials from inside Apex. It is not available yet, so there is nothing to set up today.";
+    const ABC_PT = "A ABC Supply está chegando ao Apex. Você vai poder ver os seus preços da ABC e pedir material direto no Apex. Ainda não está disponível, então não há nada para configurar hoje.";
+
+    // (a) alias matches, from the built in fallback (an empty table) and from the seeded table
+    for (const label of ["fallback", "seeded table"]) {
+      const env = label === "fallback" ? {} : { soonRows: seedRows };
+      const hit = async (q, lang) => soonQ(q, { env, language: lang });
+      let x = await hit("connect my ABC Supply account so I can order materials", "en");
+      ok(x.r.data.kind === "coming_soon" && x.r.data.coming_soon_id === "abc-supply" && x.r.data.reply === ABC_EN && x.r.data.found === false && x.r.data.guide_ids.length === 0 && x.r.data.best === null && x.r.data.logged === false, "(soon a) " + label + ": the ABC question gives coming_soon with the row text");
+      x = await hit("how do I connect to srs roof hub", "en");
+      ok(x.r.data.kind === "coming_soon" && x.r.data.coming_soon_id === "srs" && x.r.data.reply.indexOf("SRS Distribution is coming soon to Apex.") === 0, "(soon a) " + label + ": srs roof hub is coming soon");
+      x = await hit("QXO prices", "en");
+      ok(x.r.data.kind === "coming_soon" && x.r.data.coming_soon_id === "qxo" && x.r.data.reply.indexOf("your own QXO prices") !== -1, "(soon a) " + label + ": QXO prices is coming soon");
+      x = await hit("conectar minha conta da ABC Supply", "pt");
+      ok(x.r.data.kind === "coming_soon" && x.r.data.reply === ABC_PT, "(soon a) " + label + ": the Portuguese question gets the Portuguese text with its accents");
+      x = await hit("CONECTAR A MINHA CONTA DA ABC SUPPLY", "pt");
+      ok(x.r.data.kind === "coming_soon" && x.r.data.coming_soon_id === "abc-supply", "(soon a) " + label + ": upper case matches");
+      x = await hit("Preciso do Beacon Roofing", "pt");
+      ok(x.r.data.kind === "coming_soon" && x.r.data.coming_soon_id === "qxo" && x.r.data.reply.indexOf("A QXO está chegando ao Apex.") === 0, "(soon a) " + label + ": Beacon Roofing is QXO");
+      x = await hit("pedir material no SRS, é possível?", "pt");
+      ok(x.r.data.kind === "coming_soon" && x.r.data.coming_soon_id === "srs", "(soon a) " + label + ": an accented, punctuated question matches");
+      ok(x.calls.length === 0 && x.inserts.length === 0, "(soon d) " + label + ": no Claude call and no database write");
+    }
+
+    // (b) things that must NOT match
+    for (const q of ["abc", "beacon", "how do I use srsly", "what is qxos", "abcsuppl", "how do I create an estimate", "preciso do xsrs", "supply"]) {
+      const x = await soonQ(q, { env: { soonRows: seedRows } });
+      ok(x.r.data.kind !== "coming_soon" && x.calls.length === 1, "(soon b) \"" + q + "\" is not a coming soon match (it goes to the model)");
+    }
+
+    // (c) validators: worker and HelpCore take the same cases
+    const LIST = [{ id: "abc-supply" }, { id: "srs" }];
+    const cs = (o) => JSON.stringify(Object.assign({ kind: "coming_soon", guide_ids: [], best: null, reply: "model words" }, o));
+    const check = (name, fn) => {
+      const good = fn(cs({ coming_soon_id: "srs" }), INDEX, LIST);
+      ok(good.kind === "coming_soon" && good.coming_soon_id === "srs" && good.found === false && good.reply === "" && good.guide_ids.length === 0, "(soon c) " + name + ": a valid id from the list is accepted and carries no model text");
+      ok(fn(cs({ coming_soon_id: "nope" }), INDEX, LIST).kind === "unclear", "(soon c) " + name + ": an unknown id is unclear");
+      ok(fn(cs({}), INDEX, LIST).kind === "unclear", "(soon c) " + name + ": a missing id is unclear");
+      ok(fn(cs({ coming_soon_id: 7 }), INDEX, LIST).kind === "unclear" && fn(cs({ coming_soon_id: ["srs"] }), INDEX, LIST).kind === "unclear", "(soon c) " + name + ": an id that is not a string is unclear");
+      ok(fn(cs({ coming_soon_id: "srs" }), INDEX).kind === "unclear" && fn(cs({ coming_soon_id: "srs" }), INDEX, null).kind === "unclear", "(soon c) " + name + ": no list passed is unclear");
+      ok(fn(cs({ coming_soon_id: "srs" }), INDEX, []).kind === "unclear", "(soon c) " + name + ": an empty list is unclear");
+      ok(fn(JSON.stringify({ kind: "answer", guide_ids: ["estimate"], reply: "Veja." }), INDEX).kind === "answer", "(soon c) " + name + ": the old behaviour without a list is unchanged");
+    };
+    check("worker validateHelpReply", (t, i, l) => idxW.validateHelpReply(t, i, l));
+    check("HelpCore.validateReply", (t, i, l) => core.validateReply(t, i, l));
+    ok(core.KINDS.indexOf("coming_soon") !== -1 && core.replyKind({ kind: "coming_soon" }) === "coming_soon", "(soon c) HelpCore knows the coming_soon kind");
+
+    // (d) the route: zero Claude calls, zero writes, zero help_gaps rows
+    { const x = await soonQ("ABC Supply", { env: { soonRows: seedRows } });
+      ok(x.calls.length === 0 && x.inserts.length === 0 && x.r.data.logged === false, "(soon d) route: a match makes zero fetch calls and zero database writes");
+      ok(!x.inserts.some((i) => /help_gaps/.test(i.sql)), "(soon d) route: nothing is written to help_gaps");
+      const lg = await (async () => { const m = mkWorker(); const e = mkEnv(); const r = await m.w.handlePostHelpAsk(askReq({ question: "ABC Supply prices", language: "en", log_gap: true }), e.env); return { r, inserts: e.inserts, calls: m.calls }; })();
+      ok(lg.r.data.kind === "coming_soon" && lg.inserts.length === 0 && lg.calls.length === 0, "(soon d) route: even with log_gap true a match writes no help_gaps row"); }
+    // a model paraphrase: kind coming_soon from the model, the server text wins, no help_gaps row
+    { const x = await soonQ("I want to see my roofing supplier prices and order shingles", { env: { soonRows: seedRows }, fetchImpl: async () => claudeOk({ kind: "coming_soon", coming_soon_id: "abc-supply", guide_ids: [], best: null, reply: "A completely different sentence from the model." }) });
+      ok(x.calls.length === 1 && x.r.data.kind === "coming_soon" && x.r.data.reply === ABC_EN && x.r.data.coming_soon_id === "abc-supply", "(soon f) a model reply with a different sentence still returns the row's sentence");
+      ok(x.inserts.length === 0 && !x.inserts.some((i) => /help_gaps/.test(i.sql)), "(soon d) a model coming_soon writes nothing, not even help_gaps");
+      const sent = JSON.parse(x.calls[0].init.body);
+      ok(sent.system[0].text.indexOf("COMING SOON (features Apex is building") !== -1 && sent.system[0].text.indexOf("abc-supply: ABC Supply. Supplier connection") !== -1 && sent.system[0].text.indexOf("\"coming_soon\"") !== -1 && sent.system[0].text.indexOf("coming_soon_id") !== -1, "(soon e) the system text carries the COMING SOON section, the kind and the coming_soon_id field");
+      const staffSys = await (async () => { const m = mkWorker({ user: STAFF }); await m.w.handlePostHelpAsk(askReq({ question: "como emito uma fatura?", language: "pt", audience: "admin" }), mkEnv().env); return JSON.parse(m.calls[0].init.body).system[0].text; })();
+      ok(staffSys.indexOf("coming_soon_id") !== -1 && staffSys.indexOf("other_side") !== -1, "(soon e) both JSON shapes (staff and not staff) carry coming_soon_id");
+      const empty = idxW.helpSystemText("en", "client", false, { text: "x", ids: {} }, []);
+      ok(empty.indexOf("COMING SOON (features") === -1 && empty.indexOf("coming_soon_id") !== -1, "(soon e) an empty list leaves the COMING SOON section out");
+      const none = idxW.helpSystemText("en", "client", false, { text: "x", ids: {} });
+      ok(none.indexOf("COMING SOON (") === -1, "(soon e) no list passed leaves the section out"); }
+    // the suggestion route: first turn
+    { const m = mkWorker({ user: CLIENT }); const e = mkEnv({ soonRows: seedRows });
+      const r = await m.w.handlePostHelpSuggest(askReq({ transcript: [{ role: "user", text: "I want Apex to connect my ABC Supply account" }], language: "en" }), e.env);
+      ok(r.status === 200 && r.data.done === true && r.data.coming_soon === true && r.data.logged === false && r.data.reply === ABC_EN, "(soon e) suggest: a first message about ABC Supply returns the coming soon text");
+      ok(m.calls.length === 0 && e.inserts.length === 0, "(soon e) suggest: no question is asked (no model call) and no ticket or count is written");
+      const hc = core.nextSuggestState([{ role: "user", text: "x" }], r.data);
+      ok(hc.phase === "done" && hc.reply === ABC_EN && hc.retry === false && hc.sent === false, "(soon e) suggest: HelpCore shows it as plain text with no retry button");
+      const m2 = mkWorker({ user: CLIENT }); const e2 = mkEnv({ soonRows: seedRows });
+      await m2.w.handlePostHelpSuggest(askReq({ transcript: [{ role: "user", text: "I want a new report for my sales" }], language: "en" }), e2.env);
+      ok(m2.calls.length === 1, "(soon e) suggest: a message that matches no alias goes to the model as before");
+      const m3 = mkWorker({ user: CLIENT }); const e3 = mkEnv({ soonRows: seedRows });
+      await m3.w.handlePostHelpSuggest(askReq({ transcript: [{ role: "user", text: "I want a new report for my sales" }, { role: "assistant", text: "What data?" }, { role: "user", text: "ABC Supply prices" }], language: "en" }), e3.env);
+      ok(m3.calls.length === 1, "(soon e) suggest: only the first turn is matched, a later answer is not"); }
+
+    // (g) every row has both texts: fallback and migration seed
+    const fbRows = (() => { const m = mkWorker(); return m.w.helpComingSoonClean(eval("(" + (workerSrc.match(/var HELP_COMING_SOON_FALLBACK = (\[[\s\S]*?\n\]);/) || [, "[]"])[1] + ")")); })();
+    ok(fbRows.length === 3 && fbRows.map((r) => r.id).join() === "abc-supply,srs,qxo", "(soon g) the fallback holds exactly abc-supply, srs and qxo");
+    ok(fbRows.every((r) => r.text_en.length > 0 && r.text_pt.length > 0 && r.aliases.length > 0), "(soon g) every fallback row has English and Portuguese text and aliases");
+    ok(seedRows.length >= 3 && seedRows.every((r) => r.text_en.length > 0 && r.text_pt.length > 0 && r.name_en && r.name_pt && r.description_en), "(soon g) every migration seed row has English and Portuguese text (" + seedRows.length + " rows)");
+    ok(seedRows.slice(0, 3).map((r) => r.id).join() === "abc-supply,srs,qxo" && fbRows.every((r, i) => r.text_en === seedRows[i].text_en && r.text_pt === seedRows[i].text_pt && r.aliases.join(", ") === seedRows[i].aliases), "(soon g) the fallback and the migration agree on the three first rows");
+    ok(seedRows.every((r) => !/\b(20\d\d|sandbox|test|tomorrow|next week)\b/i.test(r.text_en + r.text_pt)) && seedRows.every((r) => /ainda não está disponível/i.test(r.text_pt) && /not available yet/i.test(r.text_en)), "(soon g) no dates, no sandbox or testing talk, and each text says it is not available yet");
+    ok(seedRows.every((r) => r.aliases.split(",").every((a) => a.trim() === a.trim().toLowerCase() && a.trim() === a.trim().normalize("NFD").replace(/[̀-ͯ]/g, "") && a.trim().length >= 3)), "(soon g) every seed alias is lowercase, without accents and at least 3 characters");
+
+    // (h) helpComingSoonList
+    const row = (id, over) => Object.assign({ id, name_en: id + " name", name_pt: id + " nome", aliases: id + " thing, other " + id, description_en: "A feature called " + id + ".", text_en: "Text en " + id, text_pt: "Texto pt " + id, active: 1 }, over || {});
+    { const clock = { t: 1000000 }; let table = [row("one"), row("two")];
+      const m = mkWorker({ clock }); const e = mkEnv({ soonRows: () => table });
+      let l1 = await m.w.helpComingSoonList(e.env);
+      ok(l1.length === 2 && l1[0].id === "one" && Array.isArray(l1[0].aliases) && l1[0].aliases.indexOf("one thing") !== -1, "(soon h) rows come back with their aliases as a list");
+      table = [row("one"), row("two"), row("three")];
+      clock.t += 299000; let l2 = await m.w.helpComingSoonList(e.env);
+      ok(l2.length === 2 && e.soonReads.length === 1, "(soon h) two calls inside 5 minutes make one read");
+      clock.t += 2000; let l3 = await m.w.helpComingSoonList(e.env);
+      ok(l3.length === 3 && e.soonReads.length === 2, "(soon h) a row added to the table appears after the 5 minutes pass");
+      ok(e.soonReads[0].indexOf("WHERE active = 1 ORDER BY id LIMIT 50") !== -1 && e.soonReads[0].indexOf("SELECT id, name_en, name_pt, aliases, description_en, text_en, text_pt FROM help_coming_soon") === 0, "(soon h) the one query is exactly the specified SELECT"); }
+    { const m = mkWorker(); const e = mkEnv({ soonRows: [row("good-one"), row("bad id!"), row("no-text", { text_en: "" }), row("num", { text_pt: 5 }), row("long", { text_en: "x".repeat(401) }), row("longname", { name_en: "n".repeat(61) }), row("longdesc", { description_en: "d".repeat(201) }), row("alias-set", { aliases: "ab, ABCDE , " + "z".repeat(41) + ", Ünico Alias, " + Array.from({ length: 20 }, (_, i) => "alias number " + i).join(", ") }), row("x".repeat(41)), row("good-two")] });
+      const l = await m.w.helpComingSoonList(e.env);
+      ok(l.map((r) => r.id).join() === "good-one,alias-set,good-two", "(soon h) a bad row is skipped and the good rows are kept (" + l.map((r) => r.id).join() + ")");
+      const a = l[1].aliases;
+      ok(a.length === 12 && a.indexOf("ab") === -1 && a.indexOf("abcde") !== -1 && a.indexOf("unico alias") !== -1 && a.every((x) => x.length >= 3 && x.length <= 40), "(soon h) aliases are trimmed, lowercased, without accents, 3 to 40 long and at most 12"); }
+    { const m = mkWorker(); const e = mkEnv({ soonRows: [row("on"), row("off", { active: 0 })].filter((r) => r.active === 1) });
+      const l = await m.w.helpComingSoonList(e.env);
+      ok(l.length === 1 && l[0].id === "on", "(soon h) an inactive row is not in the answer (the query filters on active = 1)");
+      const m2 = mkWorker(); const e2 = mkEnv({ soonRows: [row("on")] }); const sqls = [];
+      const env2 = { DB: { prepare: (sql) => { sqls.push(sql); return e2.env.DB.prepare(sql); } } };
+      await m2.w.helpComingSoonList(env2);
+      ok(sqls.length === 1 && /WHERE active = 1/.test(sqls[0]), "(soon h) the read asks only for active rows"); }
+    { const clock = { t: 5000000 }; let fail = true;
+      const m = mkWorker({ clock }); const e = mkEnv({ soonRows: () => { if (fail) { throw new Error("no such table: help_coming_soon"); } return [row("late-table")]; } });
+      const sentinel = { id: "x" }; void sentinel;
+      let threw = false, l = null;
+      try { l = await m.w.helpComingSoonList({ DB: { prepare: () => { throw new Error("boom with secret row text"); } } }); } catch (x) { threw = true; }
+      ok(!threw && l.length === 3 && l.map((r) => r.id).join() === "abc-supply,srs,qxo", "(soon h) a throwing query gives the fallback and never throws");
+      ok(m.errors.length === 1 && /\(Error\)/.test(m.errors[0]) && m.errors[0].indexOf("secret") === -1 && m.errors[0].indexOf("boom") === -1, "(soon h) the log line holds only the error name");
+      const m2 = mkWorker({ clock }); const e2 = mkEnv({ soonThrow: true });
+      const f1 = await m2.w.helpComingSoonList(e2.env);
+      ok(f1.length === 3, "(soon h) a missing table gives the fallback");
+      clock.t += 30000; await m2.w.helpComingSoonList(e2.env);
+      ok(e2.soonReads.length === 1, "(soon h) a failure is remembered for a short time");
+      clock.t += 31000; await m2.w.helpComingSoonList(e2.env);
+      ok(e2.soonReads.length === 2, "(soon h) a failure is not cached past 60 seconds");
+      const m3 = mkWorker({ clock }); const e3 = mkEnv({ soonRows: () => { if (fail) { throw new Error("no such table"); } return [row("late-table")]; } });
+      const g1 = await m3.w.helpComingSoonList(e3.env);
+      fail = false; clock.t += 61000;
+      const g2 = await m3.w.helpComingSoonList(e3.env);
+      ok(g1.length === 3 && g2.length === 1 && g2[0].id === "late-table", "(soon h) a table created a moment later is picked up after a minute");
+      const m4 = mkWorker({ clock }); const e4 = mkEnv({ soonRows: [row("bad id!")] });
+      const h = await m4.w.helpComingSoonList(e4.env);
+      ok(h.length === 3, "(soon h) a table with no valid rows gives the fallback");
+      const m5 = mkWorker({ clock }); const e5 = mkEnv({ soonRows: [] });
+      ok((await m5.w.helpComingSoonList(e5.env)).length === 3, "(soon h) an empty table gives the fallback");
+      ok((await m5.w.helpComingSoonList({})).length === 3, "(soon h) an env with no database gives the fallback and does not throw (cached)"); 
+      const m6 = mkWorker({ clock }); ok((await m6.w.helpComingSoonList(undefined)).length === 3 && (await m6.w.helpComingSoonList(null)).length === 3, "(soon h) an undefined env never throws"); }
+
+    // (i) the migration, run for real on an in-memory SQLite, twice
+    { const { DatabaseSync } = await import("node:sqlite");
+      const db = new DatabaseSync(":memory:");
+      db.exec(MIG); db.exec(MIG);
+      const rows = db.prepare("SELECT id, active, created_at FROM help_coming_soon ORDER BY id").all();
+      ok(rows.length === seedRows.length && new Set(rows.map((r) => r.id)).size === rows.length, "(soon i) running the migration twice makes no duplicates (" + rows.length + " rows)");
+      ok(rows.every((r) => r.active === 1 && r.created_at.length > 0), "(soon i) every seeded row is active and has a created_at");
+      db.prepare("UPDATE help_coming_soon SET active = 0 WHERE id = 'qxo'").run(); db.exec(MIG);
+      ok(db.prepare("SELECT active FROM help_coming_soon WHERE id = 'qxo'").get().active === 0, "(soon i) running it again does not undo a hand made change");
+      ok(/CREATE TABLE IF NOT EXISTS help_coming_soon/.test(MIG) && !/INSERT INTO help_coming_soon/.test(MIG.replace(/INSERT OR IGNORE INTO/g, "")), "(soon i) the file uses CREATE TABLE IF NOT EXISTS and INSERT OR IGNORE only");
+      // the Worker's own query works on the real table, with the real rows
+      const m = mkWorker(); const real = { DB: { prepare: (sql) => ({ all: async () => ({ results: db.prepare(sql).all() }) }) } };
+      const l = await m.w.helpComingSoonList(real);
+      ok(l.map((r) => r.id).join() === "abc-supply,meta-leads,srs", "(soon i) the Worker's query reads the migrated table, active rows only, in id order (" + l.map((r) => r.id).join() + ")");
+      const hit = m.w.helpComingSoonMatch(l, "do you have facebook leads?");
+      ok(hit && hit.id === "meta-leads", "(soon i) the extra row found in the app (Facebook and Instagram) matches its aliases"); }
+
+    // the screens
+    { const widget = read("help-widget.js"), page = read("help.html");
+      [["help-widget.js", widget], ["help.html", page]].forEach(([n, src]) => {
+        ok(/function renderComingSoon\(out, r\)/.test(src) && /kind === "coming_soon"\) \{ renderComingSoon\(out, r\); return; \}/.test(src), "(soon screen) " + n + " has renderComingSoon and dispatches coming_soon");
+        ok(src.indexOf('kind === "coming_soon"') < src.indexOf('kind === "new_feature"'), "(soon screen) " + n + " dispatches coming_soon before the other kinds");
+        const fn = src.slice(src.indexOf("function renderComingSoon("), src.indexOf("var GENERIC_ERROR"));
+        ok(!/renderOffer|renderClarify|suggestFlow|Sua pergunta foi anotada|alert\(|confirm\(|prompt\(|=>|\bconst\b|\blet\b/.test(fn) && /r\.reply/.test(fn), "(soon screen) " + n + ": the function shows r.reply only, with no buttons, no note line, no arrow functions, const, let or pop-ups");
+      });
+    }
+  }
 
   // ------------------------------------------------------------ plumbing: headers, service worker, pages
   const headers = read("_headers");

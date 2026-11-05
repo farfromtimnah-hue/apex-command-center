@@ -1261,10 +1261,10 @@ function gmAbcReturnRead() {
   gmAbcFocus = true;
   gmAbcStatus = null;
   gmAbcNotice = m[1] === "failed" ? "failed" : "";
-  try {
+  if (window.history && typeof window.history.replaceState === "function") {
     var rest = (window.location.search || "").replace(/([?&])abc=[a-z]+(&|$)/, function(all, a, b) { return b ? a : ""; });
     window.history.replaceState(null, "", window.location.pathname + rest + window.location.hash);
-  } catch (e) {}
+  }
 }
 function gmAbcFocusCard() {
   if (!gmAbcFocus || gmEstimatesSection !== "settings") { return; }

@@ -40435,6 +40435,832 @@ async function thumbtackCron(env) {
     }
 }
 
+// ── ABC Supply connection (2026-11-04) ──────────────────────────────────
+// A roofing contractor links their OWN ABC Supply account (OAuth authorization
+// code flow with PKCE). Apex can then show that contractor's own account
+// prices and send material orders to ABC. Apex is a Third-Party Aggregator in
+// ABC's Partner Developer Portal; this is the SANDBOX app "Apex Command Center"
+// (source system 1456). Modelled on the Thumbtack section above.
+//
+// EVERY ABC address and parameter is in ABC below, and only there. Read from
+// apidocs.abcsupply.com on 2026-11-04. NOT SPECIFIED by ABC (not guessed
+// beyond what is said here): the sandbox sign-in and token paths (the
+// production ones, /v1/authorize and /v1/token, are used on the sandbox base,
+// which the sandbox ping proves or disproves), a webhook signature scheme
+// (ABC sends the secret from registration in the Authorization header of an
+// order update and in webhookDetails[].apiKey of an invoice event), the format
+// of that header value, and the answer ABC expects from a webhook.
+//
+// ABC's API terms shape this section: one token set per contractor, sealed and
+// kept under that contractor's client id; a price is shown only to the
+// contractor whose account returned it; and NO price is ever written to the
+// database. The tables arrive in migrations/abc_connect.sql. Safe to deploy
+// before OR after it: with no tables the portal reads "not available yet" and
+// the webhook answers 503.
+var ABC = {
+    callback_path: "/api/abc/callback",
+    webhook_path: "/api/abc/webhook/",
+    worker_origin: "https://apex-api.farfromtimnah.workers.dev",
+    api_origin: { sandbox: "https://partners-sb.abcsupply.com", production: "https://partners.abcsupply.com" },
+    auth_base: {
+        sandbox: "https://sandbox.auth.partners.abcsupply.com/oauth2/aus1vp07knpuqf6Xz0h8",
+        production: "https://auth.partners.abcsupply.com/oauth2/ausvvp0xuwGKLenYy357"
+    },
+    authorize_path: "/v1/authorize",
+    token_path: "/v1/token",
+    scopes: ["location.read", "product.read", "account.read", "pricing.read", "order.read", "order.write", "notification.read", "notification.write", "offline_access"],
+    ping_scopes: "location.read product.read",
+    webhook_events: ["ORDER_UPDATE", "ORDER_INVOICED"],
+    delivery_services: ["COM", "CPU", "EXP", "OTR", "OTG", "OTW", "TPC"],
+    // The Apex test client: the only business that may use the sandbox when
+    // ABC_SANDBOX_CLIENT_IDS is not set.
+    test_client: "test-client-temp-001",
+    state_minutes: 15,
+    refresh_margin_seconds: 120,
+    portal_return: DEFAULT_ORIGIN + "/portal.html?tab=gmestimates"
+};
+var ABC_NA_PT = "Ainda não disponível.";
+var ABC_NA_EN = "Not available yet.";
+var ABC_REFRESHING = {};
+
+// The Worker settings, trimmed. The environment is sandbox unless ABC_ENV says
+// exactly production. ready is false when a secret or the sealing key is missing.
+function abcSettings(env) {
+    var e = env || {};
+    var mode = String(e.ABC_ENV || "").trim().toLowerCase() === "production" ? "production" : "sandbox";
+    var out = {
+        client_id: String(e.ABC_CLIENT_ID || "").trim(),
+        client_secret: String(e.ABC_CLIENT_SECRET || "").trim(),
+        mode: mode,
+        api_origin: ABC.api_origin[mode],
+        auth_origin: ABC.auth_base[mode]
+    };
+    out.ready = !!(out.client_id && out.client_secret && String(e.TOKEN_ENC_KEY || "").trim());
+    out.sandbox_clients = String(e.ABC_SANDBOX_CLIENT_IDS === undefined || e.ABC_SANDBOX_CLIENT_IDS === null ? ABC.test_client : e.ABC_SANDBOX_CLIENT_IDS)
+        .split(",").map(function(x) { return x.trim(); }).filter(function(x) { return !!x; });
+    return out;
+}
+
+// The sandbox has only an ABC test user, so a real business must never start
+// a sandbox connection. Production has no list.
+function abcClientAllowed(cfg, clientId) {
+    if (cfg.mode === "production") { return true; }
+    return cfg.sandbox_clients.indexOf(String(clientId)) !== -1;
+}
+
+// False until migrations/abc_connect.sql has run.
+async function abcTablesReady(env) {
+    try {
+        await env.DB.prepare("SELECT client_id FROM gm_abc_connections LIMIT 1").first();
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function abcNotAvailable() {
+    return jsonErr2(ABC_NA_PT, ABC_NA_EN, 503, { available: false });
+}
+
+// Only the signed-in owner of THIS business. Platform staff is refused too:
+// ABC wants the contractor present for pricing and orders.
+function abcOwnerGuard(user, clientId) {
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (user.role !== "client" || !user.client_id || user.client_id !== clientId) { return jsonErr("Forbidden", 403); }
+    if (sessionSellerName(user)) { return jsonErr2("Só o dono da empresa pode conectar a ABC Supply.", "Only the business owner can connect ABC Supply.", 403); }
+    return null;
+}
+
+function abcRedirectUri() { return ABC.worker_origin + ABC.callback_path; }
+
+function abcWebhookUrl(token) { return ABC.worker_origin + ABC.webhook_path + token; }
+
+function abcB64url(bytes) {
+    return bytesToB64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function abcSha256Hex(text) {
+    return metaHex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(text)))));
+}
+
+// PKCE: a random verifier and its S256 challenge.
+async function abcPkcePair() {
+    var verifier = abcB64url(crypto.getRandomValues(new Uint8Array(48)));
+    var challenge = abcB64url(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))));
+    return { verifier: verifier, challenge: challenge };
+}
+
+// One call to ABC. Only the two ABC addresses of the current environment are
+// allowed. Throws an Error whose message is already scrubbed; abcStatus says
+// what ABC answered (0 = ABC was not reached).
+async function abcFetch(cfg, method, url, opts, secrets) {
+    var o = opts || {};
+    if (url.indexOf(cfg.api_origin + "/") !== 0 && url.indexOf(cfg.auth_origin + "/") !== 0) { throw new Error("ABC address not allowed"); }
+    var init = { method: method, headers: o.headers || {} };
+    if (o.form) {
+        var qs = [];
+        Object.keys(o.form).forEach(function(k) { qs.push(encodeURIComponent(k) + "=" + encodeURIComponent(String(o.form[k]))); });
+        init.headers["Content-Type"] = "application/x-www-form-urlencoded";
+        init.body = qs.join("&");
+    } else if (o.json !== undefined) {
+        init.headers["Content-Type"] = "application/json";
+        init.body = JSON.stringify(o.json);
+    }
+    var res = null;
+    try {
+        res = await fetch(url, init);
+    } catch (e) {
+        var down = new Error("ABC could not be reached");
+        down.abcStatus = 0;
+        throw down;
+    }
+    var data = null;
+    try { data = await res.json(); } catch (e2) { data = null; }
+    if (!res.ok) {
+        var msg = (data && (data.error_description || data.message || data.error || data.title)) || ("ABC answered HTTP " + res.status);
+        var err = new Error(metaScrub(String(msg), secrets));
+        err.abcStatus = res.status;
+        throw err;
+    }
+    return data || {};
+}
+
+// A call to the API with a contractor's (or the client credentials) token.
+function abcApi(cfg, token, method, path, json, secrets) {
+    var opts = { headers: { "Authorization": "Bearer " + token, "Accept": "application/json" } };
+    if (json !== undefined && json !== null) { opts.json = json; }
+    return abcFetch(cfg, method, cfg.api_origin + path, opts, secrets);
+}
+
+// true = worth trying again by itself; false = the owner has to sign in again.
+function abcErrTransient(e) {
+    if (!e || e.abcStatus === undefined) { return true; }
+    return e.abcStatus === 0 || e.abcStatus >= 500 || e.abcStatus === 429;
+}
+
+// The token call: authorization_code (with code and PKCE verifier),
+// refresh_token or client_credentials. Proof of who we are is HTTP Basic.
+async function abcTokenCall(cfg, form, secrets) {
+    var headers = { "Authorization": "Basic " + btoa(cfg.client_id + ":" + cfg.client_secret), "Accept": "application/json" };
+    var tok = await abcFetch(cfg, "POST", cfg.auth_origin + ABC.token_path, { headers: headers, form: form }, secrets);
+    var access = String((tok && tok.access_token) || "");
+    if (!access) { throw new Error("ABC returned no access token"); }
+    return {
+        access: access,
+        refresh: tok.refresh_token ? String(tok.refresh_token) : null,
+        expires_in: Number(tok.expires_in) > 0 ? Number(tok.expires_in) : 1800
+    };
+}
+
+function abcAuthorizeUrl(cfg, state, challenge) {
+    return cfg.auth_origin + ABC.authorize_path +
+        "?client_id=" + encodeURIComponent(cfg.client_id) +
+        "&response_type=code" +
+        "&redirect_uri=" + encodeURIComponent(abcRedirectUri()) +
+        "&scope=" + encodeURIComponent(ABC.scopes.join(" ")) +
+        "&state=" + encodeURIComponent(state) +
+        "&code_challenge=" + encodeURIComponent(challenge) +
+        "&code_challenge_method=S256";
+}
+
+// Back to the owner's settings screen. The address carries one plain word and
+// nothing else: never the code, never a token.
+function abcBack(result) {
+    return new Response(null, { status: 302, headers: {
+        "Location": ABC.portal_return + "&abc=" + encodeURIComponent(result),
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer"
+    } });
+}
+
+// Marks the state used and returns its row, or null when it is unknown,
+// already used or older than 15 minutes. One statement decides, so two
+// requests carrying the same state cannot both win.
+async function abcStateUse(env, state) {
+    if (!/^[a-f0-9]{48}$/.test(String(state || ""))) { return null; }
+    var upd = await env.DB.prepare(
+        "UPDATE gm_abc_oauth_states SET used_at = datetime('now') WHERE state = ? AND used_at IS NULL AND expires_at > datetime('now')"
+    ).bind(state).run();
+    if (!upd.meta || upd.meta.changes !== 1) { return null; }
+    return env.DB.prepare("SELECT client_id, login_key, actor_name, verifier_sealed FROM gm_abc_oauth_states WHERE state = ?").bind(state).first();
+}
+
+// ABC refused the token and a refresh failed: the card asks for a reconnect.
+async function abcFlagReconnect(env, clientId, message) {
+    await env.DB.prepare("UPDATE gm_abc_connections SET needs_reconnect = 1, last_error = ?, updated_at = datetime('now') WHERE client_id = ?").bind(message || null, clientId).run();
+}
+
+// The access token of one business, refreshed first when it is within 2
+// minutes of running out. A refresh ABC refuses flags the reconnect and
+// throws. Requests of one business that need a refresh at the same time share
+// ONE refresh (ABC rotates the refresh token, so the second would be refused).
+async function abcAccessToken(env, cfg, clientId) {
+    var conn = await env.DB.prepare("SELECT token_sealed, refresh_sealed, token_expires_at, needs_reconnect, environment FROM gm_abc_connections WHERE client_id = ?").bind(clientId).first();
+    if (!conn) { throw new Error("ABC is not connected"); }
+    if (conn.environment !== cfg.mode) { throw new Error("The ABC connection belongs to the other environment"); }
+    if (conn.needs_reconnect) { throw new Error("ABC needs to be reconnected"); }
+    var token = await tokenOpen(env, conn.token_sealed);
+    var expiring = !conn.token_expires_at || String(conn.token_expires_at) < new Date(Date.now() + ABC.refresh_margin_seconds * 1000).toISOString().replace("T", " ").slice(0, 19);
+    if (!expiring) { return token; }
+    var pending = ABC_REFRESHING[clientId];
+    if (pending) { return pending; }
+    pending = abcRefreshToken(env, cfg, clientId, conn, token);
+    ABC_REFRESHING[clientId] = pending;
+    try { return await pending; } finally { delete ABC_REFRESHING[clientId]; }
+}
+
+async function abcRefreshToken(env, cfg, clientId, conn, token) {
+    var secrets = [token, cfg.client_secret];
+    if (!conn.refresh_sealed) {
+        await abcFlagReconnect(env, clientId, "no refresh token");
+        throw new Error("ABC needs to be reconnected");
+    }
+    try {
+        var refresh = await tokenOpen(env, conn.refresh_sealed);
+        secrets.push(refresh);
+        var t = await abcTokenCall(cfg, { grant_type: "refresh_token", refresh_token: refresh }, secrets);
+        var sealed = await tokenSeal(env, t.access);
+        var sealedRefresh = t.refresh ? await tokenSeal(env, t.refresh) : conn.refresh_sealed;
+        // Only if nobody else (another Worker instance) refreshed meanwhile.
+        var upd = await env.DB.prepare(
+            "UPDATE gm_abc_connections SET token_sealed = ?, refresh_sealed = ?, token_expires_at = datetime('now', ?), needs_reconnect = 0, last_error = NULL, updated_at = datetime('now') WHERE client_id = ? AND refresh_sealed = ?"
+        ).bind(sealed, sealedRefresh, "+" + t.expires_in + " seconds", clientId, conn.refresh_sealed).run();
+        if (!upd.meta || upd.meta.changes !== 1) {
+            var now = await env.DB.prepare("SELECT token_sealed FROM gm_abc_connections WHERE client_id = ?").bind(clientId).first();
+            if (!now) { throw new Error("ABC is not connected"); }
+            return tokenOpen(env, now.token_sealed);
+        }
+        return t.access;
+    } catch (e) {
+        if (!abcErrTransient(e)) {
+            await abcFlagReconnect(env, clientId, metaScrub(e && e.message, secrets) || "refresh refused");
+        }
+        throw e;
+    }
+}
+
+// What the card shows. Never a token, and never ABC's own error text.
+async function abcStatusPayload(env, clientId) {
+    var cfg = abcSettings(env);
+    if (!cfg.ready || !abcClientAllowed(cfg, clientId) || !(await abcTablesReady(env))) { return { available: false, connected: false }; }
+    var conn = await env.DB.prepare("SELECT connected_by, connected_at, needs_reconnect, ship_to_number, branch_number, environment FROM gm_abc_connections WHERE client_id = ?").bind(clientId).first();
+    if (!conn) { return { available: true, connected: false }; }
+    var hook = await env.DB.prepare("SELECT secret_hash FROM gm_abc_webhooks WHERE client_id = ?").bind(clientId).first();
+    return {
+        available: true, connected: true, mode: cfg.mode,
+        needs_reconnect: !!conn.needs_reconnect || conn.environment !== cfg.mode,
+        connected_at: conn.connected_at || null, connected_by: conn.connected_by || null,
+        ship_to: conn.ship_to_number || null, branch: conn.branch_number || null,
+        webhook: !!(hook && hook.secret_hash)
+    };
+}
+
+// One webhook per business, carrying both order events (ABC allows five per
+// application). Only hashes are stored: the token in the address and the
+// secret ABC returns. Returns true when the business ends with a working one.
+async function abcWebhookRegister(env, cfg, clientId, token) {
+    await env.DB.prepare("DELETE FROM gm_abc_webhooks WHERE client_id = ? AND secret_hash = '' AND created_at < datetime('now', '-2 minutes')").bind(clientId).run();
+    var addrToken = gmEstNewToken();
+    var claim = await env.DB.prepare(
+        "INSERT OR IGNORE INTO gm_abc_webhooks (client_id, token_hash, secret_hash, event_type) VALUES (?, ?, '', ?)"
+    ).bind(clientId, await abcSha256Hex(addrToken), ABC.webhook_events.join(",")).run();
+    if (!claim.meta || claim.meta.changes !== 1) {
+        var have = await env.DB.prepare("SELECT secret_hash FROM gm_abc_webhooks WHERE client_id = ?").bind(clientId).first();
+        return !!(have && have.secret_hash);
+    }
+    var secrets = [token, cfg.client_secret];
+    try {
+        var made = await abcApi(cfg, token, "POST", "/api/notification/v2/webhooks", {
+            name: "Apex " + addrToken.slice(0, 8), type: "ORDER", events: ABC.webhook_events, url: abcWebhookUrl(addrToken)
+        }, secrets);
+        if (!made || !made.id || !made.secret) { throw new Error("ABC returned no webhook id or secret"); }
+        await env.DB.prepare("UPDATE gm_abc_webhooks SET abc_webhook_id = ?, secret_hash = ? WHERE client_id = ?")
+            .bind(String(made.id), await abcSha256Hex(String(made.secret)), clientId).run();
+        return true;
+    } catch (e) {
+        console.error("abc webhook registration failed: " + metaScrub(e && e.message, secrets));
+        await env.DB.prepare("DELETE FROM gm_abc_webhooks WHERE client_id = ? AND secret_hash = ''").bind(clientId).run();
+        return false;
+    }
+}
+
+// Unregisters the business's webhook at ABC (when it can) and deletes the row.
+// Safe to run when there is none.
+async function abcWebhookRemove(env, cfg, clientId) {
+    var row = await env.DB.prepare("SELECT abc_webhook_id FROM gm_abc_webhooks WHERE client_id = ?").bind(clientId).first();
+    if (row && row.abc_webhook_id) {
+        var token = "";
+        try { token = await abcAccessToken(env, cfg, clientId); } catch (e0) { token = ""; }
+        if (token) {
+            try { await abcApi(cfg, token, "DELETE", "/api/notification/v2/webhooks/" + encodeURIComponent(String(row.abc_webhook_id)), null, [token, cfg.client_secret]); }
+            catch (e) { console.error("abc webhook unregister failed: " + metaScrub(e && e.message, [token, cfg.client_secret])); }
+        }
+    }
+    await env.DB.prepare("DELETE FROM gm_abc_webhooks WHERE client_id = ?").bind(clientId).run();
+}
+
+function abcServerError(label, e, secrets) {
+    console.error("abc " + label + " failed: " + metaScrub(e && e.message, secrets));
+    return jsonErr2("Algo deu errado na conexão com a ABC Supply. Tente de novo.", "Something went wrong with the ABC Supply connection. Try again.", 500);
+}
+
+function abcUpstreamError(label, e, secrets) {
+    console.error("abc " + label + " failed: " + metaScrub(e && e.message, secrets));
+    return jsonErr2("A ABC Supply não respondeu como esperado. Tente de novo.", "ABC Supply did not answer as expected. Try again.", 502);
+}
+
+// The common start of every owner route that talks to ABC: who is calling,
+// whether the feature is on for this business, and the settings.
+async function abcOwnerStart(request, env, id) {
+    var user = await authenticate(request, env);
+    var block = abcOwnerGuard(user, id);
+    if (block) { return { err: block }; }
+    var cfg = abcSettings(env);
+    if (!cfg.ready || !abcClientAllowed(cfg, id) || !(await abcTablesReady(env))) { return { err: abcNotAvailable() }; }
+    return { user: user, cfg: cfg };
+}
+
+// GET /api/clients/:id/gm/abc/status   (owner only)
+async function handleGetGmAbcStatus(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = abcOwnerGuard(user, id);
+        if (block) { return block; }
+        return jsonOk(await abcStatusPayload(env, id));
+    } catch (e) {
+        return abcServerError("status", e);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/connect   (owner only)
+// Answers { url }: ABC's sign-in address, carrying a fresh single-use state and a PKCE challenge.
+async function handlePostGmAbcConnect(id, request, env) {
+    try {
+        var a = await abcOwnerStart(request, env, id);
+        if (a.err) { return a.err; }
+        if (publicReadRateLimited(request, "abcconnect", id, 0, 10)) {
+            return jsonErr2("Muitas tentativas. Tente de novo em alguns minutos.", "Too many attempts. Try again in a few minutes.", 429);
+        }
+        var state = gmEstNewToken();
+        var pkce = await abcPkcePair();
+        await env.DB.prepare(
+            "INSERT INTO gm_abc_oauth_states (state, verifier_sealed, client_id, login_key, actor_name, expires_at) VALUES (?, ?, ?, ?, ?, datetime('now', ?))"
+        ).bind(state, await tokenSeal(env, pkce.verifier), id, String(a.user.username || a.user.email || "") || null, actorName(a.user), "+" + ABC.state_minutes + " minutes").run();
+        return jsonOk({ url: abcAuthorizeUrl(a.cfg, state, pkce.challenge) });
+    } catch (e) {
+        return abcServerError("connect", e);
+    }
+}
+
+// GET /api/abc/callback?code=...&state=...   (public: the state is the lock)
+// ABC sends the browser here after the sign-in. Everything is read from ABC
+// BEFORE anything is written, so a failure leaves the business as it was.
+async function handleGetAbcCallback(request, env) {
+    var cfg = abcSettings(env);
+    var secrets = [cfg.client_secret];
+    var url = null;
+    try { url = new URL(request.url); } catch (e0) { url = null; }
+    var code = url ? String(url.searchParams.get("code") || "") : "";
+    var stateParam = url ? String(url.searchParams.get("state") || "") : "";
+    var refused = url ? !!url.searchParams.get("error") : false;
+    if (publicReadRateLimited(request, "abccallback", "", 30, 0)) { return metaPlain("Too many requests", 429); }
+    if (!code && !stateParam && !refused) {
+        return new Response(
+            "Apex. This address is reserved for the ABC Supply connection.",
+            { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } }
+        );
+    }
+    try {
+        if (code) { secrets.push(code); }
+        if (!cfg.ready || !(await abcTablesReady(env))) { return abcBack("failed"); }
+        var st = await abcStateUse(env, stateParam);
+        if (!st || !code || refused) { return abcBack("failed"); }
+        var clientId = st.client_id;
+        var verifier = await tokenOpen(env, st.verifier_sealed);
+        secrets.push(verifier);
+
+        var t = await abcTokenCall(cfg, { grant_type: "authorization_code", code: code, redirect_uri: abcRedirectUri(), code_verifier: verifier }, secrets);
+        secrets.push(t.access);
+        if (t.refresh) { secrets.push(t.refresh); }
+
+        var sealed = await tokenSeal(env, t.access);
+        var sealedRefresh = t.refresh ? await tokenSeal(env, t.refresh) : null;
+        // A new sign-in may be a different ABC account: the chosen account and branch are cleared and chosen again.
+        await env.DB.prepare(
+            "INSERT INTO gm_abc_connections (client_id, token_sealed, refresh_sealed, token_expires_at, connected_by, connected_login, connected_at, needs_reconnect, last_error, ship_to_number, branch_number, environment, updated_at) " +
+            "VALUES (?, ?, ?, datetime('now', ?), ?, ?, datetime('now'), 0, NULL, NULL, NULL, ?, datetime('now')) " +
+            "ON CONFLICT (client_id) DO UPDATE SET token_sealed = excluded.token_sealed, refresh_sealed = excluded.refresh_sealed, token_expires_at = excluded.token_expires_at, " +
+            "connected_by = excluded.connected_by, connected_login = excluded.connected_login, connected_at = excluded.connected_at, needs_reconnect = 0, last_error = NULL, " +
+            "ship_to_number = NULL, branch_number = NULL, environment = excluded.environment, updated_at = excluded.updated_at"
+        ).bind(clientId, sealed, sealedRefresh, "+" + t.expires_in + " seconds", st.actor_name || null, st.login_key || null, cfg.mode).run();
+        return abcBack("connected");
+    } catch (e) {
+        console.error("abc callback failed: " + metaScrub(e && e.message, secrets));
+        return abcBack("failed");
+    }
+}
+
+// POST /api/clients/:id/gm/abc/disconnect   (owner only)
+async function handlePostGmAbcDisconnect(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = abcOwnerGuard(user, id);
+        if (block) { return block; }
+        if (!(await abcTablesReady(env))) { return abcNotAvailable(); }
+        await abcWebhookRemove(env, abcSettings(env), id);
+        await env.DB.prepare("DELETE FROM gm_abc_connections WHERE client_id = ?").bind(id).run();
+        return jsonOk(await abcStatusPayload(env, id));
+    } catch (e) {
+        return abcServerError("disconnect", e);
+    }
+}
+
+// Text from a person or from ABC: a string of 1 to max characters with no
+// control characters, or null. Never repaired.
+function abcText(v, max) {
+    if (typeof v !== "string") { return null; }
+    var t = v.trim();
+    if (!t || t.length > max || /[\u0000-\u001f\u007f]/.test(t)) { return null; }
+    return t;
+}
+
+var ABC_SHIPTO_RE = /^[0-9A-Za-z-]{1,20}$/;
+var ABC_BRANCH_RE = /^[0-9A-Za-z-]{1,10}$/;
+var ABC_ITEM_RE = /^[A-Za-z0-9._-]{1,30}$/;
+var ABC_UOM_RE = /^[A-Za-z]{1,4}$/;
+
+// GET /api/clients/:id/gm/abc/accounts   (owner only)
+// The contractor's own ABC ship-to accounts with their branches.
+async function handleGetGmAbcAccounts(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcOwnerStart(request, env, id);
+        if (a.err) { return a.err; }
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var data = await abcApi(a.cfg, token, "POST", "/api/account/v1/search/accounts", {
+            filters: [{ key: "accountType", condition: "equals", values: ["Ship-To"], joinCondition: null }],
+            pagination: { itemsPerPage: 50, pageNumber: 1 }
+        }, secrets);
+        var out = [];
+        ((data && data.shipTos) || []).forEach(function(s) {
+            var num = s && typeof s.number === "string" ? s.number : "";
+            if (!ABC_SHIPTO_RE.test(num)) { return; }
+            var branches = [];
+            (Array.isArray(s.branches) ? s.branches : []).forEach(function(b) {
+                var bn = b && typeof b === "object" ? b.number : b;
+                if (typeof bn === "string" && ABC_BRANCH_RE.test(bn)) { branches.push({ number: bn, name: gmStr(b && b.name, 100) || bn }); }
+            });
+            if (!branches.length) { return; }
+            var ad = s.address || {};
+            out.push({ ship_to: num, name: gmStr(s.name, 100) || num,
+                address: { line1: gmStr(ad.line1, 100), city: gmStr(ad.city, 60), state: gmStr(ad.state, 10), postal: gmStr(ad.postal, 12) }, branches: branches });
+        });
+        return jsonOk({ accounts: out });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("accounts", e, secrets); }
+        return abcServerError("accounts", e, secrets);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/account   { ship_to, branch }   (owner only)
+// Saves the chosen ship-to and branch (ABC must list the branch under that
+// ship-to for this contractor), then registers the order webhook.
+async function handlePostGmAbcAccount(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcOwnerStart(request, env, id);
+        if (a.err) { return a.err; }
+        var body = {};
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var shipTo = body && typeof body.ship_to === "string" ? body.ship_to : "";
+        var branch = body && typeof body.branch === "string" ? body.branch : "";
+        var bad = jsonErr2("Escolha uma conta e uma filial da lista.", "Choose an account and a branch from the list.", 400);
+        if (!ABC_SHIPTO_RE.test(shipTo) || !ABC_BRANCH_RE.test(branch)) { return bad; }
+        var conn = await env.DB.prepare("SELECT client_id FROM gm_abc_connections WHERE client_id = ?").bind(id).first();
+        if (!conn) { return jsonErr2("A ABC Supply não está conectada.", "ABC Supply is not connected.", 409); }
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var info = null;
+        try {
+            info = await abcApi(a.cfg, token, "GET", "/api/account/v1/shiptos/" + encodeURIComponent(shipTo), null, secrets);
+        } catch (e2) {
+            if (e2 && (e2.abcStatus === 401 || e2.abcStatus === 403 || e2.abcStatus === 404)) { return bad; }
+            throw e2;
+        }
+        var listed = ((info && info.shipTo && info.shipTo.branches) || []).some(function(b) { return b && b.number === branch; });
+        if (!listed) { return bad; }
+        await env.DB.prepare("UPDATE gm_abc_connections SET ship_to_number = ?, branch_number = ?, updated_at = datetime('now') WHERE client_id = ?").bind(shipTo, branch, id).run();
+        var hook = await abcWebhookRegister(env, a.cfg, id, token);
+        return jsonOk({ saved: true, webhook: hook });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("account", e, secrets); }
+        return abcServerError("account", e, secrets);
+    }
+}
+
+// The lines of a price request, or null when anything is off.
+function abcPriceInput(body) {
+    var lines = body && body.lines;
+    if (!Array.isArray(lines) || lines.length < 1 || lines.length > 50) { return null; }
+    var out = [];
+    for (var i = 0; i < lines.length; i++) {
+        var l = lines[i];
+        if (!l || typeof l !== "object") { return null; }
+        if (typeof l.item_number !== "string" || !ABC_ITEM_RE.test(l.item_number)) { return null; }
+        if (typeof l.quantity !== "number" || !Number.isInteger(l.quantity) || l.quantity < 1 || l.quantity > 100000) { return null; }
+        if (l.uom !== undefined && (typeof l.uom !== "string" || !ABC_UOM_RE.test(l.uom))) { return null; }
+        out.push({ item_number: l.item_number, quantity: l.quantity, uom: l.uom });
+    }
+    return out;
+}
+
+// POST /api/clients/:id/gm/abc/price   { lines: [{ item_number, quantity, uom? }] }   (owner only)
+// The contractor's own account prices for the saved ship-to and branch.
+// Nothing is stored: a price is shown to the contractor whose account returned it.
+async function handlePostGmAbcPrice(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcOwnerStart(request, env, id);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var lines = abcPriceInput(body);
+        if (!lines) { return jsonErr2("Confira os itens e as quantidades.", "Check the items and quantities.", 400); }
+        var conn = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(id).first();
+        if (!conn || !conn.ship_to_number || !conn.branch_number) { return jsonErr2("Escolha a conta e a filial da ABC primeiro.", "Choose the ABC account and branch first.", 409); }
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var res = await abcApi(a.cfg, token, "POST", "/api/pricing/v2/prices", {
+            shipToNumber: conn.ship_to_number, branchNumber: conn.branch_number, purpose: "estimating",
+            lines: lines.map(function(l, i) {
+                var o = { id: String(i + 1), itemNumber: l.item_number, quantity: l.quantity };
+                if (l.uom) { o.uom = l.uom; }
+                return o;
+            })
+        }, secrets);
+        var out = ((res && res.lines) || []).map(function(l) {
+            return {
+                item_number: gmStr(l.itemNumber, 40), quantity: Number(l.quantity), uom: gmStr(l.uom, 10),
+                unit_price: typeof l.unitPrice === "number" ? l.unitPrice : null,
+                currency: l.currency && l.currency.code ? gmStr(l.currency.code, 5) : null,
+                status: l.status && l.status.code ? gmStr(l.status.code, 40) : null
+            };
+        });
+        return jsonOk({ source: "ABC account price", ship_to: conn.ship_to_number, branch: conn.branch_number, retrieved_at: new Date().toISOString(), lines: out });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("price", e, secrets); }
+        return abcServerError("price", e, secrets);
+    }
+}
+
+// A real calendar date written YYYY-MM-DD.
+function abcValidDate(s) {
+    if (typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(s)) { return false; }
+    var d = new Date(s + "T00:00:00Z");
+    return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
+// The order the person sent, checked field by field, or null. Nothing is repaired.
+function abcOrderInput(b, conn) {
+    if (!b || typeof b !== "object") { return null; }
+    var o = {};
+    if (typeof b.order_ref !== "string" || !/^[A-Za-z0-9-]{1,16}$/.test(b.order_ref)) { return null; }
+    o.order_ref = b.order_ref;
+    if (typeof b.ship_to !== "string" || b.ship_to !== conn.ship_to_number) { return null; }
+    if (typeof b.branch !== "string" || b.branch !== conn.branch_number) { return null; }
+    o.ship_to = b.ship_to;
+    o.branch = b.branch;
+    if (!abcValidDate(b.delivery_date)) { return null; }
+    o.delivery_date = b.delivery_date;
+    if (typeof b.delivery_service !== "string" || ABC.delivery_services.indexOf(b.delivery_service) === -1) { return null; }
+    o.delivery_service = b.delivery_service;
+    o.job_name = abcText(b.job_name, 80);
+    var ad = b.address;
+    if (!o.job_name || !ad || typeof ad !== "object") { return null; }
+    o.address = { line1: abcText(ad.line1, 80), city: abcText(ad.city, 50), state: typeof ad.state === "string" && /^[A-Z]{2}$/.test(ad.state) ? ad.state : null,
+        postal: typeof ad.postal === "string" && /^\d{5}(-\d{4})?$/.test(ad.postal) ? ad.postal : null };
+    if (!o.address.line1 || !o.address.city || !o.address.state || !o.address.postal) { return null; }
+    var c = b.contact;
+    if (!c || typeof c !== "object") { return null; }
+    var phone = typeof c.phone === "string" ? c.phone.replace(/\D/g, "") : "";
+    if (phone.length === 11 && phone.charAt(0) === "1") { phone = phone.slice(1); }
+    var email = abcText(c.email, 254);
+    o.contact = { name: abcText(c.name, 60), email: email && /^[^\s@]{1,64}@[^\s@]+\.[^\s@]{2,}$/.test(email) ? email : null, phone: phone.length === 10 ? phone : null };
+    if (!o.contact.name || !o.contact.email || !o.contact.phone) { return null; }
+    if (!Array.isArray(b.lines) || b.lines.length < 1 || b.lines.length > 99) { return null; }
+    o.lines = [];
+    for (var i = 0; i < b.lines.length; i++) {
+        var l = b.lines[i];
+        if (!l || typeof l !== "object") { return null; }
+        if (typeof l.item_number !== "string" || !ABC_ITEM_RE.test(l.item_number)) { return null; }
+        var desc = abcText(l.description, 100);
+        if (!desc) { return null; }
+        if (typeof l.quantity !== "number" || !isFinite(l.quantity) || l.quantity <= 0 || l.quantity > 100000) { return null; }
+        if (typeof l.uom !== "string" || !ABC_UOM_RE.test(l.uom)) { return null; }
+        if (typeof l.unit_price !== "number" || !isFinite(l.unit_price) || l.unit_price < 0 || l.unit_price > 1000000) { return null; }
+        o.lines.push({ item_number: l.item_number, description: desc, quantity: l.quantity, uom: l.uom, unit_price: l.unit_price });
+    }
+    return o;
+}
+
+// The order as ABC's Place Orders wants it (a one-order array is sent).
+function abcOrderBody(o) {
+    return {
+        requestId: o.order_ref, purchaseOrder: o.order_ref, branchNumber: o.branch, deliveryService: o.delivery_service, typeCode: "SO",
+        dates: { deliveryRequestedFor: o.delivery_date }, currency: "USD",
+        shipTo: {
+            name: o.job_name, number: o.ship_to,
+            address: { line1: o.address.line1, line2: "", line3: "", city: o.address.city, state: o.address.state, postal: o.address.postal, country: "USA" },
+            contacts: [
+                { name: o.contact.name, functionCode: "SM", email: o.contact.email },
+                { name: o.contact.name, functionCode: "DC", email: o.contact.email, phones: [{ number: o.contact.phone, type: "MOBILE" }] }
+            ]
+        },
+        lines: o.lines.map(function(l, i) {
+            return { id: i + 1, itemNumber: l.item_number, itemDescription: l.description, orderedQty: { value: l.quantity, uom: l.uom },
+                unitPrice: { value: l.unit_price, uom: l.uom, instructions: "" } };
+        })
+    };
+}
+
+// POST /api/clients/:id/gm/abc/order   (owner only)
+// Sends one material order to ABC. ABC branch staff review a submitted order
+// before accepting it, so the stored status starts as submitted. The row is
+// written BEFORE ABC is called: the reference is unique per business, so the
+// same order can never be sent twice, and a webhook that beats the answer
+// still finds its row.
+async function handlePostGmAbcOrder(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcOwnerStart(request, env, id);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var conn = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(id).first();
+        if (!conn || !conn.ship_to_number || !conn.branch_number) { return jsonErr2("Escolha a conta e a filial da ABC primeiro.", "Choose the ABC account and branch first.", 409); }
+        var order = abcOrderInput(body, conn);
+        if (!order) { return jsonErr2("Pedido inválido. Confira os campos.", "Invalid order. Check the fields.", 400); }
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var rowId = crypto.randomUUID();
+        var ins = await env.DB.prepare(
+            "INSERT OR IGNORE INTO gm_abc_orders (id, client_id, order_ref, status, created_by) VALUES (?, ?, ?, 'submitted', ?)"
+        ).bind(rowId, id, order.order_ref, actorName(a.user)).run();
+        if (!ins.meta || ins.meta.changes !== 1) {
+            return jsonErr2("Essa referência de pedido já foi usada. Veja a lista de pedidos antes de enviar de novo.", "That order reference was already used. Check the orders list before sending again.", 409);
+        }
+        var res = null;
+        try {
+            res = await abcApi(a.cfg, token, "POST", "/api/order/v2/orders", [abcOrderBody(order)], secrets);
+        } catch (e2) {
+            // ABC said no: nothing was placed, the reference can be used again.
+            // No answer (0) or a server error: we cannot know, so the row stays.
+            if (e2 && e2.abcStatus >= 400 && e2.abcStatus < 500) {
+                await env.DB.prepare("DELETE FROM gm_abc_orders WHERE id = ? AND abc_order_id IS NULL").bind(rowId).run();
+            }
+            throw e2;
+        }
+        var first = res && Array.isArray(res.orders) ? res.orders[0] : null;
+        var failed = !first || !first.confirmationNumber || (res.request && Number(res.request.ordersFailed) > 0);
+        if (failed) {
+            await env.DB.prepare("DELETE FROM gm_abc_orders WHERE id = ? AND abc_order_id IS NULL").bind(rowId).run();
+            throw Object.assign(new Error("ABC did not place the order"), { abcStatus: 200 });
+        }
+        var conf = gmStr(String(first.confirmationNumber), 60);
+        await env.DB.prepare("UPDATE gm_abc_orders SET abc_order_id = ?, updated_at = datetime('now') WHERE id = ? AND abc_order_id IS NULL").bind(conf, rowId).run();
+        return jsonOk({ order_ref: order.order_ref, status: "submitted", confirmation_number: conf });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("order", e, secrets); }
+        return abcServerError("order", e, secrets);
+    }
+}
+
+// GET /api/clients/:id/gm/abc/orders   (owner only)
+async function handleGetGmAbcOrders(id, request, env) {
+    try {
+        var a = await abcOwnerStart(request, env, id);
+        if (a.err) { return a.err; }
+        var rows = (await env.DB.prepare(
+            "SELECT order_ref, abc_order_id, status, created_by, created_at, updated_at, last_event_at FROM gm_abc_orders WHERE client_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 100"
+        ).bind(id).all()).results || [];
+        return jsonOk({ orders: rows });
+    } catch (e) {
+        return abcServerError("orders", e);
+    }
+}
+
+// POST /api/abc/webhook/:token   (public: the token and ABC's secret are the lock)
+// ABC calls this when an order changes or is invoiced. The business comes from
+// the token in the address, never from the body. ABC sends the secret from
+// registration in the Authorization header (order update) or in
+// webhookDetails[].apiKey (invoice event); only its hash is stored.
+async function handlePostAbcWebhook(webhookToken, request, env) {
+    var cfg = abcSettings(env);
+    if (!cfg.ready) { return metaPlain(ABC_NA_EN, 503); }
+    if (!/^[a-f0-9]{48}$/.test(String(webhookToken || ""))) { return metaPlain("Not found", 404); }
+    var hook = null;
+    try {
+        hook = await env.DB.prepare("SELECT client_id, secret_hash FROM gm_abc_webhooks WHERE token_hash = ?").bind(await abcSha256Hex(webhookToken)).first();
+    } catch (e0) {
+        return metaPlain("Try again later", 503);
+    }
+    if (!hook) { return metaPlain("Not found", 404); }
+    var body = null;
+    try {
+        var text = await request.text();
+        if (text.length > 200000) { return metaPlain("Bad request", 400); }
+        body = JSON.parse(text);
+    } catch (e) {
+        return metaPlain("Bad request", 400);
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) { return metaPlain("Bad request", 400); }
+    var offered = String(request.headers.get("Authorization") || "").trim().replace(/^Bearer\s+/i, "");
+    if (!offered) {
+        var key = body.webhookDetails && body.webhookDetails[0] ? body.webhookDetails[0].apiKey : "";
+        offered = typeof key === "string" ? key : "";
+    }
+    if (!hook.secret_hash || !offered || !metaSafeEqual(await abcSha256Hex(offered), hook.secret_hash)) { return metaPlain("Unauthorized", 401); }
+    try {
+        if (body.eventType === "ORDER_INVOICED") {
+            var po = body.data && typeof body.data.purchaseOrderNumber === "string" ? body.data.purchaseOrderNumber : "";
+            if (po) {
+                await env.DB.prepare(
+                    "UPDATE gm_abc_orders SET status = 'invoiced', last_event_at = datetime('now'), updated_at = datetime('now') WHERE client_id = ? AND order_ref = ?"
+                ).bind(hook.client_id, po).run();
+            }
+        } else if (body.salesOrder && typeof body.salesOrder === "object") {
+            var so = body.salesOrder;
+            var status = typeof so.status === "string" ? so.status.trim().toLowerCase() : "";
+            if (/^[a-z][a-z ]{0,39}$/.test(status)) {
+                var conf = typeof so.confirmationNumber === "string" ? so.confirmationNumber : "";
+                var ref = typeof so.purchaseOrder === "string" ? so.purchaseOrder : "";
+                // One statement: the business comes from the token, and an invoiced order is never moved back.
+                await env.DB.prepare(
+                    "UPDATE gm_abc_orders SET status = ?, abc_order_id = COALESCE(abc_order_id, NULLIF(?, '')), last_event_at = datetime('now'), updated_at = datetime('now') " +
+                    "WHERE client_id = ? AND status <> 'invoiced' AND ((? <> '' AND abc_order_id = ?) OR (? <> '' AND order_ref = ?))"
+                ).bind(status, conf, hook.client_id, conf, conf, ref, ref).run();
+            }
+        }
+    } catch (e2) {
+        console.error("abc webhook could not store the event: " + metaScrub(e2 && e2.message));
+        return metaPlain("Try again later", 503);
+    }
+    return metaPlain("OK", 200);
+}
+
+// GET /api/abc/sandbox-ping   (platform staff only)
+// Proves the two ABC secrets work: a client-credentials token for
+// location.read and product.read, then one Search Branches and one Search
+// Items call. Answers status codes and counts only, never a token.
+async function handleGetAbcSandboxPing(request, env) {
+    var secrets = [];
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var cfg = abcSettings(env);
+        if (!cfg.client_id || !cfg.client_secret) { return abcNotAvailable(); }
+        secrets = [cfg.client_secret];
+        var out = { mode: cfg.mode, token_status: 0, branches: { status: 0, count: null }, items: { status: 0, total: null } };
+        var t = null;
+        try {
+            t = await abcTokenCall(cfg, { grant_type: "client_credentials", scope: ABC.ping_scopes }, secrets);
+            out.token_status = 200;
+            secrets.push(t.access);
+        } catch (e1) {
+            out.token_status = e1 && e1.abcStatus !== undefined ? e1.abcStatus : 0;
+            return jsonOk(out);
+        }
+        try {
+            var br = await abcApi(cfg, t.access, "GET", "/api/location/v1/branches?state=FL", null, secrets);
+            out.branches.status = 200;
+            out.branches.count = Array.isArray(br) ? br.length : (Array.isArray(br && br.branches) ? br.branches.length : null);
+        } catch (e2) { out.branches.status = e2 && e2.abcStatus !== undefined ? e2.abcStatus : 0; }
+        try {
+            var it = await abcApi(cfg, t.access, "POST", "/api/product/v1/search/items", {
+                filters: [{ key: "itemDescription", condition: "contains", values: ["shingle"], joinCondition: null }],
+                pagination: { itemsPerPage: 1, pageNumber: 1 }
+            }, secrets);
+            out.items.status = 200;
+            out.items.total = it && it.pagination && typeof it.pagination.totalItems === "number" ? it.pagination.totalItems : null;
+        } catch (e3) { out.items.status = e3 && e3.abcStatus !== undefined ? e3.abcStatus : 0; }
+        return jsonOk(out);
+    } catch (e) {
+        return abcServerError("sandbox ping", e, secrets);
+    }
+}
+
+// The 4-hour job: sign-in states older than a day are removed.
+async function abcCron(env) {
+    try {
+        if (!(await abcTablesReady(env))) { return; }
+        await env.DB.prepare("DELETE FROM gm_abc_oauth_states WHERE created_at < datetime('now', '-1 day')").run();
+    } catch (e) {
+        console.error("abc cron failed: " + metaScrub(e && e.message));
+    }
+}
+
 // ── Who gets a push inside a client's business ─────────────────────────
 // Google-linked accounts push under their e-mail (users.client_id); a
 // username/password login pushes under "login:<username>" once its device
@@ -58172,6 +58998,8 @@ export default {
         ctx.waitUntil(metaCron(env));
         // Thumbtack leads still waiting are tried again; old raw copies are cleared.
         ctx.waitUntil(thumbtackCron(env));
+        // ABC Supply: old sign-in states are removed.
+        ctx.waitUntil(abcCron(env));
         // Forwarded bills (water and waste): read the mailbox, extract with
         // Claude, save the statement. Errors are swallowed and logged inside
         // pollForwardedBillEmails itself, so a mail-reading failure can never
@@ -58323,6 +59151,13 @@ async function handleFetch(request, env, ctx) {
         if (path === THUMBTACK.callback_path && method === "GET") { return handleGetThumbtackCallback(request, env); }
         if (path.indexOf(THUMBTACK.webhook_path) === 0 && method === "POST") { return handlePostThumbtackWebhook(path.slice(THUMBTACK.webhook_path.length), request, env); }
         if (path.indexOf("/api/thumbtack/") === 0) { return jsonErr("Not found", 404); }
+
+        // PUBLIC ABC Supply connection: the sign-in return is locked by its single-use
+        // state, the order webhook by its token and ABC's secret. The ping is staff only.
+        if (path === ABC.callback_path && method === "GET") { return handleGetAbcCallback(request, env); }
+        if (path.indexOf(ABC.webhook_path) === 0 && method === "POST") { return handlePostAbcWebhook(path.slice(ABC.webhook_path.length), request, env); }
+        if (path === "/api/abc/sandbox-ping" && method === "GET") { return handleGetAbcSandboxPing(request, env); }
+        if (path.indexOf("/api/abc/") === 0) { return jsonErr("Not found", 404); }
 
         // PUBLIC online booking page of a client business (book.html). The 48-hex
         // token of a lead link, or the business's slug, is the only credential.
@@ -59149,6 +59984,17 @@ async function handleFetch(request, env, ctx) {
                     if (segs[5] === "phones" && method === "GET") { return handleGetGmThumbtackPhones(cid, request, env); }
                     if (segs[5] === "phones" && method === "POST") { return handlePostGmThumbtackPhones(cid, request, env); }
                     if (segs[5] === "test-lead" && method === "POST") { return handlePostGmThumbtackTestLead(cid, request, env); }
+                }
+                // ABC Supply (2026-11-04): the business's own ABC account link (owner only).
+                if (segs.length === 6 && gmCol === "abc") {
+                    if (segs[5] === "status" && method === "GET") { return handleGetGmAbcStatus(cid, request, env); }
+                    if (segs[5] === "connect" && method === "POST") { return handlePostGmAbcConnect(cid, request, env); }
+                    if (segs[5] === "disconnect" && method === "POST") { return handlePostGmAbcDisconnect(cid, request, env); }
+                    if (segs[5] === "accounts" && method === "GET") { return handleGetGmAbcAccounts(cid, request, env); }
+                    if (segs[5] === "account" && method === "POST") { return handlePostGmAbcAccount(cid, request, env); }
+                    if (segs[5] === "price" && method === "POST") { return handlePostGmAbcPrice(cid, request, env); }
+                    if (segs[5] === "order" && method === "POST") { return handlePostGmAbcOrder(cid, request, env); }
+                    if (segs[5] === "orders" && method === "GET") { return handleGetGmAbcOrders(cid, request, env); }
                 }
                 // Estimates & invoices build: the business's document settings.
                 if (segs.length === 5 && gmCol === "doc-settings") {

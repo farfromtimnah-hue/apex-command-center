@@ -1235,6 +1235,171 @@ function gmTtDisconnectDo() {
     gmRenderEstimatesTab();
   }).catch(function(e) { gmToast(e.message); console.error("thumbtack disconnect: " + e.message); });
 }
+// ── ABC Supply (2026-11-04) ───────────────────────────────────────────────
+// Sibling to the Thumbtack card, same visual treatment. The owner links their
+// OWN ABC Supply account once; Apex can then read their account prices and send
+// material orders (the screens for those come in a later build). A salesperson
+// never reaches the card, and the Worker refuses a seller on every route behind it.
+var gmAbcStatus = null;      // last GET gm/abc/status
+var gmAbcLoading = false;
+var gmAbcBusy = false;
+var gmAbcNotice = "";        // "failed" | "" : how the sign-in came back
+var gmAbcFocus = false;      // Settings is opening to show the card
+var gmAbcAwaiting = false;   // the sign-in was opened outside the app
+var gmAbcReturnDone = false;
+var gmAbcAccounts = null;    // last GET gm/abc/accounts, while the owner is choosing
+var gmAbcAccountsLoading = false;
+
+// Read once: how the ABC sign-in came back (?abc=...). The word is taken out of
+// the address so a reload does not repeat the message.
+function gmAbcReturnRead() {
+  if (gmAbcReturnDone) { return; }
+  gmAbcReturnDone = true;
+  var m = /[?&]abc=([a-z]+)/.exec(window.location.search || "");
+  if (!m) { return; }
+  gmEstimatesSection = "settings";
+  gmAbcFocus = true;
+  gmAbcStatus = null;
+  gmAbcNotice = m[1] === "failed" ? "failed" : "";
+  try {
+    var rest = (window.location.search || "").replace(/([?&])abc=[a-z]+(&|$)/, function(all, a, b) { return b ? a : ""; });
+    window.history.replaceState(null, "", window.location.pathname + rest + window.location.hash);
+  } catch (e) {}
+}
+function gmAbcFocusCard() {
+  if (!gmAbcFocus || gmEstimatesSection !== "settings") { return; }
+  var el = document.getElementById("gmAbcCard");
+  if (!el) { return; }
+  gmAbcFocus = false;
+  try { el.scrollIntoView({ block: "center" }); } catch (e) { try { el.scrollIntoView(); } catch (e2) {} }
+}
+function gmAbcLoad(force) {
+  if (gmAbcLoading || (gmAbcStatus && !force)) { return; }
+  gmAbcLoading = true;
+  gmApi("abc/status").then(function(d) {
+    gmAbcLoading = false; gmAbcStatus = d || { available: false, connected: false };
+    if (gmAbcStatus.connected) { gmAbcAwaiting = false; }
+    gmRenderEstimatesTab();
+  }).catch(function(e) {
+    gmAbcLoading = false; gmAbcStatus = { available: false, connected: false };
+    console.error("abc status: " + e.message); gmRenderEstimatesTab();
+  });
+}
+function gmAbcCardHtml() {
+  if (gmIsSeller()) { return ""; }
+  var st = gmAbcStatus;
+  var help = ' data-help="setup-wizard#connections#1"';
+  var h = '<div class="content-card" id="gmAbcCard"><div class="card-title">' +
+    escHtml(gmT("ABC Supply", "ABC Supply")) + '</div>' +
+    '<p class="muted" style="margin-bottom:12px;">' + escHtml(gmT(
+      "Conecte a sua conta da ABC Supply para ver os seus preços e, mais para frente, enviar pedidos de material direto da Apex.",
+      "Connect your ABC Supply account to see your own prices and, later, send material orders from Apex.")) + '</p>';
+  if (!st) {
+    gmAbcLoad(false);
+    return h + '<p class="muted">' + escHtml(gmT("Verificando a ABC Supply...", "Checking ABC Supply...")) + '</p></div>';
+  }
+  if (!st.available) {
+    return h + '<p class="muted">' + escHtml(gmT("Em breve", "Coming soon")) + '</p></div>';
+  }
+  var tryAgain = '<button type="button" class="gm-btn-primary"' + help + ' onclick="gmAbcConnect(this)">' + escHtml(gmT("Tentar de novo", "Try again")) + '</button>';
+  if (gmAbcNotice === "failed") {
+    h += '<p class="gm-warn" style="margin:0 0 10px;">' + escHtml(gmT("A ABC Supply não foi conectada. Nada mudou.", "ABC Supply was not connected. Nothing changed.")) + '</p>';
+    if (!st.connected) { return h + tryAgain + '</div>'; }
+  }
+  if (!st.connected) {
+    return h + '<button type="button" class="gm-btn-primary"' + help + ' onclick="gmAbcConnect(this)">' + escHtml(gmT("Conectar ABC Supply", "Connect ABC Supply")) + '</button>' +
+      (gmAbcAwaiting ? ' <button type="button" class="gm-btn-secondary"' + help + ' onclick="gmAbcLoad(true)">' + escHtml(gmT("Atualizar status", "Refresh status")) + '</button>' : "") + '</div>';
+  }
+  if (st.needs_reconnect) {
+    h += '<p class="gm-warn" style="margin:0 0 8px;">' + escHtml(gmT("A ABC Supply precisa ser reconectada", "ABC Supply needs to be reconnected")) + '</p>' +
+      '<p style="margin:0 0 12px;"><button type="button" class="gm-btn-primary"' + help + ' onclick="gmAbcConnect(this)">' + escHtml(gmT("Reconectar", "Reconnect")) + '</button></p>';
+  }
+  if (st.ship_to && st.branch) {
+    h += '<p style="margin:4px 0;"><strong>' + escHtml(gmT("Conta: ", "Account: ") + st.ship_to) + '</strong></p>' +
+      '<p class="muted" style="margin:0 0 6px;">' + escHtml(gmT("Filial: ", "Branch: ") + st.branch) + '</p>';
+  } else if (!st.needs_reconnect) {
+    h += '<p class="gm-warn" style="margin:0 0 8px;">' + escHtml(gmT("Escolha a conta e a filial da ABC que a Apex vai usar.", "Choose the ABC account and branch Apex will use.")) + '</p>';
+  }
+  if (!st.needs_reconnect) { h += gmAbcPickerHtml(st, help); }
+  h += '<p class="muted" style="margin:8px 0 12px;">' + escHtml(gmT("Conectado em ", "Connected ") + formatDateUTC(st.connected_at) +
+    (st.connected_by ? gmT(" por ", " by ") + st.connected_by : "")) + '</p>';
+  h += '<button type="button" class="gm-btn-secondary"' + help + ' onclick="gmAbcDisconnect()">' + escHtml(gmT("Desconectar", "Disconnect")) + '</button>';
+  return h + '</div>';
+}
+// The simplest possible list: one button per account and branch.
+function gmAbcPickerHtml(st, help) {
+  if (!gmAbcAccounts) {
+    return '<p style="margin:0 0 12px;"><button type="button" class="gm-btn-secondary"' + help + ' onclick="gmAbcAccountsLoad(this)">' +
+      escHtml(st.ship_to ? gmT("Trocar conta ou filial", "Change account or branch") : gmT("Escolher conta e filial", "Choose account and branch")) + '</button></p>';
+  }
+  var list = gmAbcAccounts.accounts || [];
+  if (!list.length) {
+    return '<p class="muted" style="margin:0 0 12px;">' + escHtml(gmT("A ABC não mostrou nenhuma conta ativa para você.", "ABC did not show any active account for you.")) + '</p>';
+  }
+  var h = '<div style="margin:0 0 12px;">';
+  list.forEach(function(a, i) {
+    h += '<p style="margin:8px 0 4px;"><strong>' + escHtml(a.name) + '</strong> <span class="muted">' + escHtml(a.ship_to) + '</span></p>';
+    (a.branches || []).forEach(function(b, j) {
+      h += '<button type="button" class="gm-btn-secondary"' + help + ' style="margin:0 6px 6px 0;" onclick="gmAbcPick(' + i + ',' + j + ',this)">' + escHtml(b.name + " · " + b.number) + '</button>';
+    });
+  });
+  return h + '</div>';
+}
+function gmAbcAccountsLoad(btn) {
+  if (gmAbcAccountsLoading) { return; }
+  gmAbcAccountsLoading = true;
+  if (btn) { btn.disabled = true; }
+  gmApi("abc/accounts").then(function(d) {
+    gmAbcAccountsLoading = false; gmAbcAccounts = d || { accounts: [] };
+    gmRenderEstimatesTab();
+  }).catch(function(e) { gmAbcAccountsLoading = false; if (btn) { btn.disabled = false; } gmToast(e.message); console.error("abc accounts: " + e.message); });
+}
+function gmAbcPick(i, j, btn) {
+  if (gmAbcBusy || !gmAbcAccounts) { return; }
+  var a = (gmAbcAccounts.accounts || [])[i];
+  var b = a && a.branches ? a.branches[j] : null;
+  if (!a || !b) { return; }
+  gmAbcBusy = true;
+  if (btn) { btn.disabled = true; }
+  gmApi("abc/account", { method: "POST", body: { ship_to: a.ship_to, branch: b.number } }).then(function() {
+    gmAbcBusy = false; gmAbcAccounts = null;
+    gmToast(gmT("Conta da ABC salva.", "ABC account saved."));
+    gmAbcLoad(true);
+  }).catch(function(e) { gmAbcBusy = false; if (btn) { btn.disabled = false; } gmToast(e.message); console.error("abc account: " + e.message); });
+}
+// Asks the Worker for ABC's sign-in address and goes there in this tab.
+function gmAbcConnect(btn) {
+  if (gmAbcBusy) { return; }
+  gmAbcBusy = true;
+  if (btn) { btn.disabled = true; }
+  gmApi("abc/connect", { method: "POST", body: {} }).then(function(d) {
+    gmAbcBusy = false;
+    if (!d || !d.url || String(d.url).indexOf("https://") !== 0) { throw new Error(gmT("A ABC Supply não respondeu.", "ABC Supply did not answer.")); }
+    if (gmInApp()) {
+      apexOpenExternal(d.url);
+      gmAbcAwaiting = true; gmAbcNotice = "";
+      gmToast(gmT("Termine na ABC Supply, volte aqui e toque em Atualizar status.", "Finish on ABC Supply, come back here and tap Refresh status."));
+      gmRenderEstimatesTab();
+      return;
+    }
+    window.location.href = d.url;
+  }).catch(function(e) { gmAbcBusy = false; if (btn) { btn.disabled = false; } gmToast(e.message); console.error("abc connect: " + e.message); });
+}
+function gmAbcDisconnect() {
+  gmAsk({
+    message: gmT("Desconectar a ABC Supply?\n\nA Apex deixa de ver os seus preços e de enviar pedidos. Os pedidos que você já enviou continuam na lista.",
+                 "Disconnect ABC Supply?\n\nApex stops seeing your prices and sending orders. The orders you already sent stay in the list."),
+    yes: gmT("Sim, desconectar a ABC Supply", "Yes, disconnect ABC Supply"), keep: gmT("Manter conectada", "Keep it connected"),
+    onYes: function() { gmAbcDisconnectDo(); }
+  });
+}
+function gmAbcDisconnectDo() {
+  gmApi("abc/disconnect", { method: "POST", body: {} }).then(function(d) {
+    gmAbcStatus = d; gmAbcNotice = ""; gmAbcAwaiting = false; gmAbcAccounts = null;
+    gmRenderEstimatesTab();
+  }).catch(function(e) { gmToast(e.message); console.error("abc disconnect: " + e.message); });
+}
+
 // A lead that came from Thumbtack shows its service, price and answers.
 function gmThumbtackLeadHtml(lead) {
   if (!lead || !lead.thumbtack_negotiation_id) { return ""; }
@@ -11256,6 +11421,7 @@ function gmLoadEstimates() {
   }
   gmMetaReturnRead();
   gmTtReturnRead();
+  gmAbcReturnRead();
   // gm/config is loaded alongside doc-settings: the Serviços list lives on
   // gm_config.servicos_json, not gm_doc_settings, but is edited from this
   // same mandatory first-run screen (see gmDocSettingsFormHtml).
@@ -11311,6 +11477,7 @@ function gmRenderEstimatesTab() {
   gmReviewFocusSettingsField();
   gmMetaFocusCard();
   gmTtFocusCard();
+  gmAbcFocusCard();
   gmDocMaybeScrollToFirstPending();
 }
 
@@ -11655,6 +11822,12 @@ function gmDocSettingsFormHtml() {
     '<p class="gm-sheet-section-title">' + gmT("Fontes de leads", "Lead sources") + '</p>' +
     gmMetaCardHtml() +
     gmThumbtackCardHtml() +
+    '</div>';
+
+  // ── Suppliers (the business's own supplier accounts) ──
+  html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Fornecedores", "Suppliers") + '</p>' +
+    gmAbcCardHtml() +
     '</div>';
 
   // ── Services ──

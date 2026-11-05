@@ -25461,6 +25461,67 @@ async function gmReviewLinkRead(env, clientId) {
     }
 }
 
+// Saved default estimate terms: the three texts every NEW estimate starts
+// with. Owner-only: they are added to the doc-settings GET and PUT answers,
+// never to gmDocSettingsRow (the public document routes and the seller slice
+// also read that). est is the estimate column each one fills.
+var GM_TERMS_DEFAULT_KEYS = [
+    { key: "default_terms_included", est: "terms_included", max: 4000 },
+    { key: "default_terms_excluded", est: "terms_excluded", max: 4000 },
+    { key: "default_customer_notes", est: "customer_notes", max: 12000 }
+];
+
+// Do the three columns exist yet? False until the migration runs.
+async function gmTermsColumnsReady(env) {
+    try {
+        await env.DB.prepare("SELECT default_terms_included, default_terms_excluded, default_customer_notes FROM gm_doc_settings LIMIT 1").first();
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// The three saved texts, each null when none is saved (also null for all
+// three when the columns are not there yet).
+async function gmTermsDefaultsRead(env, clientId) {
+    var out = { default_terms_included: null, default_terms_excluded: null, default_customer_notes: null };
+    try {
+        var row = await env.DB.prepare("SELECT default_terms_included, default_terms_excluded, default_customer_notes FROM gm_doc_settings WHERE client_id = ?").bind(clientId).first();
+        if (row) {
+            GM_TERMS_DEFAULT_KEYS.forEach(function(t) {
+                out[t.key] = typeof row[t.key] === "string" && row[t.key] !== "" ? row[t.key] : null;
+            });
+        }
+    } catch (e) {
+        console.error("gmTermsDefaultsRead: " + e.message);
+    }
+    return out;
+}
+
+// One saved-terms text from the request: null or blank is "none" (stored as
+// NULL, never ""); Windows line endings become one newline and nothing else
+// is touched. Over the limit or not text is refused, not repaired.
+function gmTermsText(v, max) {
+    if (v === null || v === undefined) { return { value: null }; }
+    if (typeof v !== "string") { return { error: "not text" }; }
+    var s = v.replace(/\r\n?/g, "\n");
+    if (!/\S/.test(s)) { return { value: null }; }
+    if (s.length > max) { return { error: "too long" }; }
+    return { value: s };
+}
+
+// Estimate CREATE only: a terms key ABSENT from the body takes the saved
+// default; an empty string or null means the owner cleared the box and stays
+// empty. Reads the defaults only when a key is actually absent.
+async function gmEstApplyDefaultTerms(env, clientId, body, fields) {
+    var missing = GM_TERMS_DEFAULT_KEYS.filter(function(t) { return !Object.prototype.hasOwnProperty.call(body, t.est); });
+    if (!missing.length) { return; }
+    var saved = await gmTermsDefaultsRead(env, clientId);
+    missing.forEach(function(t) {
+        if (saved[t.key] !== null) { fields[t.est] = saved[t.key]; }
+    });
+}
+
 // The most recent press on this project, or null (also null when the table is
 // not there yet). requested_by passes through jsonOk's actor filter, so a
 // developer's name never reaches a screen.
@@ -30272,6 +30333,7 @@ async function handleGetGmDocSettings(id, request, env) {
         // Job 37: owner-only, so it is added here and not in gmDocSettingsRow
         // (which the public document routes and the seller slice also read).
         settings.google_review_link = await gmReviewLinkRead(env, id);
+        Object.assign(settings, await gmTermsDefaultsRead(env, id));
         // Job 40: who stated that no license is required, and when.
         var lnrGet = await gmLicenseNotRequiredRead(env, id);
         settings.license_not_required_by = lnrGet.by;
@@ -30302,7 +30364,8 @@ var GM_DOC_SETTINGS_FIELDS = [
     "estimate_valid_days", "default_terms_days", "payment_methods_json",
     "late_fee_annual_pct", "late_fee_grace_days", "schedule_presets_json",
     "estimate_message", "invoice_message", "receipt_message", "contract_message",
-    "google_review_link"
+    "google_review_link",
+    "default_terms_included", "default_terms_excluded", "default_customer_notes"
 ];
 
 async function handlePutGmDocSettings(id, request, env) {
@@ -30322,6 +30385,7 @@ async function handlePutGmDocSettings(id, request, env) {
         // and an invalid one is left out of f (not saved, not stored) with
         // its reason recorded here, instead of refusing the whole PUT.
         var fieldErrors = {};
+        var termsWant = {};
 
         ["brand_primary", "brand_accent"].forEach(function(k) {
             if (!has(k)) { return; }
@@ -30404,6 +30468,32 @@ async function handlePutGmDocSettings(id, request, env) {
                         f.google_review_link = rl.value;
                     }
                 }
+            }
+        }
+
+        // Saved default estimate terms. A text that is over its limit or not
+        // text is left out with its own message; until the migration has
+        // added the columns a changed text cannot be stored: say so plainly
+        // for these three fields only.
+        GM_TERMS_DEFAULT_KEYS.forEach(function(t) {
+            if (!has(t.key)) { return; }
+            var tp = gmTermsText(body[t.key], t.max);
+            if (tp.error) {
+                fieldErrors[t.key] = tp.error === "too long"
+                    ? { pt: "O texto passa do limite de " + t.max + " caracteres.", en: "The text is longer than " + t.max + " characters." }
+                    : { pt: "Envie o texto como texto.", en: "Send the text as text." };
+                return;
+            }
+            var tBefore = cur[t.key] === undefined || cur[t.key] === null || cur[t.key] === "" ? null : String(cur[t.key]);
+            if (tp.value !== tBefore) { termsWant[t.key] = tp.value; }
+        });
+        if (Object.keys(termsWant).length) {
+            if (!(await gmTermsColumnsReady(env))) {
+                Object.keys(termsWant).forEach(function(k) {
+                    fieldErrors[k] = { pt: "Os termos padr\u00e3o ainda n\u00e3o podem ser salvos. Tente de novo mais tarde.", en: "Default terms are not available yet. Try again later." };
+                });
+            } else {
+                Object.keys(termsWant).forEach(function(k) { f[k] = termsWant[k]; });
             }
         }
 
@@ -30541,6 +30631,7 @@ async function handlePutGmDocSettings(id, request, env) {
         }
         var settings = await gmDocSettingsRow(env, id);
         settings.google_review_link = await gmReviewLinkRead(env, id);
+        Object.assign(settings, await gmTermsDefaultsRead(env, id));
         var lnrPut = await gmLicenseNotRequiredRead(env, id);
         settings.license_not_required_by = lnrPut.by;
         settings.license_not_required_at = lnrPut.at;
@@ -31757,6 +31848,7 @@ async function handlePostGmEstimate(id, request, env) {
         var parsed = await gmEstParseBody(env, id, body, settings);
         if (parsed.error) { return jsonErr(parsed.error, 400); }
         var f = parsed.fields;
+        await gmEstApplyDefaultTerms(env, id, body, f);
         var actor = actorName(user);
         var num = await gmDocAllocateNumber(env, id, "EST");
         var estId = crypto.randomUUID();

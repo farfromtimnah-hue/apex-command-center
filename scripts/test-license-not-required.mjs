@@ -24,10 +24,10 @@ const NEEDED_PT = "Informe ao menos um n\u00famero de licen\u00e7a, ou marque a 
 const FNS = ["gmLicenseSatisfied", "gmLicenseNotRequiredColumnReady", "gmLicenseNotRequiredRead", "gmReviewLinkParse", "gmReviewLinkColumnReady", "gmReviewLinkRead",
   "gmStr", "gmNum", "gmRunUpdate", "gmOwnedRow", "sessionSellerName", "gmDocHexColor", "gmDocParseLicenses", "gmDocParseJsonObject", "gmDocParsePaymentMethods",
   "gmDocParseLateFeePct", "gmDocParseSchedulePresets", "gmDocScheduleStepsError", "gmDocSettingsRow", "gmDocSettingsOwnerOnly", "handleGetGmDocSettings",
-  "handlePutGmDocSettings", "handleGetGmDocSettingsHistory", "handlePostGmEstimate", "gmEstimatePublicPayload", "gmEstDerivedStatus", "logoVersionParam",
+  "handlePutGmDocSettings", "gmTermsColumnsReady", "gmTermsDefaultsRead", "gmTermsText", "gmEstApplyDefaultTerms", "handleGetGmDocSettingsHistory", "handlePostGmEstimate", "gmEstimatePublicPayload", "gmEstDerivedStatus", "logoVersionParam",
   "gmActorReplacer"];
 const VARS = ["GM_LICENSE_NEEDED_PT", "GM_LICENSE_NEEDED_EN", "GM_REVIEW_LINK_HOSTS", "GM_REVIEW_LINK_BAD_PT", "GM_REVIEW_LINK_BAD_EN", "GM_DOC_SETTINGS_FIELDS",
-  "GM_DOC_PAYMENT_METHODS", "GM_DOC_LATE_FEE_MAX_PCT", "GM_DOC_LATE_FEE_CAP_MESSAGE", "GM_DOC_DEFAULT_SCHEDULE_PRESETS", "GM_ACTOR_KEY_RE"];
+  "GM_DOC_PAYMENT_METHODS", "GM_DOC_LATE_FEE_MAX_PCT", "GM_DOC_LATE_FEE_CAP_MESSAGE", "GM_DOC_DEFAULT_SCHEDULE_PRESETS", "GM_ACTOR_KEY_RE", "GM_TERMS_DEFAULT_KEYS"];
 
 const OWNER = { role: "client", client_id: "c1", login_role: "client", display_name: "ZETA FLOORS", username: "zeta" };
 const SELLER = { role: "client", client_id: "c1", login_role: "seller", seller_name: "Maria Silva", display_name: "Maria Silva", username: "maria" };

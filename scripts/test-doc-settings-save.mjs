@@ -12,9 +12,9 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) fail+
 const FNS = ["gmLicenseSatisfied", "gmLicenseNotRequiredColumnReady", "gmLicenseNotRequiredRead", "gmReviewLinkParse", "gmReviewLinkColumnReady", "gmReviewLinkRead",
   "gmStr", "gmNum", "gmRunUpdate", "gmOwnedRow", "sessionSellerName", "gmDocHexColor", "gmDocParseLicenses", "gmDocParseJsonObject", "gmDocParsePaymentMethods",
   "gmDocParseLateFeePct", "gmDocParseSchedulePresets", "gmDocScheduleStepsError", "gmDocSettingsRow", "gmDocSettingsOwnerOnly", "handlePutGmDocSettings",
-  "handlePostGmEstimate", "gmActorReplacer"];
+  "handlePostGmEstimate", "gmActorReplacer", "gmTermsColumnsReady", "gmTermsDefaultsRead", "gmTermsText", "gmEstApplyDefaultTerms"];
 const VARS = ["GM_LICENSE_NEEDED_PT", "GM_LICENSE_NEEDED_EN", "GM_REVIEW_LINK_HOSTS", "GM_REVIEW_LINK_BAD_PT", "GM_REVIEW_LINK_BAD_EN", "GM_DOC_SETTINGS_FIELDS",
-  "GM_DOC_PAYMENT_METHODS", "GM_DOC_LATE_FEE_MAX_PCT", "GM_DOC_LATE_FEE_CAP_MESSAGE", "GM_DOC_DEFAULT_SCHEDULE_PRESETS", "GM_ACTOR_KEY_RE"];
+  "GM_DOC_PAYMENT_METHODS", "GM_DOC_LATE_FEE_MAX_PCT", "GM_DOC_LATE_FEE_CAP_MESSAGE", "GM_DOC_DEFAULT_SCHEDULE_PRESETS", "GM_ACTOR_KEY_RE", "GM_TERMS_DEFAULT_KEYS"];
 
 const OWNER = { role: "client", client_id: "c1", login_role: "client", display_name: "ZETA FLOORS", username: "zeta" };
 let user = OWNER;

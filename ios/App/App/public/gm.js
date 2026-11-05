@@ -11825,6 +11825,9 @@ function gmDocDraftFromSettings() {
     phone:      st.phone || pre.phone || "",
     email:      st.email || pre.email || "",
     google_review_link: st.google_review_link || "",
+    default_terms_included: st.default_terms_included || "",
+    default_terms_excluded: st.default_terms_excluded || "",
+    default_customer_notes: st.default_customer_notes || "",
     licenses:   (st.license_numbers && st.license_numbers.length) ? st.license_numbers.slice() : [""],
     license_not_required: st.license_not_required === true,
     min_margin_pct: (st.min_margin_pct === null || st.min_margin_pct === undefined) ? "" : String(st.min_margin_pct),
@@ -12043,6 +12046,30 @@ function gmDocStepsOk(steps) {
   return gmDocStepsTotal(steps) === 100;
 }
 
+// The three saved default estimate terms (Business, Settings, Estimate
+// terms). max matches the estimate's own limits.
+var GM_DOC_TERMS_FIELDS = [
+  { key: "default_terms_included", id: "gmDocTermsInc", pt: "Incluído", en: "Included", max: 4000 },
+  { key: "default_terms_excluded", id: "gmDocTermsExc", pt: "Não incluído", en: "Not included", max: 4000 },
+  { key: "default_customer_notes", id: "gmDocTermsNotes", pt: "Notas ao cliente (impressas)", en: "Notes to customer (printed)", max: 12000 }
+];
+function gmDocTermsKeyOk(key) {
+  return GM_DOC_TERMS_FIELDS.some(function(t) { return t.key === key; });
+}
+function gmDocTermsSectionHtml(d) {
+  if (gmIsSeller()) { return ""; }
+  var html = '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Termos do orçamento", "Estimate terms") + '</p>' +
+    '<p class="muted" style="font-size:12px;margin:0 0 8px;">' +
+    gmT("Estes textos começam todo orçamento novo. Você pode mudá-los em cada orçamento. Os orçamentos que você já fez ficam com o próprio texto.",
+        "These start every new estimate. You can change them on any single estimate. Estimates you already made keep their own text.") + '</p>';
+  GM_DOC_TERMS_FIELDS.forEach(function(t) {
+    html += gmDocField(t.id, t.pt, t.en,
+      '<textarea id="' + t.id + '" class="gm-input" rows="6" maxlength="' + t.max + '" data-help="estimate#create-send#1" oninput="gmDocDraftSet(\'' + t.key + '\', this.value)" onblur="gmDocFieldBlur(\'' + t.key + '\')">' + escHtml(d[t.key] || "") + '</textarea>', t.key);
+  });
+  return html + '</div>';
+}
+
 function gmDocSettingsFormHtml() {
   var d = gmDocDraft;
   if (!d) { gmDocDraftFromSettings(); d = gmDocDraft; }
@@ -12125,6 +12152,9 @@ function gmDocSettingsFormHtml() {
         "These appear as checkboxes on your public referral page and your link-in-bio page.") + '</p>' +
     '<div id="gmDocServicos">' + gmDocServicosHtml() + '</div>' +
     '</div>';
+
+  // ── Estimate terms (saved defaults for every new estimate; owner only) ──
+  html += gmDocTermsSectionHtml(d);
 
   // ── Payments & terms (band grouping the five money sections) ──
   html += '<div class="gm-sheet-band">' +
@@ -12433,7 +12463,8 @@ function gmDocRepaintLicenses() {
 // methods, presets) has its own add/remove/toggle below, each saving right
 // away since there is no mid-typing value to lose for a toggle or a click.
 var GM_DOC_SCALAR_FIELDS = ["brand_primary", "brand_accent", "legal_name", "address", "phone", "email",
-  "google_review_link", "late_fee_annual_pct", "late_fee_grace_days", "estimate_valid_days", "default_terms_days"];
+  "google_review_link", "late_fee_annual_pct", "late_fee_grace_days", "estimate_valid_days", "default_terms_days",
+  "default_terms_included", "default_terms_excluded", "default_customer_notes"];
 
 function gmDocDraftSet(key, value) {
   if (!gmDocDraft) { return; }
@@ -12474,6 +12505,10 @@ function gmDocScalarFieldPayload(key) {
     var errEl2 = document.getElementById("gmDocReviewLinkErr");
     if (errEl2) { errEl2.hidden = true; }
     return { google_review_link: String(d.google_review_link || "").trim() || null };
+  }
+  if (gmDocTermsKeyOk(key)) {
+    // As typed: no trimming, line breaks kept. Only a blank sends null.
+    var pt = {}; pt[key] = /\S/.test(String(d[key] || "")) ? String(d[key]) : null; return pt;
   }
   if (key === "late_fee_annual_pct") {
     if (d.late_fee_annual_pct !== "" && Number(d.late_fee_annual_pct) > 18) {
@@ -12843,6 +12878,8 @@ function gmDocSettingsSave() {
   } else {
     payload.brand_accent = d.brand_accent ? d.brand_accent.toLowerCase() : null;
   }
+
+  GM_DOC_TERMS_FIELDS.forEach(function(t) { payload[t.key] = /\S/.test(String(d[t.key] || "")) ? String(d[t.key]) : null; });
 
   payload.legal_name = d.legal_name.trim() || null;
   payload.address = d.address.trim() || null;
@@ -13304,6 +13341,8 @@ var GM_DOC_HISTORY_LABELS = {
   late_fee_grace_days: ["Carência (dias)", "Grace period (days)"], schedule_presets_json: ["Modelos de parcelamento", "Schedule presets"],
   estimate_message: ["Mensagem do orçamento", "Estimate message"], invoice_message: ["Mensagem da fatura", "Invoice message"], receipt_message: ["Mensagem do recibo", "Receipt message"], contract_message: ["Mensagem do contrato", "Contract message"],
   google_review_link: ["Link de avalia\u00e7\u00e3o do Google", "Google review link"],
+  default_terms_included: ["Termos padr\u00e3o: Inclu\u00eddo", "Default terms: Included"], default_terms_excluded: ["Termos padr\u00e3o: N\u00e3o inclu\u00eddo", "Default terms: Not included"],
+  default_customer_notes: ["Termos padr\u00e3o: Notas ao cliente", "Default terms: Notes to customer"],
   hero_r2_key: ["Imagem de capa", "Cover image"], logo: ["Logo", "Logo"],
   hero_gallery_key: ["Imagem de capa da galeria", "Gallery cover image"], hero_framing: ["Enquadramento da imagem de capa", "Cover image framing"]
 };
@@ -14224,7 +14263,11 @@ function gmEstPricingMatchesServices(p, servicos) {
   });
 }
 
-function gmEstWizNewState(lead) {
+// existing = true when the state is only the base for an estimate that already
+// exists (edit, revise, copy): those keep their own text, the saved defaults
+// never reach them.
+function gmEstWizNewState(lead, existing) {
+  var dt = existing ? {} : (gmDocSettings || {});
   var validDays = (gmDocSettings && gmDocSettings.estimate_valid_days) || 30;
   var d = new Date(); d.setDate(d.getDate() + validDays);
   var presets = (gmDocSettings && gmDocSettings.schedule_presets) || [];
@@ -14243,13 +14286,16 @@ function gmEstWizNewState(lead) {
     options: [{ tier: "single", label: null, items: [], discount_type: null, discount_value: "" }],
     schedule: first ? first.steps.map(function(s) { return { label: s.label, pct: String(s.pct) }; }) : [{ label: "Deposit", pct: "50" }, { label: "Completion", pct: "50" }],
     schedule_preset: first ? first.name : "",
-    valid_until: localDateStr(d), terms_included: "", terms_excluded: "", customer_notes: "", internal_notes: "",
+    valid_until: localDateStr(d), internal_notes: "",
+    // The saved default terms (Business, Settings, Estimate terms), a NEW
+    // estimate only. Nothing saved = empty boxes.
+    terms_included: dt.default_terms_included || "", terms_excluded: dt.default_terms_excluded || "", customer_notes: dt.default_customer_notes || "",
     msg: null
   };
 }
 
 function gmEstWizFromDetail(est) {
-  var st = gmEstWizNewState({ id: est.lead_id, cliente: est.customer_name, telefone: est.customer_phone, email: est.customer_email, address: est.customer_address, servico: "", city: "" });
+  var st = gmEstWizNewState({ id: est.lead_id, cliente: est.customer_name, telefone: est.customer_phone, email: est.customer_email, address: est.customer_address, servico: "", city: "" }, true);
   st.id = est.id; st.job_name = est.job_name; st.customer_address = est.customer_address || "";
   st.mode = est.mode; st.vendedor = est.vendedor;
   st.options = est.options.map(function(o) {
@@ -14281,7 +14327,10 @@ function gmEstWizFromDetail(est) {
 
 // Entry from the lead sheet.
 function gmEstWizardOpenForLead(lead) {
-  if (gmIsSeller() || gmDocSettings) { gmEstWizStart(lead); return; }
+  // The saved default terms must be in gmDocSettings before the wizard
+  // starts (null = none saved; undefined = not loaded). A salesperson has no
+  // doc-settings route and starts with empty boxes.
+  if (gmIsSeller() || (gmDocSettings && gmDocSettings.default_terms_included !== undefined)) { gmEstWizStart(lead); return; }
   gmApi("doc-settings").then(function(d) { gmDocSettings = d.settings; gmEstWizStart(lead); })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }

@@ -301,7 +301,7 @@ function gmSheetHelpFor(titleHtml) {
 
 function gmSheetOpen(titleHtml, bodyHtml, tourKey, helpDefault) {
   gmSheetOnUserClose = null;
-  gmSheetCloseNow();
+  gmSheetCloseNow(tourKey === "gm-estimate-wizard");
   var overlay = document.createElement("div");
   overlay.className = "gm-sheet-overlay";
   overlay.innerHTML =
@@ -332,9 +332,14 @@ function gmSheetOpen(titleHtml, bodyHtml, tourKey, helpDefault) {
   }
 }
 
-function gmSheetCloseNow() {
+// keepWizard = true when the sheet being opened is the estimate wizard itself
+// (every step is a fresh sheet). Any other way the wizard's sheet goes away
+// (the X, the back button, another sheet taking its place) ends the wizard.
+function gmSheetCloseNow(keepWizard) {
+  var wasWizard = !!(gmSheetEl && gmSheetEl.querySelector && gmSheetEl.querySelector('[data-tour="gm-estimate-wizard"]'));
   if (gmSheetEl && gmSheetEl.parentNode) { gmSheetEl.parentNode.removeChild(gmSheetEl); }
   gmSheetEl = null;
+  if (wasWizard && !keepWizard && typeof gmEstWizEnded === "function") { gmEstWizEnded(); }
 }
 
 // history.back() is asynchronous: its popstate lands on a later task. While
@@ -14715,6 +14720,152 @@ function gmEstPricingMatchesServices(p, servicos) {
   });
 }
 
+// ── Local draft of the estimate wizard ───────────────────────────────────
+// 2026-11-06: the wizard keeps everything in memory and saves once at the end,
+// so a reload (or a phone that dropped the page) wiped a half made estimate.
+// While the wizard is open its whole state is copied to localStorage, 800 ms
+// after the last change. One key per estimate being edited, or per lead, or
+// "new". A draft is kept 24 hours, deleted when the estimate saves or the
+// person taps Start over, and removed at sign out (pwaClearEstDrafts, pwa.js):
+// it holds a customer's name, phone and address.
+// Every storage call is inside try/catch. Storage blocked or full = the wizard
+// works exactly as before, it just does not remember.
+var GM_EST_DRAFT_PREFIX = "apexEstDraft:";
+var GM_EST_DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+var GM_EST_DRAFT_DEBOUNCE_MS = 800;
+var gmEstDraftTimer = null;
+var gmEstDraftDirty = false;
+var gmEstDraftSeen = null;   // the wizard state that has been drawn once
+var gmEstDraftDone = null;   // the wizard state that has been saved to the server
+
+function gmEstDraftKey(w) {
+  return GM_EST_DRAFT_PREFIX + clientId + ":" + ((w && (w.id || w.leadId)) || "new");
+}
+
+function gmEstDraftRemove(key) {
+  try { window.localStorage.removeItem(key); } catch (e) { /* storage may be blocked */ }
+}
+
+// A draft younger than 24 hours, or null. An older or unreadable one is deleted.
+function gmEstDraftRead(key) {
+  try {
+    var raw = window.localStorage.getItem(key);
+    if (!raw) { return null; }
+    var d = JSON.parse(raw);
+    var st = d && d.state;
+    var age = Date.now() - Number(d && d.savedAt);
+    if (!st || !(age >= 0) || age >= GM_EST_DRAFT_MAX_AGE_MS || !st.options || !st.options.length || !(st.step >= 1 && st.step <= 8) || typeof st.job_name !== "string") {
+      gmEstDraftRemove(key);
+      return null;
+    }
+    return d;
+  } catch (e) {
+    return null;
+  }
+}
+
+function gmEstDraftWrite() {
+  gmEstDraftTimer = null;
+  var w = gmEstWiz;
+  if (!w || w.draftOffer || w === gmEstDraftDone || !gmEstDraftDirty) { return; }
+  gmEstDraftDirty = false;
+  try {
+    var copy = {};
+    Object.keys(w).forEach(function(k) { if (k !== "draftOffer") { copy[k] = w[k]; } });
+    copy.msg = null;
+    window.localStorage.setItem(gmEstDraftKey(w), JSON.stringify({ savedAt: Date.now(), clientId: clientId, ref: w.id || w.leadId || "new", state: copy }));
+  } catch (e) { /* storage full or blocked: the wizard carries on without a draft */ }
+}
+
+function gmEstDraftCancelTimer() {
+  if (gmEstDraftTimer) { clearTimeout(gmEstDraftTimer); gmEstDraftTimer = null; }
+  gmEstDraftDirty = false;
+}
+
+// Any edit: remember that there is something to save, and save 800 ms after the last one.
+function gmEstDraftTouch() {
+  if (!gmEstWiz || gmEstWiz.draftOffer || gmEstWiz === gmEstDraftDone) { return; }
+  gmEstDraftDirty = true;
+  if (gmEstDraftTimer) { clearTimeout(gmEstDraftTimer); }
+  gmEstDraftTimer = setTimeout(gmEstDraftWrite, GM_EST_DRAFT_DEBOUNCE_MS);
+}
+
+// Write now if a change is waiting (the wizard is closing or being replaced).
+function gmEstDraftFlush() {
+  if (gmEstDraftTimer) { clearTimeout(gmEstDraftTimer); gmEstDraftTimer = null; }
+  if (gmEstDraftDirty) { gmEstDraftWrite(); }
+}
+
+// One listener sees every typed edit and every select or checkbox change on
+// the page; line items added or removed and step changes arrive through
+// gmEstWizRender. It does nothing unless the wizard is open.
+document.addEventListener("input", function() { if (gmEstWiz) { gmEstDraftTouch(); } }, true);
+document.addEventListener("change", function() { if (gmEstWiz) { gmEstDraftTouch(); } }, true);
+
+// Called when the wizard's sheet goes away without a save. The draft stays.
+function gmEstWizEnded() {
+  gmEstDraftFlush();
+  gmEstDraftCancelTimer();
+  gmEstWiz = null;
+  gmEstDraftSeen = null;
+  window.pwaMarkBusy && window.pwaMarkBusy(false);
+}
+
+// A draft for this estimate or lead is waiting: the wizard opens on the offer
+// card, not on a blank form. estUpdatedAt = the server time of the estimate
+// being edited; a draft older than that estimate's last change is stale.
+function gmEstDraftOffer(w, estUpdatedAt) {
+  if (!w) { return; }
+  var key = gmEstDraftKey(w);
+  var d = gmEstDraftRead(key);
+  if (!d) { return; }
+  if (w.id && estUpdatedAt) {
+    var s = String(estUpdatedAt).replace(" ", "T");
+    if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+    var t = Date.parse(s);
+    if (!isNaN(t) && d.savedAt <= t) { gmEstDraftRemove(key); return; }
+  }
+  w.draftOffer = { key: key, savedAt: d.savedAt, state: d.state };
+}
+
+// "4:12 PM"
+function gmEstDraftTime(ms) {
+  var d = new Date(ms);
+  var h = d.getHours();
+  var h12 = h % 12; if (h12 === 0) { h12 = 12; }
+  var m = d.getMinutes();
+  return h12 + ":" + (m < 10 ? "0" : "") + m + " " + (h >= 12 ? "PM" : "AM");
+}
+
+function gmEstDraftCardHtml(offer) {
+  var t = gmEstDraftTime(offer.savedAt);
+  return '<div class="gm-sheet-section" id="gmEstDraftCard" role="group">' +
+    '<p style="font-weight:700;">' + escHtml(gmT("Você tem um orçamento não salvo de " + t + ". Quer continuar de onde parou?",
+      "You have an unsaved estimate from " + t + ". Do you want to continue where you left off?")) + '</p>' +
+    '<div class="gm-editor-actions">' +
+    '<button type="button" class="btn-outline" id="gmEstDraftNew" onclick="gmEstDraftStartOver()">' + gmT("Começar de novo", "Start over") + '</button>' +
+    '<button type="button" class="btn-gold" id="gmEstDraftContinue" onclick="gmEstDraftContinue()">' + gmT("Continuar", "Continue") + '</button>' +
+    '</div></div>';
+}
+
+function gmEstDraftContinue() {
+  var w = gmEstWiz;
+  if (!w || !w.draftOffer) { return; }
+  var st = w.draftOffer.state;
+  st.msg = null;
+  gmEstWiz = st;
+  gmEstDraftSeen = null;
+  gmEstWizRender();
+}
+
+function gmEstDraftStartOver() {
+  var w = gmEstWiz;
+  if (!w || !w.draftOffer) { return; }
+  gmEstDraftRemove(w.draftOffer.key);
+  w.draftOffer = null;
+  gmEstWizRender();
+}
+
 // existing = true when the state is only the base for an estimate that already
 // exists (edit, revise, copy): those keep their own text, the saved defaults
 // never reach them.
@@ -14802,12 +14953,13 @@ function gmEstWizStart(lead) {
     gmToast(gmT("Complete as Configurações de Orçamentos primeiro.", "Complete the Estimates Settings first."), gmT("Abrir", "Open"), function() { gmSheetClose(); switchTab("gmestimates"); gmEstimatesGo("settings"); });
     return;
   }
+  gmEstDraftFlush();
   gmEstWiz = gmEstWizNewState(lead);
   var pr = gmApi("pricing").then(function(d) { gmPricingData = d; gmEstWizPreselectService(); });
   // A seller has no doc-settings route; the send-message route carries the
   // non-sensitive slice the wizard needs (validity days, presets, min margin).
   var ms = gmIsSeller() ? gmDocMsgLoad().then(function(d) { gmDocSettings = d.settings_lite || gmDocSettings; gmEstWizApplyDefaultTerms(); }) : Promise.resolve(null);
-  Promise.all([pr, ms]).then(function() { gmEstWizRender(); }).catch(function(e) { gmToast(e.message); console.error(e); });
+  Promise.all([pr, ms]).then(function() { gmEstDraftOffer(gmEstWiz, null); gmEstWizRender(); }).catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
 function gmEstEditOpen() {
@@ -14822,12 +14974,14 @@ function gmEstEditOpen() {
   }).catch(function(e) { console.error("lead for revision: " + e.message); return null; });
   Promise.all([gmApi("pricing"), ld]).then(function(res) {
     gmPricingData = res[0];
+    gmEstDraftFlush();
     gmEstWiz = gmEstWizFromDetail(est);
     var l = res[1];
     if (l) {
       gmEstWiz.servicos = gmServicoList(l.servico);
       gmEstWiz.leadNow = { customer_name: l.cliente || "", customer_phone: l.telefone || "", customer_email: l.email || "", customer_address: gmLeadAddressLine(l) };
     }
+    gmEstDraftOffer(gmEstWiz, est.updated_at || null);
     gmEstWizRender();
   }).catch(function(e) { gmToast(e.message); console.error(e); });
 }
@@ -14848,9 +15002,9 @@ function gmEstWizUseLead() {
   gmEstWizRender();
 }
 
-function gmEstWizGo(step) { if (!gmEstWiz) { return; } gmEstWiz.step = step; gmEstWizRender(); }
+function gmEstWizGo(step) { if (!gmEstWiz || gmEstWiz.draftOffer) { return; } gmEstWiz.step = step; gmEstWizRender(); }
 function gmEstWizSet(key, v) {
-  if (!gmEstWiz) { return; }
+  if (!gmEstWiz || gmEstWiz.draftOffer) { return; }
   gmEstWiz[key] = v;
   if (/^customer_/.test(key)) { gmEstWiz.customer_edited = gmEstWiz.customer_edited || {}; gmEstWiz.customer_edited[key] = true; }
 }
@@ -14879,7 +15033,17 @@ function gmEstWizRender() {
     (w.step < 8 ? '<button type="button" class="btn-gold" onclick="gmEstWizNext()">' + gmT("Continuar", "Continue") + '</button>' : "") +
     '</div>';
   w.msg = null;
+  // A saved draft is waiting: the card goes on top and the form stays frozen
+  // underneath (inert = no focus, no taps, no typing) until one button is tapped.
+  if (w.draftOffer) {
+    body = gmEstDraftCardHtml(w.draftOffer) +
+      '<div id="gmEstWizFrozen" inert aria-hidden="true" style="pointer-events:none;opacity:0.45;user-select:none;-webkit-user-select:none;">' + body + '</div>';
+  }
   gmSheetOpen(escHtml(title), body, "gm-estimate-wizard");
+  window.pwaMarkBusy && window.pwaMarkBusy(true);
+  // The first draw of a state is not an edit. Every draw after it is one
+  // (a step change, a line added or removed, an error message).
+  if (gmEstDraftSeen === w) { gmEstDraftTouch(); } else { gmEstDraftSeen = w; }
 }
 
 function gmEstWizField(id, key, labelPt, labelEn, value, extra) {
@@ -15361,6 +15525,7 @@ function gmEstWizValidate(step) {
 
 function gmEstWizNext() {
   var w = gmEstWiz;
+  if (!w || w.draftOffer) { return; }
   var err = gmEstWizValidate(w.step);
   if (err) { w.msg = err; gmEstWizRender(); return; }
   w.step += 1;
@@ -15392,12 +15557,19 @@ function gmEstWizPayload() {
 
 function gmEstWizSave(andSend) {
   var w = gmEstWiz;
+  if (!w || w.draftOffer) { return; }
   for (var s = 1; s <= 7; s++) { var err = gmEstWizValidate(s); if (err) { w.step = s; w.msg = err; gmEstWizRender(); return; } }
   var b1 = document.getElementById("gmEstWizSaveSend"), b2 = document.getElementById("gmEstWizSaveDraft");
   if (b1) { b1.disabled = true; } if (b2) { b2.disabled = true; }
   var payload = gmEstWizPayload();
   var req = w.id ? gmApi("estimates/" + encodeURIComponent(w.id), { method: "PUT", body: payload }) : gmApi("estimates", { method: "POST", body: payload });
+  var draftKey = gmEstDraftKey(w);
   req.then(function(d) {
+      // Saved: the draft has done its job. Gone before the sheet changes, and
+      // the wizard is marked done so a late timer or the close cannot bring it back.
+      gmEstDraftDone = w;
+      gmEstDraftCancelTimer();
+      gmEstDraftRemove(draftKey);
       var id = d.estimate.id;
       gmToast(d.revised ? gmT("Revisão criada", "Revision created") : gmT("Orçamento salvo", "Estimate saved"));
       gmLoadEstimatesList().then(function() { if (gmCurrentTab === "gmestimates") { gmRenderEstimatesTab(); } }).catch(function() {});

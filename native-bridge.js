@@ -1073,6 +1073,7 @@ function apexInstallSignOutHook(firebaseSdk) {
   authInstance.signOut = function () {
     var args = arguments;
     var self = this;
+    if (window.pwaClearEstDrafts) { window.pwaClearEstDrafts(); }
     // Native first. If it fails we still sign out of the JS SDK rather than
     // trapping the user in a session they asked to leave, but the failure is
     // logged instead of swallowed.
@@ -3036,6 +3037,7 @@ apexTrace("FILE-END", "native-bridge.js finished executing on doc=" + apexTraceD
       }
     } catch (e) { /* the local sign out below still happens */ }
     try {
+      if (window.pwaClearEstDrafts) { window.pwaClearEstDrafts(); }
       localStorage.removeItem("apex_client_token");
       localStorage.removeItem("apex_client_id");
       localStorage.removeItem("apex_client_name");

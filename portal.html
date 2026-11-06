@@ -74,7 +74,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1793936118"></script>
+  <script src="native-bridge.js?v=1793995401"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -2379,6 +2379,9 @@
     }
 
     function goToLogin() {
+      // Also the path an expired session takes: an estimate draft holds a
+      // customer's details and must not outlive the sign in.
+      if (window.pwaClearEstDrafts) { window.pwaClearEstDrafts(); }
       localStorage.removeItem("apex_client_token");
       localStorage.removeItem("apex_client_id");
       localStorage.removeItem("apex_client_name");
@@ -2386,6 +2389,7 @@
     }
 
     function handleSignOut() {
+      if (window.pwaClearEstDrafts) { window.pwaClearEstDrafts(); }
       var done = function() { goToLogin(); };
       if (clientToken) {
         apiFetch("/api/auth/client-logout", { method: "POST" }).then(done).catch(done);
@@ -8440,7 +8444,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1793939737"></script>
+  <script src="gm.js?v=1793995400"></script>
   <script src="nav.js"></script>
   <script src="help-config.js"></script>
   <script src="help-core.js"></script>

@@ -64,7 +64,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1793936118"></script>
+  <script src="native-bridge.js?v=1793995401"></script>
   <script src="datetime.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
@@ -360,6 +360,7 @@
     }
 
     function handleSignOut() {
+      if (window.pwaClearEstDrafts) { window.pwaClearEstDrafts(); }
       if (auth) { auth.signOut(); }
       window.location.href = "index.html";
     }

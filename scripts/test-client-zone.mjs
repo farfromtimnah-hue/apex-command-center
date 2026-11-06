@@ -18,6 +18,7 @@ d.raw.exec(`
   CREATE TABLE IF NOT EXISTS gm_events (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, event_type TEXT, title TEXT NOT NULL,
     event_date TEXT NOT NULL, start_time TEXT, end_time TEXT, all_day INTEGER NOT NULL DEFAULT 0, location TEXT, lead_id TEXT);
   CREATE TABLE IF NOT EXISTS gm_leads (id TEXT PRIMARY KEY, telefone TEXT);
+  CREATE TABLE IF NOT EXISTS gm_booking_requests (id TEXT PRIMARY KEY, client_id TEXT, event_id TEXT, sms_consent_status TEXT);
 `);
 const addClient = (id, tz, st) => d.raw.prepare("INSERT INTO clients (id, name, status, archived, timezone, location_state) VALUES (?,?,?,?,?,?)")
   .run(id, "Name " + id, "active", 0, tz, st);

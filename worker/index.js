@@ -1107,10 +1107,90 @@ async function handleGetRole(request, env) {
             // (alice/rafa/developer) always default silently to pt and are
             // never asked.
             language: lang.language,
-            language_unset: lang.unset
+            language_unset: lang.unset,
+            // Adults only and business use confirmation (existing users).
+            // True only while this person has no acceptance on file for the
+            // current terms version AND the switch is not "off".
+            adult_confirm_needed: await adultConfirmNeeded(env, user)
         });
     } catch (e) {
         return jsonErr("Auth failed: " + e.message, 401);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Adults only and business use confirmation (2026-11-05).
+//
+// Apex is for adults who use it for their business. Asking a birthdate is not
+// required and is not done: the protection is a confirmation plus the terms.
+// One row per person, per terms version, in terms_acceptances (unique on
+// user_id + terms_version + kind, written with INSERT OR IGNORE so a retry never
+// writes twice). Nothing else about the person is stored.
+//
+//   - New invitations: the register route refuses without adult_confirmed true
+//     and records source 'invite'.
+//   - Existing users: GET /api/role says adult_confirm_needed, a shared script
+//     shows a card once, and POST /api/me/adult-confirm records source 'existing'.
+//     Worker variable ADULT_CONFIRM_EXISTING_USERS set to the text off turns
+//     ONLY that card off (default: on). The register rule is never switched off.
+// ---------------------------------------------------------------------------
+var TERMS_VERSION = "2026-11-05";
+var ADULT_CONFIRM_KIND = "adult_business";
+
+function adultConfirmEnabled(env) {
+    return String((env && env.ADULT_CONFIRM_EXISTING_USERS) == null ? "" : env.ADULT_CONFIRM_EXISTING_USERS).trim().toLowerCase() !== "off";
+}
+
+// The person's key comes from the verified session, which was built from the
+// database record: users.email for a staff sign in, client_logins.username for
+// every client tier sign in. Never from a request body.
+function adultConfirmUserKey(user) {
+    if (!user) { return null; }
+    if ((user.role === "alice" || user.role === "rafa" || user.role === "developer") && user.email) { return "u:" + user.email; }
+    if (user.role === "client" && user.username) { return "l:" + user.username; }
+    return null;
+}
+
+async function adultConfirmNeeded(env, user) {
+    try {
+        if (!adultConfirmEnabled(env)) { return false; }
+        var key = adultConfirmUserKey(user);
+        if (!key) { return false; }
+        var row = await env.DB.prepare(
+            "SELECT 1 AS x FROM terms_acceptances WHERE user_id = ? AND terms_version = ? AND kind = ?"
+        ).bind(key, TERMS_VERSION, ADULT_CONFIRM_KIND).first();
+        return !row;
+    } catch (e) {
+        // Never blocks /api/role: if the table is unreachable the card is not shown.
+        console.log("adult confirm check failed");
+        return false;
+    }
+}
+
+// INSERT OR IGNORE: a retry or a double tap never writes a second row.
+async function adultConfirmRecord(env, userKey, clientId, source) {
+    await env.DB.prepare(
+        "INSERT OR IGNORE INTO terms_acceptances (id, user_id, client_id, accepted_at, terms_version, kind, source) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    ).bind(crypto.randomUUID(), userKey, clientId || null, new Date().toISOString(), TERMS_VERSION, ADULT_CONFIRM_KIND, source).run();
+}
+
+// Route: POST /api/me/adult-confirm { confirmed: true }
+// The person is whoever the session says; the body names nobody.
+async function handlePostMeAdultConfirm(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var key = adultConfirmUserKey(user);
+        if (!key) { return jsonErr("Forbidden", 403); }
+        if (publicReadRateLimited(request, "adultcfm", key, 60, 20)) { return jsonErr(PUBLIC_LIMIT_MESSAGE, 429); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        if (!body || body.confirmed !== true) { return jsonErr("Invalid request", 400); }
+        await adultConfirmRecord(env, key, user.client_id, "existing");
+        return jsonOk({ confirmed: true });
+    } catch (e) {
+        console.log("adult confirm failed");
+        return jsonErr("Could not save. Please try again.", 500);
     }
 }
 
@@ -16140,6 +16220,8 @@ function clientRequestAllowed(path, method, clientId) {
     // staff_finance, staff, seller) saves only their own language. The
     // handler takes client_id/username from the SESSION, never the body.
     if (path === "/api/me/language" && method === "PUT") { return true; }
+    // Adults only confirmation: any signed-in client-tier person, identity from the session.
+    if (path === "/api/me/adult-confirm" && method === "POST") { return true; }
     // Learn (Aprenda) search: read only, identity from the session, in memory rate limit.
     if (path === "/api/help/ask" && method === "POST") { return true; }
     // Learn (Aprenda) suggestion: files one support ticket, identity from the session.
@@ -16463,6 +16545,7 @@ function sellerRequestAllowed(path, method, clientId) {
     if ((path === "/api/push/apns" || path === "/api/push/subscribe") && method === "POST") { return true; }
     // Group 1.1: a salesperson saves only their own language.
     if (path === "/api/me/language" && method === "PUT") { return true; }
+    if (path === "/api/me/adult-confirm" && method === "POST") { return true; }
     // Learn (Aprenda) search: same read only route the owner has.
     if (path === "/api/help/ask" && method === "POST") { return true; }
     // Learn (Aprenda) suggestion: same route the owner has.
@@ -17303,6 +17386,10 @@ function passkeyFail(kind) {
         return jsonErr2("Não foi possível criar a passkey. Tente de novo.",
             "Could not create the passkey. Try again.", 400);
     }
+    if (kind === "adult") {
+        return jsonErr2("Não foi possível continuar. Recarregue a página e tente de novo.",
+            "We could not continue. Please reload the page and try again.", 400);
+    }
     if (kind === "unavailable") {
         return jsonErr2("Serviço indisponível no momento. Tente novamente mais tarde.",
             "Service unavailable right now. Try again later.", 503);
@@ -17982,6 +18069,11 @@ async function passkeyEnsureLogin(env, row) {
 async function handlePostPasskeyInviteRegister(request, env) {
     try {
         var body = await request.json().catch(function() { return {}; });
+        // Adults only and business use: the page must have shown the
+        // confirmation and the person must have confirmed it. Strict boolean
+        // true; anything else is refused before any passkey is created, and
+        // the invite stays unused so a reload and retry works.
+        if (!body || body.adult_confirmed !== true) { return passkeyFail("adult"); }
         var row = await passkeyLoadInvite(env, body && body.t);
         if (!passkeyInviteUsable(row)) { return passkeyFail("link"); }
         if (!row.register_until || row.register_until <= passkeyNow().toISOString() || !row.stytch_user_id) {
@@ -18040,6 +18132,11 @@ async function handlePostPasskeyInviteRegister(request, env) {
         });
         await passkeySeatUsageBump(env, row.client_id);
         await passkeyNewCountryCheck(env, request, row.person_id);
+        // Adults only record, keyed by the stored login username. A failure here
+        // never undoes the registration: the person would simply be asked once
+        // more by the existing user card.
+        try { await adultConfirmRecord(env, "l:" + username, row.client_id, "invite"); }
+        catch (e) { console.log("adult confirm record failed"); }
         return jsonOk(session);
     } catch (e) {
         console.log("passkey register error");
@@ -50290,6 +50387,13 @@ async function reminderTextSend(env, sessionId, recipient, phoneE164, name, busi
     return { sent: true, sid: r.sid };
 }
 
+// Text consent from the booking page. Only a customer who declined is skipped.
+// NULL (every booking made before the checkbox existed) and "agreed" both send,
+// exactly as before. The STOP handling in reminderTextSend is separate.
+function reminderTextConsentAllows(status) {
+    return status !== "declined";
+}
+
 // A hand-made meeting (calendar.html / client.html) texts only when ticked
 // at creation (sessions.send_text_reminder). A scheduling-page booking
 // ("Agendamento pelo cliente") is ALWAYS eligible -- no checkbox exists for
@@ -50412,8 +50516,9 @@ async function apptRemFindClientEvents(env, loMs, hiMs) {
     var res = await env.DB.prepare(
         "SELECT e.id, e.client_id, e.title, e.event_date, e.start_time, e.location, e.lead_id, " +
         "c.language AS language, c.timezone AS timezone, c.location_state AS location_state, c.name AS client_name, c.owners AS owners, " +
-        "l.telefone AS lead_phone " +
+        "l.telefone AS lead_phone, br.sms_consent_status AS sms_consent_status " +
         "FROM gm_events e JOIN clients c ON c.id = e.client_id LEFT JOIN gm_leads l ON l.id = e.lead_id " +
+        "LEFT JOIN gm_booking_requests br ON br.event_id = e.id AND br.client_id = e.client_id " +
         "WHERE e.event_date >= ? AND e.event_date <= ? AND COALESCE(e.all_day, 0) = 0 " +
         "AND e.start_time IS NOT NULL AND e.start_time != '' " +
         "AND c.status IN ('active', 'paused') AND COALESCE(c.archived, 0) = 0"
@@ -50428,7 +50533,7 @@ async function apptRemFindClientEvents(env, loMs, hiMs) {
         if (wall > zoneWalls[zone].lo && wall <= zoneWalls[zone].hi) {
             rows.push({
                 id: r.id, client_id: r.client_id, title: r.title, date: r.event_date, time: t, location: r.location,
-                language: r.language, lead_id: r.lead_id, lead_phone: r.lead_phone,
+                language: r.language, lead_id: r.lead_id, lead_phone: r.lead_phone, sms_consent_status: r.sms_consent_status,
                 client_name: r.client_name, owners: r.owners
             });
         }
@@ -50563,7 +50668,7 @@ async function runAppointmentReminders(env, opts) {
                 // with a lead_id) always texts the customer who booked --
                 // SAME timing as the push above, no checkbox (this path has
                 // no hand-made-meeting form to put one on).
-                if (leadMin === 60 && e.lead_id && e.lead_phone) {
+                if (leadMin === 60 && e.lead_id && e.lead_phone && reminderTextConsentAllows(e.sms_consent_status)) {
                     var leadPhoneNorm = passkeyNormalizePhone(e.lead_phone);
                     if (leadPhoneNorm.e164 && passkeyCountryCode(leadPhoneNorm.e164) === "1") {
                         var ownerFirst = e.owners ? String(e.owners).split(/,|&| e | and /)[0].trim() : "";
@@ -54400,6 +54505,16 @@ async function bkConfirm(env, ctx, body, nowMs) {
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { return bkErr(400, "E-mail inválido.", "That email does not look right."); }
     if (!address) { return bkErr(400, "Informe o endereço da visita.", "Please enter the address for the visit."); }
     if (!date || !time) { return bkErr(400, "Escolha um dia e um horário.", "Please choose a day and a time."); }
+    // Text consent (TCPA). Only "agreed" or "declined" are stored; a missing
+    // field (an older page) or null stays NULL. Anything else is refused.
+    var smsConsent = null;
+    if (body.sms_consent_status !== undefined && body.sms_consent_status !== null) {
+        if (body.sms_consent_status !== "agreed" && body.sms_consent_status !== "declined") {
+            return bkErr(400, "Não foi possível agendar. Recarregue a página e tente de novo.", "We could not book that. Please reload the page and try again.");
+        }
+        smsConsent = body.sms_consent_status;
+    }
+    var smsConsentAt = smsConsent ? new Date().toISOString() : null;
     var cleaned = bkCleanAnswers(s, body.answers);
     if (cleaned.error) { return cleaned.error; }
 
@@ -54420,16 +54535,17 @@ async function bkConfirm(env, ctx, body, nowMs) {
         if (ctx.kind === "lead") {
             var upd = await env.DB.prepare(
                 "UPDATE gm_booking_requests SET status = 'booked', slot_date = ?, slot_time = ?, end_time = ?, answers_json = ?, " +
-                "customer_name = ?, customer_phone = ?, customer_email = ?, customer_address = ?, customer_city = ?, booked_at = datetime('now') " +
+                "customer_name = ?, customer_phone = ?, customer_email = ?, customer_address = ?, customer_city = ?, booked_at = datetime('now'), " +
+                "sms_consent_status = ?, sms_consent_at = ? " +
                 "WHERE id = ? AND status = 'waiting'"
-            ).bind(date, time, endTime, answersJson, name, phone, email, address, city, reqId).run();
+            ).bind(date, time, endTime, answersJson, name, phone, email, address, city, smsConsent, smsConsentAt, reqId).run();
             if (!upd.meta || !upd.meta.changes) { return bkErr(409, "Esta visita já está agendada.", "This visit is already booked."); }
         } else {
             await env.DB.prepare(
                 "INSERT INTO gm_booking_requests (id, token, client_id, lead_id, kind, status, answers_json, slot_date, slot_time, end_time, " +
-                "customer_name, customer_phone, customer_email, customer_address, customer_city, created_by, booked_at) " +
-                "VALUES (?, ?, ?, NULL, 'general', 'booked', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))"
-            ).bind(reqId, gmEstNewToken(), ctx.clientId, answersJson, date, time, endTime, name, phone, email, address, city, BK_ACTOR).run();
+                "customer_name, customer_phone, customer_email, customer_address, customer_city, created_by, booked_at, sms_consent_status, sms_consent_at) " +
+                "VALUES (?, ?, ?, NULL, 'general', 'booked', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)"
+            ).bind(reqId, gmEstNewToken(), ctx.clientId, answersJson, date, time, endTime, name, phone, email, address, city, BK_ACTOR, smsConsent, smsConsentAt).run();
         }
     } catch (e) {
         if (bkIsUniqueErr(e)) {
@@ -60053,6 +60169,7 @@ async function handleFetch(request, env, ctx) {
 
         if (path === "/api/role"                       && method === "GET")  { return handleGetRole(request, env); }
         if (path === "/api/me/language"                && method === "PUT")  { return handlePutMeLanguage(request, env); }
+        if (path === "/api/me/adult-confirm"           && method === "POST") { return handlePostMeAdultConfirm(request, env); }
         if (path === "/api/gm/sms-usage"                && method === "GET")  { return handleGetSmsUsage(request, env); }
         if (path === "/api/gm/dormant-logins"           && method === "GET")  { return handleGetGmDormantLogins(request, env); }
         if (path === "/api/me/outstanding-invoices"     && method === "GET")  { return handleGetMeOutstandingInvoices(request, env); }

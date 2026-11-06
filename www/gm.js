@@ -593,6 +593,15 @@ function gmServicoList(v) {
 // editor then stays open and says so inside the sheet (N16) instead of
 // closing with nothing done.
 var gmEditorRequired = null;
+
+// Text consent reminder (US texting law). Shown right under every place a
+// CUSTOMER's phone number is typed on the contractor side. One line, the
+// page's own muted style, with a small info icon.
+function gmSmsConsentNote() {
+  return '<p class="gm-sms-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg><span>' +
+    gmT("Adicione o número somente se o cliente concordou em receber mensagens de texto.", "Add a number only if the customer agreed to receive texts.") + '</span></p>';
+}
+
 function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml, onCancel, requiredMsg) {
   gmEditorSave = onSave;
   gmEditorRequired = requiredMsg || null;
@@ -644,6 +653,7 @@ function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml, o
     inner = '<input type="' + inputType + '"' + inputMode + ' id="gmEditorInput" value="' + escHtml(v) + '">';
   }
   var body = '<div class="gm-editor-input" data-gm-type="' + type + '">' + inner + '</div>' +
+    (type === "tel" ? gmSmsConsentNote() : "") +
     '<p class="gm-warn" id="gmEditorMsg" hidden></p>' +
     (extraNoteHtml || "") +
     '<div class="gm-editor-actions">' +
@@ -2658,6 +2668,7 @@ function gmQuickAddOpen() {
     '<div class="gm-editor-input"><input type="text" id="gmQaNome" value="' + escHtml(draft.nome || "") + '" oninput="gmQuickDraftSave()"></div>' +
     '<label class="field-label" style="margin-top:12px;">' + gmT("Telefone", "Phone") + '</label>' +
     '<div class="gm-editor-input"><input type="tel" inputmode="tel" autocomplete="tel" id="gmQaTel" value="' + escHtml(draft.telefone || "") + '" oninput="gmQuickDraftSave()"></div>' +
+    gmSmsConsentNote() +
     // Job site. Optional like every other quick-add field except the name —
     // most leads arrive as a name and a number long before anyone knows where
     // the pool goes, so a blank here is normal and saves without complaint.
@@ -10454,7 +10465,7 @@ function gmRenderSimpleCreate(spec) {
     } else {
       var t = def.type === "tel" ? "tel" : "text";
       var im = def.type === "currency" ? ' inputmode="decimal"' : "";
-      body += '<div class="gm-editor-input"><input type="' + t + '"' + im + ' id="gmNew_' + def.key + '"></div>';
+      body += '<div class="gm-editor-input"><input type="' + t + '"' + im + ' id="gmNew_' + def.key + '"></div>' + (def.type === "tel" ? gmSmsConsentNote() : "");
     }
     if (def.note) { body += '<div class="gm-derived-note">' + def.note + '</div>'; }
   });
@@ -14817,6 +14828,7 @@ function gmEstWizStep1() {
     gmEstWizField("gmEwJob", "job_name", "Nome do trabalho *", "Job name *", w.job_name) +
     gmEstWizField("gmEwName", "customer_name", "Cliente *", "Customer *", w.customer_name) +
     gmEstWizField("gmEwPhone", "customer_phone", "Telefone", "Phone", w.customer_phone, 'inputmode="tel"') +
+    gmSmsConsentNote() +
     gmEstWizField("gmEwEmail", "customer_email", "Email", "Email", w.customer_email, 'inputmode="email"') +
     gmEstWizField("gmEwAddr", "customer_address", "Endereço da obra", "Job address", w.customer_address) +
     (gmEstWizLeadDiffers() ? '<p class="gm-derived-note">' + gmT("O lead tem dados mais recentes: ", "The lead has newer details: ") +

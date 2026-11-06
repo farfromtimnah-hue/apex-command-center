@@ -11,7 +11,7 @@
 // overwritten. This is what makes the activate handler's cache cleanup below
 // actually fire on each deploy instead of silently serving stale
 // nav.js/pwa.js/mobile.css/icons forever.
-var CACHE_NAME = "apex-static-1793916115";
+var CACHE_NAME = "apex-static-1793936117";
 
 var PRECACHE_URLS = [
   "nav.js",
@@ -28,6 +28,17 @@ var PRECACHE_URLS = [
   "template-edit.css",
   "gm-labels.js",
   "mobile.css",
+  "fonts.css",
+  "fonts/cormorant-garamond-var-latin-ext.woff2",
+  "fonts/cormorant-garamond-var-latin.woff2",
+  "fonts/inter-var-latin-ext.woff2",
+  "fonts/inter-var-latin.woff2",
+  "fonts/manrope-var-latin-ext.woff2",
+  "fonts/manrope-var-latin.woff2",
+  "fonts/newsreader-var-latin-ext.woff2",
+  "fonts/newsreader-var-latin.woff2",
+  "fonts/playfair-display-var-latin-ext.woff2",
+  "fonts/playfair-display-var-latin.woff2",
   "manifest.json",
   "icons/icon-192.png",
   "icons/icon-512.png",
@@ -70,11 +81,6 @@ function isStaticAsset(url) {
     }
     if (endsWith(path, "manifest.json")) { return true; }
     return false;
-  }
-
-  // Google Fonts stylesheet + font files
-  if (u.hostname === "fonts.googleapis.com" || u.hostname === "fonts.gstatic.com") {
-    return true;
   }
 
   return false;

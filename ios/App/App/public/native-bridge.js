@@ -2947,3 +2947,194 @@ apexTrace("FILE-END", "native-bridge.js finished executing on doc=" + apexTraceD
 // (so the PWA and desktop web are untouched), and failing closed on unknown
 // protocols.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// ADULTS ONLY AND BUSINESS USE CONFIRMATION, existing users (2026-11-05).
+//
+// native-bridge.js is the one script every signed in page loads, so the card
+// lives here and is not pasted into the pages. Every page already asks
+// GET /api/role after sign in. When that answer says adult_confirm_needed (the
+// Worker decides: no acceptance on file for the current terms version, and the
+// switch ADULT_CONFIRM_EXISTING_USERS is not "off"), this shows ONE in page card.
+// "Confirm and continue" posts to /api/me/adult-confirm with the same
+// Authorization header the page used; the Worker takes the person from the
+// session, never from this script. The login page is skipped: the next page the
+// person lands on asks /api/role again and shows the card there.
+// ---------------------------------------------------------------------------
+(function () {
+  if (window.__apexAdultGate || typeof window.fetch !== "function") { return; }
+  window.__apexAdultGate = true;
+  var origFetch = window.fetch;
+  var shown = false;
+  var WORKER = window.WORKER_URL || "https://apex-api.farfromtimnah.workers.dev";
+
+  function authOf(init, input) {
+    var h = (init && init.headers) || (input && input.headers) || null;
+    if (!h) { return null; }
+    if (typeof h.get === "function") { return h.get("Authorization"); }
+    return h.Authorization || h.authorization || null;
+  }
+  function urlOf(input) {
+    return typeof input === "string" ? input : (input && input.url) || "";
+  }
+  function onLoginPage() {
+    var p = String(window.location.pathname || "");
+    return p === "/" || /(^|\/)index\.html$/.test(p) || /(^|\/)invite-login\.html$/.test(p);
+  }
+  function lang(fromRole) {
+    var l = fromRole;
+    try { l = sessionStorage.getItem("apex_lang") || fromRole; } catch (e) { l = fromRole; }
+    return l === "en" ? "en" : "pt";
+  }
+  var TXT = {
+    pt: {
+      statement: "Confirmo que tenho 18 anos ou mais e que uso o Apex para o meu negócio.",
+      terms: "Termos", confirm: "Confirmar e continuar", under: "Tenho menos de 18 anos",
+      blocked: "O Apex é para adultos que o usam no seu negócio. Fale com a pessoa que enviou o convite.",
+      error: "Não foi possível salvar. Tente de novo."
+    },
+    en: {
+      statement: "I confirm that I am 18 or older and that I use Apex for my business.",
+      terms: "Terms", confirm: "Confirm and continue", under: "I am under 18",
+      blocked: "Apex is for adults who use it for their business. Please contact the person who invited you.",
+      error: "Could not save. Please try again."
+    }
+  };
+
+  function injectCss() {
+    if (document.getElementById("apexAdultCss")) { return; }
+    var st = document.createElement("style");
+    st.id = "apexAdultCss";
+    st.textContent =
+      "#apexAdultVeil{position:fixed;inset:0;z-index:2147483000;background:rgba(14,14,16,0.82);display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;transition:opacity 200ms ease-out;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}" +
+      "#apexAdultVeil.is-on{opacity:1}" +
+      "#apexAdultCard{width:100%;max-width:420px;background:#1a1a1d;color:#fff;border:1px solid rgba(255,255,255,0.14);border-radius:12px;padding:22px 20px;transform:translateY(8px);transition:transform 200ms ease-out}" +
+      "#apexAdultVeil.is-on #apexAdultCard{transform:none}" +
+      "#apexAdultCard .aa-row{display:flex;gap:12px;align-items:flex-start;background:rgba(201,164,58,0.08);border:1px solid rgba(201,164,58,0.35);border-radius:10px;padding:14px;margin-bottom:14px}" +
+      "#apexAdultCard svg{flex:0 0 auto;width:22px;height:22px;margin-top:2px;color:#C9A43A}" +
+      "#apexAdultCard p{margin:0;font-size:15px;line-height:1.5;color:#fff}" +
+      "#apexAdultCard a{color:#C9A43A;text-decoration:underline;text-underline-offset:2px;font-weight:600;white-space:nowrap}" +
+      "#apexAdultCard button{font-family:inherit;cursor:pointer;touch-action:manipulation;transition:transform 140ms ease-out,opacity 140ms ease-out}" +
+      "#apexAdultCard button:active{transform:scale(0.97)}" +
+      "#apexAdultCard .aa-go{display:block;width:100%;min-height:48px;border:none;border-radius:10px;background:#C9A43A;color:#1a1a1d;font-size:15px;font-weight:700;padding:13px 20px}" +
+      "#apexAdultCard .aa-go:disabled{opacity:0.45;cursor:not-allowed}" +
+      "#apexAdultCard .aa-under{display:block;margin:8px auto 0;min-height:44px;background:transparent;border:none;color:rgba(255,255,255,0.72);font-size:14px;text-decoration:underline;text-underline-offset:3px;padding:8px 12px}" +
+      "#apexAdultCard .aa-under:hover{color:#fff}" +
+      "#apexAdultCard .aa-err{min-height:18px;margin-top:8px;font-size:13px;color:#e08585}" +
+      "#apexAdultCard a:focus-visible,#apexAdultCard button:focus-visible{outline:2px solid #C9A43A;outline-offset:2px}" +
+      "@media (prefers-reduced-motion:reduce){#apexAdultVeil,#apexAdultCard,#apexAdultCard button{transition:none}#apexAdultCard{transform:none}#apexAdultCard button:active{transform:none}}";
+    document.head.appendChild(st);
+  }
+  var SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-2.9 8.2-7 10-4.1-1.8-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>';
+
+  function signOut(auth) {
+    // Same steps the pages take: end the server session, clear the saved sign in.
+    try {
+      if (auth) {
+        origFetch(WORKER + "/api/auth/client-logout", { method: "POST", keepalive: true, headers: { "Authorization": auth, "Content-Type": "application/json" }, body: "{}" })
+          .then(function () {}, function () {});
+      }
+    } catch (e) { /* the local sign out below still happens */ }
+    try {
+      localStorage.removeItem("apex_client_token");
+      localStorage.removeItem("apex_client_id");
+      localStorage.removeItem("apex_client_name");
+      sessionStorage.clear();
+    } catch (e2) { /* storage may be blocked */ }
+    try {
+      if (window.firebase && window.firebase.auth) { window.firebase.auth().signOut().then(function () {}, function () {}); }
+    } catch (e3) { /* not a staff sign in */ }
+  }
+
+  function build(auth, roleLang) {
+    if (shown || !document.body) { return; }
+    shown = true;
+    injectCss();
+    var t = TXT[lang(roleLang)];
+    var veil = document.createElement("div");
+    veil.id = "apexAdultVeil";
+    var card = document.createElement("div");
+    card.id = "apexAdultCard";
+    card.setAttribute("role", "dialog");
+    card.setAttribute("aria-modal", "true");
+    card.setAttribute("aria-label", t.statement);
+
+    var row = document.createElement("div");
+    row.className = "aa-row";
+    row.innerHTML = SHIELD;
+    var p = document.createElement("p");
+    p.appendChild(document.createTextNode(t.statement + " "));
+    var a = document.createElement("a");
+    a.href = "terms.html";
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = t.terms;
+    p.appendChild(a);
+    row.appendChild(p);
+    card.appendChild(row);
+
+    var go = document.createElement("button");
+    go.type = "button";
+    go.className = "aa-go";
+    go.textContent = t.confirm;
+    var err = document.createElement("div");
+    err.className = "aa-err";
+    err.setAttribute("role", "status");
+    var under = document.createElement("button");
+    under.type = "button";
+    under.className = "aa-under";
+    under.textContent = t.under;
+    card.appendChild(go);
+    card.appendChild(err);
+    card.appendChild(under);
+    veil.appendChild(card);
+    document.body.appendChild(veil);
+    window.setTimeout(function () { veil.className = "is-on"; go.focus(); }, 10);
+
+    go.onclick = function () {
+      go.disabled = true;
+      err.textContent = "";
+      origFetch(WORKER + "/api/me/adult-confirm", {
+        method: "POST", headers: { "Authorization": auth, "Content-Type": "application/json" }, body: JSON.stringify({ confirmed: true })
+      }).then(function (res) {
+        if (!res.ok) { throw new Error("save"); }
+        if (veil.parentNode) { veil.parentNode.removeChild(veil); }
+      }).catch(function () {
+        go.disabled = false;
+        err.textContent = t.error;
+      });
+    };
+    under.onclick = function () {
+      signOut(auth);
+      card.innerHTML = "";
+      var r2 = document.createElement("div");
+      r2.className = "aa-row";
+      r2.innerHTML = SHIELD;
+      var p2 = document.createElement("p");
+      p2.textContent = t.blocked;
+      r2.appendChild(p2);
+      card.appendChild(r2);
+    };
+  }
+
+  window.fetch = function (input, init) {
+    var p = origFetch.apply(this, arguments);
+    try {
+      if (!shown && /\/api\/role(\?|$)/.test(urlOf(input)) && !onLoginPage()) {
+        var auth = authOf(init, input);
+        if (auth) {
+          p.then(function (res) {
+            if (!res || !res.ok) { return; }
+            res.clone().json().then(function (d) {
+              if (d && d.adult_confirm_needed === true) {
+                if (document.body) { build(auth, d.language); }
+                else { document.addEventListener("DOMContentLoaded", function () { build(auth, d.language); }); }
+              }
+            }, function () {});
+          }, function () {});
+        }
+      }
+    } catch (e) { /* never interferes with the page's own request */ }
+    return p;
+  };
+}());

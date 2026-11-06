@@ -30,7 +30,7 @@ for f in "$ROOT"/*.html "$ROOT"/*.js "$ROOT"/*.css "$ROOT"/manifest.json "$ROOT"
 done
 
 # Asset directories referenced by the pages.
-for d in assets icons; do
+for d in assets icons fonts; do
   [ -d "$ROOT/$d" ] || continue
   cp -R "$ROOT/$d" "$OUT"/
 done

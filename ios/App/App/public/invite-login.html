@@ -7,15 +7,13 @@
   <meta name="theme-color" content="#1a1a1d">
   <title>Apex · Convite</title>
   <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="fonts.css?v=1">
   <!-- The passkey invite page (passkey login build). Always opened in a
        browser from the link someone sent, never inside the app. Three steps:
        text a code to the number already on file, type the code, create the
        passkey. Then the person is signed in exactly like a normal login.
        native-bridge.js is loaded only for its base64url helpers. -->
-  <script src="native-bridge.js?v=1792442281"></script>
+  <script src="native-bridge.js?v=1793936118"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -53,6 +51,16 @@
     .status { min-height: 20px; font-size: 13px; margin-top: 12px; color: rgba(255,255,255,0.7); }
     .status.is-error { color: #e08585; }
     .role-chip { display: inline-block; font-size: 12px; font-weight: 600; color: var(--gold); border: 1px solid rgba(201,164,58,0.5); border-radius: 999px; padding: 3px 10px; margin-bottom: 14px; }
+    .adult-card { display: flex; gap: 12px; align-items: flex-start; background: rgba(201, 164, 58, 0.08); border: 1px solid rgba(201, 164, 58, 0.35); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
+    .adult-card svg { flex: 0 0 auto; width: 22px; height: 22px; margin-top: 2px; color: var(--gold); }
+    .adult-card p { margin: 0; color: #fff; }
+    .adult-card a { color: var(--gold); text-decoration: underline; text-underline-offset: 2px; font-weight: 600; white-space: nowrap; }
+    .adult-card a:focus-visible, .link-btn:focus-visible, .btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .link-btn { display: block; margin: 8px auto 0; background: transparent; border: none; color: rgba(255,255,255,0.72); font-family: 'Inter', sans-serif; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 44px; padding: 8px 12px; }
+    .link-btn:hover { color: #fff; }
+    .btn:active, .link-btn:active { transform: scale(0.97); }
+    .btn, .link-btn { transition: transform 140ms ease-out, opacity 140ms ease-out; }
+    @media (prefers-reduced-motion: reduce) { .btn, .link-btn { transition: none; } .btn:active, .link-btn:active { transform: none; } }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -83,6 +91,13 @@
         <p><span class="show-pt">Abra este mesmo link no Safari ou no Chrome, em um celular ou computador.</span><span class="show-en">Open this same link in Safari or Chrome, on a phone or laptop.</span></p>
       </div>
 
+      <div id="viewUnder18" hidden>
+        <div class="adult-card" role="status">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-2.9 8.2-7 10-4.1-1.8-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+          <p><span class="show-pt">O Apex é para adultos que o usam no seu negócio. Fale com a pessoa que enviou o convite.</span><span class="show-en">Apex is for adults who use it for their business. Please contact the person who invited you.</span></p>
+        </div>
+      </div>
+
       <div id="viewInvite" hidden>
         <h1 id="greeting"></h1>
         <p id="businessLine"></p>
@@ -106,6 +121,19 @@
           <button class="btn btn-outline" type="button" id="resendBtn" onclick="inviteSendCode()"></button>
         </div>
 
+        <div id="stepAdult" hidden>
+          <div class="adult-card">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-2.9 8.2-7 10-4.1-1.8-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+            <p><span class="show-pt">Confirmo que tenho 18 anos ou mais e que uso o Apex para o meu negócio.</span><span class="show-en">I confirm that I am 18 or older and that I use Apex for my business.</span> <a href="terms.html" target="_blank" rel="noopener"><span class="show-pt">Termos</span><span class="show-en">Terms</span></a></p>
+          </div>
+          <button class="btn btn-gold" type="button" id="adultBtn" onclick="inviteConfirmAdult()">
+            <span class="show-pt">Confirmar e continuar</span><span class="show-en">Confirm and continue</span>
+          </button>
+          <button class="link-btn" type="button" id="under18Btn" onclick="inviteUnder18()">
+            <span class="show-pt">Tenho menos de 18 anos</span><span class="show-en">I am under 18</span>
+          </button>
+        </div>
+
         <div id="stepPasskey" hidden>
           <div class="step"><span class="show-pt">3 · Criar sua passkey</span><span class="show-en">3 · Create your passkey</span></div>
           <p><span class="show-pt">Seu aparelho vai pedir Face ID, digital ou a senha do aparelho. É assim que você vai entrar no Apex daqui para frente, sem senha.</span><span class="show-en">Your device will ask for Face ID, fingerprint or the device passcode. That is how you will sign in to Apex from now on, with no password.</span></p>
@@ -124,6 +152,9 @@
     var inviteToken = "";
     var inviteInfo = null;
     var inviteOptions = null;
+    // Adults only and business use confirmation. Kept in memory only: a reload
+    // asks again. The Worker refuses to register a passkey without it.
+    var inviteAdult = false;
     var inviteCooldownTimer = null;
     var inviteCooldownLeft = 0;
 
@@ -152,7 +183,7 @@
       return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span>';
     }
     function inviteShow(id) {
-      ["viewLoading", "viewInvalid", "viewUnsupported", "viewInvite"].forEach(function(v) {
+      ["viewLoading", "viewInvalid", "viewUnsupported", "viewInvite", "viewUnder18"].forEach(function(v) {
         var el = document.getElementById(v);
         if (el) { el.hidden = (v !== id); }
       });
@@ -164,7 +195,7 @@
       el.innerHTML = pt || en ? inviteBi(inviteEsc(pt), inviteEsc(en)) : "";
     }
     function inviteStep(id) {
-      ["stepSend", "stepCode", "stepPasskey"].forEach(function(s) {
+      ["stepSend", "stepCode", "stepAdult", "stepPasskey"].forEach(function(s) {
         var el = document.getElementById(s);
         if (el) { el.hidden = (s !== id); }
       });
@@ -277,7 +308,7 @@
         if (btn) { btn.disabled = false; }
         if (!r.ok) { inviteHandleError(r); return; }
         inviteOptions = r.data.options;
-        inviteStep("stepPasskey");
+        inviteStep(inviteAdult ? "stepPasskey" : "stepAdult");
         inviteStatus("", "");
       }).catch(function() {
         if (btn) { btn.disabled = false; }
@@ -318,8 +349,29 @@
       return out;
     }
 
+    function inviteConfirmAdult() {
+      inviteAdult = true;
+      inviteStep("stepPasskey");
+      inviteStatus("", "");
+    }
+
+    // The under 18 link: clear any saved sign in on this browser, forget the
+    // invite state, and show the message. No passkey is created.
+    function inviteUnder18() {
+      inviteAdult = false;
+      inviteOptions = null;
+      try {
+        localStorage.removeItem("apex_client_token");
+        localStorage.removeItem("apex_client_id");
+        localStorage.removeItem("apex_client_name");
+        sessionStorage.removeItem("apex_client_token");
+        sessionStorage.removeItem("apex_role");
+      } catch (e) { /* storage may be blocked; there is still nothing to sign in to */ }
+      inviteShow("viewUnder18");
+    }
+
     function inviteCreatePasskey() {
-      if (!inviteOptions) { inviteStep("stepSend"); return Promise.resolve(); }
+      if (!inviteOptions || !inviteAdult) { inviteStep(inviteOptions ? "stepAdult" : "stepSend"); return Promise.resolve(); }
       var btn = document.getElementById("passkeyBtn");
       if (btn) { btn.disabled = true; }
       inviteStatus("Siga as instruções do seu aparelho…", "Follow your device's prompt…");
@@ -331,7 +383,7 @@
       }
       return Promise.resolve(created).then(function(cred) {
         if (!cred) { throw new Error("no credential"); }
-        return invitePost("/api/passkey-invite/register", { t: inviteToken, credential: JSON.stringify(inviteCredentialJson(cred)) });
+        return invitePost("/api/passkey-invite/register", { t: inviteToken, adult_confirmed: true, credential: JSON.stringify(inviteCredentialJson(cred)) });
       }).then(function(r) {
         if (!r.ok || !r.data.token) {
           if (btn) { btn.disabled = false; }

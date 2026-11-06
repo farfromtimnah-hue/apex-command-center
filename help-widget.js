@@ -335,7 +335,7 @@
       var fl = doc.createElement("link");
       fl.id = "aphelp-font";
       fl.rel = "stylesheet";
-      fl.href = "https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap";
+      fl.href = "fonts.css?v=1";   // self hosted (Newsreader lives in fonts.css); no request to a font company
       (doc.head || doc.body).appendChild(fl);
     }
   }

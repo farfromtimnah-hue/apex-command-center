@@ -370,6 +370,9 @@
 .gm-derived-note {
   font-size: 12px; color: var(--muted); margin-top: 8px;
 }
+/* Text consent reminder under a customer phone field */
+.gm-sms-note { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; line-height: 1.4; color: var(--muted); margin: 6px 0 0; }
+.gm-sms-note svg { flex: 0 0 auto; width: 14px; height: 14px; margin-top: 1px; }
 
 /* Choice chips (≤5 options) */
 .gm-chip-set { display: flex; flex-wrap: wrap; gap: 8px; }

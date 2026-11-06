@@ -39,6 +39,10 @@
     .known .kv { min-width: 0; overflow-wrap: anywhere; }
     .known .kl { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
     .known button { min-height: 44px; padding: 0 12px; border: none; background: none; color: var(--brand-accent); font-weight: 700; font-size: 14px; text-decoration: underline; cursor: pointer; flex: 0 0 auto; }
+    .consent { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+    .consent input[type="checkbox"] { flex: 0 0 auto; width: 24px; height: 24px; margin-top: 1px; accent-color: var(--brand-accent); cursor: pointer; }
+    .consent input[type="checkbox"]:focus-visible { outline: 2px solid var(--brand-accent); outline-offset: 2px; }
+    .consent label { margin: 0; font-size: 14px; font-weight: 400; color: var(--ink); line-height: 1.45; cursor: pointer; }
     .btn { width: 100%; min-height: 52px; margin-top: 14px; border: none; border-radius: 10px; background: var(--brand-accent); color: var(--on-brand-accent); font-size: 17px; font-weight: 800; cursor: pointer; display: block; text-align: center; text-decoration: none; line-height: 52px; }
     .btn.secondary { background: #fff; color: var(--ink); border: 2px solid var(--border); line-height: 48px; }
     .btn.danger { background: #fff; color: var(--red); border: 2px solid #e3b4b4; line-height: 48px; }
@@ -120,6 +124,7 @@
     var cust = {};                // what the customer has typed
     var answers = {};
     var editing = {};             // known lines the customer opened for editing
+    var smsConsent = false;       // the text consent box; unchecked by default
     var chosenDate = null;
     var chosenTime = null;
     var changing = false;         // picking a different time for a booked visit
@@ -304,6 +309,15 @@
       return '<label for="f_' + key + '">' + escHtml(label) + opt + '</label><input type="' + f[3] + '" id="f_' + key + '" data-field="' + key + '" value="' + escHtml(cust[key] || "") + '" autocomplete="' + (key === "name" ? "name" : key === "phone" ? "tel" : key === "email" ? "email" : key === "address" ? "street-address" : "address-level2") + '">';
     }
 
+    // Text consent (US texting law): unchecked by default, never required. The
+    // answer goes to the Worker as agreed or declined with the booking.
+    function consentHtml() {
+      var biz = escHtml((D.business && D.business.name) || T("a empresa", "the business"));
+      var text = T("Concordo em receber mensagens de texto sobre o meu agendamento de " + biz + ". Podem ser aplicadas tarifas de mensagens e dados. Responda STOP para cancelar.",
+        "I agree to receive text messages about my appointment from " + biz + ". Message and data rates may apply. Reply STOP to opt out.");
+      return '<div class="consent"><input type="checkbox" id="f_sms"' + (smsConsent ? " checked" : "") + '><label for="f_sms">' + text + '</label></div>';
+    }
+
     function questionHtml(q) {
       var label = escHtml(lang === "pt" ? q.label_pt : q.label_en);
       var v = answers[q.key] == null ? "" : String(answers[q.key]);
@@ -331,7 +345,7 @@
       if (D.kind === "lead" && D.service) {
         html += '<div class="known"><div class="kv"><div class="kl">' + T("Servi\u00e7o", "Service") + '</div>' + escHtml(D.service) + '</div></div>';
       }
-      html += FIELDS.map(fieldHtml).join("");
+      html += FIELDS.map(function(f) { return fieldHtml(f) + (f[0] === "phone" ? consentHtml() : ""); }).join("");
       html += '<div class="hp" aria-hidden="true"><label>Website</label><input type="text" id="f_website" tabindex="-1" autocomplete="off"></div>';
       html += '</div>';
       if (D.questions.length) {
@@ -349,6 +363,8 @@
       if (!el || el.classList.contains("hidden")) { return; }
       var ins = el.querySelectorAll("[data-field]");
       for (var i = 0; i < ins.length; i++) { cust[ins[i].getAttribute("data-field")] = ins[i].value.trim(); }
+      var cb = byId("f_sms");
+      if (cb) { smsConsent = !!cb.checked; }
       var an = el.querySelectorAll("[data-answer]");
       for (var j = 0; j < an.length; j++) { answers[an[j].getAttribute("data-answer")] = an[j].value.trim(); }
     }
@@ -483,6 +499,7 @@
         body = { slot_date: pick.date, slot_time: pick.time, customer: { name: cust.name || "", phone: cust.phone || "", email: cust.email || "", address: cust.address || "", city: cust.city || "" }, answers: answers };
         var hp = byId("f_website");
         body.website = (hp && hp.value) || "";
+        body.sms_consent_status = smsConsent ? "agreed" : "declined";
         body.elapsed_ms = Date.now() - loadedAt;
       }
       postJson(path, body).then(function(r) {

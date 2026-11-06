@@ -16761,6 +16761,11 @@ async function enforceClientRoleGateChecks(request, env, path, method, user) {
     if (user.must_change_password) {
         if (path === "/api/role" || path === "/api/auth/client-change-password" ||
             path === "/api/auth/client-logout") { return null; }
+        // 2026-11-06: /api/role also tells this session to show the adults only
+        // card. The card sits on top of the new password screen and its only
+        // request is this one; without it the person is stuck on a card that
+        // can never save. Identity comes from the session, the body names nobody.
+        if (path === "/api/me/adult-confirm" && method === "POST") { return null; }
         return jsonErr("Password change required", 403);
     }
     if (!user.client_id) { return jsonErr("Forbidden", 403); }

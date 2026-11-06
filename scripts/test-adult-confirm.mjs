@@ -290,5 +290,26 @@ await section(async () => {
   ok(w.F.clientRequestAllowed("/api/me/adult-confirm", "GET", "c1") === false, "gate: GET is not allowed");
 });
 
+// ── 6. first login with a forced new password (the 2026-11-06 deadlock) ─────
+// /api/role tells a session that must set a new password to show the adults
+// only card, and the card's only request is POST /api/me/adult-confirm. That
+// route has to pass the forced password change gate, and nothing else may.
+await section(async () => {
+  const w = world();
+  const mustChange = Object.assign({}, OWNER_SESSION, { must_change_password: true });
+  const gate = (path, method) => w.F.enforceClientRoleGateChecks(rq(method, path), w.env, path, method, mustChange);
+  ok(await gate("/api/me/adult-confirm", "POST") === null, "forced password change: the adults only confirmation is let through");
+  const g1 = await gate("/api/me/adult-confirm", "GET");
+  ok(g1 && g1.status === 403, "forced password change: GET on the confirm route is still refused");
+  const g2 = await gate("/api/gm/finance", "GET");
+  ok(g2 && g2.status === 403, "forced password change: a data route is still refused");
+  const g3 = await gate("/api/gm/estimates", "POST");
+  ok(g3 && g3.status === 403, "forced password change: creating an estimate is still refused");
+  ok(await gate("/api/role", "GET") === null && await gate("/api/auth/client-change-password", "POST") === null && await gate("/api/auth/client-logout", "POST") === null, "forced password change: role, change password and logout still pass");
+  w.state.user = mustChange;
+  const saved = await w.F.handlePostMeAdultConfirm(confirmReq({ confirmed: true }), w.env);
+  ok(saved.status === 200 && saved.data.confirmed === true, "forced password change: the confirm route itself saves for that session");
+});
+
 console.log("\n" + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);

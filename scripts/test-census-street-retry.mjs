@@ -8,12 +8,13 @@ import { build, baseStubs } from "./fixtures/d1-shim.mjs";
 
 const ZIP_CENTERS_V1 = JSON.parse(readFileSync(new URL("../data/geo/zip-centers-v1.json", import.meta.url), "utf8"));
 const TOWN_CENTERS_V1 = JSON.parse(readFileSync(new URL("../data/geo/town-centers-v1.json", import.meta.url), "utf8"));
+const ADDRESS_LAYERS_V1 = JSON.parse(readFileSync(new URL("../data/geo/address-layers-v1.json", import.meta.url), "utf8"));
 
 let fail = 0, pass = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass++; } else { fail++; } };
 
-const FNS = ["geocodeOneLine", "geocodeAddress", "geoZip5", "geoState2", "geoCityClean", "geoLoadCenters", "geoFetchJson", "geoPlacesCenter", "geoZipCenter", "geoTownCenter"];
-const VARS = ["GEO_CENSUS_TIMEOUT_MS", "GEO_CENSUS_RETRY_WAIT_MS", "GEO_FETCH_TIMEOUT_MS", "GEO_ZIP_MAP", "GEO_TOWN_MAP"];
+const FNS = ["geocodeOneLine", "geocodeAddress", "geoZip5", "geoState2", "geoCityClean", "geoLoadCenters", "geoFetchJson", "geoPlacesCenter", "geoZipCenter", "geoTownCenter", "geoLayerWordOk", "geoLayerFold", "geoLayerParseStreet", "geoLayerEntry", "geoLayerWhere", "geoLayerFetchJson", "geoLayerPick", "geoLayerCenter"];
+const VARS = ["GEO_CENSUS_TIMEOUT_MS", "GEO_CENSUS_RETRY_WAIT_MS", "GEO_FETCH_TIMEOUT_MS", "GEO_ZIP_MAP", "GEO_TOWN_MAP", "GEO_LAYERS", "GEO_LAYER_TIMEOUT_MS", "GEO_LAYER_TYPES", "GEO_LAYER_DIRS", "GEO_LAYER_UNIT_WORDS"];
 
 const HIT = { ok: true, json: async () => ({ result: { addressMatches: [{ coordinates: { x: -82.4, y: 27.9 } }] } }) };
 const EMPTY = { ok: true, json: async () => ({ result: { addressMatches: [] } }) };
@@ -30,7 +31,7 @@ function world(script) {
     if (a === "throw") { throw new Error("network down"); }
     return a || EMPTY;
   };
-  const F = build(FNS, VARS, Object.assign({}, baseStubs, { fetch: fetchStub, ZIP_CENTERS_V1, TOWN_CENTERS_V1 }));
+  const F = build(FNS, VARS, Object.assign({}, baseStubs, { fetch: fetchStub, ZIP_CENTERS_V1, TOWN_CENTERS_V1, ADDRESS_LAYERS_V1 }));
   return { F, census };
 }
 const ADDR = { street: "123 Main St", city: "Tampa", state: "FL", zip: "33647" };

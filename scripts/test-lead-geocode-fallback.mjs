@@ -9,18 +9,19 @@ import { makeDb, build, baseStubs } from "./fixtures/d1-shim.mjs";
 
 const ZIP_CENTERS_V1 = JSON.parse(readFileSync(new URL("../data/geo/zip-centers-v1.json", import.meta.url), "utf8"));
 const TOWN_CENTERS_V1 = JSON.parse(readFileSync(new URL("../data/geo/town-centers-v1.json", import.meta.url), "utf8"));
+const ADDRESS_LAYERS_V1 = JSON.parse(readFileSync(new URL("../data/geo/address-layers-v1.json", import.meta.url), "utf8"));
 
 let fail = 0, pass = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass++; } else { fail++; } };
 
 const FNS = [
-  "geocodeOneLine", "geocodeAddress", "geoZip5", "geoState2", "geoCityClean", "geoLoadCenters", "geoFetchJson", "geoPlacesCenter", "geoZipCenter", "geoTownCenter", "gmLeadAddressChanged", "gmLeadGeocodeIfNeeded",
-  "gmLeadFields", "gmInsertLead", "gmLogLeadEvents",
+  "geocodeOneLine", "geocodeAddress", "geoZip5", "geoState2", "geoCityClean", "geoLoadCenters", "geoFetchJson", "geoPlacesCenter", "geoZipCenter", "geoTownCenter", "geoLayerWordOk", "geoLayerFold", "geoLayerParseStreet", "geoLayerEntry", "geoLayerWhere", "geoLayerFetchJson", "geoLayerPick", "geoLayerCenter", "gmLeadAddressChanged", "gmLeadGeocodeIfNeeded",
+  "gmLeadFields", "gmManualPosition", "gmInsertLead", "gmLogLeadEvents",
   "tzIsValid", "tzParts", "tzPad2", "tzLocalNowStamp", "tzZoneForState", "clientZoneFor", "resolveRequestZone",
   "handlePostGmLead", "handlePutGmLead",
   "gmStr", "gmNum", "gmStageKey"
 ];
-const VARS = ["APEX_TIMEZONE", "GEO_CENSUS_TIMEOUT_MS", "GEO_CENSUS_RETRY_WAIT_MS", "GEO_FETCH_TIMEOUT_MS", "GEO_ZIP_MAP", "GEO_TOWN_MAP", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "GM_STAGE_DEFS", "GM_STAGES", "GM_ORIGENS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS"];
+const VARS = ["APEX_TIMEZONE", "GEO_CENSUS_TIMEOUT_MS", "GEO_CENSUS_RETRY_WAIT_MS", "GEO_FETCH_TIMEOUT_MS", "GEO_ZIP_MAP", "GEO_TOWN_MAP", "GEO_LAYERS", "GEO_LAYER_TIMEOUT_MS", "GEO_LAYER_TYPES", "GEO_LAYER_DIRS", "GEO_LAYER_UNIT_WORDS", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "GM_STAGE_DEFS", "GM_STAGES", "GM_ORIGENS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS"];
 
 const LEAD_MIGRATIONS = [
   "migrations/2026-10-14_client_owners_state_city.sql",   // clients.location_state, read for the viewer zone
@@ -72,7 +73,7 @@ function world(fetchRouter, reuseDb) {
     gmGuardedValorExpr: (t, p) => p,
     gmGuardedFinalCentsExpr: (t, p) => p,
     fetch: fetchRouter,
-    ZIP_CENTERS_V1, TOWN_CENTERS_V1
+    ZIP_CENTERS_V1, TOWN_CENTERS_V1, ADDRESS_LAYERS_V1
   });
   const F = build(FNS, VARS, stubs);
   return { d, F, env: { DB: d.DB } };

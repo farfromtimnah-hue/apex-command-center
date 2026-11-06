@@ -373,7 +373,7 @@ if (okSrc) {
 {
   const calls = { prepare: 0, batch: 0, run: 0 };
   const DB = { prepare() { calls.prepare++; return { bind() { return this; }, run() { calls.run++; return {}; }, first() { return null; } }; }, batch() { calls.batch++; return []; } };
-  const FNS = ["handlePutGmLead", "gmLeadFields", "gmLeadEmailOk", "gmStr", "gmNum"];
+  const FNS = ["handlePutGmLead", "gmLeadFields", "gmManualPosition", "gmLeadEmailOk", "gmStr", "gmNum"];
   const VARS = ["GM_LEAD_COST_FIELDS"];
   const stubs = Object.assign({}, baseStubs, {
     authenticate: async () => ({ role: "client", client_id: "c1", display_name: "ZETA" }),

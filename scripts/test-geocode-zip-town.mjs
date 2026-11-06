@@ -11,9 +11,10 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass
 
 const ZIP_CENTERS_V1 = JSON.parse(readFileSync(new URL("../data/geo/zip-centers-v1.json", import.meta.url), "utf8"));
 const TOWN_CENTERS_V1 = JSON.parse(readFileSync(new URL("../data/geo/town-centers-v1.json", import.meta.url), "utf8"));
+const ADDRESS_LAYERS_V1 = JSON.parse(readFileSync(new URL("../data/geo/address-layers-v1.json", import.meta.url), "utf8"));
 
-const FNS = ["geocodeOneLine", "geocodeAddress", "geoZip5", "geoState2", "geoCityClean", "geoLoadCenters", "geoFetchJson", "geoPlacesCenter", "geoZipCenter", "geoTownCenter"];
-const VARS = ["GEO_CENSUS_TIMEOUT_MS", "GEO_CENSUS_RETRY_WAIT_MS", "GEO_FETCH_TIMEOUT_MS", "GEO_ZIP_MAP", "GEO_TOWN_MAP"];
+const FNS = ["geocodeOneLine", "geocodeAddress", "geoZip5", "geoState2", "geoCityClean", "geoLoadCenters", "geoFetchJson", "geoPlacesCenter", "geoZipCenter", "geoTownCenter", "geoLayerWordOk", "geoLayerFold", "geoLayerParseStreet", "geoLayerEntry", "geoLayerWhere", "geoLayerFetchJson", "geoLayerPick", "geoLayerCenter"];
+const VARS = ["GEO_CENSUS_TIMEOUT_MS", "GEO_CENSUS_RETRY_WAIT_MS", "GEO_FETCH_TIMEOUT_MS", "GEO_ZIP_MAP", "GEO_TOWN_MAP", "GEO_LAYERS", "GEO_LAYER_TIMEOUT_MS", "GEO_LAYER_TYPES", "GEO_LAYER_DIRS", "GEO_LAYER_UNIT_WORDS"];
 
 // calls: every URL requested. census: what the Census one-line geocoder answers.
 // zippo: what api.zippopotam.us answers (a function of the URL) or "fail" modes.
@@ -26,7 +27,7 @@ function world({ census, zippo }) {
     if (u.indexOf("api.zippopotam.us") >= 0) { return zippo ? zippo(u, opts) : { ok: false, status: 404, json: async () => ({}) }; }
     throw new Error("unexpected host: " + u);
   };
-  const F = build(FNS, VARS, Object.assign({}, baseStubs, { fetch: fetchStub, ZIP_CENTERS_V1, TOWN_CENTERS_V1 }));
+  const F = build(FNS, VARS, Object.assign({}, baseStubs, { fetch: fetchStub, ZIP_CENTERS_V1, TOWN_CENTERS_V1, ADDRESS_LAYERS_V1 }));
   return { F, calls };
 }
 const censusHit = (lat, lon) => () => ({ ok: true, json: async () => ({ result: { addressMatches: [{ coordinates: { x: lon, y: lat } }] } }) });

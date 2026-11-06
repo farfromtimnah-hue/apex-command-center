@@ -1,3 +1,20 @@
+# Weather by job site, 2026-11-05: regional address layers, project address, count, Use my location
+
+## What changed
+1. Regional address layers as data. New file data/geo/address-layers-v1.json (imported like zip-centers-v1.json) with one entry, hillsborough-tampa-bay (FL, 72 ZIP codes read from the layer's own Post_Code domain on 11/05/2026, field map, status names). New step geoLayerCenter in geocodeAddress between the Census street step and the ZIP step. It runs only with a street and a typed 5 digit ZIP that an entry lists for the typed state. One call, 4 second timeout, only hosts and paths in the registry, where clause from validated parts with quotes doubled. Current beats Pending beats Proposed; Retired, Inactive, Unknown and a different house number are never accepted. Located value "county" is an address point: not approximate. A comment block above the loader explains how to add a region.
+2. A project's own address. Migration 2026-11-05_job_address.sql adds addr_street, addr_city, addr_state, addr_zip, addr_lat, addr_lon, addr_located to gm_jobs (backup: ~/rez-work/backups/gm_jobs-before-job-address-2026-11-05.sql, applied once to the remote database). The project sheet has a Job site block like the lead's, geocodes on save only when an address field changed, and shows the result line. Weather, Rain by site, the calendar bands and the Projects list use the project's own point first, then its lead's.
+3. Read only count. GET /api/clients/:id/gm/geocode-count (owner only, 401/403/429) and scripts/geocode-count.mjs. Writes nothing.
+4. Use my location. Button on the lead sheet and the project sheet. The browser position (one request, high accuracy, 10 seconds) goes to the Worker as manual_lat and manual_lon; the Worker validates (numbers, range, at most 6 decimals, both or neither; else 400) and stores addr_located "manual". A later address change looks up again. Labels: Localizado: posição do aparelho / Located: device position.
+5. Only the Hillsborough layer returned rows on 11/05/2026; Hardee, Manatee, Pasco, Pinellas and Polk returned none.
+
+## Tests
+scripts/test-geocode-county.mjs (89), scripts/test-job-address.mjs (108), plus the geocode tests that list Worker functions (test-lead-geocode-fallback, test-census-street-retry, test-geocode-zip-town, test-email-send-buttons) updated for the new function names. Full set compared against HEAD: no new failures.
+
+## Not done on purpose
+No backfill or edit of any real client's data (Gator's projects are filled by hand later). Info.plist and iOS builds untouched.
+
+---
+
 # Legal protections build, 2026-11-05: adults only confirmation, self hosted fonts, no session replay guard, text consent
 
 ## What changed

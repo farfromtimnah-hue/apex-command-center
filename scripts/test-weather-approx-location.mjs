@@ -29,7 +29,7 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass
 // Worker: the calendar band carries the same flag, from the same helper.
 {
   const src = readFileSync(new URL("../worker/index.js", import.meta.url), "utf8");
-  ok(/l\.addr_located FROM gm_jobs j/.test(src) && /approx_location: gmLocationApprox\(j\.addr_located\)/.test(src), "calendar band events carry approx_location from the job's lead");
+  ok(/ELSE l\.addr_located END AS addr_located FROM gm_jobs j/.test(src) && /approx_location: gmLocationApprox\(j\.addr_located\)/.test(src), "calendar band events carry approx_location from the project's own point, else its lead's");
 }
 
 // Screen: both views show the bilingual note, escaped, in existing styles.

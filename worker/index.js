@@ -12,6 +12,7 @@ import CONTRACT_STATE_CHECKLIST_V1 from "../data/contract-state-checklist-v1.jso
 import HELP_GUIDES_V1 from "../help/guides.json";
 import ZIP_CENTERS_V1 from "../data/geo/zip-centers-v1.json";
 import TOWN_CENTERS_V1 from "../data/geo/town-centers-v1.json";
+import ADDRESS_LAYERS_V1 from "../data/geo/address-layers-v1.json";
 import CITIES_BR_AC from "../data/places/cities/BR-AC.json";
 import CITIES_BR_AL from "../data/places/cities/BR-AL.json";
 import CITIES_BR_AM from "../data/places/cities/BR-AM.json";
@@ -24102,6 +24103,10 @@ async function handleGetGmLeads(id, request, env) {
 //                 endpoint NEEDS a street: a bare ZIP or a city + state makes
 //                 it answer with an empty addressMatches list (tested
 //                 10/31/2026), so it is used for this step only.
+//   1b. "county" — an address point from a regional address layer listed in
+//                 data/geo/address-layers-v1.json, for NEW streets the Census
+//                 file misses (see geoLayerCenter below). A real address
+//                 point: NOT approximate.
 //   2. "zip"    — the ZIP's center, from the bundled US Census ZCTA Gazetteer
 //                 (data/geo/zip-centers-v1.json, public domain). A ZIP missing
 //                 from that file (a newer one) gets one call to
@@ -24246,6 +24251,196 @@ async function geoTownCenter(city, state) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Regional address layers: the step between the Census street step and the
+// ZIP step. The Census file misses NEW CONSTRUCTION streets; a county publishes
+// an address layer that is created when an address is issued, so a new home
+// appears there first. A layer that answers is an address point, so
+// addr_located "county" is NOT approximate.
+//
+// HOW TO ADD ANOTHER REGION (a new county or state): add one entry to
+// data/geo/address-layers-v1.json and nothing else. The entry needs:
+//   id, label        a short id and a human label
+//   host, path       the ArcGIS server host and the layer path (ends in /MapServer/0)
+//   state            two letters; the step runs only when the typed state matches
+//   zips             every ZIP the layer covers (ArcGIS: the layer's ?f=pjson,
+//                    Post_Code coded value domain, or a distinct values query)
+//   fields           the layer's own names: house_number, street_name, zip,
+//                    status, full_address
+//   statuses         the layer's names for current, pending, proposed
+// The allowed hosts are exactly the hosts in that file (repo data, never user input).
+//
+// Rules of the step: it runs only when a street is typed AND the typed 5 digit
+// ZIP is in an entry's zips for the typed state; otherwise it is skipped (a
+// region is never guessed). One outside call, 4 seconds at most. The where
+// clause is built only from validated parts (letters, digits, spaces, hyphens,
+// periods, apostrophes; every single quote doubled; anything else: no call).
+// A record is accepted only when its house number equals the typed one exactly
+// and its street words match; Current is preferred, then Pending, then
+// Proposed; Retired, Inactive, Unknown and anything else are never accepted.
+// It never throws, never blocks a save, reads and writes no database, and logs
+// nothing (no street address ever reaches a log).
+// ---------------------------------------------------------------------------
+var GEO_LAYERS = (ADDRESS_LAYERS_V1 && ADDRESS_LAYERS_V1.layers) || [];
+var GEO_LAYER_TIMEOUT_MS = 4000;
+var GEO_LAYER_TYPES = { STREET: "ST", ST: "ST", AVENUE: "AVE", AVE: "AVE", BOULEVARD: "BLVD", BLVD: "BLVD", ROAD: "RD", RD: "RD",
+    DRIVE: "DR", DR: "DR", LANE: "LN", LN: "LN", COURT: "CT", CT: "CT", CIRCLE: "CIR", CIR: "CIR", PLACE: "PL", PL: "PL",
+    WAY: "WAY", PARKWAY: "PKWY", PKWY: "PKWY", TRAIL: "TRL", TRL: "TRL", TERRACE: "TER", TER: "TER", HIGHWAY: "HWY", HWY: "HWY",
+    LOOP: "LOOP", RUN: "RUN", PASS: "PASS", PATH: "PATH", BEND: "BND", BND: "BND", COVE: "CV", CV: "CV", CROSSING: "XING", XING: "XING",
+    SQUARE: "SQ", SQ: "SQ", POINT: "PT", PT: "PT", PLAZA: "PLZ", PLZ: "PLZ", ROW: "ROW", WALK: "WALK", GLEN: "GLN", GLN: "GLN" };
+var GEO_LAYER_DIRS = { N: "N", S: "S", E: "E", W: "W", NE: "NE", NW: "NW", SE: "SE", SW: "SW", NORTH: "N", SOUTH: "S", EAST: "E", WEST: "W",
+    NORTHEAST: "NE", NORTHWEST: "NW", SOUTHEAST: "SE", SOUTHWEST: "SW" };
+var GEO_LAYER_UNIT_WORDS = { APT: 1, APARTMENT: 1, UNIT: 1, STE: 1, SUITE: 1, LOT: 1, BLDG: 1, BUILDING: 1, FLOOR: 1, RM: 1, ROOM: 1, SPC: 1, TRLR: 1 };
+
+// One word of a street: letters and digits, with a hyphen, apostrophe or period
+// only BETWEEN them (and one period at the end, as in "St."). Nothing else.
+function geoLayerWordOk(w) {
+    return /^[A-Za-z0-9]+(?:[.'\-][A-Za-z0-9]+)*\.?$/.test(w);
+}
+
+// "1217 N Apollo Beach Blvd Apt 4" -> { numDigits: "1217", numToken: "1217", name: "APOLLO BEACH",
+// tokens: ["N", "APOLLO", "BEACH", "BLVD"] (unit cut off) }. Anything unsafe: null.
+function geoLayerParseStreet(street) {
+    var s = String(street == null ? "" : street).trim();
+    if (!s || s.length > 100) { return null; }
+    s = s.split(/[#,]/)[0].trim().replace(/\s+/g, " ");
+    var words = s.split(" ");
+    if (words.length < 2) { return null; }
+    for (var i = 0; i < words.length; i++) { if (!geoLayerWordOk(words[i])) { return null; } }
+    var m = /^(\d{1,6})([A-Za-z]?)$/.exec(words[0]);
+    if (!m) { return null; }
+    var rest = words.slice(1).map(function(w) { return w.replace(/\.$/, "").toUpperCase(); });
+    for (var u = 1; u < rest.length; u++) { if (GEO_LAYER_UNIT_WORDS[rest[u]]) { rest = rest.slice(0, u); break; } }
+    if (!rest.length) { return null; }
+    var nameWords = rest.slice();
+    if (nameWords.length > 1 && GEO_LAYER_DIRS[nameWords[0]]) { nameWords.shift(); }
+    if (nameWords.length > 1 && GEO_LAYER_DIRS[nameWords[nameWords.length - 1]]) { nameWords.pop(); }
+    if (nameWords.length > 1 && GEO_LAYER_TYPES[nameWords[nameWords.length - 1]]) { nameWords.pop(); }
+    return { numDigits: m[1], numToken: (m[1] + m[2]).toUpperCase(), name: nameWords.join(" "), tokens: rest };
+}
+
+// The registry entry that answers for this address, or null: a street is
+// typed, the typed state matches the entry's state, and the typed 5 digit ZIP
+// is in the entry's zips. `layers` defaults to the registry file.
+function geoLayerEntry(parts, layers) {
+    try {
+        var list = layers || GEO_LAYERS;
+        if (!parts || !String(parts.street == null ? "" : parts.street).trim()) { return null; }
+        var st = geoState2(parts.state);
+        var z = /^\d{5}$/.test(String(parts.zip == null ? "" : parts.zip).trim()) ? String(parts.zip).trim() : null;
+        if (!st || !z) { return null; }
+        for (var i = 0; i < list.length; i++) {
+            var e = list[i];
+            if (e && e.state === st && Array.isArray(e.zips) && e.zips.indexOf(z) !== -1) { return e; }
+        }
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// The where clause, from validated parts and the entry's field map. Every term
+// is quoted with its single quotes doubled. Null when anything is unusable.
+function geoLayerWhere(parsed, entry, zip) {
+    if (!parsed || !entry || !entry.fields || !/^\d{1,6}$/.test(parsed.numDigits)) { return null; }
+    var z = geoZip5(zip);
+    if (!z) { return null; }
+    var nameWords = parsed.name.split(" ");
+    for (var i = 0; i < nameWords.length; i++) { if (!geoLayerWordOk(nameWords[i])) { return null; } }
+    var f = entry.fields;
+    function q(t) { return "'" + String(t).replace(/'/g, "''") + "'"; }
+    return f.house_number + " = " + q(parsed.numDigits) + " AND UPPER(" + f.street_name + ") LIKE " + q(parsed.name + "%") +
+        " AND " + f.zip + " = " + q(z);
+}
+
+// Only a host and layer path listed in the registry file, over https, no user info.
+async function geoLayerFetchJson(url, layers) {
+    var u;
+    try { u = new URL(String(url)); } catch (e) { return null; }
+    if (u.protocol !== "https:" || u.username || u.password) { return null; }
+    var list = layers || GEO_LAYERS;
+    var allowed = false;
+    for (var i = 0; i < list.length; i++) {
+        if (list[i] && u.host === list[i].host && u.pathname === list[i].path + "/query") { allowed = true; break; }
+    }
+    if (!allowed) { return null; }
+    var ctrl = new AbortController();
+    var timer = setTimeout(function() { ctrl.abort(); }, GEO_LAYER_TIMEOUT_MS);
+    try {
+        var res = await fetch(u.toString(), { signal: ctrl.signal });
+        if (!res.ok) { return null; }
+        return await res.json();
+    } catch (e) {
+        return null;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+// Words of a record's full address after the house number, with road types and
+// directions folded to one spelling so "Street" and "St" compare equal.
+function geoLayerFold(words) {
+    return words.map(function(w) {
+        var u = String(w).replace(/\.$/, "").toUpperCase();
+        return GEO_LAYER_TYPES[u] || GEO_LAYER_DIRS[u] || u;
+    });
+}
+
+// The best acceptable record: its house number equals the typed one exactly,
+// its street words match, its status is the entry's current, pending or
+// proposed (in that order of preference), its ZIP is the typed one and its
+// point is a real coordinate pair.
+function geoLayerPick(features, parsed, entry, zip) {
+    if (!Array.isArray(features) || !parsed || !entry || !entry.fields || !entry.statuses) { return null; }
+    var typed = geoLayerFold(parsed.tokens);
+    var z = geoZip5(zip);
+    var order = [entry.statuses.current, entry.statuses.pending, entry.statuses.proposed].map(function(n) {
+        return String(n == null ? "" : n).trim().toLowerCase();
+    });
+    var best = null, bestRank = 99;
+    features.forEach(function(f) {
+        var a = f && f.attributes, g = f && f.geometry;
+        if (!a || !g) { return; }
+        var st = String(a[entry.fields.status] == null ? "" : a[entry.fields.status]).trim().toLowerCase();
+        var rank = st ? order.indexOf(st) : -1;
+        if (rank === -1 || rank >= bestRank) { return; }
+        var words = String(a[entry.fields.full_address] == null ? "" : a[entry.fields.full_address]).trim().replace(/\s+/g, " ").split(" ");
+        if (words.length < 2 || words[0].toUpperCase() !== parsed.numToken) { return; }
+        var rec = geoLayerFold(words.slice(1));
+        var hit = false;
+        for (var skip = 0; skip < 2 && !hit; skip++) {
+            if (skip === 1 && !(rec.length > 1 && GEO_LAYER_DIRS[rec[0]])) { break; }
+            var cand = rec.slice(skip, skip + typed.length);
+            hit = cand.length === typed.length && cand.every(function(w, i) { return w === typed[i]; });
+        }
+        if (!hit) { return; }
+        var rz = a[entry.fields.zip];
+        if (z && rz && String(rz).slice(0, 5) !== z) { return; }
+        var lon = g.x, lat = g.y;
+        if (typeof lat !== "number" || typeof lon !== "number" || !isFinite(lat) || !isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) { return; }
+        best = { lat: lat, lon: lon };
+        bestRank = rank;
+    });
+    return best;
+}
+
+async function geoLayerCenter(parts) {
+    try {
+        var entry = geoLayerEntry(parts);
+        if (!entry) { return null; }
+        var parsed = geoLayerParseStreet(parts.street);
+        var where = geoLayerWhere(parsed, entry, parts.zip);
+        if (!where) { return null; }
+        var f = entry.fields;
+        var qs = new URLSearchParams({ where: where, outFields: [f.full_address, f.zip, f.status].join(","), returnGeometry: "true", outSR: "4326", resultRecordCount: "5", f: "json" });
+        var data = await geoLayerFetchJson("https://" + entry.host + entry.path + "/query?" + qs.toString());
+        if (!data || !Array.isArray(data.features)) { return null; }
+        return geoLayerPick(data.features, parsed, entry, parts.zip);
+    } catch (e) {
+        return null;
+    }
+}
+
 async function geocodeAddress(parts) {
     var street = parts.street && String(parts.street).trim();
     var city = parts.city && String(parts.city).trim();
@@ -24256,6 +24451,9 @@ async function geocodeAddress(parts) {
         var full = [street, city, state, zip].filter(function(s) { return s; }).join(", ");
         var exact = await geocodeOneLine(full);
         if (exact.lat !== null) { return { lat: exact.lat, lon: exact.lon, located: "exact" }; }
+        // 2. "county": an address point from the county's records (new streets).
+        var byCounty = await geoLayerCenter({ street: street, city: city, state: state, zip: zip });
+        if (byCounty) { return { lat: byCounty.lat, lon: byCounty.lon, located: "county" }; }
     }
     var byZip = await geoZipCenter(zip);
     if (byZip) { return { lat: byZip.lat, lon: byZip.lon, located: "zip" }; }
@@ -24268,6 +24466,23 @@ async function geocodeAddress(parts) {
 // (addr_located "zip" or "town"); the screens then say the place is approximate.
 function gmLocationApprox(located) {
     return located === "zip" || located === "town";
+}
+
+// "Use my location": the device position sent with an address save. Both
+// numbers or neither. Numbers only (a JSON number, never text), latitude -90 to
+// 90, longitude -180 to 180, at most 6 decimals. Anything else is an error and
+// the save is a 400; nothing is repaired. Returns null when the body carries no
+// position, { lat, lon } when it is good, { error } when it is not.
+function gmManualPosition(body) {
+    if (!body || (body.manual_lat === undefined && body.manual_lon === undefined)) { return null; }
+    var bad = { error: "Posição inválida. / Invalid position." };
+    var la = body.manual_lat, lo = body.manual_lon;
+    if (typeof la !== "number" || typeof lo !== "number" || !isFinite(la) || !isFinite(lo)) { return bad; }
+    if (la < -90 || la > 90 || lo < -180 || lo > 180) { return bad; }
+    var sa = String(la), so = String(lo);
+    if (/e/i.test(sa) || /e/i.test(so)) { return bad; }
+    if ((sa.split(".")[1] || "").length > 6 || (so.split(".")[1] || "").length > 6) { return bad; }
+    return { lat: la, lon: lo };
 }
 
 // True when any of the structured address fields present in `f` differ from
@@ -24289,6 +24504,9 @@ function gmLeadAddressChanged(f, existing) {
 // geocode if any address field is present) or the current row for an update
 // (only re-geocode when it actually changed).
 async function gmLeadGeocodeIfNeeded(f, existing) {
+    // A device position sent with this save wins: the person pressed the
+    // button with the address in view. A LATER address change looks up again.
+    if (f.addr_located === "manual") { return; }
     if (!gmLeadAddressChanged(f, existing)) { return; }
     var merged = {
         street: f.addr_street !== undefined ? f.addr_street : (existing && existing.addr_street),
@@ -24393,6 +24611,9 @@ async function gmLeadFields(body, config, partial, env, clientId) {
         var f = gmNum(body.followups);
         out.followups = f === null ? null : Math.max(0, Math.round(f));
     }
+    var leadPos = gmManualPosition(body);
+    if (leadPos && leadPos.error) { return { error: leadPos.error }; }
+    if (leadPos) { out.addr_lat = leadPos.lat; out.addr_lon = leadPos.lon; out.addr_located = "manual"; }
     return { fields: out };
 }
 
@@ -27790,11 +28011,11 @@ async function handleGetGmJobs(id, request, env) {
         // hand-made job with no lead_id must still come back.
         var rows = sellerName
             ? await env.DB.prepare(
-                "SELECT j.*, " + GM_JOB_SIGNED_SQL + " AS signed_final_cents, " + gmEstimatePriceSql("j.lead_id") + " AS estimate_price_cents, l.addr_lat, l.addr_lon FROM gm_jobs j JOIN gm_leads l ON l.id = j.lead_id AND l.client_id = j.client_id " +
+                "SELECT j.*, " + GM_JOB_SIGNED_SQL + " AS signed_final_cents, " + gmEstimatePriceSql("j.lead_id") + " AS estimate_price_cents, l.addr_lat AS lead_addr_lat, l.addr_lon AS lead_addr_lon FROM gm_jobs j JOIN gm_leads l ON l.id = j.lead_id AND l.client_id = j.client_id " +
                 "WHERE j.client_id = ? AND (l.vendedor = ? OR l.vendedor_secundario = ?) ORDER BY j.created_at DESC"
               ).bind(id, sellerName, sellerName).all()
             : await env.DB.prepare(
-                "SELECT j.*, " + GM_JOB_SIGNED_SQL + " AS signed_final_cents, " + gmEstimatePriceSql("j.lead_id") + " AS estimate_price_cents, l.addr_lat, l.addr_lon FROM gm_jobs j LEFT JOIN gm_leads l ON l.id = j.lead_id AND l.client_id = j.client_id " +
+                "SELECT j.*, " + GM_JOB_SIGNED_SQL + " AS signed_final_cents, " + gmEstimatePriceSql("j.lead_id") + " AS estimate_price_cents, l.addr_lat AS lead_addr_lat, l.addr_lon AS lead_addr_lon FROM gm_jobs j LEFT JOIN gm_leads l ON l.id = j.lead_id AND l.client_id = j.client_id " +
                 "WHERE j.client_id = ? ORDER BY j.created_at DESC"
               ).bind(id).all();
         var jobs = [];
@@ -28586,17 +28807,103 @@ async function handleGetGmJobWeather(id, jobId, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         var job = await gmOwnedRow(env, "gm_jobs", jobId, id);
         if (!job) { return jsonErr("Job not found", 404); }
-        if (!job.lead_id) { return jsonOk({ available: false }); }
-        var lead = await env.DB.prepare("SELECT addr_lat, addr_lon, addr_located FROM gm_leads WHERE id = ? AND client_id = ?")
-            .bind(job.lead_id, id).first();
-        if (!lead || typeof lead.addr_lat !== "number" || typeof lead.addr_lon !== "number") {
-            return jsonOk({ available: false });
+        // The project's OWN coordinates first, then its linked lead's.
+        var site = null;
+        if (typeof job.addr_lat === "number" && typeof job.addr_lon === "number") {
+            site = job;
+        } else if (job.lead_id) {
+            var lead = await env.DB.prepare("SELECT addr_lat, addr_lon, addr_located FROM gm_leads WHERE id = ? AND client_id = ?")
+                .bind(job.lead_id, id).first();
+            if (lead && typeof lead.addr_lat === "number" && typeof lead.addr_lon === "number") { site = lead; }
         }
-        var forecast = await getHourlyForecast(lead.addr_lat, lead.addr_lon, env, await gmWeatherRequestZone(request, env, id));
+        if (!site) { return jsonOk({ available: false }); }
+        var forecast = await getHourlyForecast(site.addr_lat, site.addr_lon, env, await gmWeatherRequestZone(request, env, id));
         if (!forecast) { return jsonOk({ available: false }); }
-        return jsonOk({ available: true, forecast: forecast, verdict: gmWeatherVerdict(forecast), approx_location: gmLocationApprox(lead.addr_located) });
+        return jsonOk({ available: true, forecast: forecast, verdict: gmWeatherVerdict(forecast), approx_location: gmLocationApprox(site.addr_located) });
     } catch (e) {
         return jsonErr("Error fetching weather: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/gm/geocode-count -- READ ONLY.
+//
+// For one client's ACTIVE projects (status "Em andamento"): where does each
+// one's weather location come from, and which ones need a person to look.
+// A project's location is its OWN coordinates first, its linked lead's second.
+// Counts (one project falls in exactly one of the first five groups):
+//   own_coordinates              the project has its own point
+//   lead_coordinates_only        no own point; the linked lead has one
+//   own_address_no_coordinates   an address on the project, but no point anywhere
+//   lead_address_no_coordinates  no address on the project; the lead has an
+//                                address (structured or the old text) but no point
+//   no_address_anywhere          no address on the project or on a lead
+//   approximate_only             (overlaps the groups above) the point used is a
+//                                ZIP or town center, not an address
+// needs_attention lists the NAMES of the projects in approximate_only and the
+// last three groups. Owner only: a salesperson, a partner or staff login of the
+// business, and another client all get 403. It runs one SELECT and writes nothing.
+// ---------------------------------------------------------------------------
+function gmGeocodeCountOwnerGuard(user, clientId) {
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (!requireClientAccess(user, clientId)) { return jsonErr("Forbidden", 403); }
+    if (sessionSellerName(user) || PASSKEY_NEW_LOGIN_ROLES.indexOf(user.login_role) !== -1) { return jsonErr("Forbidden", 403); }
+    return null;
+}
+
+function gmGeocodeCountCompute(rows) {
+    function filled() {
+        for (var i = 0; i < arguments.length; i++) {
+            if (typeof arguments[i] === "string" && arguments[i].trim()) { return true; }
+        }
+        return false;
+    }
+    function point(lat, lon) { return typeof lat === "number" && typeof lon === "number"; }
+    function approx(located) { return located === "zip" || located === "town"; }
+    var out = { active_total: 0, own_coordinates: 0, lead_coordinates_only: 0, approximate_only: 0,
+        lead_address_no_coordinates: 0, no_address_anywhere: 0, own_address_no_coordinates: 0, needs_attention: [] };
+    (rows || []).forEach(function(r) {
+        out.active_total++;
+        var reason = null;
+        if (point(r.addr_lat, r.addr_lon)) {
+            out.own_coordinates++;
+            if (approx(r.addr_located)) { reason = "approximate"; }
+        } else if (r.l_id && point(r.l_lat, r.l_lon)) {
+            out.lead_coordinates_only++;
+            if (approx(r.l_located)) { reason = "approximate"; }
+        } else if (filled(r.addr_street, r.addr_city, r.addr_state, r.addr_zip)) {
+            out.own_address_no_coordinates++;
+            reason = "own_address_no_coordinates";
+        } else if (r.l_id && filled(r.l_street, r.l_city, r.l_state, r.l_zip, r.l_address, r.l_city_legacy)) {
+            out.lead_address_no_coordinates++;
+            reason = "lead_address_no_coordinates";
+        } else {
+            out.no_address_anywhere++;
+            reason = "no_address_anywhere";
+        }
+        if (reason === "approximate") { out.approximate_only++; }
+        if (reason && out.needs_attention.length < 500) { out.needs_attention.push({ id: r.id, name: r.obra, reason: reason }); }
+    });
+    return out;
+}
+
+async function handleGetGmGeocodeCount(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var blocked = gmGeocodeCountOwnerGuard(user, id);
+        if (blocked) { return blocked; }
+        if (publicReadRateLimited(request, "geocnt", id, 20, 20)) { return jsonErr("Too many requests", 429); }
+        var rows = await env.DB.prepare(
+            "SELECT j.id, j.obra, j.addr_street, j.addr_city, j.addr_state, j.addr_zip, j.addr_lat, j.addr_lon, j.addr_located, " +
+            "l.id AS l_id, l.addr_street AS l_street, l.addr_city AS l_city, l.addr_state AS l_state, l.addr_zip AS l_zip, " +
+            "l.address AS l_address, l.city AS l_city_legacy, l.addr_lat AS l_lat, l.addr_lon AS l_lon, l.addr_located AS l_located " +
+            "FROM gm_jobs j LEFT JOIN gm_leads l ON l.id = j.lead_id AND l.client_id = j.client_id " +
+            "WHERE j.client_id = ? AND j.status = 'Em andamento' ORDER BY j.obra"
+        ).bind(id).all();
+        return jsonOk(gmGeocodeCountCompute(rows.results || []));
+    } catch (e) {
+        console.error("geocode-count failed", e && e.message);
+        return jsonErr("Could not read the counts", 500);
     }
 }
 
@@ -28626,7 +28933,10 @@ async function gmDerivedJobEvents(env, clientId, fromDate, toDate) {
     // comes back -- just with null coordinates, same as before this join.
     var rows = await env.DB.prepare(
         "SELECT j.id, j.obra, j.inicio, j.prazo_previsto, j.entrega_real, j.status, " +
-        "l.addr_lat, l.addr_lon, l.addr_located FROM gm_jobs j " +
+        // The project's own point when it has one (both numbers), else its lead's.
+        "CASE WHEN j.addr_lat IS NOT NULL AND j.addr_lon IS NOT NULL THEN j.addr_lat ELSE l.addr_lat END AS addr_lat, " +
+        "CASE WHEN j.addr_lat IS NOT NULL AND j.addr_lon IS NOT NULL THEN j.addr_lon ELSE l.addr_lon END AS addr_lon, " +
+        "CASE WHEN j.addr_lat IS NOT NULL AND j.addr_lon IS NOT NULL THEN j.addr_located ELSE l.addr_located END AS addr_located FROM gm_jobs j " +
         "LEFT JOIN gm_leads l ON l.id = j.lead_id AND l.client_id = j.client_id " +
         "WHERE j.client_id = ? AND (" +
         "  (j.inicio         IS NOT NULL AND j.inicio         <= ? AND (j.prazo_previsto IS NULL OR j.prazo_previsto >= ?)) OR " +
@@ -29437,6 +29747,38 @@ function gmJobFields(body, partial) {
         var k = strFields[j][0];
         if (has(k)) { out[k] = body[k] === null ? null : gmStr(body[k], strFields[j][1]); }
     }
+    // The project's own address. Rejected, never repaired: a street or city is
+    // text of 200 / 100 characters at most, a state is two letters, a ZIP is 5
+    // digits. Empty clears the field. The coordinates and addr_located are never
+    // read from the body as such; the server sets them by geocoding
+    // (gmLeadGeocodeIfNeeded) or from a validated device position (manual_lat and
+    // manual_lon, see gmManualPosition).
+    var addrText = [["addr_street", 200], ["addr_city", 100]];
+    for (var a = 0; a < addrText.length; a++) {
+        var ak = addrText[a][0];
+        if (!has(ak)) { continue; }
+        var av = body[ak];
+        if (av === null || av === "") { out[ak] = null; continue; }
+        if (typeof av !== "string" || av.length > addrText[a][1] + 50) { return { error: "Endereço inválido. / Invalid address." }; }
+        var at = av.trim();
+        if (at.length > addrText[a][1]) { return { error: "Endereço inválido. / Invalid address." }; }
+        out[ak] = at || null;
+    }
+    if (has("addr_state")) {
+        var sv = body.addr_state;
+        if (sv === null || sv === "") { out.addr_state = null; }
+        else if (typeof sv === "string" && /^[A-Za-z]{2}$/.test(sv.trim())) { out.addr_state = sv.trim().toUpperCase(); }
+        else { return { error: "Endereço inválido. / Invalid address." }; }
+    }
+    if (has("addr_zip")) {
+        var zv = body.addr_zip;
+        if (zv === null || zv === "") { out.addr_zip = null; }
+        else if (typeof zv === "string" && /^\d{5}$/.test(zv.trim())) { out.addr_zip = zv.trim(); }
+        else { return { error: "Endereço inválido. / Invalid address." }; }
+    }
+    var jobPos = gmManualPosition(body);
+    if (jobPos && jobPos.error) { return { error: jobPos.error }; }
+    if (jobPos) { out.addr_lat = jobPos.lat; out.addr_lon = jobPos.lon; out.addr_located = "manual"; }
     return { fields: out };
 }
 
@@ -29450,10 +29792,12 @@ async function handlePostGmJob(id, request, env) {
         var parsed = gmJobFields(body, false);
         if (parsed.error) { return jsonErr(parsed.error, 400); }
         var f = parsed.fields;
+        await gmLeadGeocodeIfNeeded(f, null);
         var rowId = crypto.randomUUID();
         await env.DB.prepare(
-            "INSERT INTO gm_jobs (id, client_id, obra, mes_entrega, valor, material, mao_de_obra, outros, custo_administrativo, comissao, imposto, inicio, prazo_previsto, entrega_real, status) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO gm_jobs (id, client_id, obra, mes_entrega, valor, material, mao_de_obra, outros, custo_administrativo, comissao, imposto, inicio, prazo_previsto, entrega_real, status, " +
+            "addr_street, addr_city, addr_state, addr_zip, addr_lat, addr_lon, addr_located) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(rowId, id, f.obra,
             f.mes_entrega !== undefined ? f.mes_entrega : null,
             f.valor !== undefined ? f.valor : null,
@@ -29466,7 +29810,14 @@ async function handlePostGmJob(id, request, env) {
             f.inicio !== undefined ? f.inicio : null,
             f.prazo_previsto !== undefined ? f.prazo_previsto : null,
             f.entrega_real !== undefined ? f.entrega_real : null,
-            f.status !== undefined ? f.status : "Em andamento").run();
+            f.status !== undefined ? f.status : "Em andamento",
+            f.addr_street !== undefined ? f.addr_street : null,
+            f.addr_city !== undefined ? f.addr_city : null,
+            f.addr_state !== undefined ? f.addr_state : null,
+            f.addr_zip !== undefined ? f.addr_zip : null,
+            f.addr_lat !== undefined ? f.addr_lat : null,
+            f.addr_lon !== undefined ? f.addr_lon : null,
+            f.addr_located !== undefined ? f.addr_located : null).run();
         var row = await gmOwnedRow(env, "gm_jobs", rowId, id);
         return jsonOk({ created: true, job: row });
     } catch (e) {
@@ -29622,6 +29973,9 @@ async function handlePutGmJob(id, rowId, request, env) {
         if (parsed.error) { return jsonErr(parsed.error, 400); }
         var f = parsed.fields;
         if (!Object.keys(f).length) { return jsonErr("Nothing to update", 400); }
+        // The project's own address: geocode only when an address field really
+        // changed (same rule as a lead); sets addr_lat / addr_lon / addr_located.
+        await gmLeadGeocodeIfNeeded(f, existing);
         // Hero follow-up D4d / F1 / G6d / G6h: value, costs and dates are
         // logged (history row per changed field, same batch). The value is
         // guarded in SQL: with a signed contract it stays the contract's final
@@ -60892,6 +61246,8 @@ async function handleFetch(request, env, ctx) {
                 }
                 // Customer document PDF link (docs PDF build, Part A).
                 if (segs.length === 5 && gmCol === "pdf-link" && method === "POST") { return handlePostDocPdfLink(cid, request, env, ctx); }
+                // Read only count of where each active project's weather location comes from (owner only).
+                if (segs.length === 5 && gmCol === "geocode-count" && method === "GET") { return handleGetGmGeocodeCount(cid, request, env); }
                 // Contract builder (contracts build, checkpoint B).
                 if (segs.length === 5 && gmCol === "contract-settings") {
                     if (method === "GET") { return handleGetContractSettings(cid, request, env); }

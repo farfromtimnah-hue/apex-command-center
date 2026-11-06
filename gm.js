@@ -3557,6 +3557,7 @@ function gmRenderLeadSheet() {
     gmSheetRowHtml("building", gmT("Cidade", "City"), val("addr_city"), edit("addr_city")) +
     gmSheetRowHtml("compass", gmT("Estado", "State"), val("addr_state"), edit("addr_state")) +
     gmSheetRowHtml("tag", gmT("CEP / ZIP", "ZIP"), val("addr_zip"), edit("addr_zip")) +
+    gmLocationRowHtml("lead") +
     gmSheetRowHtml("key", gmT("Instruções de acesso", "Access notes"), val("addr_access"), edit("addr_access")));
 
   // Job 38: a lead from a Facebook or Instagram lead ad shows the ad and the
@@ -4255,7 +4256,8 @@ function gmEditLeadField(defIdx) {
 function gmSaveLeadField(key, value, after, reason, leadOverride) {
   var lead = leadOverride || gmDetailLead;
   var payload = {};
-  payload[key] = value;
+  // "__position" carries the device position ({ manual_lat, manual_lon }) as the whole body.
+  if (key === "__position") { payload = value; } else { payload[key] = value; }
   if (reason) { payload._reason = reason; }
   gmApi("leads/" + lead.id, { method: "PUT", body: payload })
     .then(function(d) {
@@ -4291,7 +4293,7 @@ function gmSaveLeadField(key, value, after, reason, leadOverride) {
         // side; tell the user what was actually found (exact pin vs. an
         // approximate ZIP/town centroid vs. nothing) right where they just
         // typed it, rather than leaving it silent until the map is opened.
-        if (["addr_street", "addr_city", "addr_state", "addr_zip"].indexOf(key) !== -1) {
+        if (["addr_street", "addr_city", "addr_state", "addr_zip", "__position"].indexOf(key) !== -1) {
           gmToast(gmLeadLocatedLabel(d.lead.addr_located));
         }
       }
@@ -4301,8 +4303,41 @@ function gmSaveLeadField(key, value, after, reason, leadOverride) {
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
+// "Use my location" (lead and project sheets). One request to the browser for
+// the device position (high accuracy, 10 seconds). On success the position is
+// sent to the Worker, which validates it and stores it as "manual". If the
+// browser refuses or times out, a short error line shows and nothing changes.
+var gmLocationBusy = false;
+function gmUseMyLocation(kind) {
+  var fail = function() {
+    gmLocationBusy = false;
+    gmToast(gmT("Não foi possível obter a posição. Verifique a permissão de localização.",
+                "Could not get the position. Check the location permission."));
+  };
+  if (gmLocationBusy) { return; }
+  if (!(navigator && navigator.geolocation)) { fail(); return; }
+  gmLocationBusy = true;
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    var lat = pos && pos.coords ? Number(pos.coords.latitude.toFixed(6)) : NaN;
+    var lon = pos && pos.coords ? Number(pos.coords.longitude.toFixed(6)) : NaN;
+    if (!isFinite(lat) || !isFinite(lon)) { fail(); return; }
+    gmLocationBusy = false;
+    var body = { manual_lat: lat, manual_lon: lon };
+    if (kind === "job") { gmSaveSimpleField("job", "__position", body); }
+    else { gmSaveLeadField("__position", body, function() { gmRenderLeadSheet(); }); }
+  }, fail, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+}
+
+function gmLocationRowHtml(kind) {
+  return gmSheetRowHtml("map-pin", gmT("Usar minha localização", "Use my location"), "<span></span>",
+    "gmUseMyLocation('" + kind + "')", null,
+    escHtml(gmT("Se você mudar o endereço, a posição é calculada de novo.", "If you change the address, the position is calculated again.")));
+}
+
 function gmLeadLocatedLabel(located) {
   if (located === "exact") { return gmT("Localizado: endereço exato", "Located: exact address"); }
+  if (located === "county") { return gmT("Localizado: registros do condado", "Located: county records"); }
+  if (located === "manual") { return gmT("Localizado: posição do aparelho", "Located: device position"); }
   if (located === "zip") { return gmT("Localizado: aproximado (CEP)", "Located: approximate (ZIP)"); }
   if (located === "town") { return gmT("Localizado: aproximado (cidade)", "Located: approximate (town)"); }
   return gmT("Não localizado", "Not located");
@@ -5663,7 +5698,12 @@ function gmRenderJobs() {
   // over the FULL list, not the filtered month, since this is a data-quality
   // count rather than a period metric. addr_lat/addr_lon come from the job's
   // lead (a hand-made job with no lead has none either way).
-  var noCoords = jobs.filter(function(j) { return typeof j.addr_lat !== "number" || typeof j.addr_lon !== "number"; }).length;
+  // The project's own point first, then its lead's (lead_addr_lat / lead_addr_lon).
+  var noCoords = jobs.filter(function(j) {
+    var own = typeof j.addr_lat === "number" && typeof j.addr_lon === "number";
+    var viaLead = typeof j.lead_addr_lat === "number" && typeof j.lead_addr_lon === "number";
+    return !own && !viaLead;
+  }).length;
   if (jobs.length && noCoords) {
     html += '<p class="muted" style="margin-top:4px;">' +
       gmT(noCoords + " de " + jobs.length + " projetos sem coordenadas de mapa.",
@@ -10030,7 +10070,13 @@ function gmSimpleSpec(kind) {
       { key: "mes_entrega",    type: "choice",   pt: "Mês entrega",        en: "Delivery month", options: gmConfig.config.cycle_months },
       { key: "inicio",         type: "date",     pt: "Início",             en: "Start" },
       { key: "prazo_previsto", type: "date",     pt: "Prazo previsto",     en: "Deadline" },
-      { key: "entrega_real",   type: "date",     pt: "Entrega real",       en: "Actual delivery" }
+      { key: "entrega_real",   type: "date",     pt: "Entrega real",       en: "Actual delivery" },
+      // The project's own address: same fields and labels as the lead's. The
+      // Worker geocodes on save and sets addr_lat / addr_lon / addr_located.
+      { key: "addr_street",    type: "text",     pt: "Rua / Endereço",     en: "Street" },
+      { key: "addr_city",      type: "text",     pt: "Cidade",             en: "City" },
+      { key: "addr_state",     type: "text",     pt: "Estado",             en: "State" },
+      { key: "addr_zip",       type: "zip",      pt: "CEP / ZIP",          en: "ZIP" }
     ]
   };
 }
@@ -10260,6 +10306,19 @@ function gmJobSheetBody(row, spec) {
     gmSheetRowHtml("calendar", gmT("Início", "Start"), val("inicio"), edit("inicio")) +
     gmSheetRowHtml("clock", gmT("Prazo previsto", "Deadline"), val("prazo_previsto"), edit("prazo_previsto")) +
     gmSheetRowHtml("check", gmT("Entrega real", "Actual delivery"), val("entrega_real"), edit("entrega_real")));
+
+  // ── Job site: the project's own address, same rows as the lead's. The
+  // result line under it says what the geocoder found, so a person watching
+  // can see whether the match is good before moving on. With no address of
+  // its own the project keeps using its lead's, exactly as before.
+  var hasOwnAddr = !!(row && (row.addr_street || row.addr_city || row.addr_state || row.addr_zip));
+  body += gmSheetSection(gmT("Endereço da obra", "Job site"),
+    gmSheetRowHtml("map-pin", gmT("Rua / Endereço", "Street"), val("addr_street"), edit("addr_street")) +
+    gmSheetRowHtml("building", gmT("Cidade", "City"), val("addr_city"), edit("addr_city")) +
+    gmSheetRowHtml("compass", gmT("Estado", "State"), val("addr_state"), edit("addr_state")) +
+    gmSheetRowHtml("tag", gmT("CEP / ZIP", "ZIP"), val("addr_zip"), edit("addr_zip")) +
+    gmLocationRowHtml("job") +
+    ((hasOwnAddr || row.addr_located === "manual") ? gmSheetRowHtml("map-pin", gmT("Localização", "Location"), escHtml(gmLeadLocatedLabel(row.addr_located))) : ""));
 
   return body;
 }
@@ -10599,7 +10658,8 @@ function gmSaveSimpleField(kind, key, value) {
     return;
   }
   var payload = {};
-  payload[key] = value;
+  // "__position" carries the device position ({ manual_lat, manual_lon }) as the whole body.
+  if (key === "__position") { payload = value; } else { payload[key] = value; }
   gmApi(spec.collection + "/" + row.id, { method: "PUT", body: payload })
     .then(function(d) {
       var updated = d[spec.itemKey];
@@ -10611,6 +10671,11 @@ function gmSaveSimpleField(kind, key, value) {
           Object.keys(updated).forEach(function(k) { list[idx][k] = updated[k]; });
           gmSheetRow = list[idx];
         }
+      }
+      // The project's own address was saved: say what the geocoder found, right
+      // where the person just typed it (the sheet also keeps the result line).
+      if (kind === "job" && ["addr_street", "addr_city", "addr_state", "addr_zip", "__position"].indexOf(key) !== -1 && updated) {
+        gmToast(gmLeadLocatedLabel(updated.addr_located));
       }
       spec.reload();
       // reload wipes+refetches; reopen the sheet on fresh data

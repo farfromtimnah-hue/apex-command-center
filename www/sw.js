@@ -11,7 +11,7 @@
 // overwritten. This is what makes the activate handler's cache cleanup below
 // actually fire on each deploy instead of silently serving stale
 // nav.js/pwa.js/mobile.css/icons forever.
-var CACHE_NAME = "apex-static-1793936117";
+var CACHE_NAME = "apex-static-1793939737";
 
 var PRECACHE_URLS = [
   "nav.js",

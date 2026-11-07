@@ -1,5 +1,6 @@
 // Durable Object RPC: the class must extend DurableObject or stub.check() is not callable.
 import { DurableObject } from "cloudflare:workers";
+import GM_MEASURE from "../gm-measure.js";
 
 import HERO_GALLERY_V1 from "../data/hero-gallery-v1.json";
 import WIZARD_V1 from "../data/wizard-v1.json";
@@ -16318,6 +16319,8 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "thumbtack/status" || gmRest === "thumbtack/phones") { return true; }
                 // ABC Supply (2026-11-04): the owner's connection, accounts and orders list (owner only: the handler refuses a seller).
                 if (gmRest === "abc/status" || gmRest === "abc/accounts" || gmRest === "abc/orders" || gmRest === "abc/items") { return true; }
+                // Extra material standard, ABC order drafts and saved delivery locations (2026-11-07), owner only (the handlers refuse a seller).
+                if (gmRest === "material-settings" || gmRest === "abc/drafts" || gmRest === "abc/locations" || /^abc\/drafts\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 // Hero follow-up (B3): the client's private hero collections
                 // (empty for every client not on a collection's list).
                 if (gmRest === "hero-gallery-private") { return true; }
@@ -16408,7 +16411,9 @@ function clientRequestAllowed(path, method, clientId) {
                 // ABC Supply (2026-11-04): connect, disconnect, choose the account, price lines, send an order (owner only).
                 if (gmRest === "abc/connect" || gmRest === "abc/disconnect" || gmRest === "abc/account" || gmRest === "abc/price" || gmRest === "abc/order") { return true; }
                 // ABC Supply price list (2026-11-05): add items, refresh costs, link or unlink one item (owner only).
-                if (gmRest === "abc/add-items" || gmRest === "abc/refresh-costs" || /^pricing\/[A-Za-z0-9-]+\/abc-(link|unlink)$/.test(gmRest)) { return true; }
+                if (gmRest === "material-settings/apply" || gmRest === "abc/drafts/ensure" || gmRest === "abc/drafts/combine" || gmRest === "abc/locations" ||
+                    /^abc\/drafts\/[A-Za-z0-9-]+\/(discard|prices|send)$/.test(gmRest) || /^abc\/locations\/[A-Za-z0-9-]+\/archive$/.test(gmRest)) { return true; }
+                if (gmRest === "abc/add-items" || gmRest === "abc/refresh-costs" || gmRest === "abc/price-rows" || /^pricing\/[A-Za-z0-9-]+\/abc-(link|unlink)$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 // G5e: a hand-made project becomes a lead (owner only; never
                 // on the seller list, the handler refuses sellers too).
@@ -16484,6 +16489,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "doc-messages") { return true; }
                 if (/^estimates\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 if (gmRest === "contract-settings") { return true; }
+                if (gmRest === "material-settings" || /^abc\/(drafts|locations)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 if (/^contracts\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 if (/^custom-clauses\/[A-Za-z0-9-]+\/attorney-review$/.test(gmRest)) { return true; }
                 if (/^(punch|lienors|subcontractors)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
@@ -30268,6 +30274,13 @@ async function handlePostGmPricing(id, request, env) {
             }
             throw insErr;
         }
+        // Items added later start with the business standard, stored on the item (measured items only).
+        if (GM_MEASURE.effectiveKind({ unit: f.unit !== undefined ? f.unit : null, measure_kind: null }) === "measured") {
+            var std = await gmMaterialStandard(env, id);
+            if (std !== null) {
+                await env.DB.prepare("UPDATE gm_pricing SET order_extra_percent = ?, order_extra_source = 'standard' WHERE id = ? AND client_id = ? AND order_extra_percent IS NULL").bind(std, rowId, id).run();
+            }
+        }
         var row = await gmOwnedRow(env, "gm_pricing", rowId, id);
         if (row && row.kind !== "addon" && row.item) { await gmServiceFromPricingStmt(env, id, row.item).run(); }
         var comp = gmPricingComputed(row);
@@ -30290,6 +30303,11 @@ async function handlePutGmPricing(id, rowId, request, env) {
         var parsed = gmPricingFields(body, true);
         if (parsed.error) { return jsonErr(parsed.error, 400); }
         var f = parsed.fields;
+        // Extra material and measured setup (2026-11-07): validated apart because
+        // they need the saved row and the business standard.
+        var mat = await gmMaterialFields(env, id, user, body, existing);
+        if (mat.err) { return mat.err; }
+        Object.keys(mat.fields).forEach(function(k) { f[k] = mat.fields[k]; });
         var sets = [], binds = [];
         Object.keys(f).forEach(function(k) { sets.push(k + " = ?"); binds.push(f[k]); });
         if (!sets.length) { return jsonErr("Nothing to update", 400); }
@@ -31713,7 +31731,15 @@ async function gmEstParseOptions(env, clientId, body, trustBodyCosts) {
                 return { error: "\"" + name + "\": changing a price-list rate needs a reason" };
             }
             var costs = pr ? gmPricingComputed(pr) : null;
+            // Length by width (2026-11-07): the inputs must produce the quantity, or the line is refused.
+            var calc = GM_MEASURE.parseCalc(r, qty);
+            if (calc === undefined) { return { error: "\"" + name + "\": check the length, width and depth" }; }
             var line = {
+                calc_kind:      calc.none ? null : calc.calc_kind,
+                calc_unit:      calc.none ? null : calc.calc_unit,
+                calc_length:    calc.none ? null : calc.calc_length,
+                calc_width:     calc.none ? null : calc.calc_width,
+                calc_depth:     calc.none ? null : calc.calc_depth,
                 category:       gmStr(r.category, 80) || (pr ? (pr.category || null) : null),
                 pricing_id:     pricingId,
                 item_name:      name,
@@ -32353,11 +32379,18 @@ async function gmEstWriteOptions(env, est, options) {
             "INSERT INTO gm_estimate_options (id, estimate_id, tier, label, sort_order, subtotal_cents, discount_cents, total_cents, discount_type, discount_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(oid, est.id, o.tier, o.label, i, totals.subtotal_cents, totals.discount_cents, totals.total_cents, o.discount_type || null, o.discount_type ? o.discount_value : null));
         o.items.forEach(function(it, j) {
+            var lineId = crypto.randomUUID();
             stmts.push(env.DB.prepare(
                 "INSERT INTO gm_estimate_items (id, estimate_id, option_id, category, pricing_id, item_name, description, line_type, qty, unit, rate_cents, amount_cents, preset_rate_cents, rate_override_reason, material_cost_cents, labor_cost_cents, other_cost_cents, is_addon, sort_order) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-            ).bind(crypto.randomUUID(), est.id, oid, it.category, it.pricing_id, it.item_name, it.description, it.line_type, it.qty, it.unit,
+            ).bind(lineId, est.id, oid, it.category, it.pricing_id, it.item_name, it.description, it.line_type, it.qty, it.unit,
                    it.rate_cents, it.amount_cents, it.preset_rate_cents, it.rate_override_reason, it.material_cost_cents, it.labor_cost_cents, it.other_cost_cents, it.is_addon, j));
+            // The length by width inputs are written only for a line that has them, so
+            // an estimate without them saves exactly as before (and before the migration).
+            if (it.calc_unit) {
+                stmts.push(env.DB.prepare("UPDATE gm_estimate_items SET calc_kind = ?, calc_length = ?, calc_width = ?, calc_depth = ?, calc_unit = ? WHERE id = ?")
+                    .bind(it.calc_kind, it.calc_length, it.calc_width, it.calc_depth, it.calc_unit, lineId));
+            }
         });
     });
     for (var k = 0; k < stmts.length; k += 40) { await env.DB.batch(stmts.slice(k, k + 40)); }
@@ -42049,7 +42082,14 @@ function abcPlAddInput(body) {
             if (!unit || typeof l.units_per_apex_unit !== "number" || !isFinite(l.units_per_apex_unit) || l.units_per_apex_unit <= 0 || l.units_per_apex_unit > 1000000) { return null; }
             conv = l.units_per_apex_unit;
         }
-        out.push({ item_number: l.item_number, apex_unit: unit, conversion: conv });
+        // Extra material (2026-11-07): absent = start from the business standard; null = the owner cleared it; a number = typed for this item.
+        var extra = { set: false, value: null };
+        if (Object.prototype.hasOwnProperty.call(l, "order_extra_percent")) {
+            var pct = GM_MEASURE.parseExtraPercent(l.order_extra_percent);
+            if (pct === undefined) { return null; }
+            extra = { set: true, value: pct };
+        }
+        out.push({ item_number: l.item_number, apex_unit: unit, conversion: conv, extra: extra });
     }
     return out;
 }
@@ -42241,6 +42281,9 @@ async function handlePostGmAbcAddItems(id, request, env) {
         var stmts = [];
         var planned = [];
         var who = actorName(a.user);
+        // Extra material needs the 2026-11-07 columns; without them the add works exactly as before.
+        var matReady = await gmMaterialColumnsReady(env);
+        var standard = matReady ? await gmMaterialStandard(env, id) : null;
         candidates.forEach(function(f) {
             var p = prices[f.input.item_number];
             if (!p || p.none) { skipped.push({ item_number: f.input.item_number, reason: "no_price" }); return; }
@@ -42250,11 +42293,25 @@ async function handlePostGmAbcAddItems(id, request, env) {
             var cost = abcCostPerUnit(p.price, plan.factor);
             if (cost === null) { skipped.push({ item_number: f.input.item_number, reason: "no_price" }); return; }
             var unit = f.input.apex_unit || unitName;
+            var kindNow = GM_MEASURE.effectiveKind({ unit: unit, measure_kind: null });
+            var extraNow = null;
+            var extraSrc = null;
+            if (f.input.extra.set && f.input.extra.value !== null) {
+                if (kindNow === "counted" || !matReady) { skipped.push({ item_number: f.input.item_number, reason: "extra_on_counted_item" }); return; }
+                extraNow = f.input.extra.value;
+                extraSrc = standard !== null && standard === extraNow ? "standard" : "item";
+            } else if (!f.input.extra.set && standard !== null && kindNow === "measured") {
+                extraNow = standard;
+                extraSrc = "standard";
+            }
             var json = JSON.stringify(abcBreakdownWith([], cost));
             var rowId = crypto.randomUUID();
             planned.push(rowId);
             stmts.push(env.DB.prepare(ABC_PL_INSERT).bind(rowId, id, f.info.description, unit, json, gmPricingCachedTotal(json), who, who,
                 f.input.item_number, p.uom, plan.conversion, cost, a.conn.ship_to_number, a.conn.branch_number, unit));
+            if (extraNow !== null) {
+                stmts.push(env.DB.prepare("UPDATE gm_pricing SET order_extra_percent = ?, order_extra_source = ? WHERE id = ? AND client_id = ?").bind(extraNow, extraSrc, rowId, id));
+            }
             stmts.push(gmServiceFromPricingStmt(env, id, f.info.description));
         });
         var created = [];
@@ -42379,12 +42436,63 @@ async function handlePostGmPricingAbcUnlink(id, pid, request, env) {
     }
 }
 
+// The shared cost refresh. Takes Price list rows that are linked to ABC, asks
+// ABC (the owner is present: only an owner route calls this) and writes the same
+// fields the Update costs button always wrote: the ABC Supply cost line,
+// abc_cost, the sync date and the derived total. The selling price is never read
+// or changed. Each update is guarded in the SQL by what was read, so an edit made
+// meanwhile, an unlink or a second request at the same time is never overwritten.
+// The Price list keeps no cost log, so none is written. Pushes the token and the
+// ABC secret onto `secrets` so the caller can scrub its error text.
+// Answers { out: counts, per: [{ id, status, has_price }] } with status one of
+// updated, unchanged, no_price, needs_conversion, changed_meanwhile.
+async function abcRefreshRows(env, a, id, rows, secrets) {
+    var out = { updated: 0, unchanged: 0, no_price: 0, needs_conversion: 0, changed_meanwhile: 0, no_price_items: [] };
+    var per = [];
+    // A usable row: the Price list unit is still the one the cost was converted for.
+    var usable = [];
+    rows.forEach(function(r) {
+        var stillSame = !!abcNorm(r.abc_apex_unit) && abcNorm(r.unit) === abcNorm(r.abc_apex_unit);
+        var factor = !stillSame ? null : (r.abc_units_per_apex_unit === null ? 1 : r.abc_units_per_apex_unit);
+        if (!factor || !(factor > 0)) { out.needs_conversion++; per.push({ id: r.id, status: "needs_conversion", has_price: false }); return; }
+        usable.push({ row: r, factor: factor });
+    });
+    if (!usable.length) { return { out: out, per: per }; }
+    var token = await abcAccessToken(env, a.cfg, id);
+    secrets.push(token, a.cfg.client_secret);
+    var prices = await abcFetchPrices(a.cfg, token, a.conn, usable.map(function(u) { return u.row.abc_item_number; }), secrets);
+    var stmts = [];
+    var kinds = [];
+    var who = actorName(a.user);
+    usable.forEach(function(u) {
+        var r = u.row;
+        var p = prices[r.abc_item_number];
+        if (!p || p.none) { out.no_price++; out.no_price_items.push({ item: r.item, item_number: r.abc_item_number }); per.push({ id: r.id, status: "no_price", has_price: false }); return; }
+        if (p.uom !== r.abc_unit) { out.needs_conversion++; per.push({ id: r.id, status: "needs_conversion", has_price: true }); return; }
+        var cost = abcCostPerUnit(p.price, u.factor);
+        if (cost === null) { out.no_price++; out.no_price_items.push({ item: r.item, item_number: r.abc_item_number }); per.push({ id: r.id, status: "no_price", has_price: false }); return; }
+        var parsed = gmPricingParseBreakdown(r.cost_breakdown);
+        var hadLine = parsed.some(function(l) { return l.label === ABC.cost_label && l.amount === cost; });
+        var json = JSON.stringify(abcBreakdownWith(parsed, cost));
+        kinds.push({ id: r.id, kind: r.abc_cost === cost && hadLine ? "unchanged" : "updated" });
+        stmts.push(env.DB.prepare(
+            "UPDATE gm_pricing SET cost_breakdown = ?, cost_total = ?, abc_cost = ?, abc_cost_synced_at = datetime('now'), abc_ship_to = ?, abc_branch = ?, updated_at = datetime('now'), updated_by = ? " +
+            "WHERE id = ? AND client_id = ? AND abc_item_number = ? AND cost_breakdown = ? AND unit = ?"
+        ).bind(json, gmPricingCachedTotal(json), cost, a.conn.ship_to_number, a.conn.branch_number, who, r.id, id, r.abc_item_number, r.cost_breakdown, r.unit));
+    });
+    for (var s = 0; s < stmts.length; s += 40) {
+        var results = await env.DB.batch(stmts.slice(s, s + 40));
+        results.forEach(function(res, j) {
+            var k = kinds[s + j];
+            if (res.meta && res.meta.changes === 1) { out[k.kind]++; per.push({ id: k.id, status: k.kind, has_price: true }); }
+            else { out.changed_meanwhile++; per.push({ id: k.id, status: "changed_meanwhile", has_price: true }); }
+        });
+    }
+    return { out: out, per: per };
+}
+
 // POST /api/clients/:id/gm/abc/refresh-costs   (owner only, only when the owner presses the button)
-// Reads the current cost of every linked item from ABC and updates ONLY the ABC
-// Supply line, abc_cost, the sync date and the derived total. Each update is
-// guarded in the SQL by what was read, so an edit made meanwhile, an unlink or a
-// second press at the same time is never overwritten. The Price list keeps no
-// cost log, so none is written.
+// The backup for the automatic refresh: reads the current cost of every linked item from ABC.
 async function handlePostGmAbcRefreshCosts(id, request, env) {
     var secrets = [];
     try {
@@ -42396,48 +42504,243 @@ async function handlePostGmAbcRefreshCosts(id, request, env) {
         ).bind(id).all()).results || [];
         var truncated = rows.length > 200;
         rows = rows.slice(0, 200);
-        var out = { updated: 0, unchanged: 0, no_price: 0, needs_conversion: 0, changed_meanwhile: 0, no_price_items: [], truncated: truncated };
-        // A usable row: the Price list unit is still the one the cost was converted for.
-        var usable = [];
-        rows.forEach(function(r) {
-            var stillSame = !!abcNorm(r.abc_apex_unit) && abcNorm(r.unit) === abcNorm(r.abc_apex_unit);
-            var factor = !stillSame ? null : (r.abc_units_per_apex_unit === null ? 1 : r.abc_units_per_apex_unit);
-            if (!factor || !(factor > 0)) { out.needs_conversion++; return; }
-            usable.push({ row: r, factor: factor });
-        });
-        if (!usable.length) { return jsonOk(out); }
-        var token = await abcAccessToken(env, a.cfg, id);
-        secrets = [token, a.cfg.client_secret];
-        var prices = await abcFetchPrices(a.cfg, token, a.conn, usable.map(function(u) { return u.row.abc_item_number; }), secrets);
-        var stmts = [];
-        var kinds = [];
-        var who = actorName(a.user);
-        usable.forEach(function(u) {
-            var r = u.row;
-            var p = prices[r.abc_item_number];
-            if (!p || p.none) { out.no_price++; out.no_price_items.push({ item: r.item, item_number: r.abc_item_number }); return; }
-            if (p.uom !== r.abc_unit) { out.needs_conversion++; return; }
-            var cost = abcCostPerUnit(p.price, u.factor);
-            if (cost === null) { out.no_price++; out.no_price_items.push({ item: r.item, item_number: r.abc_item_number }); return; }
-            var parsed = gmPricingParseBreakdown(r.cost_breakdown);
-            var hadLine = parsed.some(function(l) { return l.label === ABC.cost_label && l.amount === cost; });
-            var json = JSON.stringify(abcBreakdownWith(parsed, cost));
-            kinds.push(r.abc_cost === cost && hadLine ? "unchanged" : "updated");
-            stmts.push(env.DB.prepare(
-                "UPDATE gm_pricing SET cost_breakdown = ?, cost_total = ?, abc_cost = ?, abc_cost_synced_at = datetime('now'), abc_ship_to = ?, abc_branch = ?, updated_at = datetime('now'), updated_by = ? " +
-                "WHERE id = ? AND client_id = ? AND abc_item_number = ? AND cost_breakdown = ? AND unit = ?"
-            ).bind(json, gmPricingCachedTotal(json), cost, a.conn.ship_to_number, a.conn.branch_number, who, r.id, id, r.abc_item_number, r.cost_breakdown, r.unit));
-        });
-        for (var s = 0; s < stmts.length; s += 40) {
-            var results = await env.DB.batch(stmts.slice(s, s + 40));
-            results.forEach(function(res, j) {
-                if (res.meta && res.meta.changes === 1) { out[kinds[s + j]]++; } else { out.changed_meanwhile++; }
-            });
-        }
-        return jsonOk(out);
+        var res = await abcRefreshRows(env, a, id, rows, secrets);
+        res.out.truncated = truncated;
+        return jsonOk(res.out);
     } catch (e) {
         if (e && e.abcStatus !== undefined) { return abcUpstreamError("refresh-costs", e, secrets); }
         return abcServerError("refresh-costs", e, secrets);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/price-rows   { ids: [Price list row ids, 1 to 50] }   (owner only)
+// Live pricing: the Price list and the screens that show an ABC item call this
+// when the item is opened, with the contractor present. Prices ONLY the rows asked
+// for that belong to this business and are linked to ABC; anything else comes back
+// not_found and never reaches ABC. Writes through abcRefreshRows (cost fields
+// only; the selling price is never touched). The route has its own rate limit.
+async function handlePostGmAbcPriceRows(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcPlStart(request, env, id, "abclive", 120);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var ids = body && body.ids;
+        if (!Array.isArray(ids) || ids.length < 1 || ids.length > ABC.price_batch) { return abcPlBad(); }
+        var seenIds = {};
+        for (var i = 0; i < ids.length; i++) {
+            if (typeof ids[i] !== "string" || !/^[A-Za-z0-9-]{1,80}$/.test(ids[i]) || seenIds[ids[i]]) { return abcPlBad(); }
+            seenIds[ids[i]] = true;
+        }
+        var q = "SELECT id, item, unit, cost_breakdown, abc_item_number, abc_unit, abc_units_per_apex_unit, abc_cost, abc_apex_unit FROM gm_pricing " +
+            "WHERE client_id = ? AND abc_item_number IS NOT NULL AND id IN (" + ids.map(function() { return "?"; }).join(",") + ")";
+        var stmt = env.DB.prepare(q);
+        var rows = (await stmt.bind.apply(stmt, [id].concat(ids)).all()).results || [];
+        var res = rows.length ? await abcRefreshRows(env, a, id, rows, secrets) : { out: {}, per: [] };
+        var statusById = {};
+        res.per.forEach(function(p) { statusById[p.id] = p; });
+        var fresh = {};
+        if (rows.length) {
+            var rbStmt = env.DB.prepare("SELECT * FROM gm_pricing WHERE client_id = ? AND id IN (" + rows.map(function() { return "?"; }).join(",") + ")");
+            var rb = (await rbStmt.bind.apply(rbStmt, [id].concat(rows.map(function(r) { return r.id; }))).all()).results || [];
+            rb.forEach(function(r) {
+                var comp = gmPricingComputed(r);
+                Object.keys(comp).forEach(function(k) { r[k] = comp[k]; });
+                r.kind = gmPricingKind(r.kind);
+                fresh[r.id] = r;
+            });
+        }
+        var out = ids.map(function(rid) {
+            var st = statusById[rid];
+            if (!st || !fresh[rid]) { return { id: rid, status: "not_found", has_price: false, item: null }; }
+            return { id: rid, status: st.status, has_price: st.has_price, item: fresh[rid] };
+        });
+        return jsonOk({ rows: out, retrieved_at: new Date().toISOString() });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("price-rows", e, secrets); }
+        return abcServerError("price-rows", e, secrets);
+    }
+}
+
+// ── Extra material and measured material setup (2026-11-07) ─────────────────
+// The unit lists and the math live in gm-measure.js (one file for the Worker and
+// the pages). Everything here is owner only: a salesperson and platform staff see
+// nothing, and nothing is ever filled in for the owner.
+var GM_MATERIAL_FIELDS = ["order_extra_percent", "order_extra_source", "measure_kind", "piece_length", "piece_width", "piece_dim_unit", "coverage_per_piece", "sold_unit", "coverage_per_sold_unit"];
+
+function gmMaterialOwner(user, clientId) {
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (user.role !== "client" || !user.client_id || user.client_id !== clientId || sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+    return null;
+}
+
+// False until migrations/measured_materials.sql has run.
+async function gmMaterialColumnsReady(env) {
+    try {
+        await env.DB.prepare("SELECT order_extra_percent, coverage_per_sold_unit FROM gm_pricing LIMIT 1").first();
+        await env.DB.prepare("SELECT standard_extra_percent FROM gm_material_settings LIMIT 1").first();
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// The business standard extra percent, or null when there is none (or the migration has not run).
+async function gmMaterialStandard(env, clientId) {
+    try {
+        var r = await env.DB.prepare("SELECT standard_extra_percent FROM gm_material_settings WHERE client_id = ?").bind(clientId).first();
+        return r && r.standard_extra_percent !== null && r.standard_extra_percent !== undefined ? r.standard_extra_percent : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function gmMaterialBad() { return jsonErr2("Confira os dados enviados.", "Check the data sent.", 400); }
+
+// The extra material and measured setup fields of a Price list save, checked field
+// by field against the saved row. Nothing is repaired. Answers { fields } or { err }.
+async function gmMaterialFields(env, clientId, user, body, existing) {
+    var has = function(k) { return Object.prototype.hasOwnProperty.call(body, k); };
+    var touched = GM_MATERIAL_FIELDS.filter(has);
+    if (!touched.length) { return { fields: {} }; }
+    var block = gmMaterialOwner(user, clientId);
+    if (block) { return { err: block }; }
+    if (!(await gmMaterialColumnsReady(env))) { return { err: abcNotAvailable() }; }
+    var f = {};
+    function posOrNull(v, max) {
+        if (v === null || v === "") { return null; }
+        if (typeof v !== "number" || !isFinite(v) || v <= 0 || v > max) { return undefined; }
+        return v;
+    }
+    var kind = existing.measure_kind;
+    if (has("measure_kind")) {
+        if (body.measure_kind !== null && GM_MEASURE.MEASURE_KINDS.indexOf(body.measure_kind) === -1) { return { err: gmMaterialBad() }; }
+        kind = body.measure_kind;
+        f.measure_kind = kind;
+    }
+    var unit = has("unit") ? (body.unit === null ? null : gmStr(body.unit, 40)) : existing.unit;
+    ["piece_length", "piece_width"].forEach(function(k) {
+        if (!has(k)) { return; }
+        var v = posOrNull(body[k], 100000);
+        if (v === undefined) { f.__bad = true; } else { f[k] = v; }
+    });
+    ["coverage_per_piece", "coverage_per_sold_unit"].forEach(function(k) {
+        if (!has(k)) { return; }
+        var v = posOrNull(body[k], 100000000);
+        if (v === undefined) { f.__bad = true; } else { f[k] = v; }
+    });
+    if (has("piece_dim_unit")) {
+        if (body.piece_dim_unit !== null && body.piece_dim_unit !== "in" && body.piece_dim_unit !== "ft") { f.__bad = true; } else { f.piece_dim_unit = body.piece_dim_unit; }
+    }
+    if (has("sold_unit")) {
+        if (body.sold_unit !== null && (typeof body.sold_unit !== "string" || body.sold_unit.length > 40)) { f.__bad = true; }
+        else { f.sold_unit = body.sold_unit === null ? null : (gmStr(body.sold_unit, 40) || null); }
+    }
+    if (f.__bad) { return { err: gmMaterialBad() }; }
+    // The coverage of one piece must agree with the piece size when both are there.
+    var pl = has("piece_length") ? f.piece_length : existing.piece_length;
+    var pw = has("piece_width") ? f.piece_width : existing.piece_width;
+    var pu = has("piece_dim_unit") ? f.piece_dim_unit : existing.piece_dim_unit;
+    var cov = has("coverage_per_piece") ? f.coverage_per_piece : existing.coverage_per_piece;
+    if ((has("piece_length") || has("piece_width") || has("piece_dim_unit") || has("coverage_per_piece")) && cov !== null && cov !== undefined && (kind === "area" || kind === "length") && pl && pu && (kind === "length" || pw)) {
+        var want = GM_MEASURE.coveragePerPiece(kind, pl, pw, pu);
+        if (want === null || Math.abs(want - cov) > 0.0001) { return { err: gmMaterialBad() }; }
+    }
+    if (has("order_extra_percent") || has("order_extra_source")) {
+        if (!has("order_extra_percent")) { return { err: gmMaterialBad() }; }
+        var pct = GM_MEASURE.parseExtraPercent(body.order_extra_percent);
+        if (pct === undefined) { return { err: gmMaterialBad() }; }
+        if (pct !== null && GM_MEASURE.effectiveKind({ unit: unit, measure_kind: kind }) === "counted") {
+            return { err: jsonErr2("Itens contados não levam material extra.", "Counted items get no extra material.", 400) };
+        }
+        var src = null;
+        if (pct !== null) {
+            var asked = has("order_extra_source") ? body.order_extra_source : "item";
+            if (asked !== "item" && asked !== "standard") { return { err: gmMaterialBad() }; }
+            if (asked === "standard") {
+                var std = await gmMaterialStandard(env, clientId);
+                if (std === null || std !== pct) { return { err: gmMaterialBad() }; }
+            }
+            src = asked;
+        }
+        f.order_extra_percent = pct;
+        f.order_extra_source = src;
+    }
+    return { fields: f };
+}
+
+// GET /api/clients/:id/gm/material-settings   (owner only)
+async function handleGetGmMaterialSettings(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = gmMaterialOwner(user, id);
+        if (block) { return block; }
+        if (!(await gmMaterialColumnsReady(env))) { return abcNotAvailable(); }
+        return jsonOk({ standard_extra_percent: await gmMaterialStandard(env, id) });
+    } catch (e) {
+        return abcServerError("material-settings", e);
+    }
+}
+
+// Measured Price list rows of a business that have no extra number of their own.
+async function gmMaterialCandidates(env, clientId) {
+    var rows = (await env.DB.prepare("SELECT id, unit, measure_kind FROM gm_pricing WHERE client_id = ? AND order_extra_percent IS NULL").bind(clientId).all()).results || [];
+    return rows.filter(function(r) { return GM_MEASURE.effectiveKind(r) === "measured"; });
+}
+
+// PUT /api/clients/:id/gm/material-settings   { standard_extra_percent: number | null }   (owner only)
+// Sets or clears the business standard. Answers how many existing measured items have
+// no number of their own, so the page can ask "Apply this to all existing items?" once.
+async function handlePutGmMaterialSettings(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = gmMaterialOwner(user, id);
+        if (block) { return block; }
+        if (!(await gmMaterialColumnsReady(env))) { return abcNotAvailable(); }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        if (!body || typeof body !== "object" || !Object.prototype.hasOwnProperty.call(body, "standard_extra_percent")) { return gmMaterialBad(); }
+        var pct = GM_MEASURE.parseExtraPercent(body.standard_extra_percent);
+        if (pct === undefined) { return gmMaterialBad(); }
+        await env.DB.prepare(
+            "INSERT INTO gm_material_settings (client_id, standard_extra_percent, updated_by, updated_at) VALUES (?, ?, ?, datetime('now')) " +
+            "ON CONFLICT(client_id) DO UPDATE SET standard_extra_percent = excluded.standard_extra_percent, updated_by = excluded.updated_by, updated_at = excluded.updated_at"
+        ).bind(id, pct, actorName(user)).run();
+        var waiting = pct === null ? 0 : (await gmMaterialCandidates(env, id)).length;
+        return jsonOk({ standard_extra_percent: pct, existing_without_number: waiting });
+    } catch (e) {
+        return abcServerError("material-settings", e);
+    }
+}
+
+// POST /api/clients/:id/gm/material-settings/apply   (owner only)
+// Copies the standard onto every existing MEASURED item with no number of its own.
+// Each update is guarded in the SQL, so a number typed meanwhile is never overwritten.
+async function handlePostGmMaterialApply(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = gmMaterialOwner(user, id);
+        if (block) { return block; }
+        if (publicReadRateLimited(request, "materialapply", id, 0, 30)) {
+            return jsonErr2("Muitas tentativas. Tente de novo em alguns minutos.", "Too many attempts. Try again in a few minutes.", 429);
+        }
+        if (!(await gmMaterialColumnsReady(env))) { return abcNotAvailable(); }
+        var std = await gmMaterialStandard(env, id);
+        if (std === null) { return jsonErr2("Defina o material extra padrão primeiro.", "Set the standard extra material first.", 409); }
+        var rows = await gmMaterialCandidates(env, id);
+        var applied = 0;
+        for (var s = 0; s < rows.length; s += 40) {
+            var batch = rows.slice(s, s + 40).map(function(r) {
+                return env.DB.prepare("UPDATE gm_pricing SET order_extra_percent = ?, order_extra_source = 'standard', updated_at = datetime('now'), updated_by = ? WHERE id = ? AND client_id = ? AND order_extra_percent IS NULL")
+                    .bind(std, actorName(user), r.id, id);
+            });
+            var results = await env.DB.batch(batch);
+            results.forEach(function(res) { if (res.meta && res.meta.changes === 1) { applied++; } });
+        }
+        return jsonOk({ applied: applied, standard_extra_percent: std });
+    } catch (e) {
+        return abcServerError("material-apply", e);
     }
 }
 
@@ -61203,7 +61506,14 @@ async function handleFetch(request, env, ctx) {
                     if (segs[5] === "items" && method === "GET") { return handleGetGmAbcItems(cid, request, env); }
                     if (segs[5] === "add-items" && method === "POST") { return handlePostGmAbcAddItems(cid, request, env); }
                     if (segs[5] === "refresh-costs" && method === "POST") { return handlePostGmAbcRefreshCosts(cid, request, env); }
+                    if (segs[5] === "price-rows" && method === "POST") { return handlePostGmAbcPriceRows(cid, request, env); }
                 }
+                // Extra material standard (2026-11-07, owner only).
+                if (segs.length === 5 && gmCol === "material-settings") {
+                    if (method === "GET") { return handleGetGmMaterialSettings(cid, request, env); }
+                    if (method === "PUT") { return handlePutGmMaterialSettings(cid, request, env); }
+                }
+                if (segs.length === 6 && gmCol === "material-settings" && segs[5] === "apply" && method === "POST") { return handlePostGmMaterialApply(cid, request, env); }
                 // Estimates & invoices build: the business's document settings.
                 if (segs.length === 5 && gmCol === "doc-settings") {
                     if (method === "GET") { return handleGetGmDocSettings(cid, request, env); }

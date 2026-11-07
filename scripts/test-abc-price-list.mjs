@@ -5,6 +5,7 @@
 //
 //   node scripts/test-abc-price-list.mjs
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { makeDb, build, hasFn, varSrc } from "./fixtures/d1-shim.mjs";
 
 let fail = 0;
@@ -28,7 +29,7 @@ const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientA
   "gmPricingParseBreakdown", "gmCostLineType", "gmPricingComputed", "gmPricingCachedTotal", "gmPricingKind", "gmOwnedRow", "gmServiceFromPricingStmt", "handleGetGmPricing",
   "abcPlColumnsReady", "abcPlStart", "abcNorm", "abcUnitPlan", "abcCostPerUnit", "abcBreakdownWith", "abcBreakdownWithout", "abcFetchPrices", "abcItemsQuery",
   "abcPlLinkInput", "abcPlAddInput", "abcPlItemInfo", "abcPlShape", "abcPlUnitName", "abcPlBad", "abcPlOwnerOnly",
-  "handleGetGmAbcItems", "handlePostGmAbcAddItems", "handlePostGmPricingAbcLink", "handlePostGmPricingAbcUnlink", "handlePostGmAbcRefreshCosts",
+  "handleGetGmAbcItems", "handlePostGmAbcAddItems", "handlePostGmPricingAbcLink", "handlePostGmPricingAbcUnlink", "abcRefreshRows", "gmMaterialColumnsReady", "gmMaterialStandard", "handlePostGmAbcRefreshCosts",
   "clientRequestAllowed", "sellerRequestAllowed"].filter(hasFn);
 const VARS = ["DEFAULT_ORIGIN", "CORS_HEADERS", "GM_ACTOR_KEY_RE", "GM_HIDDEN_ACTORS", "TOKEN_SEAL_PREFIX", "ABC", "ABC_NA_PT", "ABC_NA_EN",
   "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "ABC_REFRESHING", "ABC_SHIPTO_RE", "ABC_BRANCH_RE", "ABC_ITEM_RE", "ABC_UOM_RE",
@@ -123,7 +124,7 @@ function world(opts) {
     }
     return J({ title: "unknown path in the fake", detail: url }, 500);
   }
-  const stubs = { authenticate: async () => user, fetch: fakeFetch, btoa: (s) => Buffer.from(s, "binary").toString("base64"), gmGetConfig: async () => ({ servicos: [] }) };
+  const stubs = { GM_MEASURE: createRequire(import.meta.url)("../gm-measure.js"), authenticate: async () => user, fetch: fakeFetch, btoa: (s) => Buffer.from(s, "binary").toString("base64"), gmGetConfig: async () => ({ servicos: [] }) };
   const F = build(FNS, VARS, stubs, opts.src);
   const env = Object.assign({ DB: d.DB }, opts.env || ENV_OK);
   return { d, env, F, abc };

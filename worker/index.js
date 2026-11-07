@@ -43155,6 +43155,10 @@ function abcDraftSummary(r) {
 async function handleGetGmAbcDrafts(id, request, env) {
     try {
         var a = await abcDraftStart(request, env, id, "abcdrafts", 240, false);
+        // The Home screen and the contract screen ask this for every owner. A business where ABC is not on (or the
+        // tables are not there) is the normal case, not an error: answer an empty list, not a 503, because every
+        // 5xx makes an automatic support ticket (2026-11-07 ticket auto-2026110718-get-api-clients-id-gm-abc-drafts-503).
+        if (a.err && a.err.status === 503) { return jsonOk({ drafts: [], waiting: 0, available: false }); }
         if (a.err) { return a.err; }
         var cid = new URL(request.url).searchParams.get("contract_id");
         if (cid !== null && !ABC_ID_RE.test(cid)) { return abcDraftBad(); }

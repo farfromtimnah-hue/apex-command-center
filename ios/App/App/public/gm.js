@@ -7305,7 +7305,7 @@ function gmMatEditHtml(m) {
       (lf.qty === "" ? '<div class="gm-warn" style="font-weight:600;font-size:13px;">' + escHtml(gmT("Defina a quantidade. A conversão de unidade está faltando.", "Set the quantity. The unit conversion is missing.")) + '</div>' : "") + '</div>';
   });
   if (!any) { h += '<p class="muted">' + escHtml(gmT("Nenhuma linha no pedido.", "No lines on the order.")) + '</p>'; }
-  h += '<div class="gm-mat-sum"><span>' + escHtml(gmT("Total", "Total")) + '</span><strong id="gmMatSum">' + (any && allPriced ? escHtml(gmMatOrderMoney(total)) : "—") + '</strong></div>' +
+  h += '<div class="gm-mat-sum"><span>' + escHtml(gmT("Total", "Total")) + '</span><strong id="gmMatSum">' + (any && allPriced ? escHtml(gmMatOrderMoney(total)) : gmT("n/d", "n/a")) + '</strong></div>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmMatLineAddOpen()">' + escHtml(gmT("+ Adicionar linha da ABC", "+ Add a line from ABC")) + '</button>';
   if (d.not_from_abc && d.not_from_abc.length) {
     h += '<p class="muted" style="margin:10px 0 0;">' + escHtml(gmT("Fora do pedido, não são da ABC: ", "Not from ABC, left out: ") + d.not_from_abc.map(function(x) { return x.item_name; }).join(", ")) + '</p>';
@@ -7380,7 +7380,7 @@ function gmMatSumPaint() {
   var m = gmMatDraft; if (!m) { return; }
   var total = 0, all = true, any = false;
   m.data.lines.forEach(function(l) { var lf = m.form.lines[l.id]; if (!lf || lf.removed) { return; } any = true; var t = gmMatLineTotal(l, lf); if (t === null) { all = false; } else { total += t; } });
-  var el = document.getElementById("gmMatSum"); if (el) { el.textContent = any && all ? gmMatOrderMoney(total) : "—"; }
+  var el = document.getElementById("gmMatSum"); if (el) { el.textContent = any && all ? gmMatOrderMoney(total) : gmT("n/d", "n/a"); }
 }
 function gmMatLineRemove(id, on) { var m = gmMatDraft; if (!m || !m.form.lines[id]) { return; } m.form.lines[id].removed = on; gmMatDraftRender(); }
 function gmMatUseBusinessAddress(key) {
@@ -7560,10 +7560,10 @@ function gmMatReviewHtml(m) {
   d.lines.filter(function(l) { return !l.removed; }).forEach(function(l) {
     var q = l.quantity, t = l.unit_price !== null && l.unit_price !== undefined && q ? q * l.unit_price : null;
     if (t === null) { all = false; } else { total += t; }
-    h += '<div class="gm-mat-line"><div class="gm-mat-line-head"><strong>' + escHtml(l.description) + '</strong><span>' + (t === null ? "—" : escHtml(gmMatOrderMoney(t))) + '</span></div>' +
+    h += '<div class="gm-mat-line"><div class="gm-mat-line-head"><strong>' + escHtml(l.description) + '</strong><span>' + (t === null ? gmT("n/d", "n/a") : escHtml(gmMatOrderMoney(t))) + '</span></div>' +
       '<div class="gm-lead-sub">' + escHtml(q + " " + l.uom + (l.unit_price !== null && l.unit_price !== undefined ? " × " + gmMatOrderMoney(l.unit_price) : gmT(" · sem preço", " · no price"))) + '</div></div>';
   });
-  h += '<div class="gm-mat-sum"><span>' + escHtml(gmT("Total", "Total")) + '</span><strong>' + (all ? escHtml(gmMatOrderMoney(total)) : "—") + '</strong></div></div>';
+  h += '<div class="gm-mat-sum"><span>' + escHtml(gmT("Total", "Total")) + '</span><strong>' + (all ? escHtml(gmMatOrderMoney(total)) : gmT("n/d", "n/a")) + '</strong></div></div>';
   var can = m.prices === "ok" && all && rv.ack && !rv.sending;
   h += '<button type="button" class="gm-btn-primary"' + (can ? "" : " disabled") + ' onclick="gmMatSend()">' + escHtml(rv.sending ? gmT("Enviando…", "Sending…") : gmT("Enviar pedido à ABC", "Send order to ABC")) + '</button>' +
     '<button type="button" class="gm-btn-secondary"' + (rv.sending ? " disabled" : "") + ' onclick="gmMatDraft.view = \'edit\'; gmMatDraft.rv = null; gmMatDraftRender()">' + escHtml(gmT("Voltar e editar", "Back to edit")) + '</button>';
@@ -7802,19 +7802,19 @@ function gmMatBatchReviewHtml(b) {
       gmMatField("gmMatComboRef", gmT("Número do pedido de compra", "Purchase order number"), b.comboRef, "gmMatBatch.comboRef = this.value", { max: 16, hint: gmT("Até 16 letras, números ou hifens.", "Up to 16 letters, numbers or hyphens.") });
     order.forEach(function(k) {
       var m = merged[k], t = m.price === null ? null : m.qty * m.price; if (t === null) { all = false; } else { grand += t; }
-      h += '<div class="gm-mat-line"><div class="gm-mat-line-head"><strong>' + escHtml(m.description) + '</strong><span>' + (t === null ? "—" : escHtml(gmMatOrderMoney(t))) + '</span></div><div class="gm-lead-sub">' + escHtml(m.qty + " " + m.uom + (m.price === null ? "" : " × " + gmMatOrderMoney(m.price))) + '</div></div>';
+      h += '<div class="gm-mat-line"><div class="gm-mat-line-head"><strong>' + escHtml(m.description) + '</strong><span>' + (t === null ? gmT("n/d", "n/a") : escHtml(gmMatOrderMoney(t))) + '</span></div><div class="gm-lead-sub">' + escHtml(m.qty + " " + m.uom + (m.price === null ? "" : " × " + gmMatOrderMoney(m.price))) + '</div></div>';
     });
   } else {
     h += '<div class="gm-field-label">' + escHtml(b.mode === "A" ? gmT("Pedidos, cada um no seu local", "Orders, each to its own location") : gmT("Pedidos separados, um local", "Separate orders, one location")) + '</div>';
     b.ids.forEach(function(id) {
       var t = 0, ok = true; linesOf(id).forEach(function(l) { var p = price(id, l.id); if (p === null || !l.quantity) { ok = false; } else { t += p * l.quantity; } });
       if (!ok) { all = false; } else { grand += t; }
-      h += '<div class="gm-mat-line"><div class="gm-mat-line-head"><strong>' + escHtml(gmMatBatchName(id)) + '</strong><span>' + (ok ? escHtml(gmMatOrderMoney(t)) : "—") + '</span></div>' +
+      h += '<div class="gm-mat-line"><div class="gm-mat-line-head"><strong>' + escHtml(gmMatBatchName(id)) + '</strong><span>' + (ok ? escHtml(gmMatOrderMoney(t)) : gmT("n/d", "n/a")) + '</span></div>' +
         (b.mode === "sep" ? gmMatField("gmMatPo_" + escHtml(id), gmT("Número do pedido de compra", "Purchase order number"), b.pos[id], "gmMatBatch.pos['" + escHtml(id) + "'] = this.value", { max: 16 }) :
           '<div class="gm-lead-sub" style="white-space:normal;">' + escHtml(gmMatServiceName(b.det[id].draft.delivery_service) + " · " + gmMatShipText(b.det[id]) + " · " + b.det[id].draft.order_ref) + '</div>') + '</div>';
     });
   }
-  h += '<div class="gm-mat-sum"><span>' + escHtml(gmT("Total", "Total")) + '</span><strong>' + (all ? escHtml(gmMatOrderMoney(grand)) : "—") + '</strong></div>' +
+  h += '<div class="gm-mat-sum"><span>' + escHtml(gmT("Total", "Total")) + '</span><strong>' + (all ? escHtml(gmMatOrderMoney(grand)) : gmT("n/d", "n/a")) + '</strong></div>' +
     '<button type="button" class="gm-btn-primary"' + (all && !b.busy ? "" : " disabled") + ' onclick="gmMatBatchSend()">' + escHtml(b.busy ? gmT("Enviando…", "Sending…") : (b.mode === "combo" ? gmT("Enviar o pedido combinado", "Send the combined order") : gmT("Enviar todos", "Send all"))) + '</button>' +
     '<button type="button" class="gm-btn-secondary"' + (b.busy ? " disabled" : "") + ' onclick="gmMatBatch.step = \'' + (b.mode === "A" ? "A" : "B") + '\'; gmMatBatchRender()">' + escHtml(gmT("Voltar", "Back")) + '</button>';
   return h;

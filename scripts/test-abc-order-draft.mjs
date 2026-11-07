@@ -373,5 +373,17 @@ await check("discard", async () => {
   ok((await putDraft(w, did, { job_name: "x" })).status === 409, "a discarded draft cannot be edited");
 });
 
+// 2026-11-07: the Home and contract screens ask for the drafts list for EVERY owner. A business where ABC is not on is the normal
+// case: it must answer an empty list (200), never a 503, because every 5xx makes an automatic support ticket.
+await check("list-where-abc-is-off-is-an-empty-200", async () => {
+  const w = world({ env: { ABC_SANDBOX_CLIENT_IDS: "c2", ABC_CLIENT_ID: "x", ABC_CLIENT_SECRET: "y", TOKEN_ENC_KEY: Buffer.alloc(32, 7).toString("base64") } });
+  seedWorld(w); user = OWNER;
+  const r = await read(await drafts(w));
+  ok(r.status === 200 && Array.isArray(r.data.drafts) && r.data.drafts.length === 0 && r.data.waiting === 0 && r.data.available === false, "ABC off for this business: the drafts list answers 200 with an empty list, not 503");
+  user = null; ok((await drafts(w)).status === 401, "ABC off: not signed in is still 401");
+  user = SELLER; ok((await drafts(w)).status === 403, "ABC off: a seller is still 403");
+  user = OWNER; ok((await w.F.handlePostGmAbcDraftEnsure("c1", post("/x", { contract_id: "con1" }), w.env)).status === 503, "ABC off: the other draft routes still answer not available");
+});
+
 console.log(fail ? "\n" + fail + " check(s) FAILED" : "\nAll checks passed");
 process.exit(fail ? 1 : 0);

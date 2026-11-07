@@ -31963,6 +31963,12 @@ async function gmEstimateInternalPayload(env, est, settings, client, lead, origi
             ln.material_cost_cents = it.material_cost_cents;
             ln.labor_cost_cents = it.labor_cost_cents;
             ln.other_cost_cents = it.other_cost_cents;
+            // Length by width inputs: for the editor only (this is the internal payload, never a customer page or PDF).
+            ln.calc_kind = it.calc_kind || null;
+            ln.calc_unit = it.calc_unit || null;
+            ln.calc_length = it.calc_length === undefined ? null : it.calc_length;
+            ln.calc_width = it.calc_width === undefined ? null : it.calc_width;
+            ln.calc_depth = it.calc_depth === undefined ? null : it.calc_depth;
         });
     });
     return pub;

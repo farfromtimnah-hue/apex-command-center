@@ -1191,3 +1191,41 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
 
 /* The starting balance card while the client has not answered yet. */
 .gm-opening-hl { border: 2px solid var(--gold); background: rgba(201,164,58,0.10); }
+
+/* ABC live pricing, measured material, length by width, Materials orders (2026-11-07) */
+.gm-abc-live { font-size: 12px; color: var(--muted); }
+.gm-abc-loading { opacity: .7; }
+.gm-abc-bad { color: var(--red); }
+.gm-mat-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.gm-mat-row .gm-input { flex: 1 1 90px; min-width: 70px; margin-bottom: 0; }
+.gm-mat-foot { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.gm-mat-foot .gm-btn-primary, .gm-mat-foot .gm-btn-secondary { flex: 1 1 100px; margin: 0; }
+.gm-seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 8px 0; }
+.gm-seg-btn { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--card); color: var(--text); font: inherit; cursor: pointer; }
+.gm-seg-btn:hover { border-color: var(--gold); }
+.gm-seg-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.gm-seg-btn:disabled { opacity: .5; cursor: not-allowed; }
+.gm-seg-on { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.gm-calc { margin: 6px 0; padding: 8px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in srgb, var(--card) 92%, var(--gold)); }
+.gm-callout { display: flex; gap: 10px; padding: 12px; margin: 0 0 12px; border-radius: 12px; border: 1px solid var(--border); background: color-mix(in srgb, var(--card) 90%, var(--gold)); }
+.gm-callout-ok { background: color-mix(in srgb, var(--card) 92%, var(--green)); }
+.gm-callout-icon { flex: 0 0 auto; color: var(--gold); padding-top: 1px; }
+.gm-callout-ok .gm-callout-icon { color: var(--green); }
+.gm-callout-body { flex: 1 1 auto; min-width: 0; }
+.gm-callout-title { font-weight: 700; margin-bottom: 4px; }
+.gm-callout-row { display: flex; gap: 10px; justify-content: space-between; font-size: 14px; padding: 2px 0; }
+.gm-callout-k { color: var(--muted); flex: 0 0 auto; }
+.gm-callout-row span:last-child { text-align: right; overflow-wrap: anywhere; }
+.gm-mat-ack { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 14px; }
+.gm-mat-item { display: flex; gap: 8px; align-items: center; }
+.gm-mat-check { flex: 0 0 22px; width: 22px; height: 22px; }
+.gm-mat-line { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.gm-mat-line-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.gm-mat-removed { opacity: .6; display: flex; justify-content: space-between; align-items: center; text-decoration: line-through; }
+.gm-mat-removed button { text-decoration: none; }
+.gm-mat-total { margin-left: auto; font-weight: 700; }
+.gm-mat-sum { display: flex; justify-content: space-between; padding: 10px 0; font-size: 16px; }
+.gm-mat-loc { display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; padding: 10px; margin: 6px 0; border: 1px solid var(--border); border-radius: 12px; }
+.gm-mat-loc-on { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.gm-mat-loc-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.gm-mat-loc-actions .gm-btn-primary, .gm-mat-loc-actions .gm-btn-secondary { width: auto; margin: 0; padding: 8px 12px; }

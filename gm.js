@@ -536,7 +536,7 @@ function gmAsk(o) {
   var keepBtn = document.getElementById("gmAskKeep");
   var yesBtn = document.getElementById("gmAskYes");
   var field = document.getElementById("gmAskInput");
-  if (keepBtn) { keepBtn.addEventListener("click", gmAskClose); }
+  if (keepBtn) { keepBtn.addEventListener("click", function() { gmAskClose(); if (o.onKeep) { o.onKeep(); } }); }
   if (yesBtn) {
     yesBtn.addEventListener("click", function() {
       if (done) { return; }
@@ -5813,7 +5813,7 @@ function gmLoadPricing() {
   gmAbcPlStatus = null;
   gmAbcPlLoad();
   gmApi("pricing")
-    .then(function(d) { gmPricingData = d; gmRenderPricing(); })
+    .then(function(d) { gmPricingData = d; gmRenderPricing(); gmMatStdLoad(function() { if (gmCurrentTab === "gmpricing") { gmRenderPricing(); } }); gmAbcLiveKick(); })
     .catch(function(e) {
       body.innerHTML = '<div class="content-card"><p class="muted">' + escHtml(e.message) + '</p></div>';
     });
@@ -5930,6 +5930,7 @@ function gmRenderPricing() {
          it.price !== null && it.price !== undefined ? gmT("venda ", "price ") + gmMoney(Math.round(it.price * 100)) : null]
           .filter(function(x) { return !!x; }).map(escHtml).join(" · ") + '</div>' +
         (lineSummary && !ro ? '<div class="gm-lead-sub">' + escHtml(lineSummary) + '</div>' : "") +
+        (!ro && it.abc_item_number && gmAbcLiveLabelHtml(it) ? '<div class="gm-lead-sub">' + gmAbcLiveLabelHtml(it) + '</div>' : "") +
         '</span>' +
         (ro ? '<span class="gm-lead-side">' +
                 (it.price !== null && it.price !== undefined ? gmMoney(Math.round(it.price * 100)) : '<span class="muted">—</span>') +
@@ -5941,6 +5942,7 @@ function gmRenderPricing() {
   }
 
   if (!ro) { html += gmAbcPlPricingHtml(items); }
+  if (!ro) { html += '<div style="margin:6px 0;">' + gmMatPricingButtonsHtml() + (gmAbcPlReady() ? '<button type="button" class="btn-gold gm-add-btn" onclick="gmMatOrdersOpen()">' + gmT("Pedidos de material", "Materials orders") + '</button>' : "") + '</div>'; }
   if (!ro) {
     html += '<button type="button" class="btn-gold gm-add-btn" onclick="gmOpenPricing(-1)">' +
       gmT("+ Novo item", "+ New item") + '</button>' +
@@ -5991,12 +5993,16 @@ function gmOpenPricing(idx) {
     abc_item_number: src.abc_item_number || null, abc_unit: src.abc_unit || null,
     abc_units_per_apex_unit: src.abc_units_per_apex_unit === undefined ? null : src.abc_units_per_apex_unit,
     abc_cost: src.abc_cost === undefined ? null : src.abc_cost, abc_cost_synced_at: src.abc_cost_synced_at || null,
+    measure_kind: src.measure_kind || null,
+    extra: src.order_extra_percent === null || src.order_extra_percent === undefined ? "" : String(src.order_extra_percent),
+    extra_source: src.order_extra_source || null,
     lines: (src.cost_breakdown || []).map(function(l) {
       return { label: l.label || "", amount: (l.amount === null || l.amount === undefined) ? "" : String(l.amount),
                type: gmCostLineType(l.type) };
     })
-  } : { id: null, item: "", category: "", kind: "product", description: "", unit: "", price: "", notes: "", lines: [] };
+  } : { id: null, item: "", category: "", kind: "product", description: "", unit: "", price: "", notes: "", lines: [], measure_kind: null, extra: "", extra_source: null };
   gmRenderPricingSheet();
+  if (src && src.abc_item_number) { gmAbcLiveSheet(src.id); }
 }
 
 function gmRenderPricingSheet() {
@@ -6052,6 +6058,7 @@ function gmRenderPricingSheet() {
       'oninput="gmPricingDraftSet(\'notes\', this.value)">' + escHtml(d.notes) + '</textarea>' +
     '</div>';
 
+  body += gmMatItemSectionHtml(d);
   body += gmAbcPlItemSectionHtml(d);
 
   body += '<button type="button" class="gm-btn-primary" onclick="gmPricingSave()">' +
@@ -6182,12 +6189,27 @@ function gmPricingSave() {
     cost_breakdown: lines
   };
   if (payload.price !== null && !isFinite(payload.price)) { payload.price = null; }
-
+  var mat = gmMatSavePayload(d);
+  if (mat === null) { gmToast(gmT("Use um número de 0 a 100, com uma casa decimal, no material extra.", "Use a number from 0 to 100, with one decimal, for the extra material.")); return; }
+  var isNew = !d.id, extraTyped = GM_MEASURE.parseExtraPercent(d.extra);
+  if (!isNew) { Object.keys(mat).forEach(function(k) { payload[k] = mat[k]; }); }
   var req = d.id
     ? gmApi("pricing/" + d.id, { method: "PUT", body: payload })
     : gmApi("pricing", { method: "POST", body: payload });
-  req.then(function() { gmSheetClose(); gmLoadPricing(); })
-     .catch(function(e) { gmToast(e.message); console.error(e); });
+  req.then(function(r) {
+    var item = r && r.item;
+    var more = isNew && item && Object.keys(mat).length ? gmApi("pricing/" + item.id, { method: "PUT", body: mat }) : Promise.resolve(null);
+    return more.then(function() { return item; });
+  }).then(function(item) {
+    gmSheetClose();
+    // A new measured item starts the setup wizard; a changed number with no standard asks the question.
+    if (isNew && item && gmMatUi() && GM_MEASURE.effectiveKind({ unit: payload.unit, measure_kind: d.measure_kind || null }) === "measured") {
+      gmApi("pricing").then(function(all) { gmPricingData = all; gmRenderPricing(); gmMatWizQueue([item.id]); }).catch(function(e) { console.error(e); gmLoadPricing(); });
+      return;
+    }
+    if (!isNew && mat.order_extra_percent !== undefined && mat.order_extra_percent !== null && extraTyped !== null && extraTyped !== undefined) { gmMatAskStandard(d.id, extraTyped, null); return; }
+    gmLoadPricing();
+  }).catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
 function gmPricingDelete() {
@@ -6246,7 +6268,7 @@ function gmAbcPlLoad() {
   gmAbcPlLoading = true;
   gmApi("abc/status").then(function(d) {
     gmAbcPlLoading = false; gmAbcPlStatus = d || { available: false, connected: false };
-    if (gmCurrentTab === "gmpricing") { gmRenderPricing(); }
+    if (gmCurrentTab === "gmpricing") { gmRenderPricing(); gmAbcLiveKick(); }
   }).catch(function(e) {
     gmAbcPlLoading = false; gmAbcPlStatus = { available: false, connected: false };
     console.error("abc status: " + e.message);
@@ -6265,7 +6287,7 @@ function gmAbcPlPricingHtml(items) {
   var h = '<div style="margin:14px 0 4px;">' +
     '<button type="button" class="btn-gold gm-add-btn"' + GM_ABC_PL_HELP + ' onclick="gmAbcPlOpen()">' + escHtml(gmT("Adicionar da ABC Supply", "Add from ABC Supply")) + '</button>';
   if (linked.length) {
-    h += '<button type="button" class="btn-gold gm-add-btn"' + GM_ABC_PL_HELP + (gmAbcPlBusy ? " disabled" : "") + ' onclick="gmAbcPlRefresh(this)">' + escHtml(gmT("Atualizar custos da ABC", "Update costs from ABC")) + '</button>' +
+    h += '<button type="button" class="btn-gold gm-add-btn"' + GM_ABC_PL_HELP + (gmAbcPlBusy ? " disabled" : "") + ' onclick="gmAbcPlRefresh(this)">' + escHtml(gmT("Atualizar custos da ABC (reserva)", "Update costs from ABC (backup)")) + '</button>' +
       '<p class="muted" style="margin:6px 0 0;">' + escHtml(last ? gmT("Última atualização da ABC: ", "Last update from ABC: ") + formatDateUTC(last) : gmT("Ainda sem atualização da ABC.", "No update from ABC yet.")) + '</p>';
   }
   h += '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT(
@@ -6292,9 +6314,15 @@ function gmAbcPlRefresh(btn) {
 
 // ── Add from ABC Supply: the search sheet ──
 function gmAbcPlOpen() {
-  gmAbcPlFind = { q: "", loading: false, items: null, skipped: 0, picked: {}, unit: {}, conv: {}, result: null, error: "" };
+  gmAbcPlFind = { q: "", loading: false, items: null, skipped: 0, picked: {}, unit: {}, conv: {}, extra: {}, qty: {}, result: null, error: "" };
   gmAbcPlRenderSheet();
 }
+// The extra material number shown for a ticked item: what the owner typed, else the business standard for a measured unit, else empty.
+function gmAbcPlExtraShown(f, it, i, unitNow) {
+  if (f.extra && f.extra[i] !== undefined) { return f.extra[i]; }
+  return gmMatStd !== null && gmMatStd !== undefined && GM_MEASURE.unitKind(unitNow) === "measured" ? String(gmMatStd) : "";
+}
+function gmAbcPlExtraSet(i, v) { if (gmAbcPlFind) { gmAbcPlFind.extra[i] = v; } }
 function gmAbcPlDiffers(it, typed) {
   var t = String(typed || "").trim().toLowerCase();
   return !!t && t !== String(it.unit_name || "").trim().toLowerCase() && t !== String(it.unit_code || "").trim().toLowerCase();
@@ -6338,7 +6366,10 @@ function gmAbcPlRenderSheet() {
       '<div class="muted">' + escHtml([it.item_number, it.category,
         it.has_price ? gmT("Seu custo ", "Your cost ") + gmMoney(Math.round(it.cost * 100)) + gmT(" por ", " per ") + (it.unit_name || it.unit_code || "") : gmT("A ABC não devolveu preço", "ABC returned no price")]
         .filter(function(x) { return !!x; }).join(" · ")) + '</div>';
-    if (on) {
+    if (on && f.draftId) {
+      body += '<label class="gm-field-label" for="gmAbcPlQty' + i + '">' + escHtml(gmT("Quantidade (", "Quantity (") + (it.unit_name || it.unit_code || "") + ')') + '</label>' +
+        '<input type="text" inputmode="decimal" id="gmAbcPlQty' + i + '" class="gm-input" maxlength="9" value="' + escHtml(f.qty[i] || "") + '" oninput="gmAbcPlFind.qty[' + i + '] = this.value">';
+    } else if (on) {
       var typed = f.unit[i] || "";
       body += '<label class="gm-field-label" for="gmAbcPlUnit' + i + '">' + escHtml(gmT("Sua unidade (opcional)", "Your unit (optional)")) + '</label>' +
         '<input type="text" id="gmAbcPlUnit' + i + '" class="gm-input" maxlength="40" value="' + escHtml(typed) + '" placeholder="' + escHtml(it.unit_name || "") + '" onchange="gmAbcPlUnitSet(' + i + ', this.value)">';
@@ -6346,18 +6377,23 @@ function gmAbcPlRenderSheet() {
         body += '<label class="gm-field-label" for="gmAbcPlConv' + i + '">' + escHtml(gmT("Quantas ", "How many ") + typed.trim() + gmT(" cabem em 1 ", " are in 1 ") + (it.unit_name || it.unit_code || "")) + '</label>' +
           '<input type="text" inputmode="decimal" id="gmAbcPlConv' + i + '" class="gm-input" value="' + escHtml(f.conv[i] || "") + '" onchange="gmAbcPlConvSet(' + i + ', this.value)">';
       }
+      var unitNow = typed || it.unit_name || it.unit_code || "";
+      if (gmMatUi() && GM_MEASURE.unitKind(unitNow) !== "counted") {
+        body += '<label class="gm-field-label" for="gmAbcPlExtra' + i + '">' + escHtml(gmT("Material extra (por cento)", "Extra material (percent)")) + '</label>' +
+          '<input type="text" inputmode="decimal" id="gmAbcPlExtra' + i + '" class="gm-input" maxlength="5" value="' + escHtml(gmAbcPlExtraShown(f, it, i, unitNow)) + '" placeholder="' + escHtml(gmT("vazio = sem extra", "empty = no extra")) + '" oninput="gmAbcPlExtraSet(' + i + ', this.value)">';
+      }
     }
     body += '</div>';
   });
   if (f.items && f.items.length) {
-    body += '<button type="button" class="gm-btn-primary"' + GM_ABC_PL_HELP + (pickedCount && !gmAbcPlBusy ? "" : " disabled") + ' onclick="gmAbcPlAdd(this)">' +
-      escHtml(gmT("Adicionar itens selecionados", "Add selected items")) + '</button>';
+    body += '<button type="button" class="gm-btn-primary"' + GM_ABC_PL_HELP + (pickedCount && !gmAbcPlBusy ? "" : " disabled") + ' onclick="' + (f.draftId ? "gmMatLineAddGo(this)" : "gmAbcPlAdd(this)") + '">' +
+      escHtml(f.draftId ? gmT("Adicionar ao pedido", "Add to the order") : gmT("Adicionar itens selecionados", "Add selected items")) + '</button>';
   }
   if (f.result) {
     body += '<p style="margin:10px 0 4px;">' + escHtml(f.result.created.length + gmT(" itens adicionados. O preço de venda fica em branco para você preencher.", " items added. The sale price stays empty for you to fill in.")) + '</p>';
     f.result.skipped.forEach(function(s) { body += '<p class="muted" style="margin:2px 0;">' + escHtml(s.item_number + ": " + gmAbcPlReasonText(s.reason)) + '</p>'; });
   }
-  gmSheetOpen(escHtml(gmT("Adicionar da ABC Supply", "Add from ABC Supply")), body, null, "pricing-item-and-import#item");
+  gmSheetOpen(escHtml(f.draftId ? gmT("Adicionar linha da ABC", "Add a line from ABC") : gmT("Adicionar da ABC Supply", "Add from ABC Supply")), body, null, "pricing-item-and-import#item");
 }
 function gmAbcPlPick(i, on) { if (!gmAbcPlFind) { return; } if (on) { gmAbcPlFind.picked[i] = true; } else { delete gmAbcPlFind.picked[i]; } gmAbcPlRenderSheet(); }
 function gmAbcPlUnitSet(i, v) { if (!gmAbcPlFind) { return; } gmAbcPlFind.unit[i] = v; gmAbcPlRenderSheet(); }
@@ -6367,7 +6403,7 @@ function gmAbcPlSearch(btn) {
   if (!f || f.loading) { return; }
   var q = String(f.q || "").trim();
   if (q.length < 3) { f.error = gmT("Digite pelo menos 3 letras para buscar.", "Type at least 3 characters to search."); gmAbcPlRenderSheet(); return; }
-  f.loading = true; f.error = ""; f.result = null; f.picked = {}; f.unit = {}; f.conv = {};
+  f.loading = true; f.error = ""; f.result = null; f.picked = {}; f.unit = {}; f.conv = {}; f.extra = {}; f.qty = {};
   gmAbcPlRenderSheet();
   gmApi("abc/items?q=" + encodeURIComponent(q)).then(function(d) {
     f.loading = false; f.items = d.items || []; f.skipped = d.skipped_dimensional || 0;
@@ -6381,11 +6417,17 @@ function gmAbcPlAdd(btn) {
   var f = gmAbcPlFind;
   if (!f || gmAbcPlBusy) { return; }
   var list = [];
-  var bad = false;
+  var bad = false, badExtra = false;
   (f.items || []).forEach(function(it, i) {
     if (!f.picked[i]) { return; }
     var o = { item_number: it.item_number };
     var typed = String(f.unit[i] || "").trim();
+    var unitNow = typed || it.unit_name || it.unit_code || "";
+    if (gmMatUi() && GM_MEASURE.unitKind(unitNow) !== "counted") {
+      var en = GM_MEASURE.parseExtraPercent(gmAbcPlExtraShown(f, it, i, unitNow));
+      if (en === undefined) { badExtra = true; return; }
+      o.order_extra_percent = en;
+    }
     if (typed) {
       o.apex_unit = typed;
       if (gmAbcPlDiffers(it, typed)) {
@@ -6396,14 +6438,22 @@ function gmAbcPlAdd(btn) {
     }
     list.push(o);
   });
+  if (badExtra) { f.error = gmT("Use um número de 0 a 100, com uma casa decimal, no material extra.", "Use a number from 0 to 100, with one decimal, for the extra material."); gmAbcPlRenderSheet(); return; }
   if (bad) { f.error = gmT("Informe a conversão de unidade com um número maior que zero.", "Enter the unit conversion as a number above zero."); gmAbcPlRenderSheet(); return; }
   if (!list.length) { return; }
   gmAbcPlBusy = true; f.error = "";
   if (btn) { btn.disabled = true; }
   gmApi("abc/add-items", { method: "POST", body: { items: list } }).then(function(d) {
-    gmAbcPlBusy = false; f.result = d; f.picked = {}; f.unit = {}; f.conv = {};
+    gmAbcPlBusy = false; f.result = d; f.picked = {}; f.unit = {}; f.conv = {}; f.extra = {}; f.qty = {};
     gmAbcPlRenderSheet();
-    gmLoadPricing();
+    // A measured item that was added starts the setup wizard (skippable). With none, a typed number may ask for a standard.
+    gmApi("pricing").then(function(all) {
+      gmPricingData = all; gmRenderPricing();
+      var measured = (d.created || []).filter(function(r) { return gmMatUi() && GM_MEASURE.effectiveKind(r) === "measured"; }).map(function(r) { return r.id; });
+      if (measured.length) { if (d.skipped && d.skipped.length) { gmToast(d.skipped.length + gmT(" itens não foram adicionados.", " items were not added.")); } gmMatWizQueue(measured); return; }
+      var typedRow = (d.created || []).filter(function(r) { return r.order_extra_percent !== null && r.order_extra_percent !== undefined; })[0];
+      if (typedRow && GM_MEASURE.shouldAskStandard(gmMatStd, typedRow.order_extra_percent)) { gmMatAskStandard(typedRow.id, typedRow.order_extra_percent, null); }
+    }).catch(function(e) { console.error(e); gmLoadPricing(); });
   }).catch(function(e) { gmAbcPlBusy = false; f.error = e.message; gmAbcPlRenderSheet(); console.error("abc add: " + e.message); });
 }
 
@@ -6422,7 +6472,7 @@ function gmAbcPlItemSectionHtml(d) {
         : (costed ? gmT("Mesma unidade, sem conversão", "Same unit, no conversion") : "")) + '</p>';
     if (costed) {
       h += '<p class="muted" style="margin:2px 0;">' + escHtml(gmT("Custo ABC: ", "ABC cost: ") + gmMoney(Math.round(d.abc_cost * 100)) + (d.unit ? gmT(" por ", " per ") + d.unit : "")) + '</p>' +
-        '<p class="muted" style="margin:2px 0 8px;">' + escHtml(d.abc_cost_synced_at ? gmT("Última atualização da ABC: ", "Last update from ABC: ") + formatDateUTC(d.abc_cost_synced_at) : "") + '</p>';
+        '<p class="muted" style="margin:2px 0 8px;">' + (gmAbcLiveLabelHtml(gmPricingRowById(d.id) || { id: d.id, abc_item_number: d.abc_item_number, abc_cost_synced_at: d.abc_cost_synced_at }) || escHtml(d.abc_cost_synced_at ? gmT("Última atualização da ABC: ", "Last update from ABC: ") + formatDateUTC(d.abc_cost_synced_at) : "")) + '</p>';
     } else {
       h += '<p class="gm-warn" style="margin:6px 0;">' + escHtml(gmT("Informe a conversão de unidade", "Set the unit conversion")) + '</p>' +
         '<label class="gm-field-label" for="gmAbcPlConvItem">' + escHtml(gmT("Quantas ", "How many ") + (d.unit || "") + gmT(" cabem em 1 ", " are in 1 ") + (d.abc_unit || "")) + '</label>' +
@@ -6494,6 +6544,1320 @@ function gmAbcPlUnlinkDo() {
     gmAbcPlReopen(d.id);
   }).catch(function(e) { gmToast(e.message); console.error("abc unlink: " + e.message); });
 }
+
+// ── ABC live pricing (2026-11-07) ─────────────────────────────────────────
+// No one wants to see a stale ABC price, so an ABC item is priced again, in the
+// background, whenever the owner opens it: the Price list, an item sheet, a draft
+// estimate in the editor, an item added to an estimate line, an order draft. The
+// owner is always present (these run only from a screen the owner opened); nothing
+// here is on a timer. The same item is not asked again inside 60 seconds in one
+// browser session, and the Worker has its own limit. ABC's price only ever reaches
+// the cost; the sale price is never read or changed from ABC.
+var gmAbcLiveAsked = {};   // Price list row id -> time of the last request
+var gmAbcLiveState = {};   // Price list row id -> { state: "loading" | "ok" | "fail" | "noprice" }
+var GM_ABC_LIVE_GAP = 60000;
+var GM_ABC_ID_OK = /^[A-Za-z0-9-]{1,80}$/;
+
+// "3:45 PM, 11/07/2026": 12 hour time, US date, in the owner's own time zone.
+function gmAbcWhen(str) {
+  if (!str) { return ""; }
+  var s = String(str);
+  if (s.indexOf("T") === -1) { s = s.replace(" ", "T") + "Z"; }
+  var d = new Date(s);
+  if (isNaN(d.getTime())) { return ""; }
+  var h = d.getHours(), ap = h >= 12 ? "PM" : "AM";
+  h = h % 12; if (h === 0) { h = 12; }
+  return h + ":" + ("0" + d.getMinutes()).slice(-2) + " " + ap + ", " + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + ("0" + d.getDate()).slice(-2) + "/" + d.getFullYear();
+}
+function gmPricingRowById(id) {
+  var hit = null;
+  ((gmPricingData && gmPricingData.items) || []).forEach(function(it) { if (it.id === id) { hit = it; } });
+  return hit;
+}
+// The small label shown on every ABC linked row and line.
+function gmAbcLiveLabelHtml(row) {
+  if (!row || !row.abc_item_number || gmIsSeller()) { return ""; }
+  var st = gmAbcLiveState[row.id] || {};
+  var synced = row.abc_cost_synced_at || "";
+  var txt = "", cls = "gm-abc-live";
+  if (st.state === "loading") { txt = gmT("Atualizando o preço da ABC…", "Updating ABC price…"); cls += " gm-abc-loading"; }
+  else if (st.state === "fail") { txt = gmT("Não foi possível atualizar o preço da ABC. Última atualização: ", "ABC price could not be updated, last updated ") + (synced ? gmAbcWhen(synced) : gmT("nunca", "never")); cls += " gm-abc-bad"; }
+  else if (st.state === "noprice") { txt = gmT("A ABC não devolveu preço", "ABC returned no price") + (synced ? " · " + gmT("custo de ", "cost from ") + gmAbcWhen(synced) : ""); cls += " gm-abc-bad"; }
+  else if (synced) { txt = gmT("Preço da ABC em ", "ABC price as of ") + gmAbcWhen(synced); }
+  if (!txt) { return ""; }
+  return '<span class="' + cls + '" data-abc-row="' + escHtml(row.id) + '">' + escHtml(txt) + '</span>';
+}
+function gmAbcLiveRepaint(id) {
+  if (!GM_ABC_ID_OK.test(String(id))) { return; }
+  var row = gmPricingRowById(id);
+  var nodes = document.querySelectorAll('[data-abc-row="' + id + '"]');
+  for (var i = 0; i < nodes.length; i++) {
+    var html = gmAbcLiveLabelHtml(row);
+    if (html) { nodes[i].outerHTML = html; } else { nodes[i].textContent = ""; }
+  }
+}
+// The status (connected, account chosen) is read once if no screen has read it yet.
+function gmAbcPlEnsure(cb) {
+  if (gmIsSeller()) { return; }
+  if (gmAbcPlStatus) { cb(); return; }
+  gmApi("abc/status").then(function(d) { gmAbcPlStatus = d || { available: false, connected: false }; cb(); })
+    .catch(function(e) { gmAbcPlStatus = { available: false, connected: false }; console.error("abc status: " + e.message); });
+}
+// ids: Price list row ids. done(results) gets { id: row result } for the rows ABC answered.
+function gmAbcLiveRefresh(ids, done) {
+  var finish = function(r) { if (done) { done(r || {}); } };
+  gmAbcPlEnsure(function() {
+    if (!gmAbcPlReady()) { finish({}); return; }
+    var now = Date.now(), want = [];
+    (ids || []).forEach(function(id) {
+      var row = gmPricingRowById(id);
+      if (!row || !row.abc_item_number || want.indexOf(id) !== -1) { return; }
+      if (gmAbcLiveAsked[id] && now - gmAbcLiveAsked[id] < GM_ABC_LIVE_GAP) { return; }
+      want.push(id);
+    });
+    if (!want.length) { finish({}); return; }
+    want.forEach(function(id) { gmAbcLiveAsked[id] = now; gmAbcLiveState[id] = { state: "loading" }; gmAbcLiveRepaint(id); });
+    var chunks = [];
+    for (var i = 0; i < want.length; i += 50) { chunks.push(want.slice(i, i + 50)); }
+    var results = {};
+    chunks.reduce(function(p, chunk) {
+      return p.then(function() {
+        return gmApi("abc/price-rows", { method: "POST", body: { ids: chunk } }).then(function(d) {
+          (d.rows || []).forEach(function(r) {
+            if (r.status === "not_found") { delete gmAbcLiveState[r.id]; gmAbcLiveRepaint(r.id); return; }
+            results[r.id] = r;
+            if ((r.status === "updated" || r.status === "unchanged") && r.item) {
+              var row = gmPricingRowById(r.id);
+              if (row) { Object.keys(r.item).forEach(function(k) { row[k] = r.item[k]; }); }
+              gmAbcLiveState[r.id] = { state: "ok" };
+            } else if (r.status === "no_price") { gmAbcLiveState[r.id] = { state: "noprice" }; }
+            else { gmAbcLiveState[r.id] = { state: "fail" }; }
+            gmAbcLiveRepaint(r.id);
+          });
+        }).catch(function(e) {
+          chunk.forEach(function(id) { gmAbcLiveState[id] = { state: "fail" }; gmAbcLiveRepaint(id); });
+          console.error("abc live pricing: " + e.message);
+        });
+      });
+    }, Promise.resolve()).then(function() { finish(results); });
+  });
+}
+// The Price list: every visible ABC linked row, once per open.
+function gmAbcLiveKick() {
+  if (gmCurrentTab !== "gmpricing" || !gmPricingData || gmIsSeller()) { return; }
+  var ids = [];
+  (gmPricingData.items || []).forEach(function(it) { if (it.abc_item_number && !(gmPricingNeedsOnly && !it.needs_info)) { ids.push(it.id); } });
+  if (!ids.length) { return; }
+  gmAbcLiveRefresh(ids.slice(0, 200), function(res) {
+    if (Object.keys(res).length && gmCurrentTab === "gmpricing") { gmRenderPricing(); }
+  });
+}
+// An open item sheet follows the refreshed cost (only the ABC Supply line and the ABC fields; the other lines are the owner's edits).
+function gmAbcLiveSheet(id) {
+  gmAbcLiveRefresh([id], function(res) {
+    var r = res[id], d = gmPricingDraft;
+    if (!r || !r.item || !d || d.id !== id) { return; }
+    d.abc_cost = r.item.abc_cost; d.abc_cost_synced_at = r.item.abc_cost_synced_at;
+    d.lines.forEach(function(l) { if (l.label === "ABC Supply" && r.item.abc_cost !== null && r.item.abc_cost !== undefined) { l.amount = String(r.item.abc_cost); } });
+    var box = document.getElementById("gmPricingLines");
+    if (box) { box.innerHTML = gmPricingLinesHtml(); }
+    gmPricingRepaintTotals();
+  });
+}
+
+// ── Extra material, the business standard, measured setup (2026-11-07) ──
+// The unit lists and the math are in gm-measure.js (GM_MEASURE), the same file the Worker uses.
+var gmMatStd;               // undefined = not read yet, null = the business has no standard
+var gmMatAvail = true;      // false when the Worker says the feature is not there yet
+function gmMatUi() { return !gmIsSeller() && gmMatAvail !== false && typeof GM_MEASURE !== "undefined"; }
+function gmMatStdLoad(cb) {
+  if (gmIsSeller()) { return; }
+  gmApi("material-settings").then(function(d) { gmMatStd = d.standard_extra_percent === undefined ? null : d.standard_extra_percent; gmMatAvail = true; if (cb) { cb(); } })
+    .catch(function(e) { gmMatAvail = false; gmMatStd = null; console.error("material settings: " + e.message); if (cb) { cb(); } });
+}
+// "includes 10 percent extra (standard)", "includes 5 percent extra (set for this item)" or "no extra set".
+function gmMatExtraLabel(percent, source) {
+  if (percent === null || percent === undefined || percent === "") { return gmT("sem material extra definido", "no extra set"); }
+  var n = String(percent);
+  return source === "standard" ? gmT("inclui " + n + " por cento de material extra (padrão)", "includes " + n + " percent extra (standard)")
+    : gmT("inclui " + n + " por cento de material extra (definido para este item)", "includes " + n + " percent extra (set for this item)");
+}
+function gmMatSourceFor(n) { return n === null ? null : (gmMatStd !== null && gmMatStd !== undefined && gmMatStd === n ? "standard" : "item"); }
+
+// The extra material section of the item sheet.
+function gmMatItemSectionHtml(d) {
+  if (!gmMatUi() || !d) { return ""; }
+  var eff = GM_MEASURE.effectiveKind({ unit: d.unit, measure_kind: d.measure_kind || null });
+  var kinds = [["", gmT("Pelo texto da unidade", "From the unit text")], ["area", gmT("Área", "Area")], ["length", gmT("Comprimento", "Length")], ["volume", gmT("Volume", "Volume")], ["count", gmT("Contado", "Counted")]];
+  var h = '<div class="gm-sheet-section"><div class="gm-field-label">' + gmT("Material medido e extra", "Measured material and extra") + '</div>' +
+    '<label class="gm-field-label" for="gmMatKind">' + gmT("Como este item é medido", "How this item is measured") + '</label>' +
+    '<select id="gmMatKind" class="gm-input" onchange="gmMatDraftKind(this.value)">' +
+      kinds.map(function(k) { return '<option value="' + k[0] + '"' + ((d.measure_kind || "") === k[0] ? " selected" : "") + '>' + escHtml(k[1]) + '</option>'; }).join("") +
+    '</select>';
+  if (eff === "counted") {
+    h += '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("Item contado: não leva material extra.", "Counted item: no extra material.")) + '</p>';
+  } else {
+    var parsed = GM_MEASURE.parseExtraPercent(d.extra);
+    h += '<label class="gm-field-label" for="gmMatExtra">' + gmT("Material extra (por cento)", "Extra material (percent)") + '</label>' +
+      '<input type="text" inputmode="decimal" id="gmMatExtra" class="gm-input" maxlength="5" value="' + escHtml(d.extra || "") + '" placeholder="' + escHtml(gmT("vazio = sem extra", "empty = no extra")) + '" oninput="gmMatExtraInput(this.value)">' +
+      '<p class="muted" id="gmMatExtraNote" style="margin:4px 0 0;">' + escHtml(gmMatExtraNoteText(d)) + '</p>';
+    if (gmMatStd !== null && gmMatStd !== undefined && !(parsed === gmMatStd && d.extra_source === "standard")) {
+      h += '<button type="button" class="gm-btn-secondary" onclick="gmMatUseStandard()">' + escHtml(gmT("Usar o padrão (" + gmMatStd + " por cento)", "Use the standard (" + gmMatStd + " percent)")) + '</button>';
+    }
+    h += '<button type="button" class="gm-btn-secondary" onclick="gmMatWizOpenFromSheet()">' + escHtml(gmT("Configurar material medido", "Set up measured material")) + '</button>';
+  }
+  return h + '</div>';
+}
+function gmMatExtraNoteText(d) {
+  var n = GM_MEASURE.parseExtraPercent(d.extra);
+  if (n === undefined) { return gmT("Use um número de 0 a 100, com uma casa decimal.", "Use a number from 0 to 100, with one decimal."); }
+  return gmMatExtraLabel(n, n === null ? null : (d.extra_source || gmMatSourceFor(n)));
+}
+function gmMatExtraInput(v) {
+  var d = gmPricingDraft; if (!d) { return; }
+  d.extra = v;
+  var n = GM_MEASURE.parseExtraPercent(v);
+  d.extra_source = n === null || n === undefined ? null : gmMatSourceFor(n);
+  var el = document.getElementById("gmMatExtraNote");
+  if (el) { el.textContent = gmMatExtraNoteText(d); }
+}
+function gmMatUseStandard() {
+  var d = gmPricingDraft; if (!d || gmMatStd === null || gmMatStd === undefined) { return; }
+  d.extra = String(gmMatStd); d.extra_source = "standard";
+  gmRenderPricingSheet();
+}
+function gmMatDraftKind(v) {
+  var d = gmPricingDraft; if (!d) { return; }
+  d.measure_kind = v || null;
+  if (GM_MEASURE.effectiveKind({ unit: d.unit, measure_kind: d.measure_kind }) === "counted") { d.extra = ""; d.extra_source = null; }
+  gmRenderPricingSheet();
+}
+// What the item save adds for the new fields: only what changed, so a plain save never carries them.
+function gmMatSavePayload(d) {
+  var out = {};
+  if (!gmMatUi()) { return out; }
+  var orig = d.id ? gmPricingRowById(d.id) : null;
+  var n = GM_MEASURE.parseExtraPercent(d.extra);
+  if (n === undefined) { return null; }
+  var origN = orig && orig.order_extra_percent !== undefined && orig.order_extra_percent !== null ? orig.order_extra_percent : null;
+  var origSrc = orig && orig.order_extra_source ? orig.order_extra_source : null;
+  var src = n === null ? null : (d.extra_source || gmMatSourceFor(n));
+  if (n !== origN || src !== origSrc) { out.order_extra_percent = n; out.order_extra_source = src; }
+  var k = d.measure_kind || null, origK = orig && orig.measure_kind ? orig.measure_kind : null;
+  if (k !== origK) { out.measure_kind = k; }
+  return out;
+}
+// After an item saved: ask "Make this your standard?" when the business has none and a number was typed.
+// `then` runs after either answer.
+function gmMatAskStandard(itemId, n, then) {
+  var cont = function() { if (then) { then(); } else { gmLoadPricing(); } };
+  if (!GM_MEASURE.shouldAskStandard(gmMatStd, n)) { cont(); return; }
+  gmAsk({
+    message: gmT("Tornar " + n + " por cento o seu padrão?\n\nItens novos já começam com esse número. Um número só para este item não muda o padrão.",
+      "Make " + n + " percent your standard?\n\nNew items start with this number. A number for one item does not change the standard."),
+    yes: gmT("Sim, tornar padrão", "Yes, make it my standard"), keep: gmT("Não, só este item", "No, this item only"),
+    onKeep: cont,
+    onYes: function() {
+      gmMatStdSave(n, function() {
+        gmApi("pricing/" + itemId, { method: "PUT", body: { order_extra_percent: n, order_extra_source: "standard" } })
+          .then(cont).catch(function(e) { gmToast(e.message); console.error(e); cont(); });
+      });
+    }
+  });
+}
+// Saves the standard, then asks once: Apply this to all existing items?
+function gmMatStdSave(n, then) {
+  gmApi("material-settings", { method: "PUT", body: { standard_extra_percent: n } }).then(function(d) {
+    gmMatStd = d.standard_extra_percent;
+    if (then) { then(); }
+    if (d.standard_extra_percent !== null && d.existing_without_number > 0) { gmMatAskApply(d.existing_without_number); }
+    else { gmLoadPricing(); }
+  }).catch(function(e) { gmToast(e.message); console.error(e); });
+}
+function gmMatAskApply(count) {
+  gmAsk({
+    message: gmT("Aplicar isto a todos os itens existentes?\n\n" + count + " itens medidos ainda não têm número próprio. Os que já têm um número não mudam.",
+      "Apply this to all existing items?\n\n" + count + " measured items have no number of their own yet. Items that already have a number stay as they are."),
+    yes: gmT("Sim, aplicar", "Yes, apply"), keep: gmT("Não, deixar como está", "No, leave them"),
+    onYes: function() {
+      gmApi("material-settings/apply", { method: "POST", body: {} }).then(function(d) {
+        gmToast(gmT(d.applied + " itens atualizados.", d.applied + " items updated.")); gmLoadPricing();
+      }).catch(function(e) { gmToast(e.message); console.error(e); });
+    }
+  });
+}
+// The Set standard extra material button on the Price list page.
+function gmMatStdOpen() {
+  var body = '<div class="gm-sheet-section"><label class="gm-field-label" for="gmMatStdInput">' + gmT("Material extra padrão (por cento)", "Standard extra material (percent)") + '</label>' +
+    '<input type="text" inputmode="decimal" id="gmMatStdInput" class="gm-input" maxlength="5" value="' + escHtml(gmMatStd === null || gmMatStd === undefined ? "" : String(gmMatStd)) + '" placeholder="' + escHtml(gmT("vazio = sem padrão", "empty = no standard")) + '">' +
+    '<p class="muted" style="margin:4px 0 0;">' + escHtml(gmT("Vale só para itens medidos. Itens novos começam com este número.", "Applies to measured items only. New items start with this number.")) + '</p>' +
+    '<button type="button" class="gm-btn-primary" onclick="gmMatStdSubmit()">' + escHtml(gmT("Salvar", "Save")) + '</button></div>';
+  gmSheetOpen(escHtml(gmT("Material extra padrão", "Standard extra material")), body, null, "pricing-item-and-import#item");
+}
+function gmMatStdSubmit() {
+  var el = document.getElementById("gmMatStdInput");
+  var n = GM_MEASURE.parseExtraPercent(el ? el.value : "");
+  if (n === undefined) { gmToast(gmT("Use um número de 0 a 100, com uma casa decimal.", "Use a number from 0 to 100, with one decimal.")); return; }
+  gmSheetClose();
+  gmMatStdSave(n);
+}
+function gmMatPricingButtonsHtml() {
+  if (!gmMatUi()) { return ""; }
+  return '<button type="button" class="btn-gold gm-add-btn" onclick="gmMatStdOpen()">' + escHtml(gmT("Definir material extra padrão", "Set standard extra material")) +
+    (gmMatStd !== null && gmMatStd !== undefined ? ' · ' + escHtml(String(gmMatStd)) + '%' : '') + '</button>';
+}
+
+// ── Setup wizard for measured materials (skippable at every step) ──
+// 1 kind, 2 size of one piece, 3 how it is sold, 4 extra material. Each Next saves
+// what was answered, so Skip and closing never lose an earlier answer. Counted items never see it.
+var gmMatWiz = null;
+var gmMatWizQueueIds = [];
+function gmMatWizQueue(ids) {
+  gmMatWizQueueIds = (ids || []).slice();
+  gmMatWizNextInQueue();
+}
+function gmMatWizNextInQueue() {
+  while (gmMatWizQueueIds.length) {
+    var id = gmMatWizQueueIds.shift();
+    var row = gmPricingRowById(id);
+    if (row && GM_MEASURE.effectiveKind(row) !== "counted") { gmMatWizStart(row); return; }
+  }
+  gmLoadPricing();
+}
+function gmMatWizOpenFromSheet() {
+  var d = gmPricingDraft;
+  if (!d || !d.id) { gmToast(gmT("Salve o item primeiro.", "Save the item first.")); return; }
+  var row = gmPricingRowById(d.id);
+  if (row) { gmMatWizQueueIds = []; gmMatWizStart(row); }
+}
+function gmMatWizStart(row) {
+  var kind = row.measure_kind && row.measure_kind !== "count" ? row.measure_kind : "";
+  gmMatWiz = { id: row.id, row: row, step: 1, kind: kind, pl: row.piece_length ? String(row.piece_length) : "", pw: row.piece_width ? String(row.piece_width) : "", pu: row.piece_dim_unit || "in",
+    direct: false, sold: row.sold_unit || "", cov: row.coverage_per_sold_unit ? String(row.coverage_per_sold_unit) : (row.abc_item_number && row.abc_units_per_apex_unit ? String(row.abc_units_per_apex_unit) : ""),
+    pieces: "", extra: row.order_extra_percent !== null && row.order_extra_percent !== undefined ? String(row.order_extra_percent) : (gmMatStd !== null && gmMatStd !== undefined ? String(gmMatStd) : ""), busy: false, err: "" };
+  gmMatWizRender();
+}
+function gmMatWizNum(v) { var n = Number(String(v === null || v === undefined ? "" : v).replace(",", ".").trim()); return String(v || "").trim() && isFinite(n) ? n : null; }
+function gmMatWizUnitWord(w) { return (w.row.unit || gmT("unidade", "unit")); }
+function gmMatWizCoverage(w) {
+  if (!w.kind || w.kind === "volume") { return null; }
+  return GM_MEASURE.coveragePerPiece(w.kind, gmMatWizNum(w.pl), gmMatWizNum(w.pw), w.pu);
+}
+function gmMatWizFoot(w, canBack, nextLabel) {
+  return '<div class="gm-mat-foot">' +
+    (canBack ? '<button type="button" class="gm-btn-secondary" onclick="gmMatWizBack()">' + escHtml(gmT("Voltar", "Back")) + '</button>' : "") +
+    '<button type="button" class="gm-btn-secondary" onclick="gmMatWizSkip()">' + escHtml(gmT("Pular", "Skip")) + '</button>' +
+    (nextLabel ? '<button type="button" class="gm-btn-primary"' + (w.busy ? " disabled" : "") + ' onclick="gmMatWizNext()">' + escHtml(nextLabel) + '</button>' : "") + '</div>';
+}
+function gmMatWizRender() {
+  var w = gmMatWiz; if (!w) { return; }
+  var abc = !!w.row.abc_item_number;
+  var h = '<p class="muted" style="margin:0 0 8px;">' + escHtml(gmT("Passo ", "Step ") + w.step + gmT(" de 4. Você pode pular qualquer passo.", " of 4. You can skip any step.")) + '</p>';
+  if (w.err) { h += '<p class="gm-warn" style="margin:0 0 8px;">' + escHtml(w.err) + '</p>'; }
+  var next = gmT("Próximo", "Next");
+  if (w.step === 1) {
+    var opts = [["area", gmT("Área", "Area"), gmT("Ladrilho, pavers, piso, telhas", "Tile, pavers, flooring, shingles")], ["length", gmT("Comprimento", "Length"), gmT("Rodapé, calha, tubo", "Trim, gutter, pipe")],
+      ["volume", gmT("Volume", "Volume"), gmT("Mulch, cascalho, areia", "Mulch, gravel, sand")], ["count", gmT("Contado", "Counted"), gmT("Uma porta, uma janela. Aqui termina.", "A door, a window. It ends here.")]];
+    h += '<div class="gm-seg">' + opts.map(function(o) {
+      return '<button type="button" class="gm-seg-btn' + (w.kind === o[0] ? " gm-seg-on" : "") + '" onclick="gmMatWizPickKind(\'' + o[0] + '\')"><strong>' + escHtml(o[1]) + '</strong><span class="muted">' + escHtml(o[2]) + '</span></button>';
+    }).join("") + '</div>' + gmMatWizFoot(w, false, "");
+  } else if (w.step === 2) {
+    if (w.kind === "area" || w.kind === "length") {
+      if (!w.direct) {
+        h += '<div class="gm-field-label">' + escHtml(w.kind === "area" ? gmT("Tamanho de uma peça", "Size of one piece") : gmT("Comprimento de uma peça", "Length of one piece")) + '</div>' +
+          '<div class="gm-mat-row"><input type="text" inputmode="decimal" class="gm-input" aria-label="' + escHtml(gmT("Comprimento", "Length")) + '" placeholder="' + escHtml(gmT("Comprimento", "Length")) + '" value="' + escHtml(w.pl) + '" oninput="gmMatWiz.pl = this.value; gmMatWizCovNote()">' +
+          (w.kind === "area" ? '<span class="gm-est-x">×</span><input type="text" inputmode="decimal" class="gm-input" aria-label="' + escHtml(gmT("Largura", "Width")) + '" placeholder="' + escHtml(gmT("Largura", "Width")) + '" value="' + escHtml(w.pw) + '" oninput="gmMatWiz.pw = this.value; gmMatWizCovNote()">' : "") +
+          '<select class="gm-input" aria-label="' + escHtml(gmT("Unidade do tamanho", "Size unit")) + '" onchange="gmMatWiz.pu = this.value; gmMatWizCovNote()"><option value="in"' + (w.pu === "in" ? " selected" : "") + '>' + escHtml(gmT("polegadas", "inches")) + '</option><option value="ft"' + (w.pu === "ft" ? " selected" : "") + '>' + escHtml(gmT("pés", "feet")) + '</option></select></div>' +
+          '<p class="muted" id="gmMatCovNote" style="margin:6px 0;">' + escHtml(gmMatWizCovText(w)) + '</p>' +
+          '<button type="button" class="gm-btn-secondary" onclick="gmMatWiz.direct = true; gmMatWizRender()">' + escHtml(gmT("Sei quanto uma caixa ou palete cobre", "I know how much one box or pallet covers")) + '</button>';
+      } else {
+        h += '<label class="gm-field-label" for="gmMatCovDirect">' + escHtml(gmT("Quanto uma caixa ou palete cobre, em ", "How much one box or pallet covers, in ") + gmMatWizUnitWord(w)) + '</label>' +
+          '<input type="text" inputmode="decimal" id="gmMatCovDirect" class="gm-input" value="' + escHtml(w.cov) + '" oninput="gmMatWiz.cov = this.value">' +
+          '<button type="button" class="gm-btn-secondary" onclick="gmMatWiz.direct = false; gmMatWizRender()">' + escHtml(gmT("Prefiro informar o tamanho da peça", "I would rather give the piece size")) + '</button>';
+      }
+    } else {
+      h += '<p class="muted">' + escHtml(gmT("Itens por volume não têm tamanho de peça. Vá ao próximo passo.", "Volume items have no piece size. Go to the next step.")) + '</p>';
+    }
+    h += gmMatWizFoot(w, true, next);
+  } else if (w.step === 3) {
+    var unitW = gmMatWizUnitWord(w);
+    if (abc) {
+      var sameWord = w.row.abc_units_per_apex_unit === null || w.row.abc_units_per_apex_unit === undefined ? (w.row.abc_cost !== null && w.row.abc_cost !== undefined) : false;
+      if (sameWord) { h += '<p class="muted">' + escHtml(gmT("A unidade da ABC é a mesma do seu item. Nada para converter.", "The ABC unit is the same as your item's unit. Nothing to convert.")) + '</p>'; }
+      else {
+        h += '<label class="gm-field-label" for="gmMatCov">' + escHtml(gmT("Quanto 1 ", "How much does 1 ") + (w.row.abc_unit || "ABC") + gmT(" da ABC cobre, em ", " from ABC cover, in ") + unitW + '?') + '</label>' +
+          '<input type="text" inputmode="decimal" id="gmMatCov" class="gm-input" value="' + escHtml(w.cov) + '" oninput="gmMatWiz.cov = this.value">';
+      }
+    } else {
+      var soldOpts = [["piece", gmT("Peça", "Piece")], ["box", gmT("Caixa", "Box")], ["pallet", gmT("Palete", "Pallet")], ["bundle", gmT("Pacote", "Bundle")]];
+      h += '<div class="gm-field-label">' + escHtml(gmT("Como o fornecedor vende", "How the supplier sells it")) + '</div><div class="gm-seg">' +
+        soldOpts.map(function(o) { return '<button type="button" class="gm-seg-btn' + (w.sold === o[0] ? " gm-seg-on" : "") + '" onclick="gmMatWiz.sold = \'' + o[0] + '\'; gmMatWizRender()"><strong>' + escHtml(o[1]) + '</strong></button>'; }).join("") + '</div>';
+      if (w.sold) {
+        var pc = gmMatWizCoverage(w);
+        if (w.sold === "piece" && pc) { h += '<p class="muted">' + escHtml(gmT("Uma peça cobre ", "One piece covers ") + pc + " " + unitW) + '</p>'; }
+        else {
+          h += '<label class="gm-field-label" for="gmMatCov">' + escHtml(gmT("Quanto 1 " + w.sold + " cobre ou contém, em ", "How much does 1 " + w.sold + " cover or hold, in ") + unitW + '?') + '</label>' +
+            '<input type="text" inputmode="decimal" id="gmMatCov" class="gm-input" value="' + escHtml(w.cov) + '" oninput="gmMatWiz.cov = this.value">';
+          if (pc) {
+            h += '<label class="gm-field-label" for="gmMatPieces">' + escHtml(gmT("Ou: quantas peças em 1 " + w.sold, "Or: how many pieces in 1 " + w.sold)) + '</label>' +
+              '<input type="text" inputmode="numeric" id="gmMatPieces" class="gm-input" value="' + escHtml(w.pieces) + '" oninput="gmMatWizPieces(this.value)">';
+          }
+        }
+      }
+    }
+    h += gmMatWizFoot(w, true, next);
+  } else {
+    var n = GM_MEASURE.parseExtraPercent(w.extra);
+    h += '<label class="gm-field-label" for="gmMatWizExtra">' + escHtml(gmT("Material extra (por cento)", "Extra material (percent)")) + '</label>' +
+      '<input type="text" inputmode="decimal" id="gmMatWizExtra" class="gm-input" maxlength="5" value="' + escHtml(w.extra) + '" placeholder="' + escHtml(gmT("vazio = sem extra", "empty = no extra")) + '" oninput="gmMatWiz.extra = this.value; gmMatWizExtraNote()">' +
+      '<p class="muted" id="gmMatWizExtraNote" style="margin:4px 0 0;">' + escHtml(n === undefined ? gmT("Use um número de 0 a 100, com uma casa decimal.", "Use a number from 0 to 100, with one decimal.") : gmMatExtraLabel(n, n === null ? null : gmMatSourceFor(n))) + '</p>' +
+      gmMatWizFoot(w, true, gmT("Concluir", "Done"));
+  }
+  gmSheetOpen(escHtml(gmT("Material medido: ", "Measured material: ") + (w.row.item || "")), h, null, "pricing-item-and-import#item");
+}
+function gmMatWizCovText(w) {
+  var c = gmMatWizCoverage(w);
+  if (c === null) { return ""; }
+  var pl = gmMatWizNum(w.pl), pw = gmMatWizNum(w.pw);
+  return w.kind === "area" ? pl + " " + w.pu + " × " + pw + " " + w.pu + gmT(" cobre ", " covers ") + c + " " + gmMatWizUnitWord(w) : pl + " " + w.pu + gmT(" são ", " is ") + c + " " + gmMatWizUnitWord(w);
+}
+function gmMatWizCovNote() { var el = document.getElementById("gmMatCovNote"); if (el) { el.textContent = gmMatWizCovText(gmMatWiz); } }
+function gmMatWizExtraNote() {
+  var w = gmMatWiz, el = document.getElementById("gmMatWizExtraNote"); if (!w || !el) { return; }
+  var n = GM_MEASURE.parseExtraPercent(w.extra);
+  el.textContent = n === undefined ? gmT("Use um número de 0 a 100, com uma casa decimal.", "Use a number from 0 to 100, with one decimal.") : gmMatExtraLabel(n, n === null ? null : gmMatSourceFor(n));
+}
+function gmMatWizPieces(v) {
+  var w = gmMatWiz; if (!w) { return; }
+  w.pieces = v;
+  var p = gmMatWizNum(v), c = gmMatWizCoverage(w);
+  if (p && p > 0 && c) { w.cov = String(Math.round(p * c * 1000000) / 1000000); var el = document.getElementById("gmMatCov"); if (el) { el.value = w.cov; } }
+}
+function gmMatWizPut(fields, ok) {
+  var w = gmMatWiz; if (!w) { return; }
+  w.busy = true; w.err = "";
+  gmApi("pricing/" + w.id, { method: "PUT", body: fields }).then(function(d) {
+    w.busy = false;
+    if (d && d.item) { var row = gmPricingRowById(w.id); if (row) { Object.keys(d.item).forEach(function(k) { row[k] = d.item[k]; }); w.row = row; } }
+    ok();
+  }).catch(function(e) { w.busy = false; w.err = e.message; gmMatWizRender(); console.error("wizard: " + e.message); });
+}
+function gmMatWizPickKind(k) {
+  var w = gmMatWiz; if (!w) { return; }
+  w.kind = k;
+  if (k === "count") {
+    gmMatWizPut({ measure_kind: "count" }, function() { gmMatWiz = null; gmSheetClose(); gmToast(gmT("Item contado. Sem material extra.", "Counted item. No extra material.")); gmMatWizNextInQueue(); });
+    return;
+  }
+  gmMatWizPut({ measure_kind: k }, function() { w.step = k === "volume" ? 3 : 2; gmMatWizRender(); });
+}
+function gmMatWizBack() { var w = gmMatWiz; if (!w) { return; } w.err = ""; w.step = w.step === 3 && w.kind === "volume" ? 1 : Math.max(1, w.step - 1); gmMatWizRender(); }
+function gmMatWizSkip() {
+  var w = gmMatWiz; if (!w) { return; }
+  w.err = "";
+  if (w.step >= 4) { gmMatWizFinish(); return; }
+  w.step++; gmMatWizRender();
+}
+function gmMatWizFinish() {
+  gmMatWiz = null;
+  gmSheetClose();
+  gmMatWizNextInQueue();
+}
+function gmMatWizNext() {
+  var w = gmMatWiz; if (!w || w.busy) { return; }
+  var bad = function(pt, en) { w.err = gmT(pt, en); gmMatWizRender(); };
+  if (w.step === 2) {
+    if (w.direct) {
+      var dc = gmMatWizNum(w.cov);
+      if (!dc || dc <= 0) { return bad("Informe um número maior que zero.", "Enter a number above zero."); }
+      w.step = 3; gmMatWizRender(); return;
+    }
+    var c = gmMatWizCoverage(w);
+    if (c === null) { return bad("Informe o tamanho da peça com números maiores que zero.", "Enter the piece size with numbers above zero."); }
+    var f = { piece_length: gmMatWizNum(w.pl), piece_width: w.kind === "area" ? gmMatWizNum(w.pw) : null, piece_dim_unit: w.pu, coverage_per_piece: c };
+    gmMatWizPut(f, function() { w.step = 3; gmMatWizRender(); });
+    return;
+  }
+  if (w.step === 3) {
+    var abc = !!w.row.abc_item_number;
+    var sameWord = abc && (w.row.abc_units_per_apex_unit === null || w.row.abc_units_per_apex_unit === undefined) && w.row.abc_cost !== null && w.row.abc_cost !== undefined;
+    if (abc && sameWord) { w.step = 4; gmMatWizRender(); return; }
+    if (!abc && !w.sold) { return bad("Escolha como o fornecedor vende.", "Choose how the supplier sells it."); }
+    var cov = w.sold === "piece" && !abc && gmMatWizCoverage(w) ? gmMatWizCoverage(w) : gmMatWizNum(w.cov);
+    if (!cov || cov <= 0) { return bad("Informe um número maior que zero.", "Enter a number above zero."); }
+    var after = function() { w.step = 4; gmMatWizRender(); };
+    if (abc) {
+      var f2 = GM_MEASURE.abcFactorFromCoverage(cov);
+      w.busy = true; w.err = ""; gmMatWizRender();
+      gmApi("pricing/" + w.id + "/abc-link", { method: "POST", body: { item_number: w.row.abc_item_number, units_per_apex_unit: f2 } }).then(function(r) {
+        w.busy = false;
+        if (r && r.item) { var row = gmPricingRowById(w.id); if (row) { Object.keys(r.item).forEach(function(k) { row[k] = r.item[k]; }); w.row = row; } }
+        gmMatWizPut({ sold_unit: w.row.abc_unit || null, coverage_per_sold_unit: cov }, after);
+      }).catch(function(e) { w.busy = false; w.err = e.message; gmMatWizRender(); console.error("wizard link: " + e.message); });
+    } else {
+      gmMatWizPut({ sold_unit: w.sold, coverage_per_sold_unit: cov }, after);
+    }
+    return;
+  }
+  if (w.step === 4) {
+    var n = GM_MEASURE.parseExtraPercent(w.extra);
+    if (n === undefined) { return bad("Use um número de 0 a 100, com uma casa decimal.", "Use a number from 0 to 100, with one decimal."); }
+    var wasStd = gmMatStd;
+    gmMatWizPut({ order_extra_percent: n, order_extra_source: n === null ? null : gmMatSourceFor(n) }, function() {
+      var id = w.id;
+      gmMatWiz = null; gmSheetClose();
+      if (GM_MEASURE.shouldAskStandard(wasStd, n)) { gmMatAskStandard(id, n, function() { gmMatWizNextInQueue(); }); }
+      else { gmMatWizNextInQueue(); }
+    });
+  }
+}
+
+
+// ── Length by width on estimate lines (2026-11-07) ──
+// A measured line gets a small calculator. The result is written into the line quantity
+// and unit. Typing a quantity clears the stored inputs. The inputs are for the editor and
+// for order drafts only; customer pages and PDFs do not change.
+var GM_CALC_ORDER = ["sqft", "sqyd", "sqm", "lnft", "cuyd", "cuft"];
+function gmEstLineRow(it) { return it.pricing_id ? gmPricingRowById(it.pricing_id) : null; }
+function gmEstLineMeasured(it) {
+  if (typeof GM_MEASURE === "undefined" || gmIsSeller()) { return false; }
+  if (it.calc && it.calc.unit) { return true; }
+  var row = gmEstLineRow(it);
+  return GM_MEASURE.effectiveKind(row ? row : { unit: it.unit, measure_kind: null }) === "measured";
+}
+function gmEstCalcNum(v) { var s = String(v === null || v === undefined ? "" : v).replace(",", ".").trim(); var n = Number(s); return s && isFinite(n) ? n : null; }
+function gmEstCalcResult(it) {
+  var c = it.calc;
+  if (!c) { return ""; }
+  var q = GM_MEASURE.calcQuantity(c.unit, gmEstCalcNum(c.length), gmEstCalcNum(c.width), gmEstCalcNum(c.depth));
+  if (q === null) { return ""; }
+  var txt = GM_MEASURE.calcLabel(c.unit, gmEstCalcNum(c.length), gmEstCalcNum(c.width), gmEstCalcNum(c.depth), isEn() ? "en" : "pt");
+  var row = gmEstLineRow(it);
+  var warn = row && row.unit && GM_MEASURE.normUnit(row.unit) !== GM_MEASURE.normUnit(GM_MEASURE.CALC_UNITS[c.unit].label)
+    ? '<div class="gm-warn" style="font-weight:600;">' + escHtml(gmT("A tabela de preços cobra por " + row.unit + ". Confira o preço unitário.", "The Price list rate is per " + row.unit + ". Check the unit rate.")) + '</div>' : "";
+  return escHtml(txt) + warn;
+}
+function gmEstCalcHtml(it, i) {
+  if (!gmEstLineMeasured(it)) { return ""; }
+  var c = it.calc || { unit: "sqft", length: "", width: "", depth: "" };
+  var kind = GM_MEASURE.CALC_UNITS[c.unit].kind;
+  return '<div class="gm-calc" id="gmEwCalc_' + i + '">' +
+    '<div class="gm-field-label">' + gmT("Comprimento × largura", "Length by width") + '</div>' +
+    '<div class="gm-mat-row">' +
+      '<select class="gm-input" aria-label="' + escHtml(gmT("Medida", "Measure")) + '" onchange="gmEstCalcSet(' + i + ', \'unit\', this.value)">' +
+        GM_CALC_ORDER.map(function(u) { return '<option value="' + u + '"' + (c.unit === u ? " selected" : "") + '>' + escHtml(isEn() ? GM_MEASURE.CALC_UNITS[u].name_en : GM_MEASURE.CALC_UNITS[u].name_pt) + '</option>'; }).join("") + '</select>' +
+      '<input type="text" inputmode="decimal" class="gm-input" aria-label="' + escHtml(gmT("Comprimento (pés)", "Length (ft)")) + '" placeholder="' + escHtml(gmT("Comprimento (pés)", "Length (ft)")) + '" value="' + escHtml(c.length) + '" oninput="gmEstCalcSet(' + i + ', \'length\', this.value)">' +
+      (kind !== "length" ? '<input type="text" inputmode="decimal" class="gm-input" aria-label="' + escHtml(gmT("Largura (pés)", "Width (ft)")) + '" placeholder="' + escHtml(gmT("Largura (pés)", "Width (ft)")) + '" value="' + escHtml(c.width) + '" oninput="gmEstCalcSet(' + i + ', \'width\', this.value)">' : "") +
+      (kind === "volume" ? '<input type="text" inputmode="decimal" class="gm-input" aria-label="' + escHtml(gmT("Profundidade (polegadas)", "Depth (in)")) + '" placeholder="' + escHtml(gmT("Profundidade (pol)", "Depth (in)")) + '" value="' + escHtml(c.depth) + '" oninput="gmEstCalcSet(' + i + ', \'depth\', this.value)">' : "") +
+    '</div><div class="gm-lead-sub" id="gmEwCalcRes_' + i + '">' + gmEstCalcResult(it) + '</div></div>';
+}
+function gmEstCalcSet(i, key, v) {
+  var w = gmEstWiz; if (!w) { return; }
+  var it = w.options[w.activeOpt].items[i]; if (!it) { return; }
+  if (!it.calc) { it.calc = { unit: "sqft", length: "", width: "", depth: "" }; }
+  it.calc[key] = v;
+  var q = GM_MEASURE.calcQuantity(it.calc.unit, gmEstCalcNum(it.calc.length), gmEstCalcNum(it.calc.width), gmEstCalcNum(it.calc.depth));
+  if (q !== null) {
+    it.qty = String(q); it.unit = GM_MEASURE.CALC_UNITS[it.calc.unit].label;
+    var qEl = document.getElementById("gmEwQty_" + i); if (qEl) { qEl.value = it.qty; }
+    var sum = document.getElementById("gmEwLineSum_" + i); if (sum) { sum.innerHTML = gmEstWizLineSummary(it); }
+  }
+  if (key === "unit") { gmEstWizRender(); return; }
+  var res = document.getElementById("gmEwCalcRes_" + i); if (res) { res.innerHTML = gmEstCalcResult(it); }
+}
+// Typing a quantity by hand clears the stored inputs.
+function gmEstCalcClear(i) {
+  var w = gmEstWiz; if (!w) { return; }
+  var it = w.options[w.activeOpt].items[i];
+  if (!it || !it.calc) { return; }
+  it.calc = null;
+  var box = document.getElementById("gmEwCalc_" + i); if (box) { box.outerHTML = gmEstCalcHtml(it, i); }
+}
+// The stored inputs for the save, only when they produce the quantity on the line.
+function gmEstCalcPayload(it) {
+  if (!it.calc || typeof GM_MEASURE === "undefined") { return {}; }
+  var qty = Number(String(it.qty).replace(",", "."));
+  var o = { calc_unit: it.calc.unit, calc_length: gmEstCalcNum(it.calc.length), calc_width: gmEstCalcNum(it.calc.width), calc_depth: gmEstCalcNum(it.calc.depth) };
+  var p = GM_MEASURE.parseCalc(o, qty);
+  if (!p || p.none) { return {}; }
+  return { calc_kind: p.calc_kind, calc_unit: p.calc_unit, calc_length: p.calc_length, calc_width: p.calc_width, calc_depth: p.calc_depth };
+}
+function gmEstCalcFromServer(ln) {
+  if (!ln.calc_unit || typeof GM_MEASURE === "undefined" || !GM_MEASURE.CALC_UNITS[ln.calc_unit]) { return null; }
+  return { unit: ln.calc_unit, length: ln.calc_length === null || ln.calc_length === undefined ? "" : String(ln.calc_length),
+    width: ln.calc_width === null || ln.calc_width === undefined ? "" : String(ln.calc_width), depth: ln.calc_depth === null || ln.calc_depth === undefined ? "" : String(ln.calc_depth) };
+}
+
+// ── Live ABC costs on a draft estimate (2026-11-07) ──
+// Only the COST of a line follows the refreshed Price list row; the rate and the sale price are never touched.
+// An estimate that was already sent, viewed, accepted, signed or invoiced keeps what it saved.
+function gmEstLiveCosts() {
+  var w = gmEstWiz;
+  if (!w || gmIsSeller() || !w.draftNow) { return; }
+  var ids = [];
+  w.options.forEach(function(o) { o.items.forEach(function(it) { var r = gmEstLineRow(it); if (r && r.abc_item_number && ids.indexOf(r.id) === -1) { ids.push(r.id); } }); });
+  if (!ids.length) { return; }
+  gmAbcLiveRefresh(ids, function(res) { gmEstApplyCosts(res); });
+}
+function gmEstApplyCosts(res) {
+  var w = gmEstWiz; if (!w || !w.draftNow) { return; }
+  var changed = false;
+  w.options.forEach(function(o) {
+    o.items.forEach(function(it) {
+      var r = it.pricing_id ? res[it.pricing_id] : null;
+      if (!r || !r.item || (r.status !== "updated" && r.status !== "unchanged")) { return; }
+      var m = Math.round((Number(r.item.material_cost) || 0) * 100), l = Math.round((Number(r.item.labor_cost) || 0) * 100), x = Math.round((Number(r.item.other_cost) || 0) * 100);
+      if (it.material_cost_cents !== m || it.labor_cost_cents !== l || it.other_cost_cents !== x) { it.material_cost_cents = m; it.labor_cost_cents = l; it.other_cost_cents = x; changed = true; }
+    });
+  });
+  return changed;
+}
+
+
+// ── Materials orders: ABC order drafts, saved delivery locations, batch (2026-11-07) ──
+// A signed contract with ABC items gets a draft order. The owner reviews it and sends it, one at
+// a time or in a batch. Nothing is chosen for the owner: no delivery type, place, date or recipient.
+// Owner only: the Worker refuses everyone else, and a salesperson never sees any of it.
+var GM_MAT_SERVICES = [
+  ["COM", "Common carrier", "Transportadora comum"], ["CPU", "Customer pickup", "Retirada pelo cliente"], ["EXP", "Express pickup", "Retirada expressa"],
+  ["OTR", "Our truck, to the roof", "Nosso caminhão, no telhado"], ["OTG", "Our truck, to the ground", "Nosso caminhão, no chão"],
+  ["OTW", "Our truck, to the window", "Nosso caminhão, na janela"], ["TPC", "Third party carrier", "Transportadora terceirizada"]
+];
+var GM_MAT_MISSING = {
+  job_name: ["o nome do trabalho", "the job name"], delivery_service: ["o tipo de entrega", "the delivery type"], delivery_place: ["o local de entrega", "the delivery place"],
+  address: ["o endereço completo", "the full address"], contact_name: ["o nome do contato", "the contact name"], contact_email: ["o e-mail do contato", "the contact email"],
+  contact_phone: ["o telefone do contato", "the contact phone"], order_ref: ["o número do pedido de compra", "the purchase order number"], lines: ["pelo menos uma linha", "at least one line"],
+  quantity: ["a quantidade de cada linha", "a quantity on every line"]
+};
+function gmMatMissingText(list) { return (list || []).map(function(k) { var m = GM_MAT_MISSING[k]; return m ? gmT(m[0], m[1]) : k; }).join(", "); }
+function gmMatServiceName(code) { var s = null; GM_MAT_SERVICES.forEach(function(x) { if (x[0] === code) { s = x; } }); return s ? gmT(s[2], s[1]) : ""; }
+function gmMatUsDate(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); return m ? m[2] + "/" + m[3] + "/" + m[1] : ""; }
+function gmMatIsoDate(us) {
+  var t = String(us || "").trim(); if (!t) { return ""; }
+  var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t); if (!m) { return null; }
+  var iso = m[3] + "-" + ("0" + m[1]).slice(-2) + "-" + ("0" + m[2]).slice(-2);
+  var d = new Date(iso + "T00:00:00Z");
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === iso ? iso : null;
+}
+function gmMatOrderMoney(n) { return gmMoney(Math.round(Number(n) * 100)); }
+var GM_MAT_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+// Anything the owner must notice: a callout card with an icon, a short title and labeled rows.
+function gmMatCalloutHtml(title, rows, extraHtml) {
+  return '<div class="gm-callout" role="note"><span class="gm-callout-icon">' + GM_MAT_ICON + '</span><div class="gm-callout-body"><div class="gm-callout-title">' + escHtml(title) + '</div>' +
+    (rows || []).map(function(r) { return '<div class="gm-callout-row"><span class="gm-callout-k">' + escHtml(r[0]) + '</span><span>' + escHtml(r[1]) + '</span></div>'; }).join("") + (extraHtml || "") + '</div></div>';
+}
+function gmMatField(id, label, value, handler, o) {
+  o = o || {};
+  return '<label class="gm-field-label" for="' + id + '">' + escHtml(label) + '</label>' +
+    '<input type="' + (o.type || "text") + '"' + (o.inputmode ? ' inputmode="' + o.inputmode + '"' : "") + ' id="' + id + '" class="gm-input" maxlength="' + (o.max || 80) + '" value="' + escHtml(value || "") + '"' +
+    (o.placeholder ? ' placeholder="' + escHtml(o.placeholder) + '"' : "") + ' oninput="' + handler + '">' + (o.hint ? '<p class="muted" style="margin:4px 0 0;">' + escHtml(o.hint) + '</p>' : "");
+}
+function gmMatServiceSelect(id, value, handler) {
+  return '<label class="gm-field-label" for="' + id + '">' + escHtml(gmT("Tipo de entrega", "Delivery type")) + '</label>' +
+    '<select id="' + id + '" class="gm-input" onchange="' + handler + '"><option value=""' + (!value ? " selected" : "") + '>' + escHtml(gmT("Escolha…", "Choose…")) + '</option>' +
+    GM_MAT_SERVICES.map(function(s) { return '<option value="' + s[0] + '"' + (value === s[0] ? " selected" : "") + '>' + escHtml(gmT(s[2], s[1])) + '</option>'; }).join("") + '</select>';
+}
+function gmMatStatusPill(d) {
+  if (d.status === "draft") { return '<span class="gm-pill gm-gold">● ' + escHtml(gmT("Para revisar", "To review")) + '</span>'; }
+  if (d.status === "combined") { return '<span class="gm-pill gm-green">✓ ' + escHtml(gmT("Combinado no pedido ", "Combined into order ") + (d.combined_into || "")) + '</span>'; }
+  if (d.status === "sent") { return '<span class="gm-pill gm-green">✓ ' + escHtml(d.order_status ? String(d.order_status).replace(/^./, function(c) { return c.toUpperCase(); }) : gmT("Enviado", "Sent")) + '</span>'; }
+  return "";
+}
+// Drafts by contract, for the badge on a signed contract.
+var gmMatDraftsByContract = {};
+var gmMatWaiting = 0;
+function gmMatDraftsLoad(cb) {
+  if (gmIsSeller()) { if (cb) { cb(); } return; }
+  gmApi("abc/drafts").then(function(d) {
+    gmMatDraftsByContract = {}; gmMatWaiting = d.waiting || 0;
+    (d.drafts || []).forEach(function(x) { gmMatDraftsByContract[x.contract_id] = x; });
+    if (cb) { cb(); }
+  }).catch(function(e) { gmMatDraftsByContract = {}; gmMatWaiting = 0; if (e.status !== 503 && e.status !== 409) { console.error("materials orders: " + e.message); } if (cb) { cb(); } });
+}
+// The Home card.
+function gmMatOrdersCardHtml() {
+  if (gmIsSeller() || !gmMatWaiting) { return ""; }
+  return '<div class="card-title" style="margin-top:12px;">' + gmT("Pedidos de material", "Materials orders") + ' <span class="goal-pending-badge">' + gmMatWaiting + '</span></div>' +
+    '<button type="button" class="gm-row" onclick="gmMatOrdersOpen()"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' +
+    escHtml(gmMatWaiting === 1 ? gmT("1 pedido da ABC está pronto para revisar", "1 ABC order is ready to review") : gmT(gmMatWaiting + " pedidos da ABC estão prontos para revisar", gmMatWaiting + " ABC orders are ready to review")) +
+    '</span></span><span class="gm-lead-side"><span class="gm-pill gm-gold">● ' + escHtml(gmT("revisar", "review")) + '</span></span></button>';
+}
+
+// ── The list ──
+var gmMatOrd = null;
+function gmMatOrdersOpen() {
+  gmMatOrd = { list: null, loading: true, err: "", picked: {} };
+  gmMatOrdersRender();
+  gmApi("abc/drafts").then(function(d) { gmMatOrd.list = d.drafts || []; gmMatOrd.loading = false; gmMatOrdersRender(); })
+    .catch(function(e) { gmMatOrd.loading = false; gmMatOrd.err = e.message; gmMatOrdersRender(); console.error("materials orders: " + e.message); });
+}
+function gmMatOrdersRender() {
+  var o = gmMatOrd; if (!o) { return; }
+  var h = "";
+  if (o.loading) { h = '<p class="muted">' + escHtml(gmT("Carregando…", "Loading…")) + '</p>'; }
+  else if (o.err) { h = gmMatCalloutHtml(gmT("Não foi possível carregar", "Could not load"), [[gmT("Motivo", "Reason"), o.err]]); }
+  else if (!o.list.length) {
+    h = '<p class="muted">' + escHtml(gmT("Nenhum pedido ainda. Quando um cliente assina um contrato com itens da ABC, o pedido aparece aqui para você revisar.",
+      "No orders yet. When a customer signs a contract with ABC items, the order appears here for you to review.")) + '</p>';
+  } else {
+    var picked = Object.keys(o.picked).filter(function(k) { return o.picked[k]; }).length;
+    o.list.forEach(function(d, i) {
+      h += '<div class="gm-mat-item">' +
+        (d.status === "draft" ? '<input type="checkbox" class="gm-mat-check" aria-label="' + escHtml(gmT("Escolher para pedido em lote", "Pick for a batch order")) + '"' + (o.picked[d.id] ? " checked" : "") + ' onchange="gmMatOrd.picked[\'' + escHtml(d.id) + '\'] = this.checked; gmMatOrdersRender()">' : '<span class="gm-mat-check"></span>') +
+        '<button type="button" class="gm-row" style="flex:1;" onclick="gmMatDraftOpen(\'' + escHtml(d.id) + '\')"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(d.job_name || gmT("Sem nome", "No name")) + '</span>' +
+        '<div class="gm-lead-sub">' + escHtml([d.contract_number, d.line_count + " " + gmT(d.line_count === 1 ? "linha" : "linhas", d.line_count === 1 ? "line" : "lines"), d.abc_confirmation ? gmT("confirmação ", "confirmation ") + d.abc_confirmation : null].filter(function(x) { return !!x; }).join(" · ")) + '</div></span>' +
+        '<span class="gm-lead-side">' + gmMatStatusPill(d) + '</span></button></div>';
+    });
+    h += '<button type="button" class="gm-btn-primary"' + (picked ? "" : " disabled") + ' onclick="gmMatBatchOpen()">' + escHtml(gmT("Pedido em lote", "Batch order") + (picked ? " (" + picked + ")" : "")) + '</button>';
+  }
+  gmSheetOpen(escHtml(gmT("Pedidos de material", "Materials orders")), h, null, "pricing-item-and-import#item");
+}
+
+// ── One draft ──
+var gmMatDraft = null;
+function gmMatDraftOpen(id) {
+  gmMatDraft = { id: id, data: null, form: null, view: "edit", busy: false, err: "", prices: "loading", priceAt: "", rv: null, result: null, locEdit: null, locMode: "", loading: true };
+  gmMatDraftRender();
+  gmApi("abc/drafts/" + encodeURIComponent(id)).then(function(d) {
+    var m = gmMatDraft; if (!m || m.id !== id) { return; }
+    m.data = d; m.loading = false; m.form = gmMatDraftForm(d);
+    m.locMode = d.draft.delivery_to === "job" ? "job" : (d.draft.delivery_to === "saved" ? "saved" : "");
+    m.view = d.draft.status === "draft" ? "edit" : "done";
+    gmMatDraftRender();
+    if (d.draft.status === "draft") { gmMatDraftPrices(); gmMatDraftLiveRows(); }
+  }).catch(function(e) { var m = gmMatDraft; if (!m) { return; } m.loading = false; m.err = e.message; gmMatDraftRender(); console.error("draft: " + e.message); });
+}
+function gmMatDraftForm(d) {
+  var dr = d.draft, ja = dr.delivery_to === "job" && dr.ship_line1 ? { line1: dr.ship_line1, city: dr.ship_city, state: dr.ship_state, postal: dr.ship_postal } : d.job_address;
+  var q = {}; d.lines.forEach(function(l) { q[l.id] = { qty: l.quantity === null || l.quantity === undefined ? "" : String(l.quantity), removed: !!l.removed }; });
+  return { job_name: dr.job_name, service: dr.delivery_service, date: gmMatUsDate(dr.delivery_date), contact_name: dr.contact_name, contact_email: dr.contact_email, contact_phone: dr.contact_phone,
+    order_ref: dr.order_ref, ja: { line1: ja.line1 || "", city: ja.city || "", state: ja.state || "", postal: ja.postal || "" }, locId: dr.location_id || "", nl: { name: "", line1: "", city: "", state: "", postal: "" }, lines: q };
+}
+function gmMatDraftLiveRows() {
+  var m = gmMatDraft; if (!m || !m.data) { return; }
+  var go = function() {
+    var nums = {}; m.data.lines.forEach(function(l) { nums[l.item_number] = true; });
+    var ids = []; ((gmPricingData && gmPricingData.items) || []).forEach(function(it) { if (it.abc_item_number && nums[it.abc_item_number]) { ids.push(it.id); } });
+    if (ids.length) { gmAbcLiveRefresh(ids, function() {}); }
+  };
+  if (gmPricingData) { go(); } else { gmApi("pricing").then(function(d) { gmPricingData = d; go(); }).catch(function(e) { console.error("pricing for live rows: " + e.message); }); }
+}
+// ABC prices for every line: the owner just opened the draft.
+function gmMatDraftPrices(after) {
+  var m = gmMatDraft; if (!m) { return; }
+  m.prices = "loading"; gmMatDraftPricesPaint();
+  gmApi("abc/drafts/" + encodeURIComponent(m.id) + "/prices", { method: "POST", body: {} }).then(function(r) {
+    if (!gmMatDraft || gmMatDraft.id !== m.id) { return; }
+    var by = {}; (r.lines || []).forEach(function(l) { by[l.id] = l; });
+    m.data.lines.forEach(function(l) { var x = by[l.id]; if (x) { l.unit_price = x.price; l.no_price = !!x.no_price; l.changed = !!x.changed; l.previous = x.previous; } });
+    m.prices = "ok"; m.priceAt = r.retrieved_at || ""; m.lastFresh = r.lines || [];
+    gmMatDraftRender();
+    if (after) { after(r); }
+  }).catch(function(e) {
+    if (!gmMatDraft || gmMatDraft.id !== m.id) { return; }
+    m.prices = "fail"; gmMatDraftRender(); console.error("draft prices: " + e.message);
+    if (after) { after(null); }
+  });
+}
+function gmMatDraftPricesPaint() {
+  var el = document.getElementById("gmMatPriceNote"); var m = gmMatDraft;
+  if (el && m) { el.className = "gm-abc-live" + (m.prices === "fail" ? " gm-abc-bad" : (m.prices === "loading" ? " gm-abc-loading" : "")); el.textContent = gmMatPriceNoteText(m); }
+}
+function gmMatPriceNoteText(m) {
+  if (m.prices === "loading") { return gmT("Atualizando os preços da ABC…", "Updating ABC prices…"); }
+  if (m.prices === "fail") { return gmT("Não foi possível atualizar os preços da ABC. Tente de novo.", "ABC prices could not be updated. Try again."); }
+  return m.priceAt ? gmT("Preços da ABC em ", "ABC prices as of ") + gmAbcWhen(m.priceAt) : "";
+}
+function gmMatLineTotal(l, f) {
+  var q = Number(String(f.qty).replace(",", "."));
+  return l.unit_price !== null && l.unit_price !== undefined && isFinite(q) && q > 0 ? q * l.unit_price : null;
+}
+function gmMatDraftRender() {
+  var m = gmMatDraft; if (!m) { return; }
+  var title = escHtml(gmT("Pedido de material", "Materials order"));
+  if (m.loading) { gmSheetOpen(title, '<p class="muted">' + escHtml(gmT("Carregando…", "Loading…")) + '</p>', null, "pricing-item-and-import#item"); return; }
+  if (!m.data) { gmSheetOpen(title, gmMatCalloutHtml(gmT("Não foi possível abrir", "Could not open"), [[gmT("Motivo", "Reason"), m.err]]) + '<button type="button" class="gm-btn-secondary" onclick="gmMatOrdersOpen()">' + escHtml(gmT("Voltar à lista", "Back to the list")) + '</button>', null, "pricing-item-and-import#item"); return; }
+  var h = m.view === "review" ? gmMatReviewHtml(m) : (m.view === "done" ? gmMatDoneHtml(m) : gmMatEditHtml(m));
+  gmSheetOpen(escHtml((m.data.draft.job_name || title) + (m.data.draft.contract_number ? " · " + m.data.draft.contract_number : "")), h, null, "pricing-item-and-import#item");
+}
+function gmMatEditHtml(m) {
+  var d = m.data, f = m.form, h = "";
+  if (m.err) { h += gmMatCalloutHtml(gmT("Confira antes de continuar", "Check before you go on"), [[gmT("O que houve", "What happened"), m.err]]); }
+  // Lines.
+  h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("Linhas do pedido", "Order lines")) + '</div>' +
+    '<p class="muted gm-abc-live" id="gmMatPriceNote" style="margin:0 0 6px;">' + escHtml(gmMatPriceNoteText(m)) + '</p>';
+  var total = 0, allPriced = true, any = false;
+  d.lines.forEach(function(l, i) {
+    var lf = f.lines[l.id]; if (!lf) { return; }
+    if (lf.removed) {
+      h += '<div class="gm-mat-line gm-mat-removed"><span class="muted">' + escHtml(l.description) + '</span><button type="button" class="gm-btn-secondary" style="width:auto;margin:0;" onclick="gmMatLineRemove(\'' + escHtml(l.id) + '\', false)">' + escHtml(gmT("Desfazer", "Undo")) + '</button></div>';
+      return;
+    }
+    any = true;
+    var t = gmMatLineTotal(l, lf);
+    if (t === null) { allPriced = false; } else { total += t; }
+    h += '<div class="gm-mat-line"><div class="gm-mat-line-head"><strong>' + escHtml(l.description) + '</strong>' +
+      '<button type="button" class="gm-cost-del" aria-label="' + escHtml(gmT("Remover linha", "Remove line")) + '" onclick="gmMatLineRemove(\'' + escHtml(l.id) + '\', true)">&times;</button></div>' +
+      '<div class="gm-lead-sub">' + escHtml(l.item_number + " · " + gmMatExtraLabel(l.extra_percent_used, l.extra_source)) + '</div>' +
+      '<div class="gm-mat-row"><input type="text" inputmode="decimal" class="gm-input" style="max-width:110px;" aria-label="' + escHtml(gmT("Quantidade", "Quantity")) + '" value="' + escHtml(lf.qty) + '" oninput="gmMatLineQty(\'' + escHtml(l.id) + '\', this.value)">' +
+      '<span class="muted">' + escHtml(l.uom) + (l.unit_price !== null && l.unit_price !== undefined ? " × " + gmMatOrderMoney(l.unit_price) : (m.prices === "ok" ? " · " + gmT("sem preço da ABC", "no ABC price") : "")) + '</span>' +
+      '<span class="gm-mat-total" id="gmMatLT_' + escHtml(l.id) + '">' + (t === null ? "" : escHtml(gmMatOrderMoney(t))) + '</span></div>' +
+      (lf.qty === "" ? '<div class="gm-warn" style="font-weight:600;font-size:13px;">' + escHtml(gmT("Defina a quantidade. A conversão de unidade está faltando.", "Set the quantity. The unit conversion is missing.")) + '</div>' : "") + '</div>';
+  });
+  if (!any) { h += '<p class="muted">' + escHtml(gmT("Nenhuma linha no pedido.", "No lines on the order.")) + '</p>'; }
+  h += '<div class="gm-mat-sum"><span>' + escHtml(gmT("Total", "Total")) + '</span><strong id="gmMatSum">' + (any && allPriced ? escHtml(gmMatOrderMoney(total)) : "—") + '</strong></div>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmMatLineAddOpen()">' + escHtml(gmT("+ Adicionar linha da ABC", "+ Add a line from ABC")) + '</button>';
+  if (d.not_from_abc && d.not_from_abc.length) {
+    h += '<p class="muted" style="margin:10px 0 0;">' + escHtml(gmT("Fora do pedido, não são da ABC: ", "Not from ABC, left out: ") + d.not_from_abc.map(function(x) { return x.item_name; }).join(", ")) + '</p>';
+  }
+  h += '</div>';
+  // Delivery.
+  h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("Entrega", "Delivery")) + '</div>' +
+    gmMatServiceSelect("gmMatSvc", f.service, "gmMatDraft.form.service = this.value") +
+    '<div class="gm-field-label" style="margin-top:10px;">' + escHtml(gmT("Para onde vai", "Where it goes")) + '</div>' +
+    '<div class="gm-seg"><button type="button" class="gm-seg-btn' + (m.locMode === "job" ? " gm-seg-on" : "") + '" onclick="gmMatLocMode(\'job\')"><strong>' + escHtml(gmT("Endereço da obra", "Job address")) + '</strong></button>' +
+    '<button type="button" class="gm-seg-btn' + (m.locMode === "saved" ? " gm-seg-on" : "") + '" onclick="gmMatLocMode(\'saved\')"><strong>' + escHtml(gmT("Local salvo", "Saved location")) + '</strong></button>' +
+    '<button type="button" class="gm-seg-btn' + (m.locMode === "new" ? " gm-seg-on" : "") + '" onclick="gmMatLocMode(\'new\')"><strong>' + escHtml(gmT("Novo local", "New location")) + '</strong></button></div>';
+  if (m.locMode === "job") {
+    h += '<p class="muted" style="margin:6px 0;">' + escHtml(gmT("Você pode mudar o endereço só para este pedido. O projeto não muda.", "You can change the address for this order only. The project does not change.")) + '</p>' + gmMatAddrFields("ja", f.ja);
+  } else if (m.locMode === "saved") {
+    h += gmMatSavedListHtml(m);
+  } else if (m.locMode === "new") {
+    h += gmMatAddrFields("nl", f.nl, true) +
+      '<button type="button" class="gm-btn-secondary" onclick="gmMatUseBusinessAddress(\'nl\')">' + escHtml(gmT("Usar o endereço da minha empresa", "Use my business address")) + '</button>' +
+      '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("O novo local é salvo ao ser usado e aparece na lista da próxima vez.", "The new location is saved when it is used and appears in the list next time.")) + '</p>';
+  }
+  h += gmMatField("gmMatDate", gmT("Data de entrega (opcional)", "Delivery date (optional)"), f.date, "gmMatDraft.form.date = this.value", { placeholder: "MM/DD/YYYY", max: 10, inputmode: "numeric",
+    hint: gmT("Em branco: a filial da ABC escolhe a data.", "Left blank, the ABC branch decides the date.") }) + '</div>';
+  // Contact, job, purchase order.
+  h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("Contato e pedido", "Contact and order")) + '</div>' +
+    gmMatField("gmMatCName", gmT("Nome do contato", "Contact name"), f.contact_name, "gmMatDraft.form.contact_name = this.value", { max: 60 }) +
+    gmMatField("gmMatCEmail", gmT("E-mail do contato", "Contact email"), f.contact_email, "gmMatDraft.form.contact_email = this.value", { max: 254, type: "email" }) +
+    gmMatField("gmMatCPhone", gmT("Telefone do contato", "Contact phone"), f.contact_phone, "gmMatDraft.form.contact_phone = this.value", { max: 30, inputmode: "tel" }) +
+    gmMatField("gmMatJob", gmT("Nome do trabalho", "Job name"), f.job_name, "gmMatDraft.form.job_name = this.value", { max: 80 }) +
+    gmMatField("gmMatPo", gmT("Número do pedido de compra", "Purchase order number"), f.order_ref, "gmMatDraft.form.order_ref = this.value", { max: 16, hint: gmT("Até 16 letras, números ou hifens. Único na sua empresa.", "Up to 16 letters, numbers or hyphens. Unique in your business.") }) + '</div>';
+  h += '<button type="button" class="gm-btn-primary"' + (m.busy ? " disabled" : "") + ' onclick="gmMatReviewOpen()">' + escHtml(gmT("Revisar e enviar", "Review and send")) + '</button>' +
+    '<button type="button" class="gm-btn-secondary"' + (m.busy ? " disabled" : "") + ' onclick="gmMatDraftSaveBtn()">' + escHtml(gmT("Salvar para depois", "Save for later")) + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmMatDiscardAsk()">' + escHtml(gmT("Descartar este pedido", "Discard this order")) + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmMatOrdersOpen()">' + escHtml(gmT("Voltar à lista", "Back to the list")) + '</button>';
+  return h;
+}
+function gmMatAddrFields(key, a, withName) {
+  var p = "gmMatDraft.form." + key;
+  return (withName ? gmMatField("gmMatLn_" + key, gmT("Nome do local (ex.: Depósito)", "Location name (for example Warehouse)"), a.name, p + ".name = this.value", { max: 40 }) : "") +
+    gmMatField("gmMatL1_" + key, gmT("Endereço", "Address"), a.line1, p + ".line1 = this.value", { max: 80 }) +
+    '<div class="gm-mat-row">' + gmMatField("gmMatCity_" + key, gmT("Cidade", "City"), a.city, p + ".city = this.value", { max: 50 }) +
+    gmMatField("gmMatSt_" + key, gmT("Estado", "State"), a.state, p + ".state = this.value.toUpperCase()", { max: 2, placeholder: "FL" }) +
+    gmMatField("gmMatZip_" + key, gmT("CEP", "Zip code"), a.postal, p + ".postal = this.value", { max: 10, inputmode: "numeric" }) + '</div>';
+}
+function gmMatSavedListHtml(m) {
+  var d = m.data, f = m.form, locs = d.locations || [], h = "";
+  if (!locs.length) { return '<p class="muted">' + escHtml(gmT("Nenhum local salvo ainda. Use Novo local.", "No saved locations yet. Use New location.")) + '</p>'; }
+  locs.forEach(function(L, i) {
+    if (m.locEdit && m.locEdit.id === L.id) {
+      h += '<div class="gm-mat-loc">' + gmMatAddrFields("le", m.locEdit, true) +
+        '<button type="button" class="gm-btn-primary" onclick="gmMatLocSave()">' + escHtml(gmT("Salvar alterações", "Save changes")) + '</button>' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmMatDraft.locEdit = null; gmMatDraftRender()">' + escHtml(gmT("Cancelar", "Cancel")) + '</button></div>';
+      return;
+    }
+    h += '<div class="gm-mat-loc' + (f.locId === L.id ? " gm-mat-loc-on" : "") + '"><div><strong>' + escHtml(L.name) + '</strong><div class="gm-lead-sub">' + escHtml(L.line1 + ", " + L.city + ", " + L.state + " " + L.postal) + '</div></div>' +
+      '<div class="gm-mat-loc-actions"><button type="button" class="gm-btn-secondary" onclick="gmMatDraft.form.locId = \'' + escHtml(L.id) + '\'; gmMatDraftRender()">' + escHtml(f.locId === L.id ? gmT("Escolhido", "Chosen") : gmT("Usar", "Use")) + '</button>' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmMatLocEdit(\'' + escHtml(L.id) + '\')">' + escHtml(gmT("Alterar", "Change")) + '</button>' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmMatLocRemoveAsk(\'' + escHtml(L.id) + '\')">' + escHtml(gmT("Remover", "Remove")) + '</button></div></div>';
+  });
+  return h;
+}
+function gmMatLocMode(mode) { var m = gmMatDraft; if (!m) { return; } m.locMode = mode; gmMatDraftRender(); }
+function gmMatLineQty(id, v) {
+  var m = gmMatDraft; if (!m || !m.form.lines[id]) { return; }
+  m.form.lines[id].qty = v;
+  var l = null; m.data.lines.forEach(function(x) { if (x.id === id) { l = x; } });
+  var t = l ? gmMatLineTotal(l, m.form.lines[id]) : null;
+  var el = document.getElementById("gmMatLT_" + id); if (el) { el.textContent = t === null ? "" : gmMatOrderMoney(t); }
+  gmMatSumPaint();
+}
+function gmMatSumPaint() {
+  var m = gmMatDraft; if (!m) { return; }
+  var total = 0, all = true, any = false;
+  m.data.lines.forEach(function(l) { var lf = m.form.lines[l.id]; if (!lf || lf.removed) { return; } any = true; var t = gmMatLineTotal(l, lf); if (t === null) { all = false; } else { total += t; } });
+  var el = document.getElementById("gmMatSum"); if (el) { el.textContent = any && all ? gmMatOrderMoney(total) : "—"; }
+}
+function gmMatLineRemove(id, on) { var m = gmMatDraft; if (!m || !m.form.lines[id]) { return; } m.form.lines[id].removed = on; gmMatDraftRender(); }
+function gmMatUseBusinessAddress(key) {
+  var m = gmMatDraft; if (!m) { return; }
+  var a = m.data.business.address, t = m.form[key];
+  t.line1 = a.line1 || ""; t.city = a.city || ""; t.state = a.state || ""; t.postal = a.postal || "";
+  gmMatDraftRender();
+}
+// The body of a save, or null with m.err set.
+function gmMatDraftBody() {
+  var m = gmMatDraft, f = m.form, d = m.data;
+  var bad = function(pt, en) { m.err = gmT(pt, en); return null; };
+  var body = { job_name: String(f.job_name || "").trim(), delivery_service: f.service || "", contact_name: String(f.contact_name || "").trim(), contact_email: String(f.contact_email || "").trim(),
+    contact_phone: String(f.contact_phone || "").trim(), order_ref: String(f.order_ref || "").trim() };
+  if (!body.job_name) { return bad("Informe o nome do trabalho.", "Enter the job name."); }
+  if (!/^[A-Za-z0-9-]{1,16}$/.test(body.order_ref)) { return bad("O número do pedido de compra tem até 16 letras, números ou hifens.", "The purchase order number has up to 16 letters, numbers or hyphens."); }
+  var iso = gmMatIsoDate(f.date);
+  if (iso === null) { return bad("Escreva a data como MM/DD/AAAA ou deixe em branco.", "Write the date as MM/DD/YYYY or leave it blank."); }
+  body.delivery_date = iso;
+  var lines = [];
+  for (var i = 0; i < d.lines.length; i++) {
+    var l = d.lines[i], lf = f.lines[l.id]; if (!lf) { continue; }
+    var e = { id: l.id };
+    if (lf.removed !== !!l.removed) { e.removed = lf.removed; }
+    if (!lf.removed) {
+      var q = Number(String(lf.qty).replace(",", "."));
+      if (lf.qty === "") { if (l.quantity !== null && l.quantity !== undefined) { return bad("Informe uma quantidade ou remova a linha.", "Enter a quantity or remove the line."); } }
+      else if (!isFinite(q) || q <= 0 || q > 100000) { return bad("Cada quantidade precisa ser um número maior que zero.", "Each quantity must be a number above zero."); }
+      else if (q !== l.quantity) { e.quantity = q; }
+    }
+    if (e.quantity !== undefined || e.removed !== undefined) { lines.push(e); }
+  }
+  if (lines.length) { body.lines = lines; }
+  if (m.locMode === "job") {
+    var a = f.ja;
+    if (!a.line1.trim() || !a.city.trim() || !/^[A-Z]{2}$/.test(a.state) || !/^\d{5}(-\d{4})?$/.test(a.postal)) { return bad("Complete o endereço: rua, cidade, estado com 2 letras e CEP.", "Complete the address: street, city, 2 letter state and zip code."); }
+    body.delivery_to = "job"; body.job_address = { line1: a.line1.trim(), city: a.city.trim(), state: a.state, postal: a.postal };
+  } else if (m.locMode === "saved") {
+    if (!f.locId) { return bad("Escolha um local salvo.", "Choose a saved location."); }
+    body.delivery_to = "saved"; body.location_id = f.locId;
+  } else if (m.locMode === "new") {
+    var n = f.nl;
+    if (!n.name.trim() || !n.line1.trim() || !n.city.trim() || !/^[A-Z]{2}$/.test(n.state) || !/^\d{5}(-\d{4})?$/.test(n.postal)) { return bad("Complete o novo local: nome, rua, cidade, estado com 2 letras e CEP.", "Complete the new location: name, street, city, 2 letter state and zip code."); }
+    body.delivery_to = "saved"; body.new_location = { name: n.name.trim(), line1: n.line1.trim(), city: n.city.trim(), state: n.state, postal: n.postal };
+  }
+  return body;
+}
+function gmMatDraftSave(then) {
+  var m = gmMatDraft; if (!m || m.busy) { return; }
+  m.err = "";
+  var body = gmMatDraftBody();
+  if (!body) { gmMatDraftRender(); return; }
+  m.busy = true; gmMatDraftRender();
+  gmApi("abc/drafts/" + encodeURIComponent(m.id), { method: "PUT", body: body }).then(function() {
+    return gmApi("abc/drafts/" + encodeURIComponent(m.id));
+  }).then(function(d) {
+    m.busy = false; m.data = d;
+    var keepMode = m.locMode; m.form = gmMatDraftForm(d); m.locMode = d.draft.delivery_to === "job" ? "job" : (d.draft.delivery_to === "saved" ? "saved" : keepMode);
+    if (m.priceKeep) { d.lines.forEach(function(l) { var k = m.priceKeep[l.id]; if (k !== undefined) { l.unit_price = k; } }); }
+    gmMatDraftRender(); if (then) { then(); }
+  }).catch(function(e) { m.busy = false; m.err = e.message; gmMatDraftRender(); console.error("draft save: " + e.message); });
+}
+function gmMatDraftSaveBtn() { gmMatDraftSave(function() { gmToast(gmT("Salvo.", "Saved.")); }); }
+function gmMatDiscardAsk() {
+  gmAsk({
+    message: gmT("Descartar este pedido?\n\nO pedido de material deste contrato sai da lista e não é enviado.", "Discard this order?\n\nThis contract's materials order leaves the list and is not sent."),
+    yes: gmT("Sim, descartar", "Yes, discard"), keep: gmT("Manter", "Keep it"),
+    onYes: function() {
+      var m = gmMatDraft; if (!m) { return; }
+      gmApi("abc/drafts/" + encodeURIComponent(m.id) + "/discard", { method: "POST", body: {} }).then(function() { gmToast(gmT("Pedido descartado.", "Order discarded.")); gmMatOrdersOpen(); })
+        .catch(function(e) { gmToast(e.message); console.error(e); });
+    }
+  });
+}
+// Add a line: the Add from ABC search, pointed at this order.
+function gmMatLineAddOpen() {
+  var m = gmMatDraft; if (!m) { return; }
+  gmMatDraftSave(function() {
+    gmAbcPlFind = { q: "", loading: false, items: null, skipped: 0, picked: {}, unit: {}, conv: {}, extra: {}, qty: {}, result: null, error: "", draftId: m.id };
+    gmAbcPlRenderSheet();
+  });
+}
+function gmMatLineAddGo(btn) {
+  var f = gmAbcPlFind; if (!f || !f.draftId || gmAbcPlBusy) { return; }
+  var add = [];
+  (f.items || []).forEach(function(it, i) {
+    if (!f.picked[i]) { return; }
+    var q = Number(String(f.qty[i] || "").replace(",", "."));
+    if (!isFinite(q) || q <= 0) { add.push(null); return; }
+    add.push({ item_number: it.item_number, description: String(it.description || "").slice(0, 100), uom: it.unit_code, quantity: q });
+  });
+  if (!add.length || add.indexOf(null) !== -1) { f.error = gmT("Informe a quantidade de cada item marcado.", "Enter a quantity for every ticked item."); gmAbcPlRenderSheet(); return; }
+  gmAbcPlBusy = true;
+  gmApi("abc/drafts/" + encodeURIComponent(f.draftId), { method: "PUT", body: { add_lines: add } }).then(function() {
+    gmAbcPlBusy = false; var id = f.draftId; gmAbcPlFind = null; gmMatDraftOpen(id);
+  }).catch(function(e) { gmAbcPlBusy = false; f.error = e.message; gmAbcPlRenderSheet(); console.error("add line: " + e.message); });
+}
+// Saved locations: change and remove.
+function gmMatLocEdit(id) {
+  var m = gmMatDraft; if (!m) { return; }
+  var L = null; (m.data.locations || []).forEach(function(x) { if (x.id === id) { L = x; } });
+  if (L) { m.form.le = { id: L.id, name: L.name, line1: L.line1, city: L.city, state: L.state, postal: L.postal }; m.locEdit = m.form.le; gmMatDraftRender(); }
+}
+function gmMatLocSave() {
+  var m = gmMatDraft; if (!m || !m.locEdit) { return; }
+  var e = m.locEdit;
+  if (!String(e.name).trim() || !String(e.line1).trim() || !String(e.city).trim() || !/^[A-Z]{2}$/.test(e.state) || !/^\d{5}(-\d{4})?$/.test(e.postal)) { m.err = gmT("Complete o local: nome, rua, cidade, estado com 2 letras e CEP.", "Complete the location: name, street, city, 2 letter state and zip code."); gmMatDraftRender(); return; }
+  m.err = "";
+  gmApi("abc/locations/" + encodeURIComponent(e.id), { method: "PUT", body: { name: e.name.trim(), line1: e.line1.trim(), city: e.city.trim(), state: e.state, postal: e.postal } }).then(function() {
+    m.locEdit = null; return gmMatLocReload();
+  }).catch(function(er) { m.err = er.message; gmMatDraftRender(); console.error("location: " + er.message); });
+}
+function gmMatLocReload() {
+  var m = gmMatDraft;
+  return gmApi("abc/locations").then(function(d) { if (m && m.data) { m.data.locations = d.locations || []; } gmMatDraftRender(); });
+}
+function gmMatLocRemoveAsk(id) {
+  gmAsk({
+    message: gmT("Remover este local da lista?\n\nPedidos já enviados continuam apontando para ele.", "Remove this location from the list?\n\nOrders already sent still point to it."),
+    yes: gmT("Sim, remover", "Yes, remove"), keep: gmT("Manter", "Keep it"),
+    onYes: function() {
+      gmApi("abc/locations/" + encodeURIComponent(id) + "/archive", { method: "POST", body: {} }).then(function() {
+        var m = gmMatDraft; if (m && m.form && m.form.locId === id) { m.form.locId = ""; } return gmMatLocReload();
+      }).catch(function(e) { gmToast(e.message); console.error(e); });
+    }
+  });
+}
+
+// ── Review and send ──
+function gmMatReviewOpen() {
+  var m = gmMatDraft; if (!m || m.busy) { return; }
+  var before = {}; m.data.lines.forEach(function(l) { before[l.id] = l.unit_price; });
+  gmMatDraftSave(function() {
+    m.err = "";
+    var miss = m.data.draft.missing || [];
+    if (miss.length) { m.err = gmT("Falta: ", "Still needed: ") + gmMatMissingText(miss) + "."; gmMatDraftRender(); return; }
+    m.view = "review"; m.rv = { changes: [], ack: true, sending: false, note: "" }; m.priceKeep = null;
+    m.prices = "loading"; gmMatDraftRender();
+    gmApi("abc/drafts/" + encodeURIComponent(m.id) + "/prices", { method: "POST", body: {} }).then(function(r) {
+      var by = {}; (r.lines || []).forEach(function(l) { by[l.id] = l; });
+      var changes = [];
+      m.data.lines.forEach(function(l) {
+        var x = by[l.id]; if (!x) { return; }
+        var seen = before[l.id];
+        l.unit_price = x.price; l.no_price = !!x.no_price;
+        if (!x.no_price && seen !== null && seen !== undefined && seen !== x.price) { changes.push({ item_number: l.item_number, description: l.description, was: seen, now: x.price }); }
+      });
+      m.prices = "ok"; m.priceAt = r.retrieved_at || "";
+      m.rv.changes = changes; m.rv.ack = !changes.length;
+      gmMatDraftRender();
+    }).catch(function(e) { m.prices = "fail"; m.rv.note = e.message; gmMatDraftRender(); console.error("review prices: " + e.message); });
+  });
+}
+function gmMatShipText(d) {
+  var s = d.ship || {};
+  return (s.name ? s.name + ": " : "") + [s.line1, s.city, [s.state, s.postal].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+}
+function gmMatReviewHtml(m) {
+  var d = m.data, dr = d.draft, rv = m.rv, h = "";
+  h += '<p class="muted gm-abc-live" id="gmMatPriceNote" style="margin:0 0 8px;">' + escHtml(gmMatPriceNoteText(m)) + '</p>';
+  if (rv.note) { h += gmMatCalloutHtml(gmT("Os preços não foram confirmados", "Prices were not confirmed"), [[gmT("Motivo", "Reason"), rv.note]]); }
+  if (rv.changes.length) {
+    h += gmMatCalloutHtml(gmT("Um preço mudou desde a sua revisão", "A price changed since you reviewed"),
+      rv.changes.map(function(c) { return [c.description, gmMatOrderMoney(c.was) + " → " + gmMatOrderMoney(c.now)]; }),
+      '<label class="gm-mat-ack"><input type="checkbox"' + (rv.ack ? " checked" : "") + ' onchange="gmMatDraft.rv.ack = this.checked; gmMatDraftRender()"> ' + escHtml(gmT("Conferi os novos preços", "I checked the new prices")) + '</label>');
+  }
+  if (rv.refusal) { h += gmMatCalloutHtml(gmT("A ABC recusou o pedido", "ABC refused the order"), [[gmT("Palavras da ABC", "ABC says"), rv.refusal]], '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("Volte e escolha outro tipo de entrega, se for o caso.", "Go back and pick another delivery type if that is the reason.")) + '</p>'); }
+  if (rv.err) { h += gmMatCalloutHtml(gmT("Não foi possível enviar", "Could not send"), [[gmT("O que houve", "What happened"), rv.err]]); }
+  h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("Resumo do pedido", "Order summary")) + '</div>' +
+    gmMatSumRow(gmT("Entrega", "Delivery"), gmMatServiceName(dr.delivery_service)) +
+    gmMatSumRow(gmT("Para", "To"), gmMatShipText(d)) +
+    gmMatSumRow(gmT("Data", "Date"), dr.delivery_date ? gmMatUsDate(dr.delivery_date) : gmT("A filial da ABC escolhe a data", "The ABC branch decides the date")) +
+    gmMatSumRow(gmT("Contato", "Contact"), [dr.contact_name, dr.contact_email, dr.contact_phone].filter(Boolean).join(" · ")) +
+    gmMatSumRow(gmT("Pedido de compra", "Purchase order"), dr.order_ref) + '</div>';
+  var total = 0, all = true;
+  h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("Linhas e preços finais", "Lines and final prices")) + '</div>';
+  d.lines.filter(function(l) { return !l.removed; }).forEach(function(l) {
+    var q = l.quantity, t = l.unit_price !== null && l.unit_price !== undefined && q ? q * l.unit_price : null;
+    if (t === null) { all = false; } else { total += t; }
+    h += '<div class="gm-mat-line"><div class="gm-mat-line-head"><strong>' + escHtml(l.description) + '</strong><span>' + (t === null ? "—" : escHtml(gmMatOrderMoney(t))) + '</span></div>' +
+      '<div class="gm-lead-sub">' + escHtml(q + " " + l.uom + (l.unit_price !== null && l.unit_price !== undefined ? " × " + gmMatOrderMoney(l.unit_price) : gmT(" · sem preço", " · no price"))) + '</div></div>';
+  });
+  h += '<div class="gm-mat-sum"><span>' + escHtml(gmT("Total", "Total")) + '</span><strong>' + (all ? escHtml(gmMatOrderMoney(total)) : "—") + '</strong></div></div>';
+  var can = m.prices === "ok" && all && rv.ack && !rv.sending;
+  h += '<button type="button" class="gm-btn-primary"' + (can ? "" : " disabled") + ' onclick="gmMatSend()">' + escHtml(rv.sending ? gmT("Enviando…", "Sending…") : gmT("Enviar pedido à ABC", "Send order to ABC")) + '</button>' +
+    '<button type="button" class="gm-btn-secondary"' + (rv.sending ? " disabled" : "") + ' onclick="gmMatDraft.view = \'edit\'; gmMatDraft.rv = null; gmMatDraftRender()">' + escHtml(gmT("Voltar e editar", "Back to edit")) + '</button>';
+  return h;
+}
+function gmMatSumRow(k, v) { return '<div class="gm-callout-row" style="padding:3px 0;"><span class="gm-callout-k">' + escHtml(k) + '</span><span>' + escHtml(v || "") + '</span></div>'; }
+function gmMatSend() {
+  var m = gmMatDraft; if (!m || !m.rv || m.rv.sending) { return; }
+  var prices = {}; m.data.lines.forEach(function(l) { if (!l.removed && l.unit_price !== null && l.unit_price !== undefined) { prices[l.id] = l.unit_price; } });
+  m.rv.sending = true; m.rv.err = ""; m.rv.refusal = ""; gmMatDraftRender();
+  gmApi("abc/drafts/" + encodeURIComponent(m.id) + "/send", { method: "POST", body: { prices: prices } }).then(function(r) {
+    m.rv.sending = false; m.result = r;
+    return gmApi("abc/drafts/" + encodeURIComponent(m.id)).then(function(d) { m.data = d; m.view = "done"; gmMatDraftRender(); });
+  }).catch(function(e) {
+    m.rv.sending = false;
+    var dt = e.data || {};
+    if (dt.price_changed) {
+      var by = {}; m.data.lines.forEach(function(l) { by[l.id] = l; });
+      m.rv.changes = (dt.changes || []).map(function(c) { var l = by[c.line_id]; if (l) { l.unit_price = c.now; } return { item_number: c.item_number, description: l ? l.description : c.item_number, was: c.was, now: c.now }; });
+      m.rv.ack = false;
+    } else if (dt.abc_refusal) { m.rv.refusal = dt.abc_refusal; }
+    else if (dt.missing && dt.missing.length) { m.rv.err = gmT("Falta: ", "Still needed: ") + gmMatMissingText(dt.missing) + "."; }
+    else if (dt.no_price) { m.rv.err = gmT("A ABC não devolveu preço para: ", "ABC returned no price for: ") + dt.no_price.map(function(x) { return x.description; }).join(", "); }
+    else { m.rv.err = e.message; }
+    gmMatDraftRender(); console.error("draft send: " + e.message);
+  });
+}
+function gmMatDoneHtml(m) {
+  var d = m.data, dr = d.draft, h = "";
+  if (dr.status === "discarded") { return '<p class="muted">' + escHtml(gmT("Este pedido foi descartado.", "This order was discarded.")) + '</p><button type="button" class="gm-btn-secondary" onclick="gmMatOrdersOpen()">' + escHtml(gmT("Voltar à lista", "Back to the list")) + '</button>'; }
+  var rows = [[gmT("Situação", "Status"), dr.status === "combined" ? gmT("Combinado no pedido ", "Combined into order ") + dr.combined_into : (dr.order_status ? String(dr.order_status).replace(/^./, function(c) { return c.toUpperCase(); }) : gmT("Enviado", "Sent"))],
+    [gmT("Confirmação da ABC", "ABC confirmation"), dr.abc_confirmation || gmT("ainda sem confirmação", "no confirmation yet")], [gmT("Pedido de compra", "Purchase order"), dr.combined_into || dr.order_ref]];
+  h += '<div class="gm-callout gm-callout-ok" role="note"><span class="gm-callout-icon">' + GM_MAT_ICON + '</span><div class="gm-callout-body"><div class="gm-callout-title">' + escHtml(gmT("Pedido enviado à ABC", "Order sent to ABC")) + '</div>' +
+    rows.map(function(r) { return '<div class="gm-callout-row"><span class="gm-callout-k">' + escHtml(r[0]) + '</span><span>' + escHtml(r[1]) + '</span></div>'; }).join("") + '</div></div>';
+  h += '<p class="muted">' + escHtml(gmT("A situação acompanha o que a ABC envia. Este pedido não pode ser editado nem enviado de novo.", "The status follows what ABC sends. This order cannot be edited or sent again.")) + '</p>';
+  h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("Linhas", "Lines")) + '</div>' + d.lines.filter(function(l) { return !l.removed; }).map(function(l) {
+    return '<div class="gm-mat-line"><strong>' + escHtml(l.description) + '</strong><div class="gm-lead-sub">' + escHtml(l.quantity + " " + l.uom + (l.unit_price !== null && l.unit_price !== undefined ? " × " + gmMatOrderMoney(l.unit_price) : "")) + '</div></div>';
+  }).join("") + '</div><button type="button" class="gm-btn-secondary" onclick="gmMatOrdersOpen()">' + escHtml(gmT("Voltar à lista", "Back to the list")) + '</button>';
+  return h;
+}
+
+// ── Contract screen: the badge and the way in ──
+function gmMatContractBadgeHtml(c) {
+  var d = c && c.id ? gmMatDraftsByContract[c.id] : null;
+  if (!d || gmIsSeller()) { return ""; }
+  return d.status === "draft" ? ' <span class="gm-pill gm-gold">● ' + escHtml(gmT("Pedido de material pronto", "Materials order ready")) + '</span>' : "";
+}
+function gmMatContractSheetRow(c) {
+  if (gmIsSeller() || !c || c.status !== "completed") { return ""; }
+  var d = gmMatDraftsByContract[c.id];
+  if (d) { return gmSheetRowHtml("check", gmT("Pedido de material", "Materials order"), escHtml(d.status === "draft" ? gmT("Pronto para revisar", "Ready to review") : gmT("Enviado", "Sent")), "gmMatDraftOpen('" + escHtml(d.id) + "')"); }
+  return gmSheetRowHtml("check", gmT("Pedido de material", "Materials order"), escHtml(gmT("Verificar itens da ABC", "Check for ABC items")), "gmMatEnsure('" + escHtml(c.id) + "')");
+}
+function gmMatEnsure(contractId) {
+  gmApi("abc/drafts/ensure", { method: "POST", body: { contract_id: contractId } }).then(function(r) {
+    if (r.draft) { gmMatDraftsLoad(function() { gmMatDraftOpen(r.draft.id); }); }
+    else { gmToast(gmT("Este contrato não tem itens da ABC para pedir.", "This contract has no ABC items to order.")); }
+  }).catch(function(e) { gmToast(e.message); console.error("materials ensure: " + e.message); });
+}
+
+
+// ── Batch order ──
+// The moment Batch order is clicked, ONE question: how should these orders be delivered?
+// A: each order to its own delivery location. B: all orders to one location, then the owner
+// picks (nothing preselected) separate orders or one combined order. A failure on one order
+// never stops the rest and nothing is hidden: every draft shows its own result.
+var gmMatBatch = null;
+function gmMatBatchOpen() {
+  var o = gmMatOrd; if (!o) { return; }
+  var ids = Object.keys(o.picked).filter(function(k) { return o.picked[k]; });
+  if (!ids.length) { return; }
+  gmMatBatch = { ids: ids, step: "choice", det: {}, locs: [], loading: true, err: "", mode: "", locMode: "", locId: "", nl: { name: "", line1: "", city: "", state: "", postal: "" }, service: "", date: "", contact: { name: "", email: "", phone: "" },
+    pos: {}, comboRef: "", pr: null, results: null, busy: false, edit: {} };
+  gmMatBatchRender();
+  Promise.all(ids.map(function(id) { return gmApi("abc/drafts/" + encodeURIComponent(id)); })).then(function(all) {
+    var b = gmMatBatch; if (!b) { return; }
+    all.forEach(function(d) { b.det[d.draft.id] = d; b.pos[d.draft.id] = d.draft.order_ref; });
+    b.locs = all[0].locations || []; b.loading = false;
+    var biz = all[0].business || {}; b.contact = { name: biz.name || "", email: biz.email || "", phone: biz.phone || "" };
+    b.comboRef = all[0].draft.order_ref;
+    gmMatBatchRender();
+  }).catch(function(e) { var b = gmMatBatch; if (!b) { return; } b.loading = false; b.err = e.message; gmMatBatchRender(); console.error("batch: " + e.message); });
+}
+function gmMatBatchName(id) { var d = gmMatBatch.det[id]; return d ? (d.draft.job_name || d.draft.contract_number || id) : id; }
+function gmMatBatchRender() {
+  var b = gmMatBatch; if (!b) { return; }
+  var h = "";
+  if (b.loading) { h = '<p class="muted">' + escHtml(gmT("Carregando…", "Loading…")) + '</p>'; }
+  else if (b.err) { h = gmMatCalloutHtml(gmT("Não foi possível abrir o lote", "Could not open the batch"), [[gmT("Motivo", "Reason"), b.err]]); }
+  else if (b.step === "choice") {
+    h = '<div class="gm-field-label" style="font-size:16px;">' + escHtml(gmT("Como estes pedidos devem ser entregues?", "How should these orders be delivered?")) + '</div>' +
+      '<p class="muted">' + escHtml(b.ids.length + gmT(" pedidos escolhidos.", " orders picked.")) + '</p><div class="gm-seg">' +
+      '<button type="button" class="gm-seg-btn" onclick="gmMatBatch.step = \'A\'; gmMatBatchRender()"><strong>' + escHtml(gmT("Cada pedido no seu local de entrega", "Each order to its own delivery location")) + '</strong></button>' +
+      '<button type="button" class="gm-seg-btn" onclick="gmMatBatch.step = \'B\'; gmMatBatchRender()"><strong>' + escHtml(gmT("Todos os pedidos em um só local", "All orders to one location")) + '</strong></button></div>' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmMatOrdersOpen()">' + escHtml(gmT("Voltar à lista", "Back to the list")) + '</button>';
+  }
+  else if (b.step === "A") { h = gmMatBatchAHtml(b); }
+  else if (b.step === "B") { h = gmMatBatchBHtml(b); }
+  else if (b.step === "review") { h = gmMatBatchReviewHtml(b); }
+  else if (b.step === "results") { h = gmMatBatchResultsHtml(b); }
+  gmSheetOpen(escHtml(gmT("Pedido em lote", "Batch order")), h, null, "pricing-item-and-import#item");
+}
+function gmMatBatchResultsHtml(b) {
+  var h = '<div class="gm-field-label">' + escHtml(gmT("Resultado de cada pedido", "Result of each order")) + '</div>';
+  (b.results || []).forEach(function(r) {
+    h += '<div class="gm-mat-line"><div class="gm-mat-line-head"><strong>' + escHtml(r.name) + '</strong><span class="gm-pill ' + (r.ok ? "gm-green" : "gm-red") + '">' + escHtml(r.ok ? gmT("Enviado", "Sent") : gmT("Não enviado", "Not sent")) + '</span></div><div class="gm-lead-sub" style="white-space:normal;">' + escHtml(r.text) + '</div></div>';
+  });
+  return h + '<button type="button" class="gm-btn-primary" onclick="gmMatOrdersOpen()">' + escHtml(gmT("Voltar à lista", "Back to the list")) + '</button>';
+}
+// ── A: each order to its own place ──
+function gmMatBatchAHtml(b) {
+  var h = '<p class="muted">' + escHtml(gmT("Cada pedido usa a própria entrega. Defina aqui a que estiver faltando.", "Each order uses its own delivery. Set any that is missing here.")) + '</p>';
+  b.ids.forEach(function(id) {
+    var d = b.det[id], dr = d.draft, miss = dr.missing || [];
+    var needsDelivery = miss.indexOf("delivery_service") !== -1 || miss.indexOf("delivery_place") !== -1 || miss.indexOf("address") !== -1;
+    var e = b.edit[id] || (b.edit[id] = { service: dr.delivery_service, place: dr.delivery_to === "saved" ? dr.location_id : (dr.delivery_to === "job" ? "job" : "") });
+    h += '<div class="gm-mat-line"><div class="gm-mat-line-head"><strong>' + escHtml(dr.job_name) + '</strong></div>' +
+      '<div class="gm-lead-sub" style="white-space:normal;">' + escHtml(needsDelivery ? gmT("Falta a entrega.", "Delivery is missing.") : gmMatServiceName(dr.delivery_service) + " · " + gmMatShipText(d)) + '</div>';
+    var other = miss.filter(function(k) { return ["delivery_service", "delivery_place", "address"].indexOf(k) === -1; });
+    if (other.length) { h += '<div class="gm-warn" style="font-weight:600;font-size:13px;">' + escHtml(gmT("Também falta: ", "Also needed: ") + gmMatMissingText(other)) + '</div>'; }
+    if (needsDelivery) {
+      h += gmMatServiceSelect("gmMatBA_" + escHtml(id), e.service, "gmMatBatch.edit['" + escHtml(id) + "'].service = this.value") +
+        '<label class="gm-field-label" for="gmMatBP_' + escHtml(id) + '">' + escHtml(gmT("Para onde vai", "Where it goes")) + '</label><select id="gmMatBP_' + escHtml(id) + '" class="gm-input" onchange="gmMatBatch.edit[\'' + escHtml(id) + '\'].place = this.value">' +
+        '<option value="">' + escHtml(gmT("Escolha…", "Choose…")) + '</option><option value="job"' + (e.place === "job" ? " selected" : "") + '>' + escHtml(gmT("Endereço da obra", "Job address")) + '</option>' +
+        b.locs.map(function(L) { return '<option value="' + escHtml(L.id) + '"' + (e.place === L.id ? " selected" : "") + '>' + escHtml(L.name + ": " + L.line1) + '</option>'; }).join("") + '</select>' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmMatBatchASave(\'' + escHtml(id) + '\')">' + escHtml(gmT("Salvar entrega", "Save delivery")) + '</button>';
+    }
+    h += '</div>';
+  });
+  var ready = b.ids.every(function(id) { return (b.det[id].draft.missing || []).length === 0; });
+  if (b.err) { h = gmMatCalloutHtml(gmT("Confira", "Check"), [[gmT("O que houve", "What happened"), b.err]]) + h; }
+  h += '<button type="button" class="gm-btn-primary"' + (ready && !b.busy ? "" : " disabled") + ' onclick="gmMatBatchPricesGo(\'A\')">' + escHtml(b.busy ? gmT("Buscando preços…", "Getting prices…") : gmT("Ver preços e enviar todos", "See prices and send all")) + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmMatBatch.step = \'choice\'; gmMatBatchRender()">' + escHtml(gmT("Voltar", "Back")) + '</button>';
+  return h;
+}
+function gmMatBatchASave(id) {
+  var b = gmMatBatch, e = b.edit[id]; if (!e) { return; }
+  var body = { delivery_service: e.service || "" };
+  if (e.place === "job") { body.delivery_to = "job"; } else if (e.place) { body.delivery_to = "saved"; body.location_id = e.place; }
+  b.err = "";
+  gmApi("abc/drafts/" + encodeURIComponent(id), { method: "PUT", body: body }).then(function() { return gmApi("abc/drafts/" + encodeURIComponent(id)); })
+    .then(function(d) { b.det[id] = d; delete b.edit[id]; gmMatBatchRender(); })
+    .catch(function(er) { b.err = er.message; gmMatBatchRender(); console.error("batch delivery: " + er.message); });
+}
+// ── B: one place for all ──
+function gmMatBatchBHtml(b) {
+  var h = "";
+  if (b.err) { h += gmMatCalloutHtml(gmT("Confira", "Check"), [[gmT("O que houve", "What happened"), b.err]]); }
+  var last = b.locs.filter(function(L) { return !!L.last_used_at; })[0] || null;
+  h += '<div class="gm-field-label">' + escHtml(gmT("Local de entrega para todos", "Delivery location for all")) + '</div>';
+  if (!b.locs.length) { b.locMode = "new"; }
+  if (last && !b.locMode) {
+    h += '<div class="gm-mat-loc"><div><strong>' + escHtml(last.name) + '</strong><div class="gm-lead-sub">' + escHtml(last.line1 + ", " + last.city + ", " + last.state + " " + last.postal) + '</div><div class="gm-lead-sub">' + escHtml(gmT("Usado por último", "Used last")) + '</div></div>' +
+      '<div class="gm-mat-loc-actions"><button type="button" class="gm-btn-primary" onclick="gmMatBatch.locId = \'' + escHtml(last.id) + '\'; gmMatBatch.locMode = \'picked\'; gmMatBatchRender()">' + escHtml(gmT("Usar este local", "Use this location")) + '</button>' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmMatBatch.locMode = \'list\'; gmMatBatchRender()">' + escHtml(gmT("Mudar o local", "Change location")) + '</button></div></div>';
+  } else if (b.locMode === "list" || (!last && b.locs.length && b.locMode !== "new" && b.locMode !== "picked")) {
+    b.locs.forEach(function(L) {
+      h += '<div class="gm-mat-loc"><div><strong>' + escHtml(L.name) + '</strong><div class="gm-lead-sub">' + escHtml(L.line1 + ", " + L.city + ", " + L.state + " " + L.postal) + '</div></div><div class="gm-mat-loc-actions"><button type="button" class="gm-btn-secondary" onclick="gmMatBatch.locId = \'' + escHtml(L.id) + '\'; gmMatBatch.locMode = \'picked\'; gmMatBatchRender()">' + escHtml(gmT("Usar", "Use")) + '</button></div></div>';
+    });
+    h += '<button type="button" class="gm-btn-secondary" onclick="gmMatBatch.locMode = \'new\'; gmMatBatchRender()">' + escHtml(gmT("Novo local", "New location")) + '</button>';
+  } else if (b.locMode === "picked") {
+    var L = null; b.locs.forEach(function(x) { if (x.id === b.locId) { L = x; } });
+    h += '<div class="gm-mat-loc gm-mat-loc-on"><div><strong>' + escHtml(L ? L.name : "") + '</strong><div class="gm-lead-sub">' + escHtml(L ? L.line1 + ", " + L.city + ", " + L.state + " " + L.postal : "") + '</div></div>' +
+      '<div class="gm-mat-loc-actions"><button type="button" class="gm-btn-secondary" onclick="gmMatBatch.locMode = \'list\'; gmMatBatchRender()">' + escHtml(gmT("Mudar o local", "Change location")) + '</button></div></div>';
+  } else {
+    h += gmMatAddrFields("nlB", b.nl, true).replace(/gmMatDraft\.form\.nlB/g, "gmMatBatch.nl") +
+      '<button type="button" class="gm-btn-secondary" onclick="gmMatBatchBizAddr()">' + escHtml(gmT("Usar o endereço da minha empresa", "Use my business address")) + '</button>' +
+      (b.locs.length ? '<button type="button" class="gm-btn-secondary" onclick="gmMatBatch.locMode = \'list\'; gmMatBatchRender()">' + escHtml(gmT("Escolher um local salvo", "Pick a saved location")) + '</button>' : "");
+  }
+  var chosen = b.locMode === "picked" || b.locMode === "new";
+  if (chosen) {
+    h += '<div class="gm-sheet-section">' + gmMatServiceSelect("gmMatBSvc", b.service, "gmMatBatch.service = this.value") +
+      gmMatField("gmMatBDate", gmT("Data de entrega (opcional)", "Delivery date (optional)"), b.date, "gmMatBatch.date = this.value", { placeholder: "MM/DD/YYYY", max: 10, inputmode: "numeric", hint: gmT("Em branco: a filial da ABC escolhe a data.", "Left blank, the ABC branch decides the date.") }) +
+      gmMatField("gmMatBCn", gmT("Nome do contato", "Contact name"), b.contact.name, "gmMatBatch.contact.name = this.value", { max: 60 }) +
+      gmMatField("gmMatBCe", gmT("E-mail do contato", "Contact email"), b.contact.email, "gmMatBatch.contact.email = this.value", { max: 254, type: "email" }) +
+      gmMatField("gmMatBCp", gmT("Telefone do contato", "Contact phone"), b.contact.phone, "gmMatBatch.contact.phone = this.value", { max: 30, inputmode: "tel" }) + '</div>' +
+      '<div class="gm-field-label">' + escHtml(gmT("Como enviar?", "How should they go?")) + '</div><div class="gm-seg">' +
+      '<button type="button" class="gm-seg-btn" onclick="gmMatBatchPricesGo(\'sep\')"><strong>' + escHtml(gmT("Pedidos separados", "Separate orders")) + '</strong><span class="muted">' + escHtml(gmT("Um por trabalho, cada um com seu número de compra", "One per job, each with its own purchase order")) + '</span></button>' +
+      '<button type="button" class="gm-seg-btn"' + (b.ids.length < 2 ? " disabled" : "") + ' onclick="gmMatBatchPricesGo(\'combo\')"><strong>' + escHtml(gmT("Um pedido combinado", "One combined order")) + '</strong><span class="muted">' + escHtml(gmT("Linhas somadas por item da ABC, um número de compra", "Lines merged by ABC item, one purchase order")) + '</span></button></div>';
+  }
+  return h + '<button type="button" class="gm-btn-secondary" onclick="gmMatBatch.step = \'choice\'; gmMatBatch.locMode = \'\'; gmMatBatchRender()">' + escHtml(gmT("Voltar", "Back")) + '</button>';
+}
+function gmMatBatchBizAddr() {
+  var b = gmMatBatch, a = ((b.det[b.ids[0]] || {}).business || {}).address || {};
+  b.nl.line1 = a.line1 || ""; b.nl.city = a.city || ""; b.nl.state = a.state || ""; b.nl.postal = a.postal || ""; gmMatBatchRender();
+}
+// Prices for every draft, then the review step.
+function gmMatBatchPricesGo(mode) {
+  var b = gmMatBatch; if (!b || b.busy) { return; }
+  b.err = ""; b.mode = mode;
+  var go = function() {
+    b.busy = true; gmMatBatchRender();
+    var pr = {};
+    b.ids.reduce(function(p, id) {
+      return p.then(function() { return gmApi("abc/drafts/" + encodeURIComponent(id) + "/prices", { method: "POST", body: {} }).then(function(r) { pr[id] = r.lines || []; }); });
+    }, Promise.resolve()).then(function() {
+      b.busy = false; b.pr = pr; b.step = "review"; gmMatBatchRender();
+    }).catch(function(e) { b.busy = false; b.err = e.message; gmMatBatchRender(); console.error("batch prices: " + e.message); });
+  };
+  if (mode === "A") { go(); return; }
+  // B: check the shared fields, then save the place and the delivery on every draft.
+  var iso = gmMatIsoDate(b.date);
+  if (!b.service) { b.err = gmT("Escolha o tipo de entrega.", "Choose the delivery type."); gmMatBatchRender(); return; }
+  if (iso === null) { b.err = gmT("Escreva a data como MM/DD/AAAA ou deixe em branco.", "Write the date as MM/DD/YYYY or leave it blank."); gmMatBatchRender(); return; }
+  if (!b.contact.name.trim() || !b.contact.email.trim() || !b.contact.phone.trim()) { b.err = gmT("Informe nome, e-mail e telefone do contato.", "Enter the contact name, email and phone."); gmMatBatchRender(); return; }
+  var resolveLoc;
+  if (b.locMode === "picked") { resolveLoc = Promise.resolve(b.locId); }
+  else {
+    var n = b.nl;
+    if (!n.name.trim() || !n.line1.trim() || !n.city.trim() || !/^[A-Z]{2}$/.test(n.state) || !/^\d{5}(-\d{4})?$/.test(n.postal)) { b.err = gmT("Complete o novo local: nome, rua, cidade, estado com 2 letras e CEP.", "Complete the new location: name, street, city, 2 letter state and zip code."); gmMatBatchRender(); return; }
+    resolveLoc = gmApi("abc/locations", { method: "POST", body: { name: n.name.trim(), line1: n.line1.trim(), city: n.city.trim(), state: n.state, postal: n.postal } }).then(function(r) { b.locId = r.location.id; b.locs.push(r.location); b.locMode = "picked"; return r.location.id; });
+  }
+  b.busy = true; gmMatBatchRender();
+  resolveLoc.then(function(locId) {
+    // The place, the type, the date and the contact go onto every draft; the purchase orders stay as they are.
+    return b.ids.reduce(function(p, id) {
+      return p.then(function() {
+        return gmApi("abc/drafts/" + encodeURIComponent(id), { method: "PUT", body: { delivery_service: b.service, delivery_date: iso, contact_name: b.contact.name.trim(), contact_email: b.contact.email.trim(), contact_phone: b.contact.phone.trim(), delivery_to: "saved", location_id: locId } });
+      });
+    }, Promise.resolve());
+  }).then(function() { b.busy = false; go(); }).catch(function(e) { b.busy = false; b.err = e.message; gmMatBatchRender(); console.error("batch place: " + e.message); });
+}
+function gmMatBatchReviewHtml(b) {
+  var h = "", grand = 0, all = true;
+  var linesOf = function(id) { return (b.det[id].lines || []).filter(function(l) { return !l.removed; }); };
+  var price = function(id, lineId) { var x = (b.pr[id] || []).filter(function(p) { return p.id === lineId; })[0]; return x ? x.price : null; };
+  if (b.err) { h += gmMatCalloutHtml(gmT("Confira", "Check"), [[gmT("O que houve", "What happened"), b.err]]); }
+  if (b.mode === "combo") {
+    var merged = {}, order = [];
+    b.ids.forEach(function(id) { linesOf(id).forEach(function(l) {
+      var key = l.item_number + "|" + l.uom; var p = price(id, l.id);
+      if (!merged[key]) { merged[key] = { item_number: l.item_number, description: l.description, uom: l.uom, qty: 0, price: p }; order.push(key); }
+      merged[key].qty += l.quantity || 0; if (merged[key].price === null) { merged[key].price = p; }
+    }); });
+    h += '<div class="gm-field-label">' + escHtml(gmT("Um pedido combinado", "One combined order")) + '</div>' +
+      gmMatField("gmMatComboRef", gmT("Número do pedido de compra", "Purchase order number"), b.comboRef, "gmMatBatch.comboRef = this.value", { max: 16, hint: gmT("Até 16 letras, números ou hifens.", "Up to 16 letters, numbers or hyphens.") });
+    order.forEach(function(k) {
+      var m = merged[k], t = m.price === null ? null : m.qty * m.price; if (t === null) { all = false; } else { grand += t; }
+      h += '<div class="gm-mat-line"><div class="gm-mat-line-head"><strong>' + escHtml(m.description) + '</strong><span>' + (t === null ? "—" : escHtml(gmMatOrderMoney(t))) + '</span></div><div class="gm-lead-sub">' + escHtml(m.qty + " " + m.uom + (m.price === null ? "" : " × " + gmMatOrderMoney(m.price))) + '</div></div>';
+    });
+  } else {
+    h += '<div class="gm-field-label">' + escHtml(b.mode === "A" ? gmT("Pedidos, cada um no seu local", "Orders, each to its own location") : gmT("Pedidos separados, um local", "Separate orders, one location")) + '</div>';
+    b.ids.forEach(function(id) {
+      var t = 0, ok = true; linesOf(id).forEach(function(l) { var p = price(id, l.id); if (p === null || !l.quantity) { ok = false; } else { t += p * l.quantity; } });
+      if (!ok) { all = false; } else { grand += t; }
+      h += '<div class="gm-mat-line"><div class="gm-mat-line-head"><strong>' + escHtml(gmMatBatchName(id)) + '</strong><span>' + (ok ? escHtml(gmMatOrderMoney(t)) : "—") + '</span></div>' +
+        (b.mode === "sep" ? gmMatField("gmMatPo_" + escHtml(id), gmT("Número do pedido de compra", "Purchase order number"), b.pos[id], "gmMatBatch.pos['" + escHtml(id) + "'] = this.value", { max: 16 }) :
+          '<div class="gm-lead-sub" style="white-space:normal;">' + escHtml(gmMatServiceName(b.det[id].draft.delivery_service) + " · " + gmMatShipText(b.det[id]) + " · " + b.det[id].draft.order_ref) + '</div>') + '</div>';
+    });
+  }
+  h += '<div class="gm-mat-sum"><span>' + escHtml(gmT("Total", "Total")) + '</span><strong>' + (all ? escHtml(gmMatOrderMoney(grand)) : "—") + '</strong></div>' +
+    '<button type="button" class="gm-btn-primary"' + (all && !b.busy ? "" : " disabled") + ' onclick="gmMatBatchSend()">' + escHtml(b.busy ? gmT("Enviando…", "Sending…") : (b.mode === "combo" ? gmT("Enviar o pedido combinado", "Send the combined order") : gmT("Enviar todos", "Send all"))) + '</button>' +
+    '<button type="button" class="gm-btn-secondary"' + (b.busy ? " disabled" : "") + ' onclick="gmMatBatch.step = \'' + (b.mode === "A" ? "A" : "B") + '\'; gmMatBatchRender()">' + escHtml(gmT("Voltar", "Back")) + '</button>';
+  return h;
+}
+function gmMatBatchReason(e) {
+  var dt = e.data || {};
+  if (dt.price_changed) { return gmT("Um preço mudou. Abra o pedido, confira e envie.", "A price changed. Open the order, check it and send."); }
+  if (dt.abc_refusal) { return gmT("A ABC recusou: ", "ABC refused: ") + dt.abc_refusal; }
+  if (dt.missing && dt.missing.length) { return gmT("Falta: ", "Still needed: ") + gmMatMissingText(dt.missing); }
+  return e.message;
+}
+// Sends in order, one at a time. A failure is written down and the next one goes.
+function gmMatBatchSend() {
+  var b = gmMatBatch; if (!b || b.busy) { return; }
+  b.busy = true; b.err = ""; gmMatBatchRender();
+  var results = [];
+  var finish = function() { b.busy = false; b.results = results; b.step = "results"; gmMatOrd = null; gmMatBatchRender(); gmMatDraftsLoad(); };
+  if (b.mode === "combo") {
+    var prices = {};
+    b.ids.forEach(function(id) { (b.det[id].lines || []).forEach(function(l) { var x = (b.pr[id] || []).filter(function(p) { return p.id === l.id; })[0]; if (x && x.price !== null && prices[l.item_number] === undefined) { prices[l.item_number] = x.price; } }); });
+    var loc = null; b.locs.forEach(function(L) { if (L.id === b.locId) { loc = L; } });
+    gmApi("abc/drafts/combine", { method: "POST", body: { draft_ids: b.ids, mode: "combined", delivery_service: b.service, delivery_date: gmMatIsoDate(b.date) || "", location: { id: b.locId },
+      contact: { name: b.contact.name.trim(), email: b.contact.email.trim(), phone: b.contact.phone.trim() }, order_ref: String(b.comboRef || "").trim(), prices: prices } }).then(function(r) {
+      b.ids.forEach(function(id) { results.push({ name: gmMatBatchName(id), ok: true, text: gmT("Combinado no pedido ", "Combined into order ") + r.order_ref + gmT(". Confirmação ", ". Confirmation ") + r.confirmation_number }); });
+      finish();
+    }).catch(function(e) {
+      b.ids.forEach(function(id) { results.push({ name: gmMatBatchName(id), ok: false, text: gmMatBatchReason(e) }); });
+      console.error("batch combine: " + e.message); finish();
+    });
+    return;
+  }
+  var i = 0;
+  (function next() {
+    if (i >= b.ids.length) { finish(); return; }
+    var id = b.ids[i++], name = gmMatBatchName(id);
+    var prices = {}; (b.pr[id] || []).forEach(function(p) { if (p.price !== null) { prices[p.id] = p.price; } });
+    var prep = b.mode === "sep" && b.pos[id] !== b.det[id].draft.order_ref ? gmApi("abc/drafts/" + encodeURIComponent(id), { method: "PUT", body: { order_ref: String(b.pos[id] || "").trim() } }) : Promise.resolve();
+    prep.then(function() { return gmApi("abc/drafts/" + encodeURIComponent(id) + "/send", { method: "POST", body: { prices: prices } }); })
+      .then(function(r) { results.push({ name: name, ok: true, text: gmT("Enviado. Confirmação ", "Sent. Confirmation ") + r.confirmation_number }); next(); })
+      .catch(function(e) { results.push({ name: name, ok: false, text: gmMatBatchReason(e) }); console.error("batch send: " + e.message); next(); });
+  })();
+}
+
 
 var gmPricingCsvText = null;
 var gmPricingColumnMap = null;
@@ -7492,7 +8856,7 @@ function gmLoadContractsTab() {
   var body = document.getElementById("gmContractsBody");
   if (!body) { return; }
   body.innerHTML = '<div class="content-card"><p class="muted">' + gmT("Carregando…", "Loading…") + '</p></div>';
-  Promise.all([gmApi("contracts"), gmApi("jobs"), gmLoadConfig()])
+  Promise.all([gmApi("contracts"), gmApi("jobs"), gmLoadConfig(), new Promise(function(resolve) { gmMatDraftsLoad(resolve); })])
     .then(function(r) { gmConTabList = r[0].contracts || []; gmJobsData = r[1]; gmRenderContractsTab(); })
     .catch(function(e) { body.innerHTML = '<div class="content-card"><p class="gm-warn">' + escHtml(e.message) + '</p></div>'; console.error(e); });
 }
@@ -7518,7 +8882,7 @@ function gmConTabContractRow(c) {
     : (c.status === "declined" && c.decline_reason ? gmT("Motivo: ", "Reason: ") + c.decline_reason
     : (c.status === "awaiting_company" && c.routed_to_name ? gmT("Aguardando: ", "Waiting on: ") + c.routed_to_name : ""));
   return '<button type="button" class="gm-row" onclick="gmOpenContract(\'' + escHtml(c.id) + '\')"><span class="gm-lead-main">' +
-    '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(c.display_number || "") + ' · ' + escHtml(c.job_name || "") + '</span>' +
+    '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(c.display_number || "") + ' · ' + escHtml(c.job_name || "") + gmMatContractBadgeHtml(c) + '</span>' +
     '<div class="gm-lead-sub">' + line2 + '</div>' +
     (note ? '<div class="gm-lead-sub gm-warn">' + escHtml(note) + '</div>' : "") +
     '</span><span class="gm-lead-side">' + gmConPill(c.status) + '</span></button>';
@@ -7967,6 +9331,7 @@ function gmRenderContractSheet() {
     if (c.pool_ack_at) { sig += gmSheetRowHtml("check", gmT("Documentos de piscina entregues", "Pool documents delivered"), escHtml(formatDateTimeUTC(c.pool_ack_at))); }
     if (c.cancellation_deadline) { sig += gmSheetRowHtml("clock", gmT("Pode cancelar até", "May cancel until"), escHtml(formatDate(c.cancellation_deadline))); }
   }
+  sig += gmMatContractSheetRow(c);
   if (c.content_hash) { sig += gmSheetRowHtml("tag", "SHA-256", '<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;overflow-wrap:anywhere;">' + escHtml(c.content_hash) + '</span>'); }
   if (c.public && c.public.signed_render_hash) { sig += gmSheetRowHtml("tag", gmT("SHA-256 da versão assinada", "SHA-256 of the signed render"), '<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;overflow-wrap:anywhere;">' + escHtml(c.public.signed_render_hash) + '</span>'); }
   if (c.void_reason) { sig += gmSheetRowHtml("sms", gmT("Motivo da anulação", "Void reason"), escHtml(c.void_reason) + ' <span class="muted">' + escHtml(c.voided_by || "") + '</span>'); }
@@ -14893,13 +16258,16 @@ function gmEstWizNewState(lead, existing) {
     // The saved default terms (Business, Settings, Estimate terms), a NEW
     // estimate only. Nothing saved = empty boxes.
     terms_included: dt.default_terms_included || "", terms_excluded: dt.default_terms_excluded || "", customer_notes: dt.default_customer_notes || "",
-    msg: null
+    msg: null,
+    draftNow: true
   };
 }
 
 function gmEstWizFromDetail(est) {
   var st = gmEstWizNewState({ id: est.lead_id, cliente: est.customer_name, telefone: est.customer_phone, email: est.customer_email, address: est.customer_address, servico: "", city: "" }, true);
   st.id = est.id; st.job_name = est.job_name; st.customer_address = est.customer_address || "";
+  // Live ABC costs follow only an estimate that is still a draft.
+  st.draftNow = est.stored_status === "draft";
   st.mode = est.mode; st.vendedor = est.vendedor;
   st.options = est.options.map(function(o) {
     var items = [];
@@ -14909,7 +16277,8 @@ function gmEstWizFromDetail(est) {
           line_type: ln.line_type, qty: String(ln.qty), unit: ln.unit || "", rate_cents: ln.rate_cents,
           preset_rate_cents: ln.preset_rate_cents !== null && ln.preset_rate_cents !== undefined ? ln.preset_rate_cents : (ln.pricing_id ? ln.rate_cents : null),
           rate_override_reason: ln.rate_override_reason || "", is_addon: !!ln.is_addon,
-          material_cost_cents: ln.material_cost_cents || 0, labor_cost_cents: ln.labor_cost_cents || 0, other_cost_cents: ln.other_cost_cents || 0 });
+          material_cost_cents: ln.material_cost_cents || 0, labor_cost_cents: ln.labor_cost_cents || 0, other_cost_cents: ln.other_cost_cents || 0,
+          calc: gmEstCalcFromServer(ln) });
       });
     });
     // Per-option discount (C1); the estimate-level columns are the fallback
@@ -14959,7 +16328,7 @@ function gmEstWizStart(lead) {
   // A seller has no doc-settings route; the send-message route carries the
   // non-sensitive slice the wizard needs (validity days, presets, min margin).
   var ms = gmIsSeller() ? gmDocMsgLoad().then(function(d) { gmDocSettings = d.settings_lite || gmDocSettings; gmEstWizApplyDefaultTerms(); }) : Promise.resolve(null);
-  Promise.all([pr, ms]).then(function() { gmEstDraftOffer(gmEstWiz, null); gmEstWizRender(); }).catch(function(e) { gmToast(e.message); console.error(e); });
+  Promise.all([pr, ms]).then(function() { gmEstDraftOffer(gmEstWiz, null); gmEstWizRender(); gmEstLiveCosts(); }).catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
 function gmEstEditOpen() {
@@ -14983,6 +16352,7 @@ function gmEstEditOpen() {
     }
     gmEstDraftOffer(gmEstWiz, est.updated_at || null);
     gmEstWizRender();
+    gmEstLiveCosts();
   }).catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
@@ -15224,14 +16594,16 @@ function gmEstWizLineHtml(it, i) {
       '<button type="button" class="gm-cost-del" aria-label="' + gmT("Remover linha", "Remove line") + '" onclick="gmEstWizLineRemove(' + i + ')">&times;</button>' +
     '</div>' +
     '<div class="gm-cost-line">' +
-      '<input type="text" inputmode="decimal" class="gm-input gm-cost-amount" value="' + escHtml(it.qty) + '" aria-label="' + gmT("Quantidade", "Quantity") + '" oninput="gmEstWizLineSet(' + i + ', \'qty\', this.value)">' +
+      '<input type="text" inputmode="decimal" id="gmEwQty_' + i + '" class="gm-input gm-cost-amount" value="' + escHtml(it.qty) + '" aria-label="' + gmT("Quantidade", "Quantity") + '" oninput="gmEstWizLineSet(' + i + ', \'qty\', this.value)">' +
       '<span class="gm-est-x">×</span>' +
       '<input type="text" inputmode="decimal" class="gm-input gm-cost-amount" value="' + escHtml((it.rate_cents / 100).toFixed(2)) + '" aria-label="' + gmT("Preço unitário", "Unit rate") + '" onchange="gmEstWizRateChange(' + i + ', this.value)">' +
       '<select class="gm-input gm-cost-type" aria-label="' + gmT("Tipo de linha", "Line type") + '" onchange="gmEstWizLineSet(' + i + ', \'line_type\', this.value)">' +
         ['standard', 'included', 'allowance'].map(function(t) { return '<option value="' + t + '"' + (it.line_type === t ? " selected" : "") + '>' + escHtml(GmLabels.estimateLineTypeLabel(t, isEn())) + '</option>'; }).join("") +
       '</select>' +
     '</div>' +
+    gmEstCalcHtml(it, i) +
     '<div class="gm-lead-sub" id="gmEwLineSum_' + i + '">' + gmEstWizLineSummary(it) + '</div>' +
+    (gmEstLineRow(it) && gmEstLineRow(it).abc_item_number && gmAbcLiveLabelHtml(gmEstLineRow(it)) ? '<div class="gm-lead-sub">' + gmAbcLiveLabelHtml(gmEstLineRow(it)) + '</div>' : "") +
     '<textarea class="gm-input" rows="2" placeholder="' + gmT("Descrição para o cliente (impressa abaixo da linha)", "Customer description (printed under the line)") + '" oninput="gmEstWizLineSet(' + i + ', \'description\', this.value)">' + escHtml(it.description || "") + '</textarea>' +
     '</div>';
 }
@@ -15243,7 +16615,7 @@ function gmEstWizPickQty(pricingId, v) {
   if (!q || Number(q.replace(",", ".")) <= 0) { if (idx !== -1) { opt.items.splice(idx, 1); } gmEstWizRefreshChosen(); return; }
   var p = null; ((gmPricingData && gmPricingData.items) || []).forEach(function(x) { if (x.id === pricingId) { p = x; } });
   if (!p) { return; }
-  if (idx === -1) { var ln = gmEstWizLineFromPricing(p); ln.qty = q; opt.items.push(ln); } else { opt.items[idx].qty = q; }
+  if (idx === -1) { var ln = gmEstWizLineFromPricing(p); ln.qty = q; opt.items.push(ln); if (p.abc_item_number) { gmAbcLiveRefresh([p.id], function(res) { if (gmEstApplyCosts(res)) { gmEstWizRefreshChosen(); } }); } } else { opt.items[idx].qty = q; }
   gmEstWizRefreshChosen();
 }
 
@@ -15259,6 +16631,8 @@ function gmEstWizLineSet(i, key, v) {
   var w = gmEstWiz; var opt = w.options[w.activeOpt];
   if (!opt.items[i]) { return; }
   opt.items[i][key] = v;
+  // Typing a quantity by hand clears the length by width inputs.
+  if (key === "qty" && opt.items[i].calc) { gmEstCalcClear(i); }
   // The summary line follows every keystroke and the type change (C9),
   // without re-rendering the list under the focused input.
   var sum = document.getElementById("gmEwLineSum_" + i);
@@ -15547,9 +16921,12 @@ function gmEstWizPayload() {
       return { tier: o.tier, label: o.label,
         discount_type: dv > 0 ? o.discount_type : null, discount_value: dv > 0 ? (o.discount_type === "amount" ? Math.round(dv * 100) : dv) : null,
         items: o.items.map(function(it) {
+        var cp = gmEstCalcPayload(it);
         return { pricing_id: it.pricing_id, item_name: it.item_name.trim(), category: it.category || null, description: it.description || null, line_type: it.line_type,
           qty: Number(String(it.qty).replace(",", ".")) || 0, unit: it.unit || null, rate_cents: it.rate_cents, rate_override_reason: it.rate_override_reason || null, is_addon: !!it.is_addon,
-          material_cost_cents: it.material_cost_cents, labor_cost_cents: it.labor_cost_cents, other_cost_cents: it.other_cost_cents };
+          material_cost_cents: it.material_cost_cents, labor_cost_cents: it.labor_cost_cents, other_cost_cents: it.other_cost_cents,
+          calc_kind: cp.calc_kind || null, calc_unit: cp.calc_unit || null, calc_length: cp.calc_length === undefined ? null : cp.calc_length,
+          calc_width: cp.calc_width === undefined ? null : cp.calc_width, calc_depth: cp.calc_depth === undefined ? null : cp.calc_depth };
       }) };
     })
   };
@@ -16010,6 +17387,7 @@ function gmLoadAttention(fresh) {
   loads.push(gmConLoadAwaiting());
   loads.push(gmConLoadNotices());
   loads.push(gmConLoadResponses());
+  loads.push(new Promise(function(resolve) { gmMatDraftsLoad(resolve); }));
   if (gmContractsEnabled()) { loads.push(gmDSubsReload().catch(function(e) { console.error(e); })); }
   return Promise.all(loads).then(function() { gmAttentionRecompute(); return gmAttention; })
     .catch(function(e) { console.error("attention load failed", e); return gmAttention; });
@@ -16029,8 +17407,9 @@ function gmAttentionCardHtml() {
   var a = gmAttention;
   var subsCard = gmDSubsCardHtml();
   var respCard = gmConResponsesCardHtml();
-  if (!a.pending_alerts.length && !a.online_acceptances.length && !gmConAwaiting.length && !gmConSignReqs.length && !gmConNotices.length && !subsCard && !respCard) { return ""; }
-  var h = respCard + gmConNoticesCardHtml() + gmConAwaitingCardHtml() + subsCard;
+  var matCard = gmMatOrdersCardHtml();
+  if (!a.pending_alerts.length && !a.online_acceptances.length && !gmConAwaiting.length && !gmConSignReqs.length && !gmConNotices.length && !subsCard && !respCard && !matCard) { return ""; }
+  var h = matCard + respCard + gmConNoticesCardHtml() + gmConAwaitingCardHtml() + subsCard;
   if (a.pending_alerts.length) {
     h += '<div class="card-title">' + gmT("Pagamentos aguardando verificação", "Payments awaiting verification") + ' <span class="goal-pending-badge">' + a.pending_alerts.length + '</span></div>';
     a.pending_alerts.forEach(function(x) {

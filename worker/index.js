@@ -41239,7 +41239,8 @@ async function abcFetch(cfg, method, url, opts, secrets) {
     var data = null;
     try { data = await res.json(); } catch (e2) { data = null; }
     if (!res.ok) {
-        var msg = (data && (data.error_description || data.message || data.error || data.title)) || ("ABC answered HTTP " + res.status);
+        // When ABC's error carries none of the usual fields, keep a short copy of its body (scrubbed below, log only) so the cause can be read.
+        var msg = (data && (data.error_description || data.message || data.error || data.title)) || ("ABC answered HTTP " + res.status + (data ? " " + JSON.stringify(data).slice(0, 300) : ""));
         var err = new Error(metaScrub(String(msg), secrets));
         err.abcStatus = res.status;
         throw err;

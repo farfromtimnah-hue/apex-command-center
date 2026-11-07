@@ -385,5 +385,19 @@ await check("list-where-abc-is-off-is-an-empty-200", async () => {
   user = OWNER; ok((await w.F.handlePostGmAbcDraftEnsure("c1", post("/x", { contract_id: "con1" }), w.env)).status === 503, "ABC off: the other draft routes still answer not available");
 });
 
+// 2026-11-07, found by sending a test order to ABC's Sandbox from the screen: ABC refused with HTTP 400 because (a) every contact
+// needs a phones list and every phone needs an ext key, and (b) a line id must be a STRING, not a number.
+await check("order-body-matches-abc-schema", async () => {
+  const w = world(); seedWorld(w); await seedConn(w); user = OWNER;
+  const { did } = await oneDraft(w);
+  const g = await openAndPrice(w, did);
+  await ready(w, did);
+  const r = await sendDraft(w, did, pricesOf(g));
+  ok(r.status === 200 && w.abc.orders.length === 1, "the order is sent");
+  const sent = w.abc.orders[0];
+  ok(sent.shipTo.contacts.length >= 1 && sent.shipTo.contacts.every((c) => Array.isArray(c.phones) && c.phones.length >= 1 && c.phones.every((p) => typeof p.number === "string" && p.number !== "" && typeof p.type === "string" && typeof p.ext === "string")), "every contact has a phones list and every phone has number, type and an ext key (ABC: required key [phones] and [ext])");
+  ok(sent.lines.length >= 1 && sent.lines.every((l, i) => typeof l.id === "string" && l.id === String(i + 1)), "every line id is a string (ABC: expected type String, found Integer)");
+});
+
 console.log(fail ? "\n" + fail + " check(s) FAILED" : "\nAll checks passed");
 process.exit(fail ? 1 : 0);

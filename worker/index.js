@@ -41777,12 +41777,13 @@ function abcOrderBody(o) {
             name: o.job_name, number: o.ship_to,
             address: { line1: o.address.line1, line2: "", line3: "", city: o.address.city, state: o.address.state, postal: o.address.postal, country: "USA" },
             contacts: [
-                { name: o.contact.name, functionCode: "SM", email: o.contact.email },
-                { name: o.contact.name, functionCode: "DC", email: o.contact.email, phones: [{ number: o.contact.phone, type: "MOBILE" }] }
+                // ABC's schema (2026-11-07, from its own 400 answer): every contact carries a phones list and every phone an ext key.
+                { name: o.contact.name, functionCode: "SM", email: o.contact.email, phones: [{ number: o.contact.phone, ext: "", type: "MOBILE" }] },
+                { name: o.contact.name, functionCode: "DC", email: o.contact.email, phones: [{ number: o.contact.phone, ext: "", type: "MOBILE" }] }
             ]
         },
         lines: o.lines.map(function(l, i) {
-            return { id: i + 1, itemNumber: l.item_number, itemDescription: l.description, orderedQty: { value: l.quantity, uom: l.uom },
+            return { id: String(i + 1), itemNumber: l.item_number, itemDescription: l.description, orderedQty: { value: l.quantity, uom: l.uom },
                 unitPrice: { value: l.unit_price, uom: l.uom, instructions: "" } };
         })
     };

@@ -447,7 +447,7 @@ await check("order", async () => {
   const sent = w.abc.orders[0][0];
   ok(Array.isArray(w.abc.orders[0]) && sent.requestId === "AP-1001" && sent.purchaseOrder === "AP-1001" && sent.typeCode === "SO" && sent.currency === "USD", "ABC got a one-order array with our reference, SO and USD");
   ok(sent.branchNumber === "1234" && sent.shipTo.number === "2010466-2" && sent.deliveryService === "COM" && sent.dates.deliveryRequestedFor === "2026-11-20", "branch, ship-to, delivery service and date");
-  ok(sent.lines[0].id === 1 && sent.lines[0].orderedQty.value === 30 && sent.lines[0].unitPrice.value === 41.5 && sent.lines[0].unitPrice.instructions === "", "line quantity and price as the person sent them");
+  ok(sent.lines[0].id === "1" /* ABC 2026-11-07: a line id must be a string */ && sent.lines[0].orderedQty.value === 30 && sent.lines[0].unitPrice.value === 41.5 && sent.lines[0].unitPrice.instructions === "", "line quantity and price as the person sent them");
   ok(sent.shipTo.contacts.some((c) => c.functionCode === "SM") && sent.shipTo.contacts.some((c) => c.functionCode === "DC" && c.phones[0].number === "4075550142"), "submitting and delivery contacts, phone as 10 digits");
   const row = w.d.q("SELECT * FROM gm_abc_orders")[0];
   ok(row.status === "submitted" && row.abc_order_id === "CONF-7001" && row.order_ref === "AP-1001" && row.created_by === "Zeta Owner", "row stored as submitted with ABC's confirmation number");

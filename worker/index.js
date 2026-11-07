@@ -41655,7 +41655,7 @@ async function handlePostGmAbcPrice(id, request, env) {
         var token = await abcAccessToken(env, a.cfg, id);
         secrets = [token, a.cfg.client_secret];
         var res = await abcApi(a.cfg, token, "POST", "/api/pricing/v2/prices", {
-            shipToNumber: conn.ship_to_number, branchNumber: conn.branch_number, purpose: "estimating",
+            requestId: crypto.randomUUID(), shipToNumber: conn.ship_to_number, branchNumber: conn.branch_number, purpose: "estimating",
             lines: lines.map(function(l, i) {
                 var o = { id: String(i + 1), itemNumber: l.item_number, quantity: l.quantity };
                 if (l.uom) { o.uom = l.uom; }
@@ -42074,7 +42074,7 @@ async function abcFetchPrices(cfg, token, conn, itemNumbers, secrets) {
     for (var s = 0; s < itemNumbers.length; s += ABC.price_batch) {
         var chunk = itemNumbers.slice(s, s + ABC.price_batch);
         var res = await abcApi(cfg, token, "POST", "/api/pricing/v2/prices", {
-            shipToNumber: conn.ship_to_number, branchNumber: conn.branch_number, purpose: "estimating",
+            requestId: crypto.randomUUID(), shipToNumber: conn.ship_to_number, branchNumber: conn.branch_number, purpose: "estimating",
             lines: chunk.map(function(n, i) { return { id: String(i + 1), itemNumber: n, quantity: 1 }; })
         }, secrets);
         chunk.forEach(function(n) { out[n] = { none: true }; });

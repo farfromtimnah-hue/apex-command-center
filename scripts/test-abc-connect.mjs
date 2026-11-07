@@ -23,7 +23,7 @@ const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientA
   "abcSettings", "abcClientAllowed", "abcTablesReady", "abcNotAvailable", "abcOwnerGuard", "abcRedirectUri", "abcWebhookUrl",
   "abcB64url", "abcPkcePair", "abcSha256Hex", "abcFetch", "abcApi", "abcErrTransient", "abcTokenCall", "abcAuthorizeUrl", "abcBack",
   "abcStateUse", "abcFlagReconnect", "abcAccessToken", "abcStatusPayload", "abcWebhookRegister", "abcWebhookRemove",
-  "abcPriceInput", "abcOrderInput", "abcOrderBody", "abcValidDate", "abcText", "abcOwnerStart", "abcRefreshToken", "abcServerError", "abcUpstreamError", "abcCron",
+  "abcPriceInput", "abcOrderInput", "abcOrderBody", "abcPlaceOrder", "abcValidDate", "abcText", "abcOwnerStart", "abcRefreshToken", "abcServerError", "abcUpstreamError", "abcCron",
   "handleGetGmAbcStatus", "handlePostGmAbcConnect", "handleGetAbcCallback", "handlePostGmAbcDisconnect", "handleGetGmAbcAccounts",
   "handlePostGmAbcAccount", "handlePostGmAbcPrice", "handlePostGmAbcOrder", "handleGetGmAbcOrders", "handlePostAbcWebhook",
   "handleGetAbcSandboxPing", "clientRequestAllowed", "sellerRequestAllowed"].filter(hasFn);
@@ -458,7 +458,7 @@ await check("order", async () => {
   const bads = {
     "no order_ref": mutate((o) => { delete o.order_ref; }), "ref too long": mutate((o) => { o.order_ref = "A".repeat(17); }), "ref with space": mutate((o) => { o.order_ref = "A 1"; }),
     "no ship_to": mutate((o) => { delete o.ship_to; }), "other ship_to": mutate((o) => { o.ship_to = "3030303-1"; }), "no branch": mutate((o) => { delete o.branch; }), "other branch": mutate((o) => { o.branch = "5678"; }),
-    "no date": mutate((o) => { delete o.delivery_date; }), "date not real": mutate((o) => { o.delivery_date = "2026-02-30"; }), "date format": mutate((o) => { o.delivery_date = "11/20/2026"; }),
+    "date not real": mutate((o) => { o.delivery_date = "2026-02-30"; }), "date format": mutate((o) => { o.delivery_date = "11/20/2026"; }),
     "no service": mutate((o) => { delete o.delivery_service; }), "service not listed": mutate((o) => { o.delivery_service = "FAST"; }),
     "no job name": mutate((o) => { delete o.job_name; }), "no address": mutate((o) => { delete o.address; }), "state not 2 letters": mutate((o) => { o.address.state = "Florida"; }), "zip bad": mutate((o) => { o.address.postal = "abc"; }),
     "no contact": mutate((o) => { delete o.contact; }), "email bad": mutate((o) => { o.contact.email = "nope"; }), "phone short": mutate((o) => { o.contact.phone = "555"; }), "no contact name": mutate((o) => { o.contact.name = ""; }),
@@ -474,6 +474,10 @@ await check("order", async () => {
     ok(res.status === 400 && w.abc.orders.length === before, "order refused (400), ABC not called: " + k);
   }
   ok(w.d.q("SELECT COUNT(*) AS n FROM gm_abc_orders")[0].n === 1, "refused orders left no rows");
+  // 2026-11-07: the delivery date is optional. Left out, the order goes without a date and the branch decides.
+  const noDate = ORDER(); delete noDate.delivery_date; noDate.order_ref = "AP-3003";
+  const nd = await read(await w.F.handlePostGmAbcOrder("c1", post("/x", noDate), w.env));
+  ok(nd.status === 200 && w.abc.orders[w.abc.orders.length - 1].dates === undefined, "an order with no delivery date is accepted and sent without a date");
   ok((await read(await w.F.handlePostGmAbcOrder("c1", post("/x", "not json"), w.env))).status === 400, "unreadable body is 400");
   // ABC refuses: no row left behind, the person can try again with the same reference
   const w2 = world();

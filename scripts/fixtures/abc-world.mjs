@@ -42,15 +42,16 @@ const FN_BASE = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireCli
   "abcRefreshRows", "handlePostGmAbcPriceRows",
   "gmMaterialOwner", "gmMaterialFields", "gmMaterialCandidates", "gmMaterialBad", "gmMaterialColumnsReady", "gmMaterialStandard", "handleGetGmMaterialSettings", "handlePutGmMaterialSettings", "handlePostGmMaterialApply",
   "abcValidDate", "abcOrderInput", "abcOrderBody", "abcPlaceOrder", "handlePostGmAbcOrder", "handleGetGmAbcOrders", "abcPriceInput",
-  "abcDraftTablesReady", "abcDraftEnsureForContract", "abcDraftOwner", "abcDraftBuildLines", "abcDraftLoad", "abcDraftOrderFromRow", "abcDraftPoRef", "abcLocationFields", "abcLocationUse",
-  "handleGetGmAbcDrafts", "handleGetGmAbcDraft", "handlePostGmAbcDraftEnsure", "handlePutGmAbcDraft", "handlePostGmAbcDraftDiscard", "handlePostGmAbcDraftPrices", "handlePostGmAbcDraftSend",
-  "handlePostGmAbcDraftsCombine", "handleGetGmAbcLocations", "handlePostGmAbcLocation", "handlePutGmAbcLocation", "handlePostGmAbcLocationArchive",
+  "abcDraftTablesReady", "abcDraftStart", "abcDraftBad", "abcDraftNotFound", "abcDraftQty", "abcDraftPoRef", "abcSplitAddress", "abcDraftBusiness", "abcDraftJob", "abcDraftBuildLines", "abcDraftEnsureForContract",
+  "abcDraftLoad", "abcDraftShip", "abcDraftMissing", "abcDraftOrderFromRow", "abcRefusal", "abcLocationFields", "abcSameAddress", "abcLocationSave", "abcLocationUse", "abcLocationOut", "abcDraftSummary", "abcDraftFreshPrices", "abcDraftReviewedPrices", "abcSamePrice",
+  "handleGetGmAbcLocations", "handlePostGmAbcLocation", "handlePutGmAbcLocation", "handlePostGmAbcLocationArchive", "handleGetGmAbcDrafts", "handleGetGmAbcDraft", "handlePostGmAbcDraftEnsure", "handlePutGmAbcDraft",
+  "handlePostGmAbcDraftDiscard", "handlePostGmAbcDraftPrices", "handlePostGmAbcDraftSend", "handlePostGmAbcDraftsCombine",
   "gmEstParseOptions", "gmEstWriteOptions", "gmEstOptTotals", "gmCents", "gmEstLineAmountCents", "gmEstParseDiscount", "gmEstOptDiscount", "gmEstOptionTotals", "gmEstDiscountCents",
   "clientRequestAllowed", "sellerRequestAllowed"];
 export const FNS = FN_BASE.filter(hasFn);
 const VARS_ALL = ["DEFAULT_ORIGIN", "CORS_HEADERS", "GM_ACTOR_KEY_RE", "GM_HIDDEN_ACTORS", "TOKEN_SEAL_PREFIX", "ABC", "ABC_NA_PT", "ABC_NA_EN",
   "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "ABC_REFRESHING", "ABC_SHIPTO_RE", "ABC_BRANCH_RE", "ABC_ITEM_RE", "ABC_UOM_RE",
-  "GM_COST_LINE_TYPES", "GM_PRICING_KINDS", "GM_PRICING_SELLER_FIELDS", "ABC_PL_INSERT", "GM_EST_LINE_TYPES", "GM_EST_TIERS", "GM_MATERIAL_FIELDS"];
+  "GM_COST_LINE_TYPES", "GM_PRICING_KINDS", "GM_PRICING_SELLER_FIELDS", "ABC_PL_INSERT", "GM_EST_LINE_TYPES", "GM_EST_TIERS", "GM_MATERIAL_FIELDS", "ABC_PO_RE", "ABC_ID_RE", "ABC_STATE_RE", "ABC_ZIP_RE"];
 export const VARS = VARS_ALL.filter(function (v) { try { varSrc(v); return true; } catch (e) { return false; } });
 
 export const CATALOG = {
@@ -72,7 +73,7 @@ export function makeWorld(opts, getUser) {
   run(sqlOf("migrations/abc_connect.sql"));
   run(sqlOf("migrations/gm_pricing.sql"));
   run(SCHEMA_EXTRA.replace(/;/g, ";\n"));
-  stmts(sqlOf("migrations/client_estimates_invoices_p1.sql")).filter((s) => /^ALTER TABLE gm_pricing ADD COLUMN/.test(s)).forEach((s) => d.raw.exec(s));
+  stmts(sqlOf("migrations/client_estimates_invoices_p1.sql")).forEach((s) => { try { d.raw.exec(s); } catch (e) { /* alters on tables the test does not need */ } });
   stmts(sqlOf("migrations/client_estimates_invoices_p2.sql")).forEach((s) => { try { d.raw.exec(s); } catch (e) { /* unrelated alters */ } });
   stmts(sqlOf("migrations/client_estimates_invoices_fix2.sql")).forEach((s) => { try { d.raw.exec(s); } catch (e) { /* unrelated */ } });
   stmts(sqlOf("migrations/contracts_b_builder.sql")).forEach((s) => { try { d.raw.exec(s); } catch (e) { /* unrelated */ } });

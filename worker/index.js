@@ -41727,8 +41727,10 @@ function abcOrderInput(b, conn) {
     if (typeof b.branch !== "string" || b.branch !== conn.branch_number) { return null; }
     o.ship_to = b.ship_to;
     o.branch = b.branch;
-    if (!abcValidDate(b.delivery_date)) { return null; }
-    o.delivery_date = b.delivery_date;
+    // The delivery date is OPTIONAL: left blank, the ABC branch decides the date. A date that is typed must still be a real YYYY-MM-DD date.
+    if (b.delivery_date === undefined || b.delivery_date === null || b.delivery_date === "") { o.delivery_date = ""; }
+    else if (!abcValidDate(b.delivery_date)) { return null; }
+    else { o.delivery_date = b.delivery_date; }
     if (typeof b.delivery_service !== "string" || ABC.delivery_services.indexOf(b.delivery_service) === -1) { return null; }
     o.delivery_service = b.delivery_service;
     o.job_name = abcText(b.job_name, 80);
@@ -41762,9 +41764,9 @@ function abcOrderInput(b, conn) {
 
 // The order as ABC's Place Orders wants it (a one-order array is sent).
 function abcOrderBody(o) {
-    return {
+    var body = {
         requestId: o.order_ref, purchaseOrder: o.order_ref, branchNumber: o.branch, deliveryService: o.delivery_service, typeCode: "SO",
-        dates: { deliveryRequestedFor: o.delivery_date }, currency: "USD",
+        currency: "USD",
         shipTo: {
             name: o.job_name, number: o.ship_to,
             address: { line1: o.address.line1, line2: "", line3: "", city: o.address.city, state: o.address.state, postal: o.address.postal, country: "USA" },
@@ -41778,14 +41780,51 @@ function abcOrderBody(o) {
                 unitPrice: { value: l.unit_price, uom: l.uom, instructions: "" } };
         })
     };
+    if (o.delivery_date) { body.dates = { deliveryRequestedFor: o.delivery_date }; }
+    return body;
+}
+
+// Sends one checked order to ABC. The row is written BEFORE ABC is called: the
+// reference is unique per business, so the same order can never be sent twice,
+// and a webhook that beats the answer still finds its row. Throws an Error with
+// .duplicate = true when the reference was already used. ABC answers with
+// abcStatus on the error, as everywhere else. The token and the ABC secret are
+// pushed onto `secrets` for the caller's scrubbing.
+async function abcPlaceOrder(env, a, id, order, secrets) {
+    var token = await abcAccessToken(env, a.cfg, id);
+    secrets.push(token, a.cfg.client_secret);
+    var rowId = crypto.randomUUID();
+    var ins = await env.DB.prepare(
+        "INSERT OR IGNORE INTO gm_abc_orders (id, client_id, order_ref, status, created_by) VALUES (?, ?, ?, 'submitted', ?)"
+    ).bind(rowId, id, order.order_ref, actorName(a.user)).run();
+    if (!ins.meta || ins.meta.changes !== 1) {
+        throw Object.assign(new Error("That order reference was already used"), { duplicate: true });
+    }
+    var res = null;
+    try {
+        res = await abcApi(a.cfg, token, "POST", "/api/order/v2/orders", [abcOrderBody(order)], secrets);
+    } catch (e2) {
+        // ABC said no: nothing was placed, the reference can be used again.
+        // No answer (0) or a server error: we cannot know, so the row stays.
+        if (e2 && e2.abcStatus >= 400 && e2.abcStatus < 500) {
+            await env.DB.prepare("DELETE FROM gm_abc_orders WHERE id = ? AND abc_order_id IS NULL").bind(rowId).run();
+        }
+        throw e2;
+    }
+    var first = res && Array.isArray(res.orders) ? res.orders[0] : null;
+    var failed = !first || !first.confirmationNumber || (res.request && Number(res.request.ordersFailed) > 0);
+    if (failed) {
+        await env.DB.prepare("DELETE FROM gm_abc_orders WHERE id = ? AND abc_order_id IS NULL").bind(rowId).run();
+        throw Object.assign(new Error("ABC did not place the order"), { abcStatus: 200 });
+    }
+    var conf = gmStr(String(first.confirmationNumber), 60);
+    await env.DB.prepare("UPDATE gm_abc_orders SET abc_order_id = ?, updated_at = datetime('now') WHERE id = ? AND abc_order_id IS NULL").bind(conf, rowId).run();
+    return { order_ref: order.order_ref, status: "submitted", confirmation_number: conf };
 }
 
 // POST /api/clients/:id/gm/abc/order   (owner only)
 // Sends one material order to ABC. ABC branch staff review a submitted order
-// before accepting it, so the stored status starts as submitted. The row is
-// written BEFORE ABC is called: the reference is unique per business, so the
-// same order can never be sent twice, and a webhook that beats the answer
-// still finds its row.
+// before accepting it, so the stored status starts as submitted.
 async function handlePostGmAbcOrder(id, request, env) {
     var secrets = [];
     try {
@@ -41797,35 +41836,14 @@ async function handlePostGmAbcOrder(id, request, env) {
         if (!conn || !conn.ship_to_number || !conn.branch_number) { return jsonErr2("Escolha a conta e a filial da ABC primeiro.", "Choose the ABC account and branch first.", 409); }
         var order = abcOrderInput(body, conn);
         if (!order) { return jsonErr2("Pedido inválido. Confira os campos.", "Invalid order. Check the fields.", 400); }
-        var token = await abcAccessToken(env, a.cfg, id);
-        secrets = [token, a.cfg.client_secret];
-        var rowId = crypto.randomUUID();
-        var ins = await env.DB.prepare(
-            "INSERT OR IGNORE INTO gm_abc_orders (id, client_id, order_ref, status, created_by) VALUES (?, ?, ?, 'submitted', ?)"
-        ).bind(rowId, id, order.order_ref, actorName(a.user)).run();
-        if (!ins.meta || ins.meta.changes !== 1) {
-            return jsonErr2("Essa referência de pedido já foi usada. Veja a lista de pedidos antes de enviar de novo.", "That order reference was already used. Check the orders list before sending again.", 409);
-        }
-        var res = null;
         try {
-            res = await abcApi(a.cfg, token, "POST", "/api/order/v2/orders", [abcOrderBody(order)], secrets);
-        } catch (e2) {
-            // ABC said no: nothing was placed, the reference can be used again.
-            // No answer (0) or a server error: we cannot know, so the row stays.
-            if (e2 && e2.abcStatus >= 400 && e2.abcStatus < 500) {
-                await env.DB.prepare("DELETE FROM gm_abc_orders WHERE id = ? AND abc_order_id IS NULL").bind(rowId).run();
+            return jsonOk(await abcPlaceOrder(env, a, id, order, secrets));
+        } catch (ePlace) {
+            if (ePlace && ePlace.duplicate) {
+                return jsonErr2("Essa referência de pedido já foi usada. Veja a lista de pedidos antes de enviar de novo.", "That order reference was already used. Check the orders list before sending again.", 409);
             }
-            throw e2;
+            throw ePlace;
         }
-        var first = res && Array.isArray(res.orders) ? res.orders[0] : null;
-        var failed = !first || !first.confirmationNumber || (res.request && Number(res.request.ordersFailed) > 0);
-        if (failed) {
-            await env.DB.prepare("DELETE FROM gm_abc_orders WHERE id = ? AND abc_order_id IS NULL").bind(rowId).run();
-            throw Object.assign(new Error("ABC did not place the order"), { abcStatus: 200 });
-        }
-        var conf = gmStr(String(first.confirmationNumber), 60);
-        await env.DB.prepare("UPDATE gm_abc_orders SET abc_order_id = ?, updated_at = datetime('now') WHERE id = ? AND abc_order_id IS NULL").bind(conf, rowId).run();
-        return jsonOk({ order_ref: order.order_ref, status: "submitted", confirmation_number: conf });
     } catch (e) {
         if (e && e.abcStatus !== undefined) { return abcUpstreamError("order", e, secrets); }
         return abcServerError("order", e, secrets);
@@ -42744,6 +42762,850 @@ async function handlePostGmMaterialApply(id, request, env) {
     }
 }
 
+// ── ABC order drafts and saved delivery locations (2026-11-07) ───────────────
+// A signed contract whose accepted estimate has ABC linked lines gets ONE draft
+// order. The owner reviews it and sends it, one at a time or in a batch. Nothing
+// here is filled in for the owner: no delivery type, place, date or recipient.
+// Creating a draft NEVER calls ABC (a customer signing is not the contractor
+// being present); prices are fetched only when the owner opens or sends a draft.
+var ABC_PO_RE = /^[A-Za-z0-9-]{1,16}$/;
+var ABC_ID_RE = /^[A-Za-z0-9-]{1,80}$/;
+var ABC_STATE_RE = /^[A-Z]{2}$/;
+var ABC_ZIP_RE = /^\d{5}(-\d{4})?$/;
+
+// False until migrations/abc_order_drafts.sql has run.
+async function abcDraftTablesReady(env) {
+    try {
+        await env.DB.prepare("SELECT id FROM gm_abc_order_drafts LIMIT 1").first();
+        await env.DB.prepare("SELECT id FROM gm_abc_order_draft_lines LIMIT 1").first();
+        await env.DB.prepare("SELECT id FROM gm_abc_delivery_locations LIMIT 1").first();
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// The start of every draft and location route: owner only, the feature on, the
+// tables there, inside the limit. needConn also needs a usable connection and a
+// saved account (routes that ask ABC).
+async function abcDraftStart(request, env, id, bucket, limit, needConn) {
+    var a = null;
+    if (needConn) {
+        a = await abcPlStart(request, env, id, bucket, limit);
+        if (a.err) { return a; }
+    } else {
+        a = await abcOwnerStart(request, env, id);
+        if (a.err) { return a; }
+        if (publicReadRateLimited(request, bucket, id, 0, limit)) {
+            return { err: jsonErr2("Muitas tentativas. Tente de novo em alguns minutos.", "Too many attempts. Try again in a few minutes.", 429) };
+        }
+    }
+    if (!(await abcDraftTablesReady(env))) { return { err: abcNotAvailable() }; }
+    return a;
+}
+
+function abcDraftBad() { return jsonErr2("Confira os dados enviados.", "Check the data sent.", 400); }
+function abcDraftNotFound() { return jsonErr2("Pedido não encontrado.", "Order not found.", 404); }
+
+function abcDraftQty(v) { return typeof v === "number" && isFinite(v) && v > 0 && v <= 100000; }
+
+// A short purchase order number that no draft or order of this business uses: AP- and 8 letters or digits.
+async function abcDraftPoRef(env, clientId) {
+    var chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    for (var tries = 0; tries < 8; tries++) {
+        var bytes = crypto.getRandomValues(new Uint8Array(8));
+        var ref = "AP-";
+        for (var i = 0; i < 8; i++) { ref += chars.charAt(bytes[i] % chars.length); }
+        var used = await env.DB.prepare(
+            "SELECT 1 AS x FROM gm_abc_order_drafts WHERE client_id = ? AND order_ref = ? UNION SELECT 1 FROM gm_abc_orders WHERE client_id = ? AND order_ref = ?"
+        ).bind(clientId, ref, clientId, ref).first();
+        if (!used) { return ref; }
+    }
+    throw new Error("could not make a purchase order number");
+}
+
+// "12 Main St, Tampa, FL 33602" into its parts. Anything that does not read that
+// way is NOT split: the whole text goes to line1 and the owner fills in the rest.
+function abcSplitAddress(text) {
+    var t = typeof text === "string" ? text.trim().replace(/\s+/g, " ") : "";
+    var m = /^(.{1,80}),\s*([^,]{1,50}),\s*([A-Za-z]{2})\.?\s+(\d{5}(?:-\d{4})?)$/.exec(t);
+    if (m) { return { line1: m[1], city: m[2], state: m[3].toUpperCase(), postal: m[4] }; }
+    return { line1: t.slice(0, 80), city: "", state: "", postal: "" };
+}
+
+// The business profile, for the contact and the "Use my business address" button.
+async function abcDraftBusiness(env, clientId) {
+    var row = null;
+    try { row = await env.DB.prepare("SELECT legal_name, address, phone, email FROM gm_doc_settings WHERE client_id = ?").bind(clientId).first(); } catch (e) { row = null; }
+    var cl = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(clientId).first();
+    row = row || {};
+    return {
+        name: (row.legal_name || (cl && cl.name) || "").slice(0, 60),
+        phone: String(row.phone || "").replace(/\D/g, "").replace(/^1(\d{10})$/, "$1"),
+        email: String(row.email || "").slice(0, 254),
+        address: abcSplitAddress(row.address)
+    };
+}
+
+// The project's name and address, as the page offers them (editable for one order).
+async function abcDraftJob(env, clientId, jobId) {
+    var job = null;
+    try {
+        job = await env.DB.prepare("SELECT job_name, obra, addr_street, addr_city, addr_state, addr_zip FROM gm_jobs WHERE id = ? AND client_id = ?").bind(jobId, clientId).first();
+    } catch (e) {
+        job = await env.DB.prepare("SELECT job_name, obra FROM gm_jobs WHERE id = ? AND client_id = ?").bind(jobId, clientId).first();
+    }
+    job = job || {};
+    var st = String(job.addr_state || "").trim().toUpperCase();
+    return {
+        name: String(job.job_name || job.obra || "").trim().slice(0, 80),
+        address: { line1: String(job.addr_street || "").trim().slice(0, 80), city: String(job.addr_city || "").trim().slice(0, 50), state: ABC_STATE_RE.test(st) ? st : "", postal: String(job.addr_zip || "").trim() }
+    };
+}
+
+// The ABC lines of a signed contract's accepted estimates, merged by ABC item
+// number, and the lines that are not from ABC. The quantity follows the measured
+// material math: estimate quantity, plus the item's own extra percent, divided by
+// what one ABC unit covers, rounded UP. null quantity = the owner must set it.
+async function abcDraftBuildLines(env, clientId, contract) {
+    var ids = [];
+    try { ids = JSON.parse(contract.estimate_ids_json || "[]"); } catch (e) { ids = []; }
+    ids = (Array.isArray(ids) ? ids : []).filter(function(x) { return typeof x === "string" && ABC_ID_RE.test(x); }).slice(0, 10);
+    var items = [];
+    var firstEstimate = "";
+    for (var i = 0; i < ids.length; i++) {
+        var est = await env.DB.prepare("SELECT id, accepted_option_id FROM gm_estimates WHERE id = ? AND client_id = ?").bind(ids[i], clientId).first();
+        if (!est) { continue; }
+        if (!firstEstimate) { firstEstimate = est.id; }
+        var optId = est.accepted_option_id;
+        if (!optId) {
+            var single = await env.DB.prepare("SELECT id FROM gm_estimate_options WHERE estimate_id = ? AND tier = 'single' LIMIT 1").bind(est.id).first();
+            optId = single ? single.id : null;
+        }
+        if (!optId) { continue; }
+        var rows = (await env.DB.prepare("SELECT id, pricing_id, item_name, qty, unit FROM gm_estimate_items WHERE estimate_id = ? AND option_id = ? ORDER BY sort_order").bind(est.id, optId).all()).results || [];
+        items = items.concat(rows);
+    }
+    var pricingIds = {};
+    items.forEach(function(it) { if (it.pricing_id) { pricingIds[it.pricing_id] = true; } });
+    var pids = Object.keys(pricingIds);
+    var pricing = {};
+    if (pids.length) {
+        var st = env.DB.prepare("SELECT * FROM gm_pricing WHERE client_id = ? AND id IN (" + pids.map(function() { return "?"; }).join(",") + ")");
+        ((await st.bind.apply(st, [clientId].concat(pids)).all()).results || []).forEach(function(r) { pricing[r.id] = r; });
+    }
+    var groups = {};
+    var order = [];
+    var notFromAbc = [];
+    items.forEach(function(it) {
+        var pr = it.pricing_id ? pricing[it.pricing_id] : null;
+        if (!pr || !pr.abc_item_number) { notFromAbc.push({ item_name: it.item_name }); return; }
+        var g = groups[pr.abc_item_number];
+        if (!g) { g = groups[pr.abc_item_number] = { row: pr, qty: 0, unitsOk: true, source: it.id }; order.push(pr.abc_item_number); }
+        g.qty += Number(it.qty) || 0;
+        if (abcNorm(it.unit) && abcNorm(it.unit) !== abcNorm(pr.unit)) { g.unitsOk = false; }
+    });
+    var lines = order.map(function(n, idx) {
+        var g = groups[n], r = g.row;
+        var kind = GM_MEASURE.effectiveKind(r);
+        var sameUnitNow = !!abcNorm(r.abc_apex_unit) && abcNorm(r.abc_apex_unit) === abcNorm(r.unit);
+        var factor = null;
+        if (sameUnitNow) { factor = r.abc_units_per_apex_unit > 0 ? r.abc_units_per_apex_unit : (r.abc_units_per_apex_unit === null ? 1 : null); }
+        var extra = kind === "counted" ? null : (typeof r.order_extra_percent === "number" ? r.order_extra_percent : null);
+        var qty = g.unitsOk && factor ? GM_MEASURE.orderQuantity({ qty: g.qty, extra: extra, perAbcUnit: factor, kind: kind }) : null;
+        if (qty !== null && qty > 100000) { qty = null; }
+        return {
+            item_number: n, description: String(r.item || n).slice(0, 100), quantity: qty, uom: ABC_UOM_RE.test(String(r.abc_unit || "")) ? r.abc_unit : "",
+            extra_percent_used: extra, extra_source: extra === null ? "" : (r.order_extra_source === "standard" ? "standard" : "item"),
+            source_line_id: g.source, sort_order: idx
+        };
+    });
+    return { lines: lines, notFromAbc: notFromAbc, estimate_id: firstEstimate };
+}
+
+// Makes the draft of a signed contract, once. Never calls ABC. Answers the draft
+// row, or null when there is nothing to make (unsigned, no ABC lines, no
+// connection, discarded earlier). Safe to call again: it returns the same draft.
+async function abcDraftEnsureForContract(env, clientId, contractId, actor) {
+    if (!clientId || !contractId || !ABC_ID_RE.test(String(contractId))) { return null; }
+    var cfg = abcSettings(env);
+    if (!cfg.ready || !abcClientAllowed(cfg, clientId) || !(await abcTablesReady(env)) || !(await abcDraftTablesReady(env)) || !(await abcPlColumnsReady(env))) { return null; }
+    var conn = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(clientId).first();
+    if (!conn || !conn.ship_to_number || !conn.branch_number) { return null; }
+    var con = await env.DB.prepare("SELECT id, client_id, job_id, lead_id, estimate_ids_json, number, status, homeowner_signed_at FROM gm_contracts WHERE id = ? AND client_id = ?").bind(contractId, clientId).first();
+    if (!con || con.status !== "completed" || !con.homeowner_signed_at) { return null; }
+    var existing = await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE client_id = ? AND contract_id = ? ORDER BY created_at LIMIT 1").bind(clientId, contractId).first();
+    if (existing) { return existing.status === "discarded" ? null : existing; }
+    var built = await abcDraftBuildLines(env, clientId, con);
+    if (!built.lines.length) { return null; }
+    var job = await abcDraftJob(env, clientId, con.job_id);
+    var biz = await abcDraftBusiness(env, clientId);
+    for (var attempt = 0; attempt < 2; attempt++) {
+        var did = crypto.randomUUID();
+        var ref = await abcDraftPoRef(env, clientId);
+        var stmts = [env.DB.prepare(
+            "INSERT INTO gm_abc_order_drafts (id, client_id, contract_id, estimate_id, project_id, job_name, order_ref, contact_name, contact_email, contact_phone, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(did, clientId, contractId, built.estimate_id, con.job_id || "", job.name, ref, biz.name, biz.email, biz.phone, String(actor || "").slice(0, 80))];
+        built.lines.forEach(function(l) {
+            stmts.push(env.DB.prepare(
+                "INSERT INTO gm_abc_order_draft_lines (id, draft_id, client_id, item_number, description, quantity, uom, extra_percent_used, extra_source, source_line_id, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            ).bind(crypto.randomUUID(), did, clientId, l.item_number, l.description, l.quantity, l.uom, l.extra_percent_used, l.extra_source, l.source_line_id, l.sort_order));
+        });
+        try {
+            await env.DB.batch(stmts);
+            return await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE id = ?").bind(did).first();
+        } catch (e) {
+            if (String(e && e.message || "").indexOf("UNIQUE") === -1) { throw e; }
+            var again = await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE client_id = ? AND contract_id = ? ORDER BY created_at LIMIT 1").bind(clientId, contractId).first();
+            if (again) { return again.status === "discarded" ? null : again; }
+        }
+    }
+    return null;
+}
+
+// One draft with its lines, scoped to the business, or null.
+async function abcDraftLoad(env, clientId, did) {
+    if (typeof did !== "string" || !ABC_ID_RE.test(did)) { return null; }
+    var draft = await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE id = ? AND client_id = ?").bind(did, clientId).first();
+    if (!draft) { return null; }
+    var lines = (await env.DB.prepare("SELECT * FROM gm_abc_order_draft_lines WHERE draft_id = ? AND client_id = ? ORDER BY sort_order, rowid").bind(did, clientId).all()).results || [];
+    return { draft: draft, lines: lines };
+}
+
+// The delivery place of a draft as ABC needs it: the saved location (read fresh) or the job address.
+async function abcDraftShip(env, clientId, draft, jobDefault) {
+    if (draft.delivery_to === "saved" && draft.location_id) {
+        var loc = await env.DB.prepare("SELECT name, line1, city, state, postal FROM gm_abc_delivery_locations WHERE id = ? AND client_id = ?").bind(draft.location_id, clientId).first();
+        if (loc) { return { name: loc.name, line1: loc.line1, city: loc.city, state: loc.state, postal: loc.postal }; }
+    }
+    if (draft.delivery_to === "job") {
+        var stored = draft.ship_line1 && draft.ship_city && draft.ship_state && draft.ship_postal;
+        var a = stored ? { line1: draft.ship_line1, city: draft.ship_city, state: draft.ship_state, postal: draft.ship_postal } : (jobDefault || { line1: "", city: "", state: "", postal: "" });
+        return { name: draft.job_name, line1: a.line1, city: a.city, state: a.state, postal: a.postal };
+    }
+    return { name: "", line1: "", city: "", state: "", postal: "" };
+}
+
+// What is still missing before a draft can be sent. Plain keys the page turns into words.
+function abcDraftMissing(draft, lines, ship) {
+    var m = [];
+    if (!draft.job_name) { m.push("job_name"); }
+    if (ABC.delivery_services.indexOf(draft.delivery_service) === -1) { m.push("delivery_service"); }
+    if (draft.delivery_to !== "job" && draft.delivery_to !== "saved") { m.push("delivery_place"); }
+    else if (!ship.line1 || !ship.city || !ABC_STATE_RE.test(ship.state) || !ABC_ZIP_RE.test(ship.postal)) { m.push("address"); }
+    if (!draft.contact_name) { m.push("contact_name"); }
+    if (!draft.contact_email || !/^[^\s@]{1,64}@[^\s@]+\.[^\s@]{2,}$/.test(draft.contact_email)) { m.push("contact_email"); }
+    var ph = String(draft.contact_phone || "").replace(/\D/g, "").replace(/^1(\d{10})$/, "$1");
+    if (ph.length !== 10) { m.push("contact_phone"); }
+    if (!ABC_PO_RE.test(draft.order_ref)) { m.push("order_ref"); }
+    var active = lines.filter(function(l) { return !l.removed; });
+    if (!active.length) { m.push("lines"); }
+    if (active.some(function(l) { return l.quantity === null || l.quantity === undefined; })) { m.push("quantity"); }
+    return m;
+}
+
+// The order the draft would send, in the shape abcOrderInput checks. Prices are the fresh ones.
+function abcDraftOrderFromRow(draft, ship, lines, conn, priceOf) {
+    return {
+        order_ref: draft.order_ref, ship_to: conn.ship_to_number, branch: conn.branch_number,
+        delivery_date: draft.delivery_date, delivery_service: draft.delivery_service,
+        job_name: ship.name || draft.job_name, address: { line1: ship.line1, city: ship.city, state: ship.state, postal: ship.postal },
+        contact: { name: draft.contact_name, email: draft.contact_email, phone: draft.contact_phone },
+        lines: lines.map(function(l) {
+            return { item_number: l.item_number, description: l.description, quantity: l.quantity, uom: l.uom, unit_price: priceOf(l) };
+        })
+    };
+}
+
+// Plain words for what ABC refused (its own text, scrubbed and shortened).
+function abcRefusal(e, secrets) {
+    var text = metaScrub(String(e && e.message || ""), secrets || []).replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 300);
+    console.error("abc order refused: " + text);
+    return jsonErr2("A ABC recusou o pedido: " + text, "ABC refused the order: " + text, 422, { abc_refusal: text });
+}
+
+// ── Saved delivery locations ──
+function abcLocationFields(b) {
+    if (!b || typeof b !== "object") { return null; }
+    var f = { name: abcText(b.name, 40), line1: abcText(b.line1, 80), city: abcText(b.city, 50),
+        state: typeof b.state === "string" && ABC_STATE_RE.test(b.state) ? b.state : null,
+        postal: typeof b.postal === "string" && ABC_ZIP_RE.test(b.postal) ? b.postal : null };
+    return f.name && f.line1 && f.city && f.state && f.postal ? f : null;
+}
+
+function abcSameAddress(row, f) {
+    return abcNorm(row.line1) === abcNorm(f.line1) && abcNorm(row.city) === abcNorm(f.city) && row.state === f.state && row.postal === f.postal;
+}
+
+// Saves a typed location once. The same name and address again is the same location; the same
+// name with another address is a conflict (the owner changes the saved one instead). A removed
+// location with that name comes back. Answers { row } or { conflict: true }.
+async function abcLocationSave(env, clientId, f, actor) {
+    var existing = await env.DB.prepare("SELECT * FROM gm_abc_delivery_locations WHERE client_id = ? AND name = ? COLLATE NOCASE").bind(clientId, f.name).first();
+    if (existing) {
+        if (existing.archived) {
+            await env.DB.prepare("UPDATE gm_abc_delivery_locations SET archived = 0, line1 = ?, city = ?, state = ?, postal = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ?")
+                .bind(f.line1, f.city, f.state, f.postal, existing.id, clientId).run();
+        } else if (!abcSameAddress(existing, f)) {
+            return { conflict: true };
+        }
+        return { row: await env.DB.prepare("SELECT * FROM gm_abc_delivery_locations WHERE id = ? AND client_id = ?").bind(existing.id, clientId).first() };
+    }
+    var id = crypto.randomUUID();
+    try {
+        await env.DB.prepare("INSERT INTO gm_abc_delivery_locations (id, client_id, name, line1, city, state, postal, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+            .bind(id, clientId, f.name, f.line1, f.city, f.state, f.postal, String(actor || "").slice(0, 80)).run();
+    } catch (e) {
+        if (String(e && e.message || "").indexOf("UNIQUE") !== -1) { return { conflict: true }; }
+        throw e;
+    }
+    return { row: await env.DB.prepare("SELECT * FROM gm_abc_delivery_locations WHERE id = ? AND client_id = ?").bind(id, clientId).first() };
+}
+
+async function abcLocationUse(env, clientId, locId) {
+    await env.DB.prepare("UPDATE gm_abc_delivery_locations SET last_used_at = datetime('now') WHERE id = ? AND client_id = ?").bind(locId, clientId).run();
+}
+
+function abcLocationOut(r) {
+    return { id: r.id, name: r.name, line1: r.line1, city: r.city, state: r.state, postal: r.postal, last_used_at: r.last_used_at };
+}
+
+// GET /api/clients/:id/gm/abc/locations   (owner only): the business's saved places, last used first.
+async function handleGetGmAbcLocations(id, request, env) {
+    try {
+        var a = await abcDraftStart(request, env, id, "abcloc", 120, false);
+        if (a.err) { return a.err; }
+        var rows = (await env.DB.prepare(
+            "SELECT * FROM gm_abc_delivery_locations WHERE client_id = ? AND archived = 0 ORDER BY (last_used_at <> '') DESC, last_used_at DESC, name COLLATE NOCASE LIMIT 200"
+        ).bind(id).all()).results || [];
+        return jsonOk({ locations: rows.map(abcLocationOut) });
+    } catch (e) {
+        return abcServerError("locations", e);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/locations   { name, line1, city, state, postal }   (owner only)
+async function handlePostGmAbcLocation(id, request, env) {
+    try {
+        var a = await abcDraftStart(request, env, id, "abcloc", 120, false);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var f = abcLocationFields(body);
+        if (!f) { return abcDraftBad(); }
+        var r = await abcLocationSave(env, id, f, actorName(a.user));
+        if (r.conflict) { return jsonErr2("Já existe um local com esse nome. Use outro nome ou altere o local salvo.", "A location with that name already exists. Use another name or change the saved one.", 409); }
+        return jsonOk({ location: abcLocationOut(r.row) });
+    } catch (e) {
+        return abcServerError("location", e);
+    }
+}
+
+// PUT /api/clients/:id/gm/abc/locations/:lid   { name, line1, city, state, postal }   (owner only): Change location.
+async function handlePutGmAbcLocation(id, lid, request, env) {
+    try {
+        var a = await abcDraftStart(request, env, id, "abcloc", 120, false);
+        if (a.err) { return a.err; }
+        if (typeof lid !== "string" || !ABC_ID_RE.test(lid)) { return abcDraftNotFound(); }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var row = await env.DB.prepare("SELECT id FROM gm_abc_delivery_locations WHERE id = ? AND client_id = ?").bind(lid, id).first();
+        if (!row) { return jsonErr2("Local não encontrado.", "Location not found.", 404); }
+        var f = abcLocationFields(body);
+        if (!f) { return abcDraftBad(); }
+        var clash = await env.DB.prepare("SELECT id FROM gm_abc_delivery_locations WHERE client_id = ? AND name = ? COLLATE NOCASE AND id <> ?").bind(id, f.name, lid).first();
+        if (clash) { return jsonErr2("Já existe um local com esse nome.", "A location with that name already exists.", 409); }
+        await env.DB.prepare("UPDATE gm_abc_delivery_locations SET name = ?, line1 = ?, city = ?, state = ?, postal = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ?")
+            .bind(f.name, f.line1, f.city, f.state, f.postal, lid, id).run();
+        var saved = await env.DB.prepare("SELECT * FROM gm_abc_delivery_locations WHERE id = ? AND client_id = ?").bind(lid, id).first();
+        return jsonOk({ location: abcLocationOut(saved) });
+    } catch (e) {
+        return abcServerError("location-change", e);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/locations/:lid/archive   (owner only): takes it off the list. The row stays: sent orders point at it.
+async function handlePostGmAbcLocationArchive(id, lid, request, env) {
+    try {
+        var a = await abcDraftStart(request, env, id, "abcloc", 120, false);
+        if (a.err) { return a.err; }
+        if (typeof lid !== "string" || !ABC_ID_RE.test(lid)) { return abcDraftNotFound(); }
+        var res = await env.DB.prepare("UPDATE gm_abc_delivery_locations SET archived = 1, updated_at = datetime('now') WHERE id = ? AND client_id = ?").bind(lid, id).run();
+        if (!res.meta || res.meta.changes !== 1) { return jsonErr2("Local não encontrado.", "Location not found.", 404); }
+        return jsonOk({ archived: true });
+    } catch (e) {
+        return abcServerError("location-archive", e);
+    }
+}
+
+// ── Draft routes ──
+function abcDraftSummary(r) {
+    return { id: r.id, contract_id: r.contract_id, contract_number: r.contract_number || null, job_name: r.job_name, status: r.status, delivery_service: r.delivery_service,
+        delivery_to: r.delivery_to, delivery_date: r.delivery_date, order_ref: r.order_ref, abc_confirmation: r.abc_confirmation, combined_into: r.combined_into,
+        created_at: r.created_at, line_count: r.line_count, order_status: r.order_status || null };
+}
+
+// GET /api/clients/:id/gm/abc/drafts[?contract_id=]   (owner only)
+async function handleGetGmAbcDrafts(id, request, env) {
+    try {
+        var a = await abcDraftStart(request, env, id, "abcdrafts", 240, false);
+        if (a.err) { return a.err; }
+        var cid = new URL(request.url).searchParams.get("contract_id");
+        if (cid !== null && !ABC_ID_RE.test(cid)) { return abcDraftBad(); }
+        var sql = "SELECT d.*, c.number AS contract_number, " +
+            "(SELECT COUNT(*) FROM gm_abc_order_draft_lines l WHERE l.draft_id = d.id AND l.removed = 0) AS line_count, " +
+            "(SELECT o.status FROM gm_abc_orders o WHERE o.client_id = d.client_id AND o.order_ref = CASE WHEN d.combined_into <> '' THEN d.combined_into ELSE d.order_ref END) AS order_status " +
+            "FROM gm_abc_order_drafts d LEFT JOIN gm_contracts c ON c.id = d.contract_id AND c.client_id = d.client_id WHERE d.client_id = ? AND d.status <> 'discarded'" +
+            (cid !== null ? " AND d.contract_id = ?" : "") + " ORDER BY d.created_at DESC, d.rowid DESC LIMIT 200";
+        var st = env.DB.prepare(sql);
+        var rows = (await (cid !== null ? st.bind(id, cid) : st.bind(id)).all()).results || [];
+        return jsonOk({ drafts: rows.map(abcDraftSummary), waiting: rows.filter(function(r) { return r.status === "draft"; }).length });
+    } catch (e) {
+        return abcServerError("drafts", e);
+    }
+}
+
+// GET /api/clients/:id/gm/abc/drafts/:did   (owner only): the draft, its lines and what the page needs around them.
+async function handleGetGmAbcDraft(id, did, request, env) {
+    try {
+        var a = await abcDraftStart(request, env, id, "abcdrafts", 240, false);
+        if (a.err) { return a.err; }
+        var d = await abcDraftLoad(env, id, did);
+        if (!d) { return abcDraftNotFound(); }
+        var con = await env.DB.prepare("SELECT id, client_id, job_id, estimate_ids_json, number FROM gm_contracts WHERE id = ? AND client_id = ?").bind(d.draft.contract_id, id).first();
+        var job = await abcDraftJob(env, id, d.draft.project_id);
+        var built = con ? await abcDraftBuildLines(env, id, con) : { notFromAbc: [] };
+        var biz = await abcDraftBusiness(env, id);
+        var locs = (await env.DB.prepare("SELECT * FROM gm_abc_delivery_locations WHERE client_id = ? AND archived = 0 ORDER BY (last_used_at <> '') DESC, last_used_at DESC, name COLLATE NOCASE LIMIT 200").bind(id).all()).results || [];
+        var ship = await abcDraftShip(env, id, d.draft, job.address);
+        var ord = await env.DB.prepare("SELECT status, last_event_at FROM gm_abc_orders WHERE client_id = ? AND order_ref = ?").bind(id, d.draft.combined_into || d.draft.order_ref).first();
+        var draft = Object.assign({}, d.draft, { contract_number: con ? con.number : null, order_status: ord ? ord.status : null, order_status_at: ord ? ord.last_event_at : null, missing: abcDraftMissing(d.draft, d.lines, ship) });
+        return jsonOk({
+            draft: draft,
+            lines: d.lines.map(function(l) { return Object.assign({}, l, { removed: !!l.removed, needs_quantity: !l.removed && (l.quantity === null || l.quantity === undefined) }); }),
+            not_from_abc: built.notFromAbc, job_address: job.address, ship: ship, business: biz, locations: locs.map(abcLocationOut)
+        });
+    } catch (e) {
+        return abcServerError("draft", e);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/drafts/ensure   { contract_id }   (owner only)
+// Makes the draft of a signed contract if it is missing. Safe to call again.
+async function handlePostGmAbcDraftEnsure(id, request, env) {
+    try {
+        var a = await abcDraftStart(request, env, id, "abcdraftmake", 60, false);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        if (!body || typeof body.contract_id !== "string" || !ABC_ID_RE.test(body.contract_id)) { return abcDraftBad(); }
+        var d = await abcDraftEnsureForContract(env, id, body.contract_id, actorName(a.user));
+        return jsonOk({ draft: d ? { id: d.id, status: d.status, contract_id: d.contract_id } : null });
+    } catch (e) {
+        return abcServerError("draft-ensure", e);
+    }
+}
+
+// PUT /api/clients/:id/gm/abc/drafts/:did   (owner only)
+// Partial save of the review screen. Everything is checked before anything is written.
+async function handlePutGmAbcDraft(id, did, request, env) {
+    try {
+        var a = await abcDraftStart(request, env, id, "abcdraftput", 240, false);
+        if (a.err) { return a.err; }
+        var d = await abcDraftLoad(env, id, did);
+        if (!d) { return abcDraftNotFound(); }
+        if (d.draft.status !== "draft") { return jsonErr2("Este pedido já foi enviado ou descartado e não pode ser alterado.", "This order was already sent or discarded and cannot be changed.", 409); }
+        var b = null;
+        try { b = await request.json(); } catch (e1) { b = null; }
+        if (!b || typeof b !== "object" || Array.isArray(b)) { return abcDraftBad(); }
+        var has = function(k) { return Object.prototype.hasOwnProperty.call(b, k); };
+        var sets = {};
+        if (has("job_name")) { sets.job_name = abcText(b.job_name, 80); if (!sets.job_name) { return abcDraftBad(); } }
+        if (has("delivery_service")) {
+            if (b.delivery_service !== "" && (typeof b.delivery_service !== "string" || ABC.delivery_services.indexOf(b.delivery_service) === -1)) { return abcDraftBad(); }
+            sets.delivery_service = b.delivery_service;
+        }
+        if (has("delivery_date")) {
+            if (b.delivery_date !== "" && !abcValidDate(b.delivery_date)) { return abcDraftBad(); }
+            sets.delivery_date = b.delivery_date;
+        }
+        if (has("order_ref")) { if (typeof b.order_ref !== "string" || !ABC_PO_RE.test(b.order_ref)) { return abcDraftBad(); } sets.order_ref = b.order_ref; }
+        if (has("contact_name")) { sets.contact_name = b.contact_name === "" ? "" : abcText(b.contact_name, 60); if (sets.contact_name === null) { return abcDraftBad(); } }
+        if (has("contact_email")) { sets.contact_email = b.contact_email === "" ? "" : abcText(b.contact_email, 254); if (sets.contact_email === null) { return abcDraftBad(); } }
+        if (has("contact_phone")) { sets.contact_phone = b.contact_phone === "" ? "" : abcText(b.contact_phone, 30); if (sets.contact_phone === null) { return abcDraftBad(); } }
+        var place = null;
+        if (has("delivery_to")) {
+            if (b.delivery_to !== "" && b.delivery_to !== "job" && b.delivery_to !== "saved") { return abcDraftBad(); }
+            sets.delivery_to = b.delivery_to;
+        }
+        var newLoc = null;
+        if (has("new_location")) { newLoc = abcLocationFields(b.new_location); if (!newLoc) { return abcDraftBad(); } }
+        var locId = null;
+        if (has("location_id")) { if (typeof b.location_id !== "string" || !ABC_ID_RE.test(b.location_id)) { return abcDraftBad(); } locId = b.location_id; }
+        var jobAddr = null;
+        if (has("job_address")) {
+            var ja = b.job_address;
+            jobAddr = ja && typeof ja === "object" ? { line1: abcText(ja.line1, 80), city: abcText(ja.city, 50), state: typeof ja.state === "string" && ABC_STATE_RE.test(ja.state) ? ja.state : null, postal: typeof ja.postal === "string" && ABC_ZIP_RE.test(ja.postal) ? ja.postal : null } : null;
+            if (!jobAddr || !jobAddr.line1 || !jobAddr.city || !jobAddr.state || !jobAddr.postal) { return abcDraftBad(); }
+        }
+        // Line edits.
+        var lineEdits = [];
+        if (has("lines")) {
+            if (!Array.isArray(b.lines) || b.lines.length > 99) { return abcDraftBad(); }
+            for (var i = 0; i < b.lines.length; i++) {
+                var le = b.lines[i];
+                if (!le || typeof le !== "object" || typeof le.id !== "string") { return abcDraftBad(); }
+                var mine = d.lines.filter(function(x) { return x.id === le.id; })[0];
+                if (!mine) { return abcDraftBad(); }
+                var edit = { id: le.id };
+                if (Object.prototype.hasOwnProperty.call(le, "quantity")) { if (!abcDraftQty(le.quantity)) { return abcDraftBad(); } edit.quantity = le.quantity; }
+                if (Object.prototype.hasOwnProperty.call(le, "removed")) { if (typeof le.removed !== "boolean") { return abcDraftBad(); } edit.removed = le.removed ? 1 : 0; }
+                lineEdits.push(edit);
+            }
+        }
+        var addLines = [];
+        if (has("add_lines")) {
+            if (!Array.isArray(b.add_lines) || b.add_lines.length > 20) { return abcDraftBad(); }
+            for (var j = 0; j < b.add_lines.length; j++) {
+                var al = b.add_lines[j];
+                if (!al || typeof al !== "object" || typeof al.item_number !== "string" || !ABC_ITEM_RE.test(al.item_number) || typeof al.uom !== "string" || !ABC_UOM_RE.test(al.uom) || !abcDraftQty(al.quantity)) { return abcDraftBad(); }
+                var desc = abcText(al.description, 100);
+                if (!desc) { return abcDraftBad(); }
+                addLines.push({ item_number: al.item_number, description: desc, uom: al.uom, quantity: al.quantity });
+            }
+        }
+        // Everything below needs the database. Resolve the delivery place first.
+        var job = await abcDraftJob(env, id, d.draft.project_id);
+        var useLocId = null;
+        if (newLoc) {
+            var saved = await abcLocationSave(env, id, newLoc, actorName(a.user));
+            if (saved.conflict) { return jsonErr2("Já existe um local com esse nome e outro endereço. Altere o local salvo ou use outro nome.", "A location with that name and another address already exists. Change the saved one or use another name.", 409); }
+            useLocId = saved.row.id;
+        } else if (locId) {
+            var chosen = await env.DB.prepare("SELECT id FROM gm_abc_delivery_locations WHERE id = ? AND client_id = ? AND archived = 0").bind(locId, id).first();
+            if (!chosen) { return jsonErr2("Local não encontrado.", "Location not found.", 404); }
+            useLocId = chosen.id;
+        }
+        if (useLocId) {
+            var L = await env.DB.prepare("SELECT * FROM gm_abc_delivery_locations WHERE id = ? AND client_id = ?").bind(useLocId, id).first();
+            sets.delivery_to = "saved"; sets.location_id = L.id;
+            sets.ship_name = L.name; sets.ship_line1 = L.line1; sets.ship_city = L.city; sets.ship_state = L.state; sets.ship_postal = L.postal;
+            await abcLocationUse(env, id, L.id);
+        } else if (sets.delivery_to === "job" || (jobAddr && d.draft.delivery_to !== "saved")) {
+            var addr = jobAddr || (d.draft.delivery_to === "job" && d.draft.ship_line1 ? { line1: d.draft.ship_line1, city: d.draft.ship_city, state: d.draft.ship_state, postal: d.draft.ship_postal } : job.address);
+            sets.delivery_to = "job"; sets.location_id = "";
+            sets.ship_name = d.draft.job_name; sets.ship_line1 = addr.line1; sets.ship_city = addr.city; sets.ship_state = addr.state; sets.ship_postal = addr.postal;
+        } else if (sets.delivery_to === "") {
+            sets.location_id = ""; sets.ship_name = ""; sets.ship_line1 = ""; sets.ship_city = ""; sets.ship_state = ""; sets.ship_postal = "";
+        }
+        var stmts = [];
+        var keys = Object.keys(sets);
+        if (keys.length) {
+            var upd = env.DB.prepare("UPDATE gm_abc_order_drafts SET " + keys.map(function(k) { return k + " = ?"; }).join(", ") + ", updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status = 'draft'");
+            stmts.push(upd.bind.apply(upd, keys.map(function(k) { return sets[k]; }).concat([did, id])));
+        }
+        lineEdits.forEach(function(e) {
+            var sq = [], bv = [];
+            if (e.quantity !== undefined) { sq.push("quantity = ?"); bv.push(e.quantity); }
+            if (e.removed !== undefined) { sq.push("removed = ?"); bv.push(e.removed); }
+            if (!sq.length) { return; }
+            var q = env.DB.prepare("UPDATE gm_abc_order_draft_lines SET " + sq.join(", ") + " WHERE id = ? AND draft_id = ? AND client_id = ?");
+            stmts.push(q.bind.apply(q, bv.concat([e.id, did, id])));
+        });
+        var nextSort = d.lines.reduce(function(m, l) { return Math.max(m, l.sort_order); }, -1) + 1;
+        addLines.forEach(function(al) {
+            var same = d.lines.filter(function(x) { return !x.removed && x.item_number === al.item_number && x.uom === al.uom; })[0];
+            if (same) {
+                var sum = (same.quantity || 0) + al.quantity;
+                if (sum > 100000) { return; }
+                stmts.push(env.DB.prepare("UPDATE gm_abc_order_draft_lines SET quantity = ? WHERE id = ? AND draft_id = ? AND client_id = ?").bind(sum, same.id, did, id));
+            } else {
+                stmts.push(env.DB.prepare("INSERT INTO gm_abc_order_draft_lines (id, draft_id, client_id, item_number, description, quantity, uom, added_by_hand, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)")
+                    .bind(crypto.randomUUID(), did, id, al.item_number, al.description, al.quantity, al.uom, nextSort++));
+            }
+        });
+        if (stmts.length) {
+            try { await env.DB.batch(stmts); }
+            catch (eW) {
+                if (String(eW && eW.message || "").indexOf("UNIQUE") !== -1) {
+                    return jsonErr2("Esse número de pedido já está em uso. Escolha outro.", "That purchase order number is already in use. Choose another.", 409);
+                }
+                throw eW;
+            }
+        }
+        return jsonOk({ saved: true });
+    } catch (e) {
+        return abcServerError("draft-save", e);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/drafts/:did/discard   (owner only)
+async function handlePostGmAbcDraftDiscard(id, did, request, env) {
+    try {
+        var a = await abcDraftStart(request, env, id, "abcdraftput", 240, false);
+        if (a.err) { return a.err; }
+        var d = await abcDraftLoad(env, id, did);
+        if (!d) { return abcDraftNotFound(); }
+        var res = await env.DB.prepare("UPDATE gm_abc_order_drafts SET status = 'discarded', updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status = 'draft'").bind(did, id).run();
+        if (!res.meta || res.meta.changes !== 1) { return jsonErr2("Este pedido já foi enviado ou descartado.", "This order was already sent or discarded.", 409); }
+        return jsonOk({ discarded: true });
+    } catch (e) {
+        return abcServerError("draft-discard", e);
+    }
+}
+
+// Fresh ABC prices for a list of lines. Answers { byLine: { lineId: { price } | { none: true } } }.
+async function abcDraftFreshPrices(a, id, lines, secrets) {
+    var token = await abcAccessToken(a.env, a.cfg, id);
+    secrets.push(token, a.cfg.client_secret);
+    var numbers = [];
+    lines.forEach(function(l) { if (numbers.indexOf(l.item_number) === -1) { numbers.push(l.item_number); } });
+    var prices = numbers.length ? await abcFetchPrices(a.cfg, token, a.conn, numbers, secrets) : {};
+    var byLine = {};
+    lines.forEach(function(l) {
+        var p = prices[l.item_number];
+        byLine[l.id] = p && !p.none && p.uom === l.uom ? { price: p.price } : { none: true };
+    });
+    return byLine;
+}
+
+// POST /api/clients/:id/gm/abc/drafts/:did/prices   (owner only, when the draft is opened)
+// Reads the current ABC price of every line (the contractor is present) and keeps it on the line.
+async function handlePostGmAbcDraftPrices(id, did, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcDraftStart(request, env, id, "abcdraftprice", 120, true);
+        if (a.err) { return a.err; }
+        a.env = env;
+        var d = await abcDraftLoad(env, id, did);
+        if (!d) { return abcDraftNotFound(); }
+        if (d.draft.status !== "draft") { return jsonErr2("Este pedido já foi enviado ou descartado.", "This order was already sent or discarded.", 409); }
+        var active = d.lines.filter(function(l) { return !l.removed; });
+        var fresh = active.length ? await abcDraftFreshPrices(a, id, active, secrets) : {};
+        var stmts = [];
+        var out = active.map(function(l) {
+            var f = fresh[l.id];
+            if (f.none) { return { id: l.id, item_number: l.item_number, price: null, previous: l.unit_price, no_price: true, changed: false }; }
+            if (l.unit_price !== f.price) {
+                stmts.push(env.DB.prepare("UPDATE gm_abc_order_draft_lines SET unit_price = ? WHERE id = ? AND draft_id = ? AND client_id = ?").bind(f.price, l.id, did, id));
+            }
+            return { id: l.id, item_number: l.item_number, price: f.price, previous: l.unit_price, no_price: false, changed: l.unit_price !== null && l.unit_price !== f.price };
+        });
+        for (var s = 0; s < stmts.length; s += 40) { await env.DB.batch(stmts.slice(s, s + 40)); }
+        return jsonOk({ lines: out, retrieved_at: new Date().toISOString() });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("draft-prices", e, secrets); }
+        return abcServerError("draft-prices", e, secrets);
+    }
+}
+
+// The reviewed prices the page sends: { lineId or itemNumber: number }, or null when it is not that.
+function abcDraftReviewedPrices(v) {
+    if (v === undefined || v === null) { return {}; }
+    if (typeof v !== "object" || Array.isArray(v)) { return null; }
+    var out = {};
+    var keys = Object.keys(v);
+    if (keys.length > 120) { return null; }
+    for (var i = 0; i < keys.length; i++) {
+        if (!/^[A-Za-z0-9._-]{1,80}$/.test(keys[i]) || typeof v[keys[i]] !== "number" || !isFinite(v[keys[i]])) { return null; }
+        out[keys[i]] = v[keys[i]];
+    }
+    return out;
+}
+
+function abcSamePrice(x, y) { return typeof x === "number" && typeof y === "number" && Math.abs(x - y) < 0.00005; }
+
+// POST /api/clients/:id/gm/abc/drafts/:did/send   { prices: { lineId: price } }   (owner only)
+// Sends ONE draft. Right before sending, ABC is asked for the prices again: if any differs from
+// what the owner reviewed, nothing is sent and the change is returned to confirm. One statement
+// claims the draft, so it can never be sent twice.
+async function handlePostGmAbcDraftSend(id, did, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcDraftStart(request, env, id, "abcdraftsend", 30, true);
+        if (a.err) { return a.err; }
+        a.env = env;
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var reviewed = abcDraftReviewedPrices(body && body.prices);
+        if (reviewed === null) { return abcDraftBad(); }
+        var d = await abcDraftLoad(env, id, did);
+        if (!d) { return abcDraftNotFound(); }
+        if (d.draft.status !== "draft") { return jsonErr2("Este pedido já foi enviado ou descartado.", "This order was already sent or discarded.", 409); }
+        var job = await abcDraftJob(env, id, d.draft.project_id);
+        var ship = await abcDraftShip(env, id, d.draft, job.address);
+        var missing = abcDraftMissing(d.draft, d.lines, ship);
+        if (missing.length) { return jsonErr2("Faltam dados no pedido.", "Some details are missing from the order.", 400, { missing: missing }); }
+        var active = d.lines.filter(function(l) { return !l.removed; });
+        var fresh = await abcDraftFreshPrices(a, id, active, secrets);
+        var noPrice = active.filter(function(l) { return fresh[l.id].none; }).map(function(l) { return { id: l.id, item_number: l.item_number, description: l.description }; });
+        if (noPrice.length) { return jsonErr2("A ABC não devolveu preço para algumas linhas.", "ABC returned no price for some lines.", 409, { no_price: noPrice }); }
+        var changes = [];
+        var stmts = [];
+        active.forEach(function(l) {
+            var now = fresh[l.id].price;
+            if (!abcSamePrice(reviewed[l.id], now)) { changes.push({ line_id: l.id, item_number: l.item_number, was: typeof reviewed[l.id] === "number" ? reviewed[l.id] : l.unit_price, now: now }); }
+            if (!abcSamePrice(l.unit_price, now)) { stmts.push(env.DB.prepare("UPDATE gm_abc_order_draft_lines SET unit_price = ? WHERE id = ? AND draft_id = ? AND client_id = ?").bind(now, l.id, did, id)); }
+        });
+        if (stmts.length) { await env.DB.batch(stmts); }
+        if (changes.length) {
+            return jsonErr2("Algum preço mudou desde a sua revisão. Confira e confirme.", "A price changed since you reviewed. Check it and confirm.", 409, { price_changed: true, changes: changes });
+        }
+        var order = abcDraftOrderFromRow(d.draft, ship, active, a.conn, function(l) { return fresh[l.id].price; });
+        var checked = abcOrderInput(order, a.conn);
+        if (!checked) { return jsonErr2("Confira os campos do pedido.", "Check the order fields.", 400, { missing: [] }); }
+        var claim = await env.DB.prepare("UPDATE gm_abc_order_drafts SET status = 'sent', ship_name = ?, ship_line1 = ?, ship_city = ?, ship_state = ?, ship_postal = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status = 'draft'")
+            .bind(ship.name, ship.line1, ship.city, ship.state, ship.postal, did, id).run();
+        if (!claim.meta || claim.meta.changes !== 1) { return jsonErr2("Este pedido já foi enviado ou descartado.", "This order was already sent or discarded.", 409); }
+        var revert = function() { return env.DB.prepare("UPDATE gm_abc_order_drafts SET status = 'draft', updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status = 'sent' AND abc_confirmation = ''").bind(did, id).run(); };
+        var placed = null;
+        try {
+            placed = await abcPlaceOrder(env, a, id, checked, secrets);
+        } catch (ePlace) {
+            if (ePlace && ePlace.duplicate) {
+                await revert();
+                return jsonErr2("Esse número de pedido já foi usado. Escolha outro e envie de novo.", "That purchase order number was already used. Choose another and send again.", 409);
+            }
+            if (ePlace && ePlace.abcStatus >= 400 && ePlace.abcStatus < 500 && ePlace.abcStatus !== 401 && ePlace.abcStatus !== 403) {
+                await revert();
+                return abcRefusal(ePlace, secrets);
+            }
+            if (ePlace && ePlace.abcStatus !== undefined && ePlace.abcStatus >= 400 && ePlace.abcStatus < 500) { await revert(); }
+            throw ePlace;
+        }
+        await env.DB.prepare("UPDATE gm_abc_order_drafts SET abc_confirmation = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ?").bind(placed.confirmation_number, did, id).run();
+        if (d.draft.location_id) { await abcLocationUse(env, id, d.draft.location_id); }
+        return jsonOk({ order_ref: placed.order_ref, status: "sent", confirmation_number: placed.confirmation_number });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("draft-send", e, secrets); }
+        return abcServerError("draft-send", e, secrets);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/drafts/combine   (owner only)
+// { draft_ids, delivery_service, delivery_date, location: { id } | { name, line1, city, state, postal },
+//   contact: { name, email, phone }, order_ref, prices: { itemNumber: price } }
+// Several drafts go to ABC as ONE order: lines merged by ABC item number and unit, quantities added, one
+// purchase order, one place. The prices follow the same rule as one draft: any change since the review
+// stops the order. The drafts are claimed first; a refusal puts every one of them back.
+async function handlePostGmAbcDraftsCombine(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcDraftStart(request, env, id, "abcdraftcombine", 10, true);
+        if (a.err) { return a.err; }
+        a.env = env;
+        var b = null;
+        try { b = await request.json(); } catch (e1) { b = null; }
+        if (!b || typeof b !== "object" || !Array.isArray(b.draft_ids) || b.draft_ids.length < 2 || b.draft_ids.length > 20) { return abcDraftBad(); }
+        var ids = b.draft_ids;
+        for (var i = 0; i < ids.length; i++) { if (typeof ids[i] !== "string" || !ABC_ID_RE.test(ids[i]) || ids.indexOf(ids[i]) !== i) { return abcDraftBad(); } }
+        if (typeof b.delivery_service !== "string" || ABC.delivery_services.indexOf(b.delivery_service) === -1) { return abcDraftBad(); }
+        if (b.delivery_date !== undefined && b.delivery_date !== null && b.delivery_date !== "" && !abcValidDate(b.delivery_date)) { return abcDraftBad(); }
+        if (typeof b.order_ref !== "string" || !ABC_PO_RE.test(b.order_ref)) { return abcDraftBad(); }
+        var reviewed = abcDraftReviewedPrices(b.prices);
+        if (reviewed === null) { return abcDraftBad(); }
+        var c = b.contact;
+        if (!c || typeof c !== "object") { return abcDraftBad(); }
+        var loaded = [];
+        for (var k = 0; k < ids.length; k++) {
+            var one = await abcDraftLoad(env, id, ids[k]);
+            if (!one) { return abcDraftNotFound(); }
+            loaded.push(one);
+        }
+        if (loaded.some(function(x) { return x.draft.status !== "draft"; })) {
+            return jsonErr2("Algum pedido já foi enviado ou descartado.", "One of these orders was already sent or discarded.", 409);
+        }
+        // The one place.
+        var L = null;
+        if (b.location && typeof b.location === "object" && typeof b.location.id === "string") {
+            if (!ABC_ID_RE.test(b.location.id)) { return abcDraftBad(); }
+            L = await env.DB.prepare("SELECT * FROM gm_abc_delivery_locations WHERE id = ? AND client_id = ? AND archived = 0").bind(b.location.id, id).first();
+            if (!L) { return jsonErr2("Local não encontrado.", "Location not found.", 404); }
+        } else {
+            var lf = abcLocationFields(b.location);
+            if (!lf) { return abcDraftBad(); }
+            var saved = await abcLocationSave(env, id, lf, actorName(a.user));
+            if (saved.conflict) { return jsonErr2("Já existe um local com esse nome e outro endereço.", "A location with that name and another address already exists.", 409); }
+            L = saved.row;
+        }
+        // Merge the lines.
+        var merged = {};
+        var mergedOrder = [];
+        var gaps = false;
+        loaded.forEach(function(x) {
+            x.lines.filter(function(l) { return !l.removed; }).forEach(function(l) {
+                if (l.quantity === null || l.quantity === undefined) { gaps = true; return; }
+                var key = l.item_number + "|" + l.uom;
+                if (!merged[key]) { merged[key] = { item_number: l.item_number, description: l.description, uom: l.uom, quantity: 0, ids: [] }; mergedOrder.push(key); }
+                merged[key].quantity += l.quantity;
+                merged[key].ids.push(l.id);
+            });
+        });
+        if (gaps || !mergedOrder.length) { return jsonErr2("Defina as quantidades que faltam antes de combinar.", "Set the missing quantities before combining.", 400, { missing: ["quantity"] }); }
+        var mlines = mergedOrder.map(function(key) { var m = merged[key]; m.id = m.ids[0]; return m; });
+        if (mlines.some(function(m) { return m.quantity > 100000; })) { return abcDraftBad(); }
+        var shipFake = { name: L.name, line1: L.line1, city: L.city, state: L.state, postal: L.postal };
+        var pseudo = { order_ref: b.order_ref, delivery_date: b.delivery_date || "", delivery_service: b.delivery_service, job_name: L.name,
+            contact_name: typeof c.name === "string" ? c.name : "", contact_email: typeof c.email === "string" ? c.email : "", contact_phone: typeof c.phone === "string" ? c.phone : "" };
+        // Another draft already using this purchase order number refuses it.
+        var clash = await env.DB.prepare("SELECT id FROM gm_abc_order_drafts WHERE client_id = ? AND order_ref = ? AND status IN ('draft', 'sent') LIMIT 1").bind(id, b.order_ref).first();
+        if (clash && ids.indexOf(clash.id) === -1) { return jsonErr2("Esse número de pedido já está em uso.", "That purchase order number is already in use.", 409); }
+        // Fresh prices, by item number and unit.
+        var fresh = await abcDraftFreshPrices(a, id, mlines.map(function(m) { return { id: m.id, item_number: m.item_number, uom: m.uom }; }), secrets);
+        var noPrice = mlines.filter(function(m) { return fresh[m.id].none; }).map(function(m) { return { item_number: m.item_number, description: m.description }; });
+        if (noPrice.length) { return jsonErr2("A ABC não devolveu preço para algumas linhas.", "ABC returned no price for some lines.", 409, { no_price: noPrice }); }
+        var changes = [];
+        mlines.forEach(function(m) {
+            var now = fresh[m.id].price;
+            if (!abcSamePrice(reviewed[m.item_number], now)) { changes.push({ item_number: m.item_number, was: typeof reviewed[m.item_number] === "number" ? reviewed[m.item_number] : null, now: now }); }
+        });
+        if (changes.length) {
+            return jsonErr2("Algum preço mudou desde a sua revisão. Confira e confirme.", "A price changed since you reviewed. Check it and confirm.", 409, { price_changed: true, changes: changes });
+        }
+        var order = abcDraftOrderFromRow(pseudo, shipFake, mlines, a.conn, function(m) { return fresh[m.id].price; });
+        var checked = abcOrderInput(order, a.conn);
+        if (!checked) { return jsonErr2("Confira os campos do pedido.", "Check the order fields.", 400, { missing: ["contact"] }); }
+        // Claim every draft; if any one was taken meanwhile, put the others back.
+        var claimed = [];
+        for (var q = 0; q < ids.length; q++) {
+            var cl = await env.DB.prepare("UPDATE gm_abc_order_drafts SET status = 'combined', combined_into = 'pending', updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status = 'draft'").bind(ids[q], id).run();
+            if (cl.meta && cl.meta.changes === 1) { claimed.push(ids[q]); }
+        }
+        var putBack = async function() {
+            for (var r = 0; r < claimed.length; r++) {
+                await env.DB.prepare("UPDATE gm_abc_order_drafts SET status = 'draft', combined_into = '', updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status = 'combined' AND combined_into = 'pending'").bind(claimed[r], id).run();
+            }
+        };
+        if (claimed.length !== ids.length) {
+            await putBack();
+            return jsonErr2("Algum pedido já foi enviado ou descartado.", "One of these orders was already sent or discarded.", 409);
+        }
+        var placed = null;
+        try {
+            placed = await abcPlaceOrder(env, a, id, checked, secrets);
+        } catch (ePlace) {
+            if (ePlace && ePlace.duplicate) {
+                await putBack();
+                return jsonErr2("Esse número de pedido já foi usado. Escolha outro.", "That purchase order number was already used. Choose another.", 409);
+            }
+            if (ePlace && ePlace.abcStatus >= 400 && ePlace.abcStatus < 500) {
+                await putBack();
+                if (ePlace.abcStatus !== 401 && ePlace.abcStatus !== 403) { return abcRefusal(ePlace, secrets); }
+            }
+            throw ePlace;
+        }
+        for (var u = 0; u < ids.length; u++) {
+            await env.DB.prepare("UPDATE gm_abc_order_drafts SET combined_into = ?, abc_confirmation = ?, ship_name = ?, ship_line1 = ?, ship_city = ?, ship_state = ?, ship_postal = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ?")
+                .bind(b.order_ref, placed.confirmation_number, shipFake.name, shipFake.line1, shipFake.city, shipFake.state, shipFake.postal, ids[u], id).run();
+        }
+        await abcLocationUse(env, id, L.id);
+        return jsonOk({ order_ref: b.order_ref, status: "combined", confirmation_number: placed.confirmation_number, drafts: ids });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("draft-combine", e, secrets); }
+        return abcServerError("draft-combine", e, secrets);
+    }
+}
+
 // ── Who gets a push inside a client's business ─────────────────────────
 // Google-linked accounts push under their e-mail (users.client_id); a
 // username/password login pushes under "login:<username>" once its device
@@ -42955,6 +43817,10 @@ async function handlePostPublicContractSign(token, request, env) {
             try { await gmContractChainInvoice(env, request, c, signer); }
             catch (eInv) { console.error("one-link flow: invoice step failed", eInv && eInv.message); await gmContractChainInvoiceStopped(env, c, "unexpected error: " + (eInv && eInv.message)); }
         }
+        // The materials order draft: ABC linked lines of the accepted estimate become a draft the owner reviews.
+        // It never makes signing fail and never calls ABC.
+        try { await abcDraftEnsureForContract(env, c.client_id, c.id, "contract signed"); }
+        catch (eDraft) { console.error("abc order draft at signing failed", eDraft && eDraft.message); }
         docPdfAfterFinal(request, env, "contract", token);
         return jsonOk({ signed: true, cancellation_deadline_date: deadline });
     } catch (e) {
@@ -61507,7 +62373,22 @@ async function handleFetch(request, env, ctx) {
                     if (segs[5] === "add-items" && method === "POST") { return handlePostGmAbcAddItems(cid, request, env); }
                     if (segs[5] === "refresh-costs" && method === "POST") { return handlePostGmAbcRefreshCosts(cid, request, env); }
                     if (segs[5] === "price-rows" && method === "POST") { return handlePostGmAbcPriceRows(cid, request, env); }
+                    if (segs[5] === "drafts" && method === "GET") { return handleGetGmAbcDrafts(cid, request, env); }
+                    if (segs[5] === "locations" && method === "GET") { return handleGetGmAbcLocations(cid, request, env); }
+                    if (segs[5] === "locations" && method === "POST") { return handlePostGmAbcLocation(cid, request, env); }
                 }
+                // ABC order drafts and saved delivery locations (2026-11-07, owner only).
+                if (segs.length === 7 && gmCol === "abc" && segs[5] === "drafts" && method === "POST" && segs[6] === "ensure") { return handlePostGmAbcDraftEnsure(cid, request, env); }
+                if (segs.length === 7 && gmCol === "abc" && segs[5] === "drafts" && method === "POST" && segs[6] === "combine") { return handlePostGmAbcDraftsCombine(cid, request, env); }
+                if (segs.length === 7 && gmCol === "abc" && segs[5] === "drafts" && method === "GET") { return handleGetGmAbcDraft(cid, segs[6], request, env); }
+                if (segs.length === 7 && gmCol === "abc" && segs[5] === "drafts" && method === "PUT") { return handlePutGmAbcDraft(cid, segs[6], request, env); }
+                if (segs.length === 8 && gmCol === "abc" && segs[5] === "drafts" && method === "POST") {
+                    if (segs[7] === "discard") { return handlePostGmAbcDraftDiscard(cid, segs[6], request, env); }
+                    if (segs[7] === "prices") { return handlePostGmAbcDraftPrices(cid, segs[6], request, env); }
+                    if (segs[7] === "send") { return handlePostGmAbcDraftSend(cid, segs[6], request, env); }
+                }
+                if (segs.length === 7 && gmCol === "abc" && segs[5] === "locations" && method === "PUT") { return handlePutGmAbcLocation(cid, segs[6], request, env); }
+                if (segs.length === 8 && gmCol === "abc" && segs[5] === "locations" && segs[7] === "archive" && method === "POST") { return handlePostGmAbcLocationArchive(cid, segs[6], request, env); }
                 // Extra material standard (2026-11-07, owner only).
                 if (segs.length === 5 && gmCol === "material-settings") {
                     if (method === "GET") { return handleGetGmMaterialSettings(cid, request, env); }

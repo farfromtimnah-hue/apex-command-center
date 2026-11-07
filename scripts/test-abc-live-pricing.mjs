@@ -119,7 +119,7 @@ await check("estimates-untouched", async () => {
 
 await check("only-routes-ask-abc-for-prices", async () => {
   const src = readFileSync(new URL("../worker/index.js", import.meta.url), "utf8");
-  const allowed = ["handleGetGmAbcItems", "handlePostGmAbcAddItems", "handlePostGmPricingAbcLink", "abcRefreshRows", "handlePostGmAbcDraftPrices", "handlePostGmAbcDraftSend", "handlePostGmAbcDraftsCombine", "handlePostGmAbcDraftEnsure", "handleGetGmAbcDraft"];
+  const allowed = ["handleGetGmAbcItems", "handlePostGmAbcAddItems", "handlePostGmPricingAbcLink", "abcRefreshRows", "abcDraftFreshPrices", "handlePostGmAbcDraftPrices", "handlePostGmAbcDraftSend", "handlePostGmAbcDraftsCombine"];
   const bad = [];
   let i = -1;
   while ((i = src.indexOf("abcFetchPrices(", i + 1)) !== -1) {

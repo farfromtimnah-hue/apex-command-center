@@ -6,6 +6,15 @@
 import { readFileSync, readdirSync } from "node:fs";
 import vm from "node:vm";
 import { fnSrc, varSrc } from "./fixtures/d1-shim.mjs";
+import { spawnSync } from "node:child_process";
+
+// The draft card prints the draft time in the DEVICE's own time zone ("customer times follow the
+// device"), so the expected text only holds in one zone. Run under Eastern whatever machine runs it
+// (GitHub runs in UTC; this failed there on 2026-11-09).
+if (process.env.TZ !== "America/New_York") {
+  const r = spawnSync(process.execPath, [new URL(import.meta.url).pathname], { env: { ...process.env, TZ: "America/New_York" }, stdio: "inherit" });
+  process.exit(r.status === null ? 1 : r.status);
+}
 
 const root = new URL("../", import.meta.url);
 const read = (rel) => readFileSync(new URL(rel, root), "utf8");
@@ -300,7 +309,8 @@ ok(listenerLines.length === 2, "(d) gm.js registers one input and one change cap
 
 function makeGm(o) {
   o = o || {};
-  const clock = makeClock(new Date(2026, 10, 6, 16, 12, 0).getTime());   // local 4:12 PM
+  // 4:12 PM Eastern on 2026-11-06 as an absolute instant (21:12 UTC). Built with Date.UTC, never the local constructor: the estimate's updated_at below is UTC, and the test failed on any machine not set to Eastern time (GitHub runs in UTC).
+  const clock = makeClock(Date.UTC(2026, 10, 6, 21, 12, 0));
   const ls = fakeStorage(o.storage);
   const docL = {};
   const doc = { getElementById: () => null, addEventListener: (t, f, cap) => { (docL[t] = docL[t] || []).push({ f, cap }); } };

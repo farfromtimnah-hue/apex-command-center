@@ -48,7 +48,9 @@ for (const r of results.sort((a, b) => a.name.localeCompare(b.name))) {
   const known = cfg.known_failing.includes(r.name);
   if (r.code === 0 && known) { console.log("NOW PASSES (remove from known_failing): " + r.name); }
   else if (r.code !== 0 && known) { console.log("known failing: " + r.name); }
-  else if (r.code !== 0) { bad++; console.log("\nFAIL: " + r.name + "\n" + r.out.split("\n").slice(-25).join("\n")); }
+  else if (r.code !== 0) { bad++; const lines = r.out.split("\n");
+    const failing = lines.filter(l => /FAIL|Error|TIMEOUT/.test(l)).slice(0, 15);
+    console.log("\nFAIL: " + r.name + "\n" + (failing.length ? failing.join("\n") + "\n--- last lines ---\n" : "") + lines.slice(-8).join("\n")); }
 }
 console.log("\n" + results.filter(r => r.code === 0).length + " passed, " + bad + " failed, " +
   results.filter(r => r.code !== 0 && cfg.known_failing.includes(r.name)).length + " known failing, " + skipped + " need outside services (not run)");

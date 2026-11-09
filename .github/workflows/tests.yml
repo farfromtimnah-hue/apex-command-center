@@ -1,0 +1,18 @@
+# Runs every scripts/test-*.mjs on every push, so a failing test cannot ship
+# unseen. Known failures are listed in scripts/tests-skip.json; a NEW failure
+# outside that list fails this run. See scripts/run-tests.mjs.
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/run-tests.mjs

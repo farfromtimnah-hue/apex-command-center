@@ -4855,7 +4855,7 @@
     function updateCalendarHeroTiles() {
       var today = new Date();
       var weekStart = getWeekStart(today);
-      var weekEnd   = new Date(weekStart.getTime() + 7 * 86400000);
+      var weekEnd   = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7);
 
       // The month, not the fetched range. calSessions now reaches up to a week
       // past each end of the month so the grid's leading and trailing days are
@@ -4963,7 +4963,7 @@
         label.textContent = months[curDate.getMonth()] + " " + curDate.getFullYear();
       } else if (calView === "week") {
         var weekStart = getWeekStart(curDate);
-        var weekEnd   = new Date(weekStart.getTime() + 6 * 86400000);
+        var weekEnd   = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6);
         var ms = en ? MONTHS_EN : MONTHS_PT;
         label.textContent = padZ(weekStart.getDate()) + " " + ms[weekStart.getMonth()].slice(0,3) +
           " – " + padZ(weekEnd.getDate()) + " " + ms[weekEnd.getMonth()].slice(0,3) + " " + weekEnd.getFullYear();

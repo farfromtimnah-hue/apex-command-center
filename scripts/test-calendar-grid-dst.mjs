@@ -2,14 +2,22 @@
 // New York). The grid once stepped one day with +86400000 ms from local
 // midnight, which landed at 11 PM on the SAME day, so November 1 showed twice
 // and every later date sat one weekday to the right (reported by Pr Rafa
-// 2026-11-09). Runs itself under TZ=America/New_York.
+// 2026-11-09). Runs itself under six time zones and checks every month of
+// 2024 to 2030.
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import vm from "node:vm";
 
-if (process.env.TZ !== "America/New_York") {
-  const r = spawnSync(process.execPath, [new URL(import.meta.url).pathname], { env: { ...process.env, TZ: "America/New_York" }, stdio: "inherit" });
-  process.exit(r.status === null ? 1 : r.status);
+// Zones with clock changes at different dates, plus UTC and a zone with none.
+const ZONES = ["America/New_York", "America/Los_Angeles", "Europe/London", "Australia/Sydney", "America/Sao_Paulo", "UTC"];
+if (!process.env.TZ) {
+  let bad = 0;
+  for (const tz of ZONES) {
+    console.log("=== " + tz + " ===");
+    const r = spawnSync(process.execPath, [new URL(import.meta.url).pathname], { env: { ...process.env, TZ: tz }, stdio: "inherit" });
+    if (r.status !== 0) { bad++; }
+  }
+  process.exit(bad ? 1 : 0);
 }
 
 let fail = 0;
@@ -55,13 +63,24 @@ function checkMonth(label, year, month) {
   return cs;
 }
 
-const nov = checkMonth("November 2026", 2026, 10);
-// Nov 1, 2026 is a Sunday, so it is the first cell; Nov 2 (Monday) is the second.
-ok(nov[0].date === "2026-11-01" && nov[1].date === "2026-11-02", "November 2026: Sunday is the 1st, Monday is the 2nd");
-checkMonth("October 2026 (its last row holds Nov 1)", 2026, 9);
-checkMonth("December 2026", 2026, 11);
-checkMonth("March 2026 (spring clock change)", 2026, 2);
-checkMonth("November 2027", 2027, 10);
+// Every month of 2024 to 2030: covers both clock changes in every zone above.
+const quiet = console.log;
+let monthsBad = 0;
+for (let y = 2024; y <= 2030; y++) {
+  for (let m = 0; m < 12; m++) {
+    const before = fail;
+    console.log = () => {};
+    checkMonth(y + "-" + (m + 1), y, m);
+    console.log = quiet;
+    if (fail > before) { monthsBad++; quiet("FAIL  month " + y + "-" + (m + 1) + " in " + process.env.TZ); }
+  }
+}
+ok(monthsBad === 0, "all 84 months of 2024 to 2030 are whole weeks of consecutive, unique days in " + process.env.TZ);
+// The reported case, in New York.
+if (process.env.TZ === "America/New_York") {
+  const nov = cells(2026, 10);
+  ok(nov[0].date === "2026-11-01" && nov[1].date === "2026-11-02", "November 2026: Sunday is the 1st, Monday is the 2nd");
+}
 
 console.log(fail ? "\n" + fail + " FAILED" : "\nAll passed");
 process.exit(fail ? 1 : 0);

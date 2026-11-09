@@ -1,3 +1,8 @@
+// RULE (2026-11-09): never step a LOCAL date by adding milliseconds.
+//   new Date(d.getTime() + 86400000) is wrong on the day the clocks go back
+//   (25 hours): the month grid showed November 1 twice. Use
+//   new Date(y, m, d + 1). Guarded by scripts/test-no-ms-day-step.mjs and
+//   scripts/test-calendar-grid-dst.mjs, run on every push by GitHub.
 // Shared date/time display formatting — American convention (MM/DD/YYYY,
 // 12-hour AM/PM) in every language. The PT/EN toggle must never change how
 // a date or time renders: two people reading the same screen see the same

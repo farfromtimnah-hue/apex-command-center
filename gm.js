@@ -14877,6 +14877,17 @@ var gmHeroUi = null;        // { cat, idx, mode: "gallery" | "upload", up: {focu
 
 function gmHeroHasPrivate() { return gmHeroPrivate.length > 0; }
 
+// The cover picker's industry chips. They come from the SERVER list (GET /api/hero-gallery
+// sends categories with both languages), so a new industry reaches every installed app with a
+// Worker deploy and no app update. The bundled GmLabels.HERO_CATEGORIES is only the fallback for
+// when the server list is missing (offline, or an old Worker). Never add a chip here by hand:
+// add it to data/hero-gallery-v1.json (checked by scripts/test-industry-lists-in-sync.mjs).
+function gmHeroCats() {
+  var list = (gmHeroGallery && gmHeroGallery.categories) || [];
+  if (!list.length) { return GmLabels.HERO_CATEGORIES; }
+  return list.map(function(c) { return { key: c.key, pt: c.label_pt || c.key, en: c.label_en || c.key }; });
+}
+
 function gmHeroImagesOf(cat) {
   if (cat === GmLabels.HERO_PRIVATE_CHIP.key) { return gmHeroPrivate.slice(); }
   return ((gmHeroGallery && gmHeroGallery.images) || []).filter(function(im) { return im.category === cat; })
@@ -15005,11 +15016,11 @@ function gmHeroPickerHtml() {
 
   // Industry chooser (C1).
   html += '<div class="gm-hero-cats" role="tablist">';
-  var chips = gmHeroHasPrivate() ? [GmLabels.HERO_PRIVATE_CHIP].concat(GmLabels.HERO_CATEGORIES) : GmLabels.HERO_CATEGORIES;
+  var chips = gmHeroHasPrivate() ? [GmLabels.HERO_PRIVATE_CHIP].concat(gmHeroCats()) : gmHeroCats();
   chips.forEach(function(c) {
     var on = ui.mode === "gallery" && ui.cat === c.key;
     html += '<button type="button" role="tab" aria-selected="' + (on ? "true" : "false") + '" class="gm-stage-chip' + (on ? " gm-chip-active" : "") +
-      '" onclick="gmHeroPickCat(\'' + c.key + '\')">' + escHtml(GmLabels.heroCategoryLabel(c.key, isEn())) + '</button>';
+      '" onclick="gmHeroPickCat(\'' + c.key + '\')">' + escHtml(c.key === GmLabels.HERO_PRIVATE_CHIP.key ? GmLabels.heroCategoryLabel(c.key, isEn()) : (isEn() ? c.en : c.pt)) + '</button>';
   });
   html += '</div>';
 

@@ -66,6 +66,21 @@
    "key": "cleaning",
    "label_pt": "Limpeza",
    "label_en": "Cleaning"
+  },
+  {
+   "key": "home_systems",
+   "label_pt": "Sistemas da casa",
+   "label_en": "Home systems"
+  },
+  {
+   "key": "landscaping",
+   "label_pt": "Paisagismo e árvores",
+   "label_en": "Landscaping and trees"
+  },
+  {
+   "key": "home_services",
+   "label_pt": "Serviços para casa",
+   "label_en": "Home services"
   }
  ],
  "images": [

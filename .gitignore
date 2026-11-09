@@ -52,3 +52,4 @@ www/
 # to the private R2 bucket with scripts/help-media-upload.mjs and served only
 # through the Worker (signed links). See help/README.md.
 help-private/
+hero-gallery-files/

@@ -79,7 +79,7 @@ ok(lic("ZZ", "pools", []).ok === false, "An unknown state gives a safe not found
 const statuses = {};
 Object.keys(TABLE).forEach(s => Object.keys(TABLE[s].wt).forEach(k => { statuses[TABLE[s].wt[k][0]] = 1; }));
 ok(Object.keys(statuses).every(s => core.kindOf(s) !== undefined) && core.kindOf("NO_STATE_LICENSE") === "none", "Every status in the table has a kind, including NO_STATE_LICENSE");
-ok(Object.keys(TABLE).length === 51 && WIZ.categories.length === 13, "51 places and 13 categories");
+ok(Object.keys(TABLE).length === 51 && WIZ.categories.length === 16, "51 places and 16 categories");
 const unmappedTaps = [];
 WIZ.categories.forEach(c => c.subtaps.forEach(s => { if (!s.work_type) { unmappedTaps.push(c.key + "/" + s.key); } }));
 console.log("INFO  taps with no license work type: " + (unmappedTaps.join(", ") || "none"));

@@ -17,10 +17,12 @@ const WIZ = JSON.parse(read("data/wizard-v1.json")), WORKER = read("worker/index
 const WANT = {
   pools: ["construction"], pavers: ["construction"], outdoor_living: ["construction"], tile: ["construction"], flooring: ["construction"],
   home_exterior: ["construction"], interiors: ["construction"], stone: ["construction"], construction: ["construction"], cleaning: ["cleaning"],
-  cakes: [], boutique: [], water: [], other: []
+  cakes: [], boutique: [], water: [], other: [],
+  // Added 2026-11-09: no contract library exists yet for these trades (interim: estimates, invoices and payments only).
+  home_systems: [], landscaping: [], home_services: []
 };
 const cats = WIZ.categories.map(c => c.key).concat(["other"]);
-ok(cats.length === 14 && cats.every(k => Object.prototype.hasOwnProperty.call(WANT, k)), "Every category the wizard offers has an expected contract kind in this test (13 kinds of work and Something else)");
+ok(cats.length === 17 && cats.every(k => Object.prototype.hasOwnProperty.call(WANT, k)), "Every category the wizard offers has an expected contract kind in this test (16 kinds of work and Something else)");
 
 // ── Offline: the kind function, as written in the Worker ────────────────
 const src = /function wizNoContractCat\(cat\) \{[\s\S]*?\n\}\nfunction wizLawyerKinds\(trades, cat\) \{[\s\S]*?\n\}/.exec(WORKER);
@@ -34,7 +36,7 @@ cats.forEach(k => {
 ok(kinds([], "other").length === 0 && kinds([], "cakes").length === 0, "No trade set after picking a kind without a contract: no contract (never a remodeling one)");
 ok(kinds([], undefined).join() === "construction", "No trade set and nothing picked in the wizard (an owner from before the wizard): unchanged, construction");
 ok(kinds(["general", "cleaning"], "cakes").join() === "cleaning", "A baker who also ticks cleaning in Settings gets the cleaning contract only");
-ok(WIZ.categories.filter(c => c.contract_available === false).map(c => c.key).sort().join() === "boutique,cakes,water", "The categories marked as having no contract are cakes, boutique and water");
+ok(WIZ.categories.filter(c => c.contract_available === false).map(c => c.key).sort().join() === "boutique,cakes,home_services,home_systems,landscaping,water", "The categories marked as having no contract are cakes, boutique, water, home systems, landscaping and home services");
 
 // ── Offline: the screens ────────────────────────────────────────────────
 ok(/A contract for this kind of work is not available in Apex yet/.test(SW) && /id="swNoContract"/.test(SW) && /SW\.d\.contract\.available === false/.test(SW), "Review: the honest line is there, and the PDF and clause links are drawn only when a contract exists");

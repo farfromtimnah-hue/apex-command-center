@@ -273,6 +273,24 @@
      "en": "Pressure washing",
      "pt": "Lavagem de alta pressão",
      "work_type": "pressure washing"
+    },
+    {
+     "key": "gutters",
+     "en": "Gutters",
+     "pt": "Calhas",
+     "work_type": "gutters"
+    },
+    {
+     "key": "solar",
+     "en": "Solar",
+     "pt": "Energia solar",
+     "work_type": "solar"
+    },
+    {
+     "key": "chimney",
+     "en": "Chimney",
+     "pt": "Chaminés",
+     "work_type": "chimney"
     }
    ],
    "contract_trades": [
@@ -419,6 +437,24 @@
      "en": "Electrical",
      "pt": "Elétrica",
      "work_type": "electrical"
+    },
+    {
+     "key": "handyman",
+     "en": "Handyman",
+     "pt": "Pequenos reparos",
+     "work_type": "handyman"
+    },
+    {
+     "key": "concrete_masonry",
+     "en": "Concrete and masonry",
+     "pt": "Concreto e alvenaria",
+     "work_type": "concrete and masonry"
+    },
+    {
+     "key": "insulation",
+     "en": "Insulation",
+     "pt": "Isolamento",
+     "work_type": "insulation"
     }
    ],
    "contract_trades": [
@@ -598,6 +634,170 @@
     "janitorial",
     "housekeeping"
    ]
+  },
+  {
+   "key": "home_systems",
+   "label_en": "Home systems",
+   "label_pt": "Sistemas da casa",
+   "subtaps": [
+    {
+     "key": "hvac",
+     "en": "Air conditioning and heating",
+     "pt": "Ar-condicionado e aquecimento",
+     "work_type": "HVAC"
+    },
+    {
+     "key": "plumbing",
+     "en": "Plumbing",
+     "pt": "Encanamento",
+     "work_type": "plumbing"
+    },
+    {
+     "key": "electrical",
+     "en": "Electrical",
+     "pt": "Elétrica",
+     "work_type": "electrical"
+    },
+    {
+     "key": "appliance_repair",
+     "en": "Appliance repair",
+     "pt": "Conserto de eletrodomésticos",
+     "work_type": "appliance_repair"
+    },
+    {
+     "key": "garage_doors",
+     "en": "Garage doors",
+     "pt": "Portas de garagem",
+     "work_type": "garage_doors"
+    },
+    {
+     "key": "locksmith_security",
+     "en": "Locksmith and security",
+     "pt": "Chaveiro e segurança",
+     "work_type": "locksmith"
+    }
+   ],
+   "contract_trades": [
+    "general"
+   ],
+   "contract_available": false,
+   "builds_pools": false,
+   "keywords": [
+    "plumbing",
+    "plumber",
+    "electrician",
+    "hvac",
+    "air conditioning",
+    "heating and cooling",
+    "appliance repair",
+    "garage door",
+    "locksmith"
+   ]
+  },
+  {
+   "key": "landscaping",
+   "label_en": "Landscaping and trees",
+   "label_pt": "Paisagismo e árvores",
+   "subtaps": [
+    {
+     "key": "landscaping_garden",
+     "en": "Landscaping and garden",
+     "pt": "Paisagismo e jardim",
+     "work_type": "landscaping and lawn care"
+    },
+    {
+     "key": "lawn_care",
+     "en": "Lawn care and mowing",
+     "pt": "Cuidado de gramado",
+     "work_type": "landscaping and lawn care"
+    },
+    {
+     "key": "tree_service",
+     "en": "Tree service",
+     "pt": "Serviço de árvores",
+     "work_type": "tree service"
+    },
+    {
+     "key": "irrigation",
+     "en": "Irrigation",
+     "pt": "Irrigação",
+     "work_type": "irrigation"
+    },
+    {
+     "key": "snow_removal",
+     "en": "Snow removal",
+     "pt": "Remoção de neve",
+     "work_type": "snow_removal"
+    }
+   ],
+   "contract_trades": [
+    "general"
+   ],
+   "contract_available": false,
+   "builds_pools": false,
+   "keywords": [
+    "landscaping",
+    "landscaper",
+    "lawn care",
+    "lawn mowing",
+    "tree service",
+    "tree removal",
+    "irrigation",
+    "snow removal"
+   ]
+  },
+  {
+   "key": "home_services",
+   "label_en": "Home services",
+   "label_pt": "Serviços para casa",
+   "subtaps": [
+    {
+     "key": "junk_removal",
+     "en": "Junk removal and hauling",
+     "pt": "Remoção de entulho e lixo",
+     "work_type": "junk_removal"
+    },
+    {
+     "key": "moving",
+     "en": "Moving help",
+     "pt": "Mudanças e fretes",
+     "work_type": "moving"
+    },
+    {
+     "key": "pest_control",
+     "en": "Pest control",
+     "pt": "Controle de pragas",
+     "work_type": "pest control"
+    },
+    {
+     "key": "restoration",
+     "en": "Restoration (water, mold, fire)",
+     "pt": "Restauração (água, mofo, fogo)",
+     "work_type": "restoration_mold"
+    },
+    {
+     "key": "window_cleaning",
+     "en": "Window cleaning",
+     "pt": "Limpeza de janelas",
+     "work_type": "window_cleaning"
+    }
+   ],
+   "contract_trades": [
+    "general"
+   ],
+   "contract_available": false,
+   "builds_pools": false,
+   "keywords": [
+    "junk removal",
+    "hauling",
+    "moving company",
+    "movers",
+    "pest control",
+    "exterminator",
+    "water damage restoration",
+    "mold remediation",
+    "window cleaning"
+   ]
   }
  ],
  "work_type_names": {
@@ -696,6 +896,82 @@
   "events": [
    "events",
    "eventos"
+  ],
+  "HVAC": [
+   "air conditioning and heating",
+   "ar-condicionado e aquecimento"
+  ],
+  "appliance_repair": [
+   "appliance repair",
+   "conserto de eletrodomésticos"
+  ],
+  "garage_doors": [
+   "garage doors",
+   "portas de garagem"
+  ],
+  "locksmith": [
+   "locksmith",
+   "chaveiro"
+  ],
+  "landscaping and lawn care": [
+   "landscaping and lawn care",
+   "paisagismo e cuidado de gramado"
+  ],
+  "tree service": [
+   "tree service",
+   "serviço de árvores"
+  ],
+  "irrigation": [
+   "irrigation",
+   "irrigação"
+  ],
+  "snow_removal": [
+   "snow removal",
+   "remoção de neve"
+  ],
+  "junk_removal": [
+   "junk removal",
+   "remoção de entulho e lixo"
+  ],
+  "moving": [
+   "moving",
+   "mudanças e fretes"
+  ],
+  "pest control": [
+   "pest control",
+   "controle de pragas"
+  ],
+  "restoration_mold": [
+   "restoration and mold",
+   "restauração e mofo"
+  ],
+  "window_cleaning": [
+   "window cleaning",
+   "limpeza de janelas"
+  ],
+  "handyman": [
+   "handyman work",
+   "pequenos reparos"
+  ],
+  "concrete and masonry": [
+   "concrete and masonry",
+   "concreto e alvenaria"
+  ],
+  "insulation": [
+   "insulation",
+   "isolamento"
+  ],
+  "gutters": [
+   "gutters",
+   "calhas"
+  ],
+  "solar": [
+   "solar installation",
+   "instalação de energia solar"
+  ],
+  "chimney": [
+   "chimney work",
+   "serviços de chaminé"
   ]
  },
  "materials_note": "Stage 7 maps to contract areas: warranty C11-A (12 months) or C11-B (24), holdback C12-B (none) or C12-C (percent), permits C09-A with permit_fee_treatment, materials C10-A or C10-D, photos C18-B or C18-A."

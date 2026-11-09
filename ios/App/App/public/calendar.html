@@ -3061,7 +3061,7 @@
   <!-- Shared month-grid mechanics. calendar.html was the ORIGINAL home of this
        code; it now consumes the extracted module so the client portal and this
        page cannot drift. See calendar-grid.js. -->
-  <script src="calendar-grid.js?v=1791942824"></script>
+  <script src="calendar-grid.js?v=1794238445"></script>
   <script
     src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
     integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
@@ -4694,7 +4694,7 @@
     function visibleRange() {
       var first = new Date(curDate.getFullYear(), curDate.getMonth(), 1);
       var start = new Date(first.getFullYear(), first.getMonth(), 1 - first.getDay());
-      var end   = new Date(start.getTime() + 41 * 86400000);   // 6 weeks inclusive
+      var end   = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 41);   // 6 weeks inclusive; calendar days, never ms (a clock change day is 25 hours)
       return { from: dateKey(start), to: dateKey(end) };
     }
 

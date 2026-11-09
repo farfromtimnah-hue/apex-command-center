@@ -167,9 +167,12 @@
         }
 
         grid.appendChild(cell);
-        // +1 day via ms arithmetic, which stays correct across DST changes
-        // in a way setDate(getDate()+1) does not always.
-        cur = new Date(cur.getTime() + 86400000);
+        // +1 CALENDAR day from local midnight. Never add 86400000 ms: the day
+        // the clocks go back (2026-11-01) has 25 hours, so midnight + 24 h is
+        // 11 PM the SAME day and that date showed twice, shifting every cell
+        // after it one weekday right (Pr Rafa, 2026-11-09). Guarded by
+        // scripts/test-calendar-grid-dst.mjs.
+        cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1);
       }
       // Stop once the month is finished and the row is complete, so a month
       // that fits in five weeks does not render a sixth empty one.

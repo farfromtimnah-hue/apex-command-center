@@ -31451,7 +31451,8 @@ function gmDocHero(origin, clientId, s) {
 
 function handleGetHeroGallery(request) {
     var origin = new URL(request.url).origin;
-    var images = ((HERO_GALLERY_V1 && HERO_GALLERY_V1.images) || []).map(function(im) {
+    // hidden: still stored and still renders on a document that already carries it, but never offered in the picker (a weak photo retired from the gallery).
+    var images = ((HERO_GALLERY_V1 && HERO_GALLERY_V1.images) || []).filter(function(im) { return !im.hidden; }).map(function(im) {
         return { key: im.key, category: im.category, order: im.order, focus_x: im.focus_x, focus_y: im.focus_y,
             zoom: im.zoom, slide: im.slide, fill: im.fill, tone: im.tone, flip: !!im.flip, url: origin + "/api/hero-gallery/" + im.key + ".jpg" };
     });
@@ -60385,7 +60386,7 @@ function wizAnswers(row) {
 }
 
 function wizCatalog() {
-    var imgs = HERO_GALLERY_V1.images || [];
+    var imgs = (HERO_GALLERY_V1.images || []).filter(function(im) { return !im.hidden; });
     return (WIZARD_V1.categories || []).map(function(c) {
         var lead = (WIZARD_V1.lead_photos && WIZARD_V1.lead_photos[c.key] && WIZARD_V1.lead_photos[c.key][0]) || null;
         if (!lead) { var first = imgs.filter(function(im) { return im.category === c.key; }).sort(function(a, b) { return a.order - b.order; })[0]; lead = first ? first.key : null; }

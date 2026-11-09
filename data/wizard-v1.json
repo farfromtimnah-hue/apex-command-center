@@ -6,6 +6,15 @@
    "tile-6",
    "tile-4",
    "tile-5"
+  ],
+  "home_systems": [
+   "home_systems-5"
+  ],
+  "landscaping": [
+   "landscaping-1"
+  ],
+  "home_services": [
+   "home_services-1"
   ]
  },
  "fallback_category": {},

@@ -25,7 +25,7 @@ const picker = text("gm.js");
 const MIN_PHOTOS = 5;
 // Categories still short of photos. Each name here is a promise that photos are coming;
 // the list must be EMPTY when the cover photo work is finished.
-const SHORT_UNTIL_PHOTOS_ADDED = ["pools", "pavers", "outdoor_living", "flooring", "home_exterior", "interiors", "home_systems", "landscaping", "home_services"];   // 2026-11-09, to be emptied when the cover photos are added
+const SHORT_UNTIL_PHOTOS_ADDED = [];   // emptied 2026-11-09: every category has its photos
 
 const galKeys = gal.categories.map(c => c.key);
 const wizKeys = wiz.categories.map(c => c.key);
@@ -53,7 +53,7 @@ ok(bundledKeys.length > 0, "gm-labels.js still carries the fallback list (" + bu
 
 // Photos.
 const byCat = {};
-for (const im of gal.images) { (byCat[im.category] = byCat[im.category] || []).push(im); }
+for (const im of gal.images) { if (im.hidden) continue; (byCat[im.category] = byCat[im.category] || []).push(im); }   // hidden photos are not offered, so they do not count
 for (const k of galKeys) {
   const n = (byCat[k] || []).length;
   if (SHORT_UNTIL_PHOTOS_ADDED.includes(k)) { ok(n < MIN_PHOTOS, k + ": listed as short and really is (" + n + ")"); }

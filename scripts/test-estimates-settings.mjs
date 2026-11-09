@@ -134,7 +134,7 @@ const WH = {}; new Function("g", fnSrc(worker, "gmDocHexColor") + "\ng.f=gmDocHe
 ok(WH.f(" #ABCDEF ") === "#abcdef" && WH.f("#abc") === null && WH.f(null) === null, "the Worker normalises a valid hex to lowercase and drops junk");
 
 // ---- static rules ----
-ok(!/\bconst\b|\blet\b|=>/.test(slice(gm, "// TAB 8 — ESTIMATES", "\n// ═══") + slice(gm, "// TAB 9 — FATURAS", "function gmRenderInvoicesTab")),
+ok(!/\bconst\b|\blet\b|=>/.test(slice(gm, "// TAB 8 — ESTIMATES", "// ESTIMATES — list, detail sheet") + slice(gm, "// INVOICES, PAYMENTS, RECEIPTS", "function gmRenderInvoicesTab")),
    "the new gm.js code uses var and function() only");
 ok(!/DELETE FROM gm_doc_settings|DELETE FROM gm_pricing|DELETE FROM gm_doc_settings_history/.test(worker), "no DELETE on the new tables");
 

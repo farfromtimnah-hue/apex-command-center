@@ -13,7 +13,7 @@ const MIG = [
   "migrations/gm_leads_costs_commission.sql", "migrations/gm_leads_stage_keys.sql", "migrations/customer_referrals.sql",
   "migrations/gm_lead_contacts.sql", "migrations/gm_lead_events.sql",
   "migrations/client_estimates_invoices_p1.sql", "migrations/client_estimates_invoices_p1b.sql", "migrations/hero_gallery_doc_settings.sql",
-  "migrations/hero_flip.sql", "migrations/gm_booking.sql", "migrations/doc_links.sql"
+  "migrations/hero_flip.sql", "migrations/gm_booking.sql", "migrations/doc_links.sql", "migrations/2026-10-13_lead_structured_address.sql", "migrations/2026-10-13_lead_geocode.sql", "migrations/2026-10-19_lead_geocode_precision.sql", "migrations/2026-11-05_booking_sms_consent.sql"
 ];
 
 // every top-level bk* function in the block, plus the helpers it reuses
@@ -24,8 +24,8 @@ const block = workerSrc.slice(blockStart, blockEnd);
 const names = [...block.matchAll(/^(?:async )?function ((?:bk|handle\w*Booking)\w*)\(/gm)].map((m) => m[1]);
 const helpers = ["schedMinutes", "schedHHMM", "schedAddDays", "schedDayOfWeek", "fmtTime12", "tzOffsetMs", "tzShortLabel", "gmStr", "gmNum", "gmDateStr", "gmTimeStr",
   "gmReferralSlug", "gmEstNewToken", "gmNyNowParts", "gmOwnedRow", "gmInsertLead", "gmLogLeadEvents", "tzIsValid", "tzParts", "tzPad2", "tzLocalNowStamp", "tzZoneForState", "clientZoneFor", "resolveRequestZone", "gmGetConfig", "gmParseJsonList", "gmParseJsonListNonEmpty", "gmDocSettingsOwnerOnly", "sessionSellerName", "sellerCanActOnLead", "logoVersionParam",
-  "docPrettyLink", "docLinkTarget", "docLinkSlugPart", "docLinkRandom"];
-const vars = ["TZ_STATE_ZONES", "TZ_STATE_NAMES", "BK_STEP_MIN", "BK_ACTOR", "BK_QTYPES", "BK_PRESETS", "BK_INACTIVE", "BRAZIL_TZ_LABELS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS", "GM_MONTH_NAMES_PT", "GM_DEFAULT_FINANCE_CATEGORIES", "GM_DEFAULT_VIEW_THRESHOLD", "APEX_TIMEZONE", "DEFAULT_ORIGIN", "DOC_LINK_ORIGIN", "DOC_LINK_PAGES", "DOC_LINK_LABELS"];
+  "gmOpeningBalanceAvailable", "docPrettyLink", "docLinkTarget", "docLinkSlugPart", "docLinkRandom"];
+const vars = ["gmOpeningColumnsKnown", "gmOpeningColumnsCheckedAt", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "BK_STEP_MIN", "BK_ACTOR", "BK_QTYPES", "BK_PRESETS", "BK_INACTIVE", "BRAZIL_TZ_LABELS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS", "GM_MONTH_NAMES_PT", "GM_DEFAULT_FINANCE_CATEGORIES", "GM_DEFAULT_VIEW_THRESHOLD", "APEX_TIMEZONE", "DEFAULT_ORIGIN", "DOC_LINK_ORIGIN", "DOC_LINK_PAGES", "DOC_LINK_LABELS"];
 
 function world() {
   const d = makeDb(MIG);
@@ -43,7 +43,7 @@ function world() {
     gmDocHero: () => ({ url: null, hero: null }),
     gmClientPushTargets: async (env, cid, who) => ["owner@x.test"].concat(who && who.seller_name ? ["login:" + who.seller_name] : []),
     pushToUsers: async (env, emails, p) => { pushes.push({ emails, p }); },
-    requireClientAccess: () => true,
+    requireClientAccess: () => true, gmLeadGeocodeIfNeeded: async () => {},  // no network: geocoding is not what this test guards
     publicWriteRateLimit: async () => null, publicReadRateLimited: () => false,
     PUBLIC_LIMIT_MESSAGE: "limit", gmDocHexColor: (x) => x
   });
@@ -252,7 +252,7 @@ const body = (over) => Object.assign({ slot_date: "2026-10-06", slot_time: "10:0
   const run = async (u, fn, ...args) => { const w2 = w; w2.F.__user = u; return fn(...args); };
   void run;
   const F2 = build(names.concat(helpers), vars, Object.assign({}, baseStubs, {
-    authenticate: async () => w.__user, requireClientAccess: () => true,
+    authenticate: async () => w.__user, requireClientAccess: () => true, gmLeadGeocodeIfNeeded: async () => {},
     jsonErr2: (pt, en, status, extra) => Object.assign({ status: status, error: en }, extra || {}),
     gmDocSettingsRow: async () => ({}), gmDocHero: () => ({}), gmClientPushTargets: async () => [], pushToUsers: async () => {},
     publicWriteRateLimit: async () => null, publicReadRateLimited: () => false, PUBLIC_LIMIT_MESSAGE: "x", gmDocHexColor: (x) => x

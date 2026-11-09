@@ -17,7 +17,7 @@ const FNS = [
   "passkeyParseOptions", "passkeyCredentialString", "passkeyMintSession", "passkeySigninRateLimited",
   "handleGetPasskeyStatus", "handlePostPasskeyLoginStart", "handlePostPasskeyLoginFinish", "passkeyCreateInvite",
   "passkeyLoadInvite", "passkeyInviteUsable", "passkeyInviteMessage", "passkeyInviteMessageFor",
-  "handleGetPasskeyInviteInfo", "passkeyMaybeAlert", "handlePostPasskeyInviteSendCode",
+  "handleGetPasskeyInviteInfo", "passkeyMaybeAlert", "passkeySmsMonthlyCap", "sendCounterMonthlyCap", "sendCounterRead", "sendCounterIncrement", "sendCounterMonthKey", "sendCounterMaybeAlert", "sendCounterMonthlyBlocked", "easternDateStr", "adultConfirmRecord", "handlePostPasskeyInviteSendCode",
   "handlePostPasskeyInviteVerifyCode", "passkeyEnsureLogin", "handlePostPasskeyInviteRegister",
   "passkeyPeopleActor", "passkeyMayManage", "passkeyPublicPerson", "passkeyInviterName", "passkeyInviteResponse",
   "passkeyForbidden", "handleGetGmPeople", "handlePostGmPeople", "passkeyLoadPersonFor", "handlePostGmPersonInvite",
@@ -50,7 +50,7 @@ const FNS = [
   "handlePostGmClientSeatPolicy", "handleGetGmClientSeatUsage", "handlePostGmClientSource"
 ];
 const VARS = [
-  "PASSKEY_RP_ID", "PASSKEY_INVITE_URL", "PASSKEY_APP_STORE_URL", "PASSKEY_INVITE_HOURS", "PASSKEY_CODE_MINUTES",
+  "TERMS_VERSION", "ADULT_CONFIRM_KIND", "PASSKEY_RP_ID", "PASSKEY_INVITE_URL", "PASSKEY_APP_STORE_URL", "PASSKEY_INVITE_HOURS", "PASSKEY_CODE_MINUTES",
   "PASSKEY_REGISTER_MINUTES", "PASSKEY_SENDS_PER_INVITE", "PASSKEY_SEND_COOLDOWN_S", "PASSKEY_SENDS_PER_IP",
   "PASSKEY_VERIFY_FAILURES_MAX", "PASSKEY_SIGNIN_PER_IP_HOUR", "PASSKEY_ONLY_HASH", "PASSKEY_NEW_LOGIN_ROLES",
   "PASSKEY_PERSON_ROLES", "PASSKEY_ROLE_LABELS", "LOGIN_ROLE_DENY_OWNER_ONLY", "LOGIN_ROLE_DENY_SETTINGS",
@@ -101,7 +101,7 @@ function fakeStytch(state) {
 }
 
 function world(envOverrides) {
-  const d = makeDb(["migrations/passkey_login.sql"]);
+  const d = makeDb(["migrations/passkey_login.sql", "migrations/2026-10-19_sms_send_counters.sql", "migrations/2026-11-05_terms_acceptances.sql"]);
   BASE_TABLES.forEach((s) => d.raw.exec(s));
   d.raw.prepare("INSERT INTO clients (id, name, owners, whatsapp, phone, language) VALUES ('c1', 'Acme Pools', 'Maria Silva, Joao', '(407) 555-0101', NULL, 'pt')").run();
   d.raw.prepare("INSERT INTO clients (id, name, owners, whatsapp, phone, language) VALUES ('c2', 'Other Co', 'Ana', NULL, NULL, 'en')").run();
@@ -139,7 +139,7 @@ async function addPerson(w, role, phone, name, user) {
 }
 async function send(w, t, ip) { return w.F.passkeyRoute(rq("POST", "/api/passkey-invite/send-code", { t }, ip), w.env, "/api/passkey-invite/send-code", "POST"); }
 async function verify(w, t, code) { return w.F.passkeyRoute(rq("POST", "/api/passkey-invite/verify-code", { t, code }), w.env, "/api/passkey-invite/verify-code", "POST"); }
-async function register(w, t, cred) { return w.F.passkeyRoute(rq("POST", "/api/passkey-invite/register", { t, credential: cred }), w.env, "/api/passkey-invite/register", "POST"); }
+async function register(w, t, cred) { return w.F.passkeyRoute(rq("POST", "/api/passkey-invite/register", { t, credential: cred, adult_confirmed: true }), w.env, "/api/passkey-invite/register", "POST"); }
 async function info(w, t) { return w.F.passkeyRoute(rq("GET", "/api/passkey-invite/info?t=" + encodeURIComponent(t)), w.env, "/api/passkey-invite/info", "GET"); }
 async function finish(w, cred, ip) { return w.F.passkeyRoute(rq("POST", "/api/passkey-login/finish", { credential: cred }, ip), w.env, "/api/passkey-login/finish", "POST"); }
 async function completeInvite(w, t, reg) {
@@ -467,7 +467,7 @@ async function completeInvite(w, t, reg) {
   ok(en.status === 200 && en.data.person.status === "active", "enable: back to active (had accepted)");
   const r2 = await addPerson(w, "staff", "4075550114", "New Hire");
   const en2 = await w.F.passkeyRoute(rq("POST", "/api/gm/people/" + r2.data.person.id + "/enable"), w.env, "/api/gm/people/" + r2.data.person.id + "/enable", "POST");
-  ok(en2.status === 409, "enable: refused for someone who never completed an invite");
+  ok(en2.status === 200 && en2.data.person.status === "invited" && w.d.q("SELECT status FROM login_people WHERE id = ?", r2.data.person.id)[0].status === "invited", "enable: someone who never completed an invite goes back to invited, never active");
 }
 
 // ── 11. Invite message wording ─────────────────────────────────────────────

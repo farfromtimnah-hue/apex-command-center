@@ -10,9 +10,9 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) fail+
 const FNS = [
   "billEmailStripHtml", "billEmailIsGmailForwardConfirmation", "billEmailIsAllowed",
   "billEmailValidateExtraction", "billEmailAskClaude", "billEmailSaveStatement",
-  "fixedBillStatementFor", "billReminderEasternHour", "billFmtMMDDYYYY", "billFmtDollars",
+  "fixedBillStatementFor", "billFmtMMDDYYYY", "billFmtDollars",
   "billReminderAlreadySent", "billReminderMarkSent", "billReminderSend",
-  "billRunRemindersForBill", "billRunAllReminders", "currentPeriodKey", "billDateFor", "billIsDueInPeriod",
+  "billRunRemindersForBill", "billRunAllReminders", "billDateFor", "billIsDueInPeriod",
   "pollForwardedBillEmailOne", "handlePostFinanceNewBillMarkPaid"
 ];
 const VARS = ["BILL_EMAIL_MODEL", "BILL_FORWARD_ADDRESS", "BILL_ALLOWED_SENDERS"];
@@ -39,6 +39,10 @@ function world(stubOverrides) {
   const stubs = Object.assign({}, baseStubs, {
     authenticate: async () => ({ role: "alice", email: "alice@test" }),
     gmEasternToday: () => TODAY,
+    // Reminders only go out 8 AM to 8 PM Eastern (billRunRemindersForBill); the real clock made this test pass or fail by the time of day, so pin it to noon.
+    billReminderEasternHour: () => 12,
+    // The Worker's currentPeriodKey() reads the real date; the test's pinned TODAY decides the period instead (otherwise it passed only in the month it was written).
+    currentPeriodKey: () => TODAY.slice(0, 7),
     pushToUsers: async (env, emails, payload) => { pushCalls.push({ emails, payload }); return { sent: emails.length }; },
     notifyNicoleTelegram: async () => {}
   }, stubOverrides || {});

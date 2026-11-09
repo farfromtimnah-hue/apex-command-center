@@ -21,6 +21,10 @@ function slice(a, b) {
   return html.slice(i, j);
 }
 
+// The slice now also holds top-level listener bindings (scroll, dock, ...); give them inert event targets.
+globalThis.window = globalThis.window || { addEventListener() {}, removeEventListener() {} };
+globalThis.document = globalThis.document || { addEventListener() {}, removeEventListener() {}, getElementById() { return null; } };
+
 // The registry plus everything derived from it, up to (not including) the
 // first function that needs the live DOM.
 eval(slice("var SINGLE_PAGE_ASSESSMENTS = [", "function loadAssessmentList()") +

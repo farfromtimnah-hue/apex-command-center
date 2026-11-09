@@ -59,7 +59,7 @@ async function read(res) {
 function world(opts) {
   opts = opts || {};
   const d = makeDb();
-  d.raw.exec("CREATE TABLE gm_leads (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, mes_lead TEXT, data_lead TEXT, cliente TEXT NOT NULL, telefone TEXT, email TEXT, origem TEXT, parceiro_id TEXT, servico TEXT, observacao TEXT, vendedor TEXT, data_contato TEXT, data_estimate TEXT, valor REAL, estagio TEXT NOT NULL DEFAULT 'novo_lead', followups INTEGER, proxima_acao TEXT, mes_fechamento TEXT, address TEXT, city TEXT, created_by TEXT, updated_by TEXT, material REAL, mao_de_obra REAL, outros REAL, custo_administrativo REAL, comissao REAL, imposto REAL, created_at TEXT NOT NULL DEFAULT (datetime('now')))");
+  d.raw.exec("CREATE TABLE gm_leads (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, mes_lead TEXT, data_lead TEXT, cliente TEXT NOT NULL, telefone TEXT, email TEXT, origem TEXT, parceiro_id TEXT, servico TEXT, observacao TEXT, vendedor TEXT, data_contato TEXT, data_estimate TEXT, valor REAL, estagio TEXT NOT NULL DEFAULT 'novo_lead', followups INTEGER, proxima_acao TEXT, mes_fechamento TEXT, address TEXT, city TEXT, addr_street TEXT, addr_city TEXT, addr_state TEXT, addr_zip TEXT, addr_access TEXT, addr_lat REAL, addr_lon REAL, addr_located TEXT, created_by TEXT, updated_by TEXT, material REAL, mao_de_obra REAL, outros REAL, custo_administrativo REAL, comissao REAL, imposto REAL, created_at TEXT NOT NULL DEFAULT (datetime('now')))");
   d.raw.exec("CREATE TABLE gm_lead_events (id TEXT PRIMARY KEY, lead_id TEXT NOT NULL, client_id TEXT NOT NULL, action TEXT NOT NULL, field TEXT, old_value TEXT, new_value TEXT, actor TEXT, reason TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))");
   d.raw.exec("CREATE TABLE users (email TEXT, client_id TEXT, role TEXT)");
   d.raw.exec("CREATE TABLE client_logins (username TEXT, client_id TEXT, seller_name TEXT)");
@@ -109,6 +109,7 @@ function world(opts) {
     authenticate: async () => user,
     fetch: fakeFetch,
     REQUEST_CTX: new WeakMap(),
+    gmLeadGeocodeIfNeeded: async () => {}, // address geocoding (Census) is not under test here; no network
     gmGetConfig: async () => ({ cycle_months: ["Outubro", "Novembro"] }),
     pushToUsers: async (env, targets, payload) => { pushes.push({ targets: targets, payload: payload }); }
   };

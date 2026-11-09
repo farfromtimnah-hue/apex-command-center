@@ -291,7 +291,7 @@ for (const [lang, text, label] of [["pt", PT_TEXT, "Atualizar"], ["en", EN_TEXT,
 
 // ───────────────────────────── the wizard draft (real gm.js code) ─────────────────────────────
 const GM_FNS = ["gmSheetCloseNow", "gmEstWizNewState", "gmEstWizFromDetail", "gmEstWizStart", "gmEstEditOpen", "gmEstWizApplyDefaultTerms", "gmEstWizPreselectService",
-  "gmEstWizRender", "gmEstWizGo", "gmEstWizSet", "gmEstWizNext", "gmEstWizValidate", "gmEstWizPayload", "gmEstWizSave",
+  "gmEstWizRender", "gmEstWizGo", "gmEstWizSet", "gmEstWizNext", "gmEstWizValidate", "gmEstWizPayload", "gmEstCalcPayload", "gmEstCalcNum", "gmEstCalcFromServer", "gmEstWizSave",
   "gmEstDraftKey", "gmEstDraftRemove", "gmEstDraftRead", "gmEstDraftWrite", "gmEstDraftCancelTimer", "gmEstDraftTouch", "gmEstDraftFlush",
   "gmEstWizEnded", "gmEstDraftOffer", "gmEstDraftTime", "gmEstDraftCardHtml", "gmEstDraftContinue", "gmEstDraftStartOver"];
 const GM_VARS = ["gmEstDraftTimer", "gmEstDraftDirty", "gmEstDraftSeen", "gmEstDraftDone", "GM_EST_WIZ_TITLES", "GM_EST_DRAFT_PREFIX", "GM_EST_DRAFT_MAX_AGE_MS", "GM_EST_DRAFT_DEBOUNCE_MS"];
@@ -322,6 +322,8 @@ function makeGm(o) {
     gmDocSettings: { setup_completed_at: "2026-01-01", default_terms_included: "", estimate_valid_days: 30, schedule_presets: [] },
     gmIsSeller: () => false, gmToast: (m) => calls.toasts.push(m), gmApi: (path, opts) => { calls.api.push(path + (opts && opts.method ? ":" + opts.method : "")); return apiImpl(path, opts); },
     gmPricingData: null, gmEstPricingMatchesServices: () => false, gmEstHeadlineOption: () => ({ schedule: [{ label: "Deposit", pct: 50 }, { label: "Completion", pct: 50 }] }),
+    // Live ABC costs on a draft estimate are their own feature (stubbed out; no network here).
+    gmEstLiveCosts: () => {},
     gmLoadEstimatesList: () => Promise.resolve(), gmLoadCrmSilent: () => {}, gmRenderEstimatesTab: () => {}, gmCurrentTab: "x",
     gmEstSendOpen: () => {}, gmEstDetail: o.estDetail || null, gmLeadsData: { leads: [] }, GM_EST_TIER_LABEL: {},
     gmEstWizStep1: () => '<input id="gmEwJob">', gmEstWizStep2: () => "s2", gmEstWizStepPick: () => "pick", gmEstWizStep5: () => "s5",

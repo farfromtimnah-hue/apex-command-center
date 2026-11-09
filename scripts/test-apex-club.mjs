@@ -95,7 +95,9 @@ function clubWorld(extraStubs) {
   d.raw.exec("INSERT INTO accounts (id, purpose) VALUES ('acct_biz', 'business'), ('acct_personal', 'personal')");
   const F = build(clubFns, clubVars, Object.assign({}, baseStubs, { crypto: globalThis.crypto, DEFAULT_ORIGIN: "https://apex.test", APX_CLUB_CARD_AVAILABLE: true,
     gmEstPublicRateLimit: async () => null, REQUEST_CTX: new WeakMap(), apxStripePost: st.apxStripePost, notifyNicoleTelegram: st.notifyNicoleTelegram,
-    apxStripeRefreshCharges: async () => 0 }, extraStubs || {}));
+    apxStripeRefreshCharges: async () => 0,
+    // The event's public share link is a doc_links short link in the Worker; not what this test covers, so the direct club.html link stands in.
+    apxClubShareLink: async (env, e) => "https://apex.test/club.html?e=" + e.id }, extraStubs || {}));
   return { d, env: { DB: d.DB }, st, F };
 }
 const setCard = (d, id, single, couple) => d.raw.prepare("UPDATE apex_club_events SET price_card_single_cents = ?, price_card_couple_cents = ? WHERE id = ?").run(single, couple, id);
@@ -115,7 +117,7 @@ const setCard = (d, id, single, couple) => d.raw.prepare("UPDATE apex_club_event
   // The three copies of the card-price formula are the same function.
   const mirror = (file) => { const src = readFileSync(new URL(file, root), "utf8"); const i = src.indexOf("function clubCardPriceFromZelle("); return src.slice(i, src.indexOf("}", src.indexOf("return Math.ceil", i)) + 1).replace(/\s+/g, " "); };
   const w = workerSrc.slice(workerSrc.indexOf("function clubCardPriceFromZelle("), workerSrc.indexOf("\n}", workerSrc.indexOf("function clubCardPriceFromZelle(")) + 2).replace(/\s+/g, " ");
-  ok(mirror("finance-new.html") === w && mirror("calendar.html") === w, "the event forms mirror the Worker's clubCardPriceFromZelle exactly");
+  ok(mirror("apex-club.js") === w && mirror("calendar.html") === w, "the event forms mirror the Worker's clubCardPriceFromZelle exactly");
 
   // For an event with no card price, the page's own Zelle computation and clubPriceFor agree.
   const pageZelle = (ev, plusOne) => (plusOne && ev.price_couple_cents) ? ev.price_couple_cents : (plusOne ? ev.price_single_cents * 2 : ev.price_single_cents);   // club.html done()
@@ -369,23 +371,27 @@ const setCard = (d, id, single, couple) => d.raw.prepare("UPDATE apex_club_event
     "club.html: every Zelle block and confirmation string");
   ok(!/required/.test(club.slice(club.indexOf('id="zConf"') - 40, club.indexOf('id="zConf"') + 200)), "the confirmation input is not required");
   ok(!/href="[^"]*zelle/i.test(club) && !/enroll\.zellepay\.com/.test(club.replace(/<!--[\s\S]*?-->/g, "").replace(/\/\/[^\n]*/g, "")), "no tappable Zelle link anywhere");
-  const fin = readFileSync(new URL("finance-new.html", root), "utf8");
-  ok(fin.includes('t("Confirmar", "Confirm")') && fin.includes('t("Não é este", "Not this one")'), "finance-new.html: Confirmar and Não é este, bilingual");
+  // The Eventos panel moved from finance-new.html to apex-club.html + apex-club.js (commit d4b45f55).
+  const fin = readFileSync(new URL("apex-club.js", root), "utf8");
+  ok(fin.includes('t("Confirmar", "Confirm")') && fin.includes('t("Não é este", "Not this one")'), "apex-club.js: Confirmar and Não é este, bilingual");
 }
 
 // The staff bilingual pairs are on the pages exactly as specified.
 {
-  const fin = readFileSync(new URL("finance-new.html", root), "utf8").replace(/&atilde;/g, "ã").replace(/&ccedil;/g, "ç").replace(/&eacute;/g, "é").replace(/&uacute;/g, "ú");
+  const fin = readFileSync(new URL("apex-club.js", root), "utf8").replace(/&atilde;/g, "ã").replace(/&ccedil;/g, "ç").replace(/&eacute;/g, "é").replace(/&uacute;/g, "ú");
   const cal = readFileSync(new URL("calendar.html", root), "utf8");
   const pairs = [["Aceitar cartão neste evento", "Accept card at this event"], ["Preço no cartão (individual)", "Card price (single)"], ["Preço no cartão (casal)", "Card price (couple)"],
     ["Preço no Zelle (individual)", "Zelle price (single)"], ["Preço no Zelle (casal)", "Zelle price (couple)"],
     ["O preço do cartão é o preço divulgado. O flyer e todo anúncio devem mostrar o preço do cartão, e o Zelle é um desconto. Nunca divulgue o preço do Zelle como preço normal.", "The card price is the posted price. The flyer and every announcement must show the card price, and Zelle is a discount. Never advertise the Zelle price as the regular price."]];
-  ok(pairs.every(p => fin.includes(p[0]) && fin.includes(p[1])), "finance-new.html event form: every card label pair, PT and EN");
+  // The create form with the "accept card" tick and the posted-price note lives only in calendar.html (checked below);
+  // apex-club.js keeps the edit-time price labels and messages, so those pairs are checked here.
+  const editPairs = pairs.slice(1, 5);
+  ok(editPairs.every(p => fin.includes(p[0]) && fin.includes(p[1])), "apex-club.js event form: the card and Zelle price label pairs, PT and EN");
   ok(pairs.every(p => cal.includes(p[0]) && cal.includes(p[1])), "calendar.html Apex Club group: every card label pair, PT and EN");
   const guest = [["Pago cartão", "Paid by card"], ["Pago Zelle", "Paid by Zelle"], ["Pago manual", "Paid manually"], ["Aguardando banco", "Waiting for bank"], ["Conferir Zelle", "Check Zelle"], ["Valor diferente", "Different amount"],
     ["Confirmação não encontrada", "Confirmation not found"], ["Copiar link de pagamento", "Copy payment link"], ["Marcar como pago", "Mark as paid"], ["Cartão (Stripe)", "Card (Stripe)"], ["Taxa do Stripe", "Stripe fee"]];
   const missing = guest.filter(p => !(fin.includes('"' + p[0] + '", "' + p[1] + '"')));
-  ok(missing.length === 0, "finance-new.html guest list and P&L: every badge and button pair through t(pt, en)" + (missing.length ? " MISSING " + JSON.stringify(missing) : ""));
+  ok(missing.length === 0, "apex-club.js guest list and P&L: every badge and button pair through t(pt, en)" + (missing.length ? " MISSING " + JSON.stringify(missing) : ""));
   const club = readFileSync(new URL("club.html", root), "utf8");
   ok(["Pagar com cartão: ", "Cartão ou Apple Pay. O preço do cartão já inclui a taxa de processamento.", "Pagando com Zelle: ", "(desconto de ", "Pagamento recebido. Obrigado!", "Estamos confirmando seu pagamento.", "Pago: "].every(x => club.includes(x)), "club.html: the pay box strings");
   ok(!/\bN[ãa]o vou\b|\bRecusar\b|\bCancelar presen|\bdecline\b/i.test(club.replace(/<!--[\s\S]*?-->/g, "").replace(/\/\/[^\n]*/g, "")), "club.html offers no decline or 'no' option anywhere");

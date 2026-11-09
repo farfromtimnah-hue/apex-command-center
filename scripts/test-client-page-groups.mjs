@@ -14,7 +14,7 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) { fai
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 const WANT = {
-  overview: ["leadPipeline", "overview", "contacts", "notes", "bsPlan", "portalAccess", "sellerLogins"],
+  overview: ["leadPipeline", "overview", "contacts", "notes", "bsPlan", "portalAccess", "sellerLogins", "loginSecurity"],
   apexwork: ["sessions", "clientTasks", "consultantTasks", "assessments", "resources", "docs"],
   results:  ["growth", "weeklySummary", "dp"],
   business: ["gmcrm", "gmestimates", "gmjobs", "gmpricing", "gmfinance"],
@@ -119,7 +119,7 @@ function checkCopy(label, path) {
 
   // ── The 25 sections and their groups ─────────────────────────────────────
   const onPage = [...src.matchAll(/id="sec-([A-Za-z]+)"/g)].map((m) => m[1]);
-  ok(onPage.length === 25 && new Set(onPage).size === 25, label + ": the page has 25 section cards, each id once (" + onPage.length + ")");
+  ok(onPage.length === 27 && new Set(onPage).size === 27, label + ": the page has 27 section cards (26 grouped + Login security), each id once (" + onPage.length + ")");
 
   const page = makePage(src, { session: { apex_role: "alice" } });
   const groups = page.run("CG_GROUPS");
@@ -157,7 +157,8 @@ function checkCopy(label, path) {
   ok(same(page.layout(), [[["overview", "contacts", "notes"], ["bsPlan", "portalAccess", "sellerLogins"]]]), label + ": Overview is two columns, read down the left one first");
   ok(page.els.cgBar.hidden === false && count(page.els.cgBar.innerHTML, "cg-tab-long") === 5, label + ": five group buttons are drawn");
   ok(/class="cg-tab active" onclick="cgGroupTap\('overview'/.test(page.els.cgBar.innerHTML) && count(page.els.cgBar.innerHTML, "cg-tab active") === 1, label + ": the group on screen is the one active button");
-  ok(same(menu(page, "overview"), WANT.overview.slice(1)), label + ": a client's Overview has no Lead Pipeline");
+  // loginSecurity is in the group but its card starts hidden (shown to admins only once the passkey switch is on), so the menu leaves it out here.
+  ok(same(menu(page, "overview"), WANT.overview.slice(1).filter(k => k !== "loginSecurity")), label + ": a client's Overview has no Lead Pipeline");
   let allGroups = true;
   ORDER_RAFA.forEach((k) => {
     page.run("cgShowGroup('" + k + "', true)");
@@ -285,7 +286,8 @@ function checkCopy(label, path) {
   ok(inHeader("resources", "btnAttachResource"), label + ": Attach Resource is in the Resources header");
   ok(inHeader("portalAccess", "btnViewPortal"), label + ": View client portal is at the top of the Client Portal card");
   ok(inHeader("overview", "btnHeroLogo"), label + ": Add Logo is in the overview card");
-  ok(/id="btnHeaderPdf" hidden onclick="handleHeaderPdf\(\)"/.test(src) && /id="btnViewPortal" href="#" target="_blank" rel="noopener" hidden/.test(src) && /id="btnHeroLogo" onclick="document\.getElementById\('logoFileInput'\)\.click\(\)" style="display:none;"/.test(src), label + ": the moved buttons that start hidden still start hidden, with the same handlers");
+  ok(// [^>]* between the attributes: the help system later added data-help="..." to these buttons (the checks are about hidden and the handler).
+  /id="btnHeaderPdf"[^>]*\shidden[^>]*onclick="handleHeaderPdf\(\)"/.test(src) && /id="btnViewPortal"[^>]*href="#" target="_blank" rel="noopener"\s+hidden/.test(src) && /id="btnHeroLogo"[^>]*onclick="document\.getElementById\('logoFileInput'\)\.click\(\)" style="display:none;"/.test(src), label + ": the moved buttons that start hidden still start hidden, with the same handlers");
   ok(/link\.href = "meeting-prep\.html\?client=" \+ encodeURIComponent\(CLIENT_ID\)/.test(src), label + ": Meeting prep opens meeting-prep.html?client=<id>");
   ok(!/prepLinksTop|prepLinksLower|renderPrepLinks/.test(src), label + ": the two old Meeting prep mounts are gone");
   ok(!/Edit Sections|Editar Secoes|btnEditSections|btnDoneSections|EditSectionsMode|is-edit-sections/.test(src), label + ": no Edit Sections control or reorder mode remains");

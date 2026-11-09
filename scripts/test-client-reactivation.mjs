@@ -454,6 +454,9 @@ globalThis.authenticate = async () => ({ role: "alice", display_name: "Alice" })
 
 eval(slice(worker, "var LEAD_STAGES = [", "\nvar CLIENT_STATUS = [") +
   "\n; globalThis.LEAD_STAGES = LEAD_STAGES;");
+// The status switch SQL the handler appends (pause/reactivation also moves the daily-log and goals switches).
+eval(slice(worker, "var CLIENT_SWITCH_EXEMPT_ID", "\nvar CLIENT_STATUS = [") +
+  "\n; Object.assign(globalThis, { CLIENT_SWITCH_EXEMPT_ID, clientStatusSwitchSql });");
 eval(slice(worker, "var CLIENT_STATUS = [", "// ---------------------------------------------------------------------------\n// Route: GET /api/role") +
   "\n; Object.assign(globalThis, { CLIENT_STATUS, CLIENT_SOURCE_TYPES });");
 globalThis.APEX_TIMEZONE = "America/New_York";

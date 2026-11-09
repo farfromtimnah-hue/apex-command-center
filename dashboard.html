@@ -4418,7 +4418,7 @@
       if (!later || !re.test(now)) { return false; }
       var p = later.split("-");
       var last = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2]) + 2));
-      return now <= last.toISOString().slice(0, 10);
+      return now <= last.toISOString().slice(0, 10); // utc-ok: UTC calendar arithmetic on purpose
     }
 
     // The tasks GIVEN BY one role: the speaker's role (created_by_role, an old

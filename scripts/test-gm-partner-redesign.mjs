@@ -44,6 +44,10 @@ globalThis.fmtNum = (v, kind) => kind === "currency" ? "$" + Number(v || 0).toFi
 globalThis.formatDate = (s) => s;
 globalThis.gmPillHtml = (label, cls) => '<span class="gm-pill ' + (cls || "") + '">' + label + "</span>";
 globalThis.GM_STATUS_PILLS = { partner: { Ativo: "gm-green", Prospectando: "gm-gold", Inativo: "gm-muted" } };
+// Partner type / status display goes through the shared label lookup; the real gm-labels.js backs it.
+new Function("window", readFileSync(new URL("../gm-labels.js", import.meta.url), "utf8"))(globalThis);
+globalThis.gmStatusLabel = (v) => globalThis.GmLabels.statusLabel(v, false);
+eval(slice(js, "function gmListEmpty(", "\n}") + "\n}\n; globalThis.gmListEmpty = gmListEmpty;");
 globalThis.gmQrSvg = () => "<svg data-qr></svg>";
 globalThis.gmConfig = { config: { partner_types: ["Fornecedor", "Indicador"] }, method: { partner_statuses: ["Prospectando", "Ativo", "Inativo"] } };
 globalThis.gmPartnersData = { partners: [] };

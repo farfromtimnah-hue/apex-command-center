@@ -63,13 +63,17 @@ function as(d, who) {
     fetch: async () => { throw new Error("no model in this test"); },
     console: { log() {}, error() {}, warn() {} },
     crypto: globalThis.crypto,
+    // The login-activity auto-recorder hooked into the gate is its own feature (no client activity is under test here).
+    loginActivityMaybeAuto: async () => {},
+    // The daily Claude-call cap: "not over budget" here, so the translation is attempted and the unreachable model is what ends it.
+    claudeBudgetGate: async () => null,
     pushToUsers: async (env, emails, payload) => { if (pushFail) { throw new Error("push down"); } pushes.push({ emails, payload }); }
   });
   const F = build(
     ["taskDescriptionClean", "taskBoxMatch", "taskTypedSplit", "handlePatchTask", "handlePostTaskTyped", "taskVoiceOwnerRole", "taskVoicePushText", "taskVoiceNotify",
      "taskAssigneeAliceName", "taskAssigneeRafaName",
      "taskInvolvesDeveloper", "taskTranslationColumn", "taskWordsForRole", "taskTranslatePrompt", "taskTranslate", "taskVoiceAskClaude",
-     "sessionSellerName", "clientRequestAllowed", "sellerRequestAllowed", "enforceClientRoleGate"],
+     "sessionSellerName", "clientRequestAllowed", "sellerRequestAllowed", "enforceClientRoleGateChecks", "enforceClientRoleGate"],
     ["TASK_DESC_MAX", "TASK_VOICE_MAX_TASKS", "TASK_BOX_GLYPH_RE", "TASK_BOX_ASCII_RE", "TASK_PUSH_BODY_MAX", "TASK_TRANSLATE_TIMEOUT_MS", "TASK_TRANSLATION_MAX"], stubs);
   const env = { DB: d.DB };
   const req = (body) => ({ url: "https://x.test/", headers: { get: (k) => (k === "Authorization" ? "Bearer tok" : null) },
@@ -321,7 +325,7 @@ const sheet = read("task-sheet.js");
     ok(!/(^|[^A-Za-z0-9_.$])(window\.)?(confirm|alert|prompt)\s*\(/m.test(js), name + ": no confirm(), alert() or prompt()");
     ok(page.split('id="mtAddBtn"').length === 2 && page.split('id="mtSpeakBtn"').length === 2, name + ": the Add task button exists once (and the microphone once)");
     const speak = page.match(/<div class="mt-speak">[\s\S]*?<span class="mt-timer" id="mtTimer"><\/span>/);
-    ok(!!speak && /id="mtSpeakBtn"[\s\S]*?<\/button>\s*<button type="button" class="btn-voice-mic btn-task-add" id="mtAddBtn" onclick="openAddTask\(\)">/.test(speak[0]), name + ": it is the next thing after the microphone button, in the same row");
+    ok(!!speak && /id="mtSpeakBtn"[\s\S]*?<\/button>\s*<button type="button"(?: data-help="[^"]*")? class="btn-voice-mic btn-task-add" id="mtAddBtn" onclick="openAddTask\(\)">/.test(speak[0]), name + ": it is the next thing after the microphone button, in the same row");
     const btn = page.match(/<button[^>]*id="mtAddBtn"[\s\S]*?<\/button>/)[0];
     ok(/<span aria-hidden="true">\+<\/span>/.test(btn) && btn.indexOf("&#127908;") < 0 && /<span class="show-pt">Adicionar tarefa<\/span>\s*<span class="show-en">Add task<\/span>/.test(btn), name + ": a plus sign, not a microphone, reading Adicionar tarefa / Add task");
     ok(page.split("function openAddTask()").length === 2 && page.split("taskAddOpen({").length === 2, name + ": the form is opened from one place");

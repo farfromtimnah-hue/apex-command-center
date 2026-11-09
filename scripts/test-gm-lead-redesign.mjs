@@ -52,8 +52,12 @@ globalThis.formatDateTime = (s) => "[ts:" + s + "]";
 // Distinct marker: stored-UTC values go through the converting formatter, so a
 // site that swaps one for the other shows up in this test's output.
 globalThis.formatDateTimeUTC = (s) => "[tsUTC:" + s + "]";
-globalThis.gmPillHtml = (label, cls) => '<span class="gm-pill ' + (cls || "") + '">' + label + "</span>";
-globalThis.GM_STAGE_PILL = { "Novo Lead": "gm-gold", "Follow-up": "gm-blue", Fechado: "gm-green" };
+globalThis.gmPillHtml = (label, p) => '<span class="gm-pill ' + ((p && p.band) || "") + '">' + label + "</span>";
+// Stages are stored as language-neutral keys; the label comes from the real gm-labels.js.
+globalThis.GM_STAGE_PILL = { novo_lead: { band: "gm-gold" }, follow_up: { band: "gm-gold" }, fechado: { band: "gm-green" } };
+new Function("window", readFileSync(new URL("../gm-labels.js", import.meta.url), "utf8"))(globalThis);
+globalThis.gmStatusLabel = (v) => globalThis.GmLabels.statusLabel(v, false);
+globalThis.gmStageLabel = (key) => globalThis.GmLabels.stageLabel(key, false);
 globalThis.gmServicoList = (v) => String(v || "").split(",").map((s) => s.trim()).filter(Boolean);
 globalThis.gmConfig = {
   config: { servicos: ["Telhado"], vendedores: ["Ana"], cycle_months: ["Julho"] },
@@ -63,6 +67,29 @@ globalThis.gmConfig = {
 // The sheet renderer writes into gmSheetOpen; capture the HTML it produces.
 let sheet;
 globalThis.gmSheetOpen = (title, body) => { sheet = { title, body }; };
+
+// gm.js binds its return-from-dialer listeners once at load (gmBindPendingWatch);
+// the slice below now includes that block, so give it inert event targets.
+globalThis.document = globalThis.document || { addEventListener() {}, visibilityState: "hidden" };
+globalThis.window = globalThis.window || { addEventListener() {} };
+
+// The lead sheet also hosts the scheduling-link box (its own block, tested elsewhere); stub it empty.
+globalThis.gmBkLeadHtml = () => "";
+// Same for the referral block and the contact-card button handler (own features, own tests).
+globalThis.gmLeadReferralHtml = () => "";
+globalThis.gmThreePricesHtml = () => "";
+globalThis.gmLeadsData = null;
+// Address helpers are the real ones; the ad / Thumbtack / map blocks are their own features, stubbed empty.
+eval(slice(js, "function gmLeadHasStructuredAddr(", "\n}") + "\n}\n; globalThis.gmLeadHasStructuredAddr = gmLeadHasStructuredAddr;");
+globalThis.gmLeadAddressLine = (l) => [l.address, l.city].filter(Boolean).join(", ");
+// The sheet asks the API for the lead files after it paints; no network here, so that promise never settles.
+globalThis.gmApi = () => new Promise(() => {});
+globalThis.gmLocationRowHtml = () => "";
+globalThis.gmMetaLeadHtml = () => "";
+globalThis.gmThumbtackLeadHtml = () => "";
+eval(slice(js, "function gmFmtPhone(", "\n}") + "\n}\n; globalThis.gmFmtPhone = gmFmtPhone;");
+globalThis.window = globalThis.window || globalThis;
+eval(slice(js, "function gmListEmpty(", "\n}") + "\n}\n; globalThis.gmListEmpty = gmListEmpty;");
 
 // ── Load the real render code ─────────────────────────────────────────────
 eval(slice(js, "var GM_ICONS = {", "function gmRenderPartners(") +
@@ -79,7 +106,7 @@ eval(slice(js, "var GM_CONTACT_RESULTS = [", "function gmOpenStagePicker()") +
   "GM_CONTACT_RESULTS, GM_CONTACT_METHOD_LABELS });");
 
 const LEAD = {
-  id: "l1", cliente: "Dona Maria", estagio: "Follow-up",
+  id: "l1", cliente: "Dona Maria", estagio: "follow_up",
   stage_changed_at: new Date(Date.now() - 4 * 86400000).toISOString(),
   valor: 4200, proxima_acao: "Ligar terça",
   servico: "Telhado", vendedor: "Ana", origem: "Indicação",
@@ -146,8 +173,9 @@ const render = (over) => {
   const html = render();
   const titles = (html.match(/gm-sheet-section-title">([^<]*)/g) || [])
     .map((s) => s.replace(/.*">/, "").trim());
-  t("sections are Next action / Contact activity / Lead details / other",
-    titles, ["Próxima ação", "Atividade de contato", "Dados do lead", "Outros campos"]);
+  // Estimates, Values and Outcome sections were added by later builds; the original four keep their order.
+  t("sections are Estimates / Next action / Values / Outcome / Contact activity / Lead details / other",
+    titles, ["Orçamentos", "Próxima ação", "Valores", "Resultado", "Atividade de contato", "Dados do lead", "Outros campos"]);
   // Anchor past the section TITLE (which repeats the same words) to the group
   // that follows it, then count rows inside that group only.
   const nextGroup = slice(html, 'gm-sheet-group">', "</div></div>");
@@ -273,9 +301,15 @@ const render = (over) => {
 {
   const html = render();
   const defs = gmLeadFieldDefs();
-  const missing = defs.filter((d, i) => html.indexOf("gmEditLeadField(" + i + ")") < 0)
+  // address / city are the LEGACY free-text fields: since the structured address (addr_*) they are no longer
+  // tap-to-edit; a lead that still has them shows them as a read-only "Endereço (antigo)" line, never dropped.
+  const LEGACY = ["address", "city"];
+  const missing = defs.filter((d, i) => LEGACY.indexOf(d.key) < 0 && html.indexOf("gmEditLeadField(" + i + ")") < 0)
     .map((d) => d.key);
   t("every editable field def is reachable somewhere on the sheet", missing, []);
+  const legacyHtml = render({ address: "Rua Velha 12", city: "Orlando" });
+  t("a legacy address / city is still shown, read-only, not dropped",
+    legacyHtml.indexOf("Endereço (antigo)") >= 0 && legacyHtml.indexOf("Rua Velha 12, Orlando") >= 0, true);
   t("the delete action survives the redesign", html.indexOf("gmDeleteLead()") >= 0, true);
 }
 

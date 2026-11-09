@@ -257,7 +257,10 @@ t("the public Apex page is PT-only (no language toggle)", /toggleLang/.test(page
 t("the public Apex page has no color picker", /input type="color"/.test(page), false);
 t("the public Apex page reuses Apex's existing logo asset",
   page.includes("apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png"), true);
-t("the public Apex page is dependency-free", /<script[^>]+src=/.test(page), false);
+// native-bridge.js (the iOS wrapper bridge, added with the Capacitor scaffold) is a same-origin file on every page;
+// the intent is no third-party or CDN dependency, so any script src must be a relative same-origin path.
+t("the public Apex page is dependency-free (only same-origin scripts)",
+  [...page.matchAll(/<script[^>]+src=["']([^"']+)["']/g)].every(m => !/^(https?:)?\/\//i.test(m[1])), true);
 t("the public Apex page keeps the honeypot", /hp-field/.test(page), true);
 t("the public Apex page posts to its OWN endpoint",
   /\/api\/apex-referral\//.test(page) && !/\/api\/referral\//.test(page), true);

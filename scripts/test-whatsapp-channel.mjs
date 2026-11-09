@@ -15,7 +15,7 @@ const FNS = [
   "passkeyParseOptions", "passkeyCredentialString", "passkeyMintSession", "passkeySigninRateLimited",
   "handleGetPasskeyStatus", "handlePostPasskeyLoginStart", "handlePostPasskeyLoginFinish", "passkeyCreateInvite",
   "passkeyLoadInvite", "passkeyInviteUsable", "passkeyInviteMessage", "passkeyInviteMessageFor",
-  "handleGetPasskeyInviteInfo", "passkeyMaybeAlert", "handlePostPasskeyInviteSendCode",
+  "handleGetPasskeyInviteInfo", "passkeyMaybeAlert", "passkeySmsMonthlyCap", "sendCounterMonthlyCap", "sendCounterRead", "sendCounterIncrement", "sendCounterMonthKey", "sendCounterMaybeAlert", "sendCounterMonthlyBlocked", "easternDateStr", "handlePostPasskeyInviteSendCode",
   "handlePostPasskeyInviteVerifyCode", "passkeyEnsureLogin", "handlePostPasskeyInviteRegister",
   "passkeyPeopleActor", "passkeyMayManage", "passkeyPublicPerson", "passkeyInviterName", "passkeyInviteResponse",
   "passkeyForbidden", "handleGetGmPeople", "handlePostGmPeople", "passkeyLoadPersonFor", "handlePostGmPersonInvite",
@@ -79,7 +79,7 @@ function fakeStytch(state) {
 }
 
 function world(envOverrides) {
-  const d = makeDb(["migrations/passkey_login.sql"]);
+  const d = makeDb(["migrations/passkey_login.sql", "migrations/2026-10-19_sms_send_counters.sql"]);
   BASE_TABLES.forEach((s) => d.raw.exec(s));
   d.raw.prepare("INSERT INTO clients (id, name, owners, whatsapp, phone, language) VALUES ('c1', 'Acme Pools', 'Maria Silva', '(407) 555-0101', NULL, 'pt')").run();
   d.raw.prepare("INSERT INTO clients (id, name, owners, whatsapp, phone, language) VALUES ('c2', 'Brasil Co', 'Ana', '+55 11 98765 4321', NULL, 'pt')").run();

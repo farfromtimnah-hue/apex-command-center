@@ -69,7 +69,7 @@ for (const [k, path] of Object.entries(FILES)) {
   ok(src.indexOf('onclick="confirmClearResolved()"') !== -1, k + ": the confirm button for Clear resolved is unchanged");
 
   // The mic button kept its id/onclick, only its class changed.
-  const micMatch = src.match(/<button class="([^"]*)" id="tellUsMicBtn" onclick="toggleTellUsMic\(\)">/);
+  const micMatch = src.match(/<button (?:data-help="[^"]*" )?class="([^"]*)" id="tellUsMicBtn" onclick="toggleTellUsMic\(\)">/);
   ok(!!micMatch, k + ": tellUsMicBtn keeps its id and onclick");
   ok(!!micMatch && micMatch[1] === "btn-secondary btn-sm", k + ": tellUsMicBtn class changed to btn-secondary btn-sm");
 

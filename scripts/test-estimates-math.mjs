@@ -76,7 +76,8 @@ ok(/status IN \('sent','viewed','changes_requested'\) AND valid_until >= \?/.tes
 ok(/status = 'superseded'[^;]*revision < \? AND status IN \('sent','viewed','changes_requested','accepted','declined'\)/.test(worker), "older revisions are superseded on SEND, guarded in SQL by number, revision and status");
 
 // public payload never carries internal fields
-const pub = slice(worker, "function gmEstimatePublicPayload", "\n// The internal detail");
+// Ends where the per-estimate look helpers start: they hold brand_override_json (a demo look, not pricing) and were added after this test was written.
+const pub = slice(worker, "function gmEstimatePublicPayload", "\n// A per-estimate look (2026-09-27");
 // decline_reason is the CUSTOMER's own text, so it may print back to them.
 ok(!/cost|margin|commission|internal_notes|override|override_reason|vendedor|lead_id|actor/.test(pub.replace(/\/\/[^\n]*/g, "").replace(/decline_reason/g, "")), "gmEstimatePublicPayload exposes no cost, margin, commission, override, reason, internal notes, seller, actor or lead id");
 
@@ -101,7 +102,7 @@ const strip = (s) => s.replace(/<!--[\s\S]*?-->/g, "").replace(/\/\*[\s\S]*?\*\/
 ok(!/apex/i.test(strip(ev)), "estimate-view.html carries no Apex branding (only the API host)");
 ok(!/apex/i.test(strip(tpl)), "the print template carries no Apex branding");
 ok(!/position:\s*fixed/.test(strip(tpl)) && !/@bottom-center/.test(strip(tpl)), "the print template has no position:fixed footer");
-ok(/\.slide \{ position: relative; width: 8\.5in; height: 11in/.test(tpl) && /\.slide::after \{ content: attr\(data-footer\)/.test(tpl), "fixed 8.5x11 slides with the footer as ::after inside the slide");
+ok(/\.slide \{ position: relative; width: 7\.5in; height: 10in/.test(tpl) && /\.slide::after \{ content: attr\(data-footer\)/.test(tpl), "fixed-size slides (7.5 x 10 in, inside the page margins) with the footer as ::after inside the slide");
 ok(/window\.print\(\)/.test(tpl) && !/html2pdf|puppeteer/.test(tpl), "PDF via the template window's own print, no html2pdf");
 ok(/name="viewport"/.test(ev) && /padding: 0 16px/.test(ev), "customer page is mobile-first with 16px gutters");
 ok(!/\bconst\b|\blet\b|=>/.test(slice(gm, "// ESTIMATES — list, detail sheet, wizard, send", "function gmEstWizSave")), "new gm.js code uses var/function only");

@@ -5828,7 +5828,7 @@
     // app would take another Apple review.
     function portalIsNew(tab) {
       if (window.apexIsNative && apexIsNative()) { return false; }
-      if (new Date().toISOString().slice(0, 10) > PORTAL_NEW_UNTIL) { return false; }
+      if (localDateStr() > PORTAL_NEW_UNTIL) { return false; }
       var tabs = tab === "grp-negocio" ? PORTAL_NEW_TABS : (PORTAL_NEW_TABS.indexOf(tab) !== -1 ? [tab] : []);
       return tabs.some(function(t) {
         var seen = null;
@@ -8445,7 +8445,7 @@
     init();
   </script>
   <script src="gm-measure.js?v=1794074434"></script>
-  <script src="gm.js?v=1794075610"></script>
+  <script src="gm.js?v=1794253763"></script>
   <script src="nav.js"></script>
   <script src="help-config.js"></script>
   <script src="help-core.js"></script>

@@ -93,7 +93,10 @@ function draftTemplates(o) {
 // ── B. Nothing changes for the five construction trades ──────────────────
 for (const name of Object.keys(FLORIDA_FIXTURES)) {
   const g = JSON.stringify(JSON.parse(readFileSync(new URL("state-riders-golden-" + name + ".json", GOLDEN_DIR), "utf8")));
-  const fl = await h.compose(clone(FLORIDA_FIXTURES[name]));
+  // Since Task 2.5 (commit 8b6b677e) a contract with no state at all gets a state_missing blocker instead of silently
+  // defaulting to Florida, so the Florida fixtures are composed with the job state set explicitly to FL.
+  const flFx = clone(FLORIDA_FIXTURES[name]); flFx.flags = Object.assign({}, flFx.flags, { job_state: "FL" });
+  const fl = await h.compose(flFx);
   ok(JSON.stringify(goldenView(fl.comp)) === g, "Florida golden with the cleaning library loaded: " + name);
   for (const code of GOLDEN_STATES) {
     const gs = JSON.stringify(JSON.parse(readFileSync(new URL("cleaning-golden-" + name + "-" + code + ".json", GOLDEN_DIR), "utf8")));
@@ -369,8 +372,8 @@ for (const tpl of TPLS) {
   const none = (await h.compose(cleanFx("T1"))).comp;
   ok(none.cleaning.booking === null, "no booking for the lead: nothing is pre-filled from one");
   ok(JSON.stringify(F.contractCleaningBookingAnswers("not json")) === "{}" && F.contractCleaningBookingPrefill({ answers: { frequency: "once", pets: "yes" } }).fill.frequency === undefined, "an unreadable booking answer or one with no clause wording fills nothing");
-  ok(/SELECT id, answers_json, booked_at FROM gm_booking_requests WHERE client_id = \? AND lead_id = \? AND status = 'booked' ORDER BY booked_at DESC/.test(workerSrc) && (workerSrc.match(/gm_booking_requests/g) || []).length === (readFileSync(new URL("worker/index.js", root), "utf8").match(/(INSERT INTO|UPDATE|FROM) gm_booking_requests/g) || []).length + 0,
-    "the booking table is only read by the contract code (one SELECT of the latest booked request)");
+  ok(/SELECT id, answers_json, booked_at FROM gm_booking_requests WHERE client_id = \? AND lead_id = \? AND status = 'booked' ORDER BY booked_at DESC/.test(workerSrc) && (workerSrc.match(/gm_booking_requests/g) || []).length === (readFileSync(new URL("worker/index.js", root), "utf8").match(/(INSERT INTO|UPDATE|FROM|JOIN) gm_booking_requests/g) || []).length + 0,
+    "the booking table is only read by the contract code (one SELECT of the latest booked request); the appointment reminders also LEFT JOIN it for the text-consent flag (commit 8ccd0fb3)");
 }
 
 // ── I. Template changes and the stored choice ────────────────────────────

@@ -1,7 +1,7 @@
 // Apex Club: no default price. An event with no price is not charged by Apex,
 // and nothing asks a guest to pay. The REAL Worker functions on an in-memory
 // SQLite (scripts/fixtures/d1-shim.mjs) and the pure functions cut out of
-// club.html, finance-new.html and calendar.html (root and iOS copy).
+// club.html, apex-club.js and calendar.html (root and iOS copy).
 // No network.
 //
 //   node scripts/test-club-no-price.mjs
@@ -9,12 +9,12 @@ import { readFileSync } from "node:fs";
 import { makeDb, build, baseStubs, req, workerSrc } from "./fixtures/d1-shim.mjs";
 
 const root = new URL("../", import.meta.url);
-const MIGS = ["migrations/apex_club_company.sql", "migrations/apex_invoice_public.sql", "migrations/apex_club_pay.sql"];
+const MIGS = ["migrations/apex_club_company.sql", "migrations/apex_invoice_public.sql", "migrations/apex_club_pay.sql", "migrations/2026-10-15_vendor_tracking_and_club_plus_one.sql"];
 let fail = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) { fail++; } };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const read = (f) => readFileSync(new URL(f, root), "utf8");
-const PAGES = ["club.html", "finance-new.html", "calendar.html"];
+const PAGES = ["club.html", "apex-club.js", "calendar.html"];
 const COPIES = PAGES.concat(PAGES.map((f) => "ios/App/App/public/" + f));
 
 // ── 1. Source: the default is gone ──────────────────────────────────────
@@ -27,16 +27,17 @@ const COPIES = PAGES.concat(PAGES.map((f) => "ios/App/App/public/" + f));
     ok(!/placeholder="(50|75|52|78)\.00"/.test(src) && !/value="(50|75|52|78)\.00"/.test(src), f + ": no placeholder or value of 50.00 / 75.00 / 52.00 / 78.00");
     ok(!/price_single_cents\s*\|\|\s*\d/.test(src) && !/:\s*"(50|75)\.00"/.test(src), f + ": no \"price_single_cents || 5000\" and no \"50.00\" / \"75.00\" start value in the script");
   }
-  for (const f of ["finance-new.html", "calendar.html"]) {
+  for (const f of ["apex-club.js", "calendar.html"]) {
     const src = read(f), ios = read("ios/App/App/public/" + f);
-    ok(src.indexOf("Deixe vazio quando a Apex n&atilde;o cobra por este evento.") > 0 && src.indexOf("Leave empty when Apex is not charging for this event.") > 0, f + ": the muted line under the price per person, in both languages");
+    // The Eventos panel moved out of finance-new.html into apex-club.js (commit d4b45f55); the create form with the muted line is in calendar.html.
+    if (f === "calendar.html") { ok(src.indexOf("Deixe vazio quando a Apex n&atilde;o cobra por este evento.") > 0 && src.indexOf("Leave empty when Apex is not charging for this event.") > 0, f + ": the muted line under the price per person, in both languages"); }
     ok(src === ios, f + ": root and iOS copy are the same text");
   }
   ok(read("club.html") === read("ios/App/App/public/club.html"), "club.html: root and iOS copy are the same text");
   const cal = read("calendar.html");
   ok(cal.indexOf("muda em Financeiro") === -1 && cal.indexOf("is changed in Finance") === -1, "calendar.html: the \"name is changed in Finance\" line is removed");
   ok((cal.match(/Observa&ccedil;&otilde;es \(aparecem na p&aacute;gina de inscri&ccedil;&atilde;o\)/g) || []).length === 2 && (cal.match(/Notes \(shown on the registration page\)/g) || []).length === 2, "calendar.html: the one notes label on the create block and on the edit block");
-  ok(read("finance-new.html").indexOf('t("Sem cobran&ccedil;a pela Apex", "Not charged by Apex")') > 0, "finance-new.html: the event card says Sem cobranca pela Apex / Not charged by Apex");
+  ok(read("apex-club.js").indexOf('t("Sem cobran&ccedil;a pela Apex", "Not charged by Apex")') > 0, "apex-club.js: the event card says Sem cobranca pela Apex / Not charged by Apex");
 }
 
 // ── 2. Worker ───────────────────────────────────────────────────────────
@@ -54,6 +55,8 @@ function world() {
   d.raw.exec("INSERT INTO accounts (id, purpose) VALUES ('acct_biz', 'business')");
   const F = build(FNS, VARS, Object.assign({}, baseStubs, { crypto: globalThis.crypto, DEFAULT_ORIGIN: "https://apex.test", APX_CLUB_CARD_AVAILABLE: true,
     gmEstPublicRateLimit: async () => null, REQUEST_CTX: new WeakMap(),
+    // The event's share link is a doc_links short link in the Worker; not what this test covers, so the direct club.html link stands in.
+    apxClubShareLink: async (env, e) => "https://apex.test/club.html?e=" + e.id,
     apxStripePost: async (env, path, params) => { stripe.push(path); return { id: "x", url: "https://buy.stripe.com/test" }; },
     notifyNicoleTelegram: async (env, msg) => { alerts.push(msg); },
     apxStripeRefreshCharges: async () => { refreshes.push(1); return 0; } }));
@@ -186,11 +189,13 @@ function cutFn(src, name, indent) {
   return src.slice(i + 1, j + indent.length + 2);
 }
 
-// finance-new.html: buildClubWhatsAppText.
-for (const file of ["finance-new.html", "ios/App/App/public/finance-new.html"]) {
+// apex-club.js: buildClubWhatsAppText.
+for (const file of ["apex-club.js", "ios/App/App/public/apex-club.js"]) {
   const html = read(file); const tag = "[" + file + "] ";
+  // fmtCents and fmtDate are defined by the host page (apex-club.html), the rest by apex-club.js (the panel moved there in d4b45f55).
+  const host = read(file.replace(/\.js$/, ".html"));
   const names = ["fmtCents", "fmtDate", "clubEventCharged", "clubDropPaymentLines", "buildClubWhatsAppText", "clubSinglePriceCents"];
-  const make = (settings) => new Function("BUSINESS_SETTINGS", names.map((n) => cutFn(html, n, "    ")).join("\n") + "\nreturn { " + names.join(", ") + " };")(settings);
+  const make = (settings) => new Function("BUSINESS_SETTINGS", names.map((n) => cutFn(n === "fmtCents" || n === "fmtDate" ? host : html, n, "    ")).join("\n") + "\nreturn { " + names.join(", ") + " };")(settings);
   const TPL = "Oi {nome}! Confirmando sua presença no {evento}.\n📅 {data} às {hora}\n📍 {local}\n\n💵 Valor: {valor}\nPagamento por Zelle: pay@apex.test\nColoque seu nome no memo do Zelle.\n\nNos vemos lá!";
   const F = make({ club_confirm_template: TPL });
   const evPaid = { name: "Apex Club Outubro", event_date: "2026-10-01", start_time: "7:00 PM", venue: "123 Main St", price_single_cents: 5000, price_couple_cents: 7500 };
@@ -228,7 +233,7 @@ for (const file of ["club.html", "ios/App/App/public/club.html"]) {
   }
   const hp = F.factsHtml(Object.assign({}, base, { price_single_cents: 5000, price_couple_cents: 7500 }), { withPrice: true });
   ok(/Valor<\/span>\$50 por pessoa · \$75 o casal/.test(hp), tag + "thank-you facts WITH a price: the Valor row as today");
-  ok(/if \(!evCharged\(\)\) \{\s*hide\("payBox"\);\s*show\("screenDone"\);\s*window\.scrollTo\(0, 0\);\s*return;\s*\}/.test(html), tag + "done(): a no-price event hides the payment box and stops before any amount, Zelle contact or QR is set");
+  ok(/if \(!evCharged\(\)\) \{\s*hide\("payBox"\);\s*show\("screenDone"\);\s*window\.scrollTo\(0, 0\);\s*(?:autoScrollTo\("btnShare"\);\s*)?return;\s*\}/.test(html), tag + "done(): a no-price event hides the payment box and stops before any amount, Zelle contact or QR is set");
   ok(/if \(evCharged\(\) && res\.d\.pay && res\.d\.pay_token\)/.test(html), tag + "the new payment box is only ever built for an event with a price");
   const noCharge = html.slice(html.indexOf('<div id="payNoCharge"'), html.indexOf("</div>\n      </div>", html.indexOf('<div id="payNoCharge"')));
   ok(/N&atilde;o h&aacute; nada a pagar &agrave; Apex por este evento\./.test(noCharge) && /id="btnSharePay">Compartilhar convite</.test(noCharge) && /id="btnCalPay"/.test(noCharge) && !/zelle|cart|input|\$/i.test(noCharge),

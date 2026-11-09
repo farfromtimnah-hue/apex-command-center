@@ -21,7 +21,7 @@ function slice(startMarker, endMarker) {
 
 const code =
   slice("var XRAY_PROFILE_ACTIVITIES = [", "// Every catalog declares its `scale`") +
-  slice("var MEETING_PATTERNS = [", "// ---------------------------------------------------------------------------\n// Route: GET /api/clients/:id/meeting-prep") +
+  slice("var MEETING_PATTERNS = [", "// Route: GET /api/clients/:id/meeting-prep?type=xray_results") +
   "\n; Object.assign(globalThis, { computeOwnerLoad, detectClientPatterns, rankStories," +
   " isMeetingPattern, MEETING_PATTERNS, parseStoryPatterns });";
 

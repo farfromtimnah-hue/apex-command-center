@@ -533,16 +533,26 @@ const BIZ_YES = { values: { ins_cgl: "yes", ins_cgl_insurer: "Acme Mutual", ins_
 }
 
 // ── 12. Florida is unchanged ──────────────────────────────────────────────
+// Since Task 2.5 (commit 8b6b677e, 2026-10-19) a contract with no job state, no
+// state in the address and no business state carries ONE extra blocker,
+// "state_missing" (it is no longer silently Florida). The golden files were made
+// before that and are never remade, so the comparison drops that one blocker
+// (and checks it is there); every printed word and field must still match.
+function floridaView(comp) {
+  const v = goldenView(comp);
+  v.blockers = v.blockers.filter(function (b) { return b.code !== "state_missing"; });
+  return v;
+}
 {
   let same = 0;
   for (const name of Object.keys(FLORIDA_FIXTURES)) {
     const g = new URL("state-riders-golden-" + name + ".json", GOLDEN_DIR);
     const r = await h.compose(FLORIDA_FIXTURES[name]);
-    if (existsSync(g) && readFileSync(g, "utf8") === JSON.stringify(goldenView(r.comp), null, 2) + "\n" && r.comp.state_finish === undefined && !r.comp.sections.some(function (s) { return s.system || s.line || s.place; })) { same++; }
+    if (existsSync(g) && readFileSync(g, "utf8") === JSON.stringify(floridaView(r.comp), null, 2) + "\n" && r.comp.blockers.filter(function (b) { return b.code === "state_missing"; }).length === 1 && r.comp.state_finish === undefined && !r.comp.sections.some(function (s) { return s.system || s.line || s.place; })) { same++; }
   }
   ok(same === Object.keys(FLORIDA_FIXTURES).length && same === 5, "all five Florida golden files are byte-identical, and a Florida contract carries no state part at all");
   const flAll = await h.compose(Object.assign(clone(FLORIDA_FIXTURES["residential-in-home-deposit"]), { settings: BIZ_YES, parties: { subs: [{ name: "X", address: "a", phone: "1" }], suppliers: [] }, slots: { "DE-ag-summary": { key: "k", version: "v" } }, flags: Object.assign({}, FLORIDA_FIXTURES["residential-in-home-deposit"].flags, { state_facts: { secured: "yes" }, state_values: { legal_description: "x" } }) }));
-  ok(JSON.stringify(goldenView(flAll.comp)) === readFileSync(new URL("state-riders-golden-residential-in-home-deposit.json", GOLDEN_DIR), "utf8").trim().replace(/\n\s*/g, "").replace(/": /g, "\":") || JSON.stringify(goldenView(flAll.comp), null, 2) + "\n" === readFileSync(new URL("state-riders-golden-residential-in-home-deposit.json", GOLDEN_DIR), "utf8"),
+  ok(JSON.stringify(floridaView(flAll.comp)) === readFileSync(new URL("state-riders-golden-residential-in-home-deposit.json", GOLDEN_DIR), "utf8").trim().replace(/\n\s*/g, "").replace(/": /g, "\":") || JSON.stringify(floridaView(flAll.comp), null, 2) + "\n" === readFileSync(new URL("state-riders-golden-residential-in-home-deposit.json", GOLDEN_DIR), "utf8"),
     "even with the insurance facts answered, subcontractors on the project, a document loaded and answers saved, a Florida contract composes exactly as the golden file");
   ok(F.contractStatePublicParts({ flags: {} }, flAll.comp, "x") === null && F.contractStateCoStatements({}, 2).length === 0, "Florida: nothing extra reaches the customer's page or a change order");
 }

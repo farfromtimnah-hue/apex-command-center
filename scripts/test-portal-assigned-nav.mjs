@@ -37,6 +37,10 @@ const t = (label, actual, expected) => {
 };
 
 // ── Load the real logic ───────────────────────────────────────────────────
+// The registry slice now also contains top-level listener bindings (scroll, dock, ...); give them inert targets.
+globalThis.window = globalThis.window || { addEventListener() {}, removeEventListener() {} };
+globalThis.document = globalThis.document || { addEventListener() {}, removeEventListener() {}, getElementById() { return null; } };
+
 // Registry + derived lists + the open/incomplete helpers + the picker.
 eval(slice("var SINGLE_PAGE_ASSESSMENTS = [", "function loadAssigned()") +
   "\n; Object.assign(globalThis, { SINGLE_PAGE_ASSESSMENTS, spaState, spaConf," +
@@ -45,13 +49,15 @@ eval(slice("var SINGLE_PAGE_ASSESSMENTS = [", "function loadAssigned()") +
 // Dock + More-menu builders. They call isLead(); stub it as "client", which is
 // the role this whole change is about.
 globalThis.isLead = () => false;
+globalThis.isSeller = () => false;
+globalThis.ritmoDeprioritized = () => false;   // goals / daily log both on
 // PORTAL_DOCK_TABS and PORTAL_MORE_TABS are now DERIVED from the canonical
 // PORTAL_TABS array rather than hand-listed, so the slice starts there.
 // Order itself is asserted by test-portal-tab-order.mjs; this file only cares
 // that Assigned's insertion keeps everything reachable.
 eval(slice("var PORTAL_TABS = [", "function populateMobileDock()") +
   "\n; Object.assign(globalThis, { PORTAL_TABS, PORTAL_DOCK_TABS, PORTAL_MORE_TABS," +
-  " ASSIGNED_DOCK_TAB, portalDockTabs, portalMoreTabs });");
+  " ASSIGNED_DOCK_TAB, portalDockTabs, portalMoreTabs, portalGroups, portalGroupOfTab, portalGearTabs, portalTabs });");
 
 // The Documents "completed assessments" section builder.
 globalThis.isEn = () => false;
@@ -77,27 +83,32 @@ function reset() {
 reset();
 t("nothing assigned -> anyIncompleteAssigned false", anyIncompleteAssigned(), false);
 t("nothing assigned -> no Assigned card", assignedTools().length, 0);
-t("nothing assigned -> Assigned absent from the dock",
-  portalDockTabs().some(x => x.tab === "assigned"), false);
-t("nothing assigned -> Assigned absent from the More menu",
-  portalMoreTabs().some(x => x.tab === "assigned"), false);
+// Nav rebuild 2026-09-28: clients and sellers navigate by GROUPS (Início, Negócio, Agenda, Analytics, Apex);
+// the dock is the list of groups and there is no "Mais" for them. "Assigned joins Apex only while something
+// is waiting", so the entry point is a tool inside the Apex group instead of the first dock tab.
+const groupHas = (tab) => portalGroups().some(g => g.tabs.some(x => x.tab === tab));
+t("nothing assigned -> Assigned absent from every nav group", groupHas("assigned"), false);
+t("nothing assigned -> no More menu entries for a client", portalMoreTabs().length, 0);
 
-// ── Assigned + incomplete: card in Assigned, Assigned leads the nav ───────
+// ── Assigned + incomplete: card in Assigned, Assigned reachable in the Apex group ──
 reset();
 spaState[keys[0]].assigned = true;
 spaState[keys[0]].status = "not_started";
 t("assigned+incomplete -> anyIncompleteAssigned true", anyIncompleteAssigned(), true);
 t("assigned+incomplete -> it has a card in Assigned",
   assignedTools().map(x => x.tab), [keys[0]]);
-t("assigned+incomplete -> Assigned is FIRST in the dock",
-  portalDockTabs()[0].tab, "assigned");
-t("assigned+incomplete -> the dock still holds at most 4 + Mais",
-  portalDockTabs().length <= 4, true);
-t("assigned+incomplete -> no per-assessment entry in the More menu",
-  portalMoreTabs().filter(x => keys.indexOf(x.tab) !== -1 || x.tab === "xray").map(x => x.tab), []);
-t("assigned+incomplete -> a dock tab displaced by Assigned stays reachable in More",
-  PORTAL_DOCK_TABS.filter(d => !portalDockTabs().some(x => x.tab === d.tab))
-    .filter(d => !portalMoreTabs().some(m => m.tab === d.tab)).map(d => d.tab), []);
+t("assigned+incomplete -> Assigned is a tool inside the Apex group",
+  (portalGroupOfTab("assigned") || {}).tab, "grp-apex");
+t("assigned+incomplete -> the Apex group itself is in the dock",
+  portalDockTabs().some(x => x.tab === "grp-apex"), true);
+t("assigned+incomplete -> the dock is the groups: at most five destinations, no Mais",
+  portalDockTabs().length <= 5 && portalDockTabs().every(x => x.group), true);
+t("assigned+incomplete -> no per-assessment entry in any group or the More menu",
+  portalGroups().reduce((a, g) => a.concat(g.tabs.map(x => x.tab)), []).concat(portalMoreTabs().map(x => x.tab))
+    .filter(x => keys.indexOf(x) !== -1 || x === "xray"), []);
+t("assigned+incomplete -> every tab a client can open is still reachable (a group, or the gear)",
+  portalTabs().map(x => x.tab)
+    .filter(x => !portalGroupOfTab(x) && !portalGearTabs().some(g => g.tab === x)), []);
 
 // in_progress is still open work.
 spaState[keys[0]].status = "in_progress";
@@ -110,8 +121,8 @@ spaState[keys[0]].status = "completed";
 t("completed -> no card in Assigned", assignedTools().map(x => x.tab), []);
 t("completed -> anyIncompleteAssigned false (nothing left to do)",
   anyIncompleteAssigned(), false);
-t("completed -> Assigned entry point hidden from the dock",
-  portalDockTabs().some(x => x.tab === "assigned"), false);
+t("completed -> Assigned entry point hidden from the nav groups",
+  groupHas("assigned"), false);
 
 globalThis.assessmentsCache = [
   { assessment_type: spaConf(keys[0]).type, status: "completed", completed_at: "2026-07-27T10:00:00Z" }
@@ -157,10 +168,11 @@ t("mixed -> Assigned shows only the unfinished one",
 t("mixed -> Assigned entry point still shown", anyIncompleteAssigned(), true);
 
 // ── Markup: no per-assessment button in the tab strip; Assigned is first ──
-const strip = slice('<div class="portal-tabs">', "</div>\n\n      <div id=\"tabAnalytics\">");
+// The one-row strip is the LEAD's shape only now (clients use the groups); it still leads with Assigned.
+const strip = slice('<div class="portal-tabs">', "<!-- ══ Navigation (rebuild 2026-09-28)");
 const stripButtons = [...strip.matchAll(/<button class="portal-tab[^"]*"[^>]*data-tab="([a-z0-9]+)"/g)]
   .map(m => m[1]);
-t("Assigned is the FIRST button in the desktop tab strip", stripButtons[0], "assigned");
+t("Assigned is the FIRST button in the (lead) tab strip", stripButtons[0], "assigned");
 t("no per-assessment button remains in the strip",
   stripButtons.filter(b => keys.indexOf(b) !== -1 || b === "xray"), []);
 SINGLE_PAGE_ASSESSMENTS.concat([{ tabBtnId: "tabBtnXray" }]).forEach(e => {

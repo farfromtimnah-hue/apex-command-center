@@ -120,6 +120,9 @@ const scope = {
     return plan;
   },
   async findGoogleInstanceId() { return INSTANCE_PLAN; },
+  // Cancelling a session also frees any scheduling-link booking tied to it (an
+  // unrelated D1 write, added 2026-08-12). Stubbed so DB_WRITES stays the session row only.
+  async schedReleaseBookingForSession() {},
 };
 
 const factory = new Function(...Object.keys(scope), src + "\n;return { handlePatchSessionDetails, resolveScope, handlePostSessionCancel };");
@@ -434,7 +437,7 @@ console.log("\n── 13. Frontend contract (calendar.html) ──");
     /#modalSeriesScope\s*\{[^}]*z-index:\s*(1[0-9][0-9]|[2-9][0-9][0-9])/.test(html), true);
   // The 409 from resolveScope is the one error Alice can hit by answering
   // "all meetings?" on a stale calendar -- it must read in Portuguese too.
-  t("stale-series 409 is localized", /nao faz parte ativa da sua serie/.test(html), true);
+  t("stale-series 409 is localized", /não faz parte ativa da sua série/.test(html), true);
   // Strip HTML comments, CSS/JS block comments and // line comments before
   // the style checks -- prose legitimately contains backticks and arrows.
   const code = html

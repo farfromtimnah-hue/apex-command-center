@@ -112,7 +112,7 @@ const WANT = {
   ],
   developer: [
     "dashboard.html",
-    ["clients", ["clients.html", "client-analytics.html", "contract-review.html", "add-user.html"]],
+    ["clients", ["clients.html", "client-analytics.html", "contract-review.html", "add-user.html", "login-activity.html"]],
     ["agenda", ["calendar.html", "sessions.html", "tasks.html"]],
     ["finance", ["finance-new.html", "vendors.html", "apex-club.html"]],
     ["business", ["sales.html", "documents.html"]]

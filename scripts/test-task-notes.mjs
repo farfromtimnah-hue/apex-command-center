@@ -60,6 +60,10 @@ function as(d, who) {
     // the model is unreachable here. A note or edit on a task that involves the
     // developer must then behave exactly as it did before: saved, no translation.
     // (scripts/test-task-translation.mjs is where translation itself is tested.)
+    // The per-person Claude spending cap (claudeBudgetGate) is tested in test-claude-budget.mjs; null = not capped.
+    claudeBudgetGate: async () => null,
+    // The login-activity auto-recorder that enforceClientRoleGate calls after it lets a request through (not under test here).
+    loginActivityMaybeAuto: async () => {},
     CLAUDE_API_URL: "https://claude.test/v1/messages", CLAUDE_MODEL: "test-model",
     fetch: async () => { throw new Error("no model in this test"); },
     console: { log() {}, error() {}, warn() {} },
@@ -69,8 +73,8 @@ function as(d, who) {
   const F = build(
     ["taskGivenByRole", "taskNoteRecipients", "taskNotePushText", "taskNoteNotify", "taskAssigneeAliceName", "taskAssigneeRafaName", "taskNoteView", "taskNotesTask",
      "taskInvolvesDeveloper", "taskTranslationColumn", "taskWordsForRole", "taskTranslatePrompt", "taskTranslate", "taskVoiceAskClaude",
-     "handleGetTaskNotes", "handlePostTaskNote", "handlePatchTask", "handleGetAllTasks",
-     "sessionSellerName", "clientRequestAllowed", "sellerRequestAllowed", "enforceClientRoleGate"],
+     "handleGetTaskNotes", "handlePostTaskNote", "handlePatchTask", "handleGetAllTasks", "planParam", "planClientAnd",
+     "sessionSellerName", "clientRequestAllowed", "sellerRequestAllowed", "enforceClientRoleGate", "enforceClientRoleGateChecks"],
     ["TASK_NOTE_MAX", "TASK_NOT_UNDONE_SQL", "TASK_TRANSLATE_TIMEOUT_MS", "TASK_TRANSLATION_MAX"], stubs);
   const env = { DB: d.DB };
   const req = (body) => ({ url: "https://x.test/", headers: { get: (k) => (k === "Authorization" ? "Bearer tok" : null) }, json: async () => body });
@@ -530,7 +534,8 @@ const tick = () => new Promise((r) => setTimeout(r, 3));
   ok(open() === false && doc.body.all().filter((e) => e.id === "taskSheet").length === 1, "a second open while one is showing does nothing");
   ok(/Carregando/.test($("taskSheetThread").words), "the thread says it is loading until it arrives");
   await settle();
-  ok(calls.length === 1 && calls[0].url === "https://api.test/api/tasks/t1/notes" && calls[0].method === "GET" && calls[0].auth === "Bearer tok-1", "it reads GET /api/tasks/:id/notes with the signed-in user's token");
+  // Since task attachments (commit 5ea7d238, 2026-10-19) the sheet also reads GET /api/tasks/:id/attachments right after the notes.
+  ok(calls.length === 2 && calls[0].url === "https://api.test/api/tasks/t1/notes" && calls[0].method === "GET" && calls[0].auth === "Bearer tok-1" && calls[1].url === "https://api.test/api/tasks/t1/attachments" && calls[1].method === "GET" && calls[1].auth === "Bearer tok-1", "it reads GET /api/tasks/:id/notes (then the attachments) with the signed-in user's token");
   ok($("taskSheetTitle").textContent === "Call the accountant" && /Acme Pools/.test($("taskSheetMeta").words) && /De Rafael/.test($("taskSheetMeta").words), "the top shows the task's words, the client and the row's tag");
   const thread = $("taskSheetThread");
   ok(thread.children.length === 2 && /Pra\. Alice/.test(thread.children[0].words) && /10\/07\/2026 12:05 PM/.test(thread.children[0].words), "a note shows its author and the time as MM/DD/YYYY h:mm AM/PM in New York: " + thread.children[0].words.replace(/\n/g, " "));

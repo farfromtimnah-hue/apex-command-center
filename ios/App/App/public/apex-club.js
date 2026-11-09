@@ -27,7 +27,7 @@
     // Falls back to the current month only when there are no events at all.
     function newestEventMonth() {
       var pool = CLUB_EVENTS;
-      if (!pool.length) { return new Date().toISOString().slice(0, 7); }
+      if (!pool.length) { return (function(d){return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2);})(new Date()); }
 
       var newest = pool[0].event.event_date;
       pool.forEach(function(e) {

@@ -70,7 +70,7 @@
   <link rel="stylesheet" href="gm.css?v=1794074442">
   <script src="data/us-br-states.js?v=1791950001"></script>
   <script src="client-places.js?v=1791950001"></script>
-  <script src="apex-contract.js?v=1793155295"></script>
+  <script src="apex-contract.js?v=1794253764"></script>
   <link rel="stylesheet" href="fonts.css?v=1">
   <style>
     :root {
@@ -1613,7 +1613,7 @@
       var t = new Date(d.getTime());
       var dow = (t.getUTCDay() + 6) % 7;
       t.setUTCDate(t.getUTCDate() - dow);
-      return t.toISOString().slice(0, 10);
+      return t.toISOString().slice(0, 10); // utc-ok: UTC calendar arithmetic on purpose
     }
 
     function shiftWeek(days) {
@@ -1651,7 +1651,7 @@
 
       var first = days[0].date;
       var last  = days[days.length - 1].date;
-      var today = new Date().toISOString().slice(0, 10);
+      var today = localDateStr();
       var isCurrent = today >= first && today <= last;
 
       var h = '<div class="wk-head"><div class="wk-nav">';

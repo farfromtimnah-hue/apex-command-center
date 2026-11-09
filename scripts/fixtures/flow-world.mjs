@@ -26,6 +26,10 @@ export function loadWorker() {
   src = src.replace(/^import \{[^}]*\} from "\.\/wizard-core\.js";$/m, function () {
     return readFileSync(new URL("worker/wizard-core.js", root), "utf8").replace(/^export \{[^}]*\};\s*$/m, "");
   });
+  // The shared measure rules (gm-measure.js, a CommonJS file at the repo root) are folded in as a function body.
+  src = src.replace(/^import GM_MEASURE from "\.\.\/gm-measure\.js";$/m, function () {
+    return "var GM_MEASURE = (function () { var module = { exports: {} }; var window; " + readFileSync(new URL("gm-measure.js", root), "utf8") + "\nreturn module.exports; })();";
+  });
   src = src.replace(/^import (\w+) from "([^"]+\.json)";$/gm, function (m, name, rel) {
     const base = rel.replace(/^.*\//, "").replace(/\.json$/, "");
     if (real.indexOf(base) !== -1) { return "var " + name + " = __json(" + JSON.stringify(rel) + ");"; }

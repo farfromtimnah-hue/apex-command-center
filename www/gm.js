@@ -7137,7 +7137,7 @@ function gmMatIsoDate(us) {
   var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t); if (!m) { return null; }
   var iso = m[3] + "-" + ("0" + m[1]).slice(-2) + "-" + ("0" + m[2]).slice(-2);
   var d = new Date(iso + "T00:00:00Z");
-  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === iso ? iso : null;
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === iso ? iso : null; // utc-ok: UTC calendar arithmetic on purpose
 }
 function gmMatOrderMoney(n) { return gmMoney(Math.round(Number(n) * 100)); }
 var GM_MAT_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';

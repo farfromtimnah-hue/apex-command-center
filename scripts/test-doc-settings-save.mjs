@@ -38,6 +38,8 @@ function world(opts) {
     requireClientAccess: (u, id) => !!u && (u.role === "developer" || (u.role === "client" && u.client_id === id)),
     jsonErr2: (pt, en, status) => ({ status: status || 400, error: en, error_pt: pt, error_en: en }),
     gmEstSellerGuard: async () => null,
+    // Completing the setup also makes the business's public link-in-bio slug; not what this test is about.
+    gmEnsureClientLinkSlug: async () => "zeta-floors",
     gmEstParseBody: async () => { parsedCalls++; return { error: "REACHED_PARSER" }; },
     GM_HIDDEN_ACTORS: { system: true, developer: true }
   });

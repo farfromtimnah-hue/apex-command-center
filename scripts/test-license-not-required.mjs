@@ -45,6 +45,8 @@ function world(opts) {
   if (opts.migrated !== false) {
     migration.replace(/^\s*--[^\n]*$/gm, "").split(";").forEach((stmt) => { if (stmt.trim()) { d.raw.exec(stmt); } });
   }
+  // The settings read also selects the business's own state (clients.location_state, added later).
+  if (!d.raw.prepare("PRAGMA table_info(clients)").all().some((c) => c.name === "location_state")) { d.raw.exec("ALTER TABLE clients ADD COLUMN location_state TEXT"); }
   d.raw.prepare("INSERT INTO clients (id, name, language) VALUES ('c1', 'Zeta Floors', 'en'), ('c2', 'Omega Roofing', 'en')").run();
   d.raw.prepare("INSERT INTO gm_leads (id, client_id, cliente) VALUES ('l1', 'c1', 'Ana Souza')").run();
   if (opts.seed) {
@@ -60,6 +62,11 @@ function world(opts) {
     gmEstApplyBrandOverride: () => {},
     gmUtcStampToEasternDate: (s) => String(s || "").slice(0, 10),
     gmEstSellerGuard: async () => null,
+    // Completing the setup also makes the business's public link-in-bio slug; not what this test is about.
+    gmEnsureClientLinkSlug: async () => "zeta-floors",
+    // The settings read also adds state-aware license wording (Task 2.4) and the hero picture; neither is under test here, so a business with no state and no hero stands in.
+    contractStateCode: () => null, contractStateName: () => "", contractStateRider: () => null,
+    gmDocHero: () => ({ url: null, hero: null }),
     // Reaching the body parser proves the setup check let the request through.
     gmEstParseBody: async () => { parsedCalls++; return { error: "REACHED_PARSER" }; },
     GM_HIDDEN_ACTORS: { system: true, developer: true }
@@ -214,9 +221,11 @@ function world(opts) {
   ok(Array.isArray(none.business.license_numbers) && none.business.license_numbers.length === 0, "estimate payload, box ticked and no numbers: the license list is empty");
   const flat = JSON.stringify(none);
   ok(!/license_not_required|not required|exempt|isento|n\u00e3o exig/i.test(flat), "the customer payload carries no flag and no sentence about the license");
-  await w.put({ license_numbers: ["CPC1234567", "CFC000111"], license_not_required: true });
+  // Since 08eb40b2 (2026-10-13) the numbers and the box are mutually exclusive (the Worker normalizes a contradictory save):
+  // a number saved while the box is ticked wins and unticks it, so the business's real numbers are never lost or hidden.
+  await w.put({ license_numbers: ["CPC1234567", "CFC000111"] });
   const both = w.F.gmEstimatePublicPayload(est, await w.F.gmDocSettingsRow(w.env, "c1"), { name: "Zeta Floors" }, "https://x.test");
-  ok(w.row().license_not_required === 1 && both.business.license_numbers.join(",") === "CPC1234567,CFC000111", "a business with numbers AND the box ticked still sends its numbers");
+  ok(w.row().license_not_required === 0 && both.business.license_numbers.join(",") === "CPC1234567,CFC000111", "a number saved over a stale tick wins: the box is unticked and the customer document sends the numbers");
   ok(!/license_not_required/.test(JSON.stringify(both)), "and still no flag in the customer payload");
 }
 
@@ -317,7 +326,9 @@ PAGES.forEach(function (rel) {
   // field, and the Worker's own message (now field-level) is still quoted
   // in the page's fallback text.
   ok(has("payload.license_not_required = !!d.license_not_required;"), name + ": the Save button always sends the tick, whatever it is");
-  ok(has("gmDocFieldSave(\"license_not_required\", { license_not_required: !!gmDocDraft.license_not_required })"), name + ": the tick also saves on its own, right when it is clicked");
+  // The tick saves on its own, right when it is clicked (gmDocLicenseNotRequiredSave); since 08eb40b2 the same save
+  // also clears the numbers so the two answers never contradict each other.
+  ok(has("gmDocFieldSave(\"license_not_required\", payload)") && has("var payload = { license_not_required: on };") && has("payload.license_numbers = [];"), name + ": the tick also saves on its own, right when it is clicked");
   const formAt = src.indexOf('gmT("+ Adicionar licen\u00e7a", "+ Add license")');
   ok(formAt !== -1 && src.slice(formAt, formAt + 120).indexOf("gmDocLicenseNotRequiredHtml(d, st)") !== -1, name + ": the box sits directly under the '+ Add license' button");
   ok(has('var GM_DOC_LICENSE_HELP_EN = "Florida law (\u00a7489.119) requires your license number on every bid and contract.";') && has('gmT("N\u00famero(s) de licen\u00e7a", "License number(s)")'), name + ": the existing label and help sentence are untouched");

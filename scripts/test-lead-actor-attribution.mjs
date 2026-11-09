@@ -162,7 +162,7 @@ t("actorName of nothing is null",   actorName(null), null);
 
 // ── 5. Ingestion path is not attributed to a human ────────────────────────
 {
-  const ingest = slice(worker, "INSERT INTO sessions (id, client_name, date, status, raw_transcript, task_completions, created_at, created_by)", "return { session_id: sessionId, duplicate: false };");
+  const ingest = slice(worker, "INSERT INTO sessions (id, client_name, client_id, google_meet_link, date, status, raw_transcript, task_completions, created_at, created_by)", "return { session_id: sessionId, duplicate: false };");
   t("fireflies ingest stamps created_by 'fireflies'", /'fireflies'/.test(ingest), true);
   t("fireflies ingest binds no actor name", /actorName/.test(ingest), false);
 
@@ -173,14 +173,20 @@ t("actorName of nothing is null",   actorName(null), null);
 // ── 6. Every advanceLeadStage call site passes an actor and a source ──────
 {
   const calls = worker.match(/await advanceLeadStage\([^;]*\);/g) || [];
-  t("all four call sites found", calls.length, 4);
+  // Five since the customer's own scheduling link (booking a session by link) also advances the lead.
+  t("all five call sites found", calls.length, 5);
   const missing = calls.filter((c) => {
     const args = c.slice(c.indexOf("(") + 1).split(",");
     return args.length < 5;   // env, id, stage, actor, source
   });
   t("no call site omits actor/source", missing, []);
   const sources = calls.map((c) => (c.match(/"(auto:[a-z_]+)"/) || [])[1]).filter(Boolean);
-  t("each auto source is distinct", new Set(sources).size, sources.length);
+  // Each TRIGGER has its own source. The one deliberate share: a session scheduled by the team and a session
+  // the customer booked through the scheduling link are the same trigger ("a session was scheduled").
+  const seen = {}; const shared = [];
+  sources.forEach((s) => { if (seen[s]) { shared.push(s); } seen[s] = true; });
+  t("each auto source is distinct (only session_scheduled is shared, by the two scheduling paths)", shared, ["auto:session_scheduled"]);
+  t("four different auto sources in all", Object.keys(seen).sort(), ["auto:contact_logged", "auto:session_scheduled", "auto:xray_assigned", "auto:xray_submitted"]);
 }
 
 // ── 7. UI: automatic never reads as a deliberate pick ─────────────────────

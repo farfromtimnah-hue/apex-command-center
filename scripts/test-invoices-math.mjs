@@ -68,7 +68,7 @@ const strip = (s) => s.replace(/<!--[\s\S]*?-->/g, "").replace(/\/\*[\s\S]*?\*\/
 for (const f of ["invoice-view.html", "receipt-view.html", "templates/client-invoice-template.html", "templates/client-receipt-template.html"]) {
   const src = readFileSync(new URL(f, root), "utf8");
   ok(!/apex/i.test(strip(src)), f + " carries no Apex branding");
-  if (f.indexOf("templates/") === 0) { ok(/\.slide \{ position: relative; width: 8\.5in; height: 11in/.test(src) && !/position:\s*fixed/.test(strip(src)) && /window\.print\(\)/.test(src), f + " uses fixed slides and prints from its own window"); }
+  if (f.indexOf("templates/") === 0) { ok(/\.slide \{ position: relative; width: 7\.5in; height: 10in/.test(src) && !/position:\s*fixed/.test(strip(src)) && /window\.print\(\)/.test(src), f + " uses fixed slides and prints from its own window"); }
 }
 console.log(fail ? `\n❌ ${fail} FAILED` : "\n✅ ALL PASS");
 process.exit(fail ? 1 : 0);

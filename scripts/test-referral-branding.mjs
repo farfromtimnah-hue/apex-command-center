@@ -40,6 +40,9 @@ globalThis.jsonOk  = (o) => ({ ok: true, body: o });
 globalThis.jsonErr = (m, code) => ({ ok: false, error: m, status: code });
 globalThis.gmGetConfig = async () => ({ servicos: ["Pavers", "Turf"] });
 
+// The logo URL carries a cache-busting version taken from the stored key (real helper).
+eval(slice(worker, "function logoVersionParam(", "\n") + "\n; globalThis.logoVersionParam = logoVersionParam;");
+
 eval(slice(worker, "function gmReferralSlugValid(", "async function handlePostReferralLead(")
   .replace(/^async function handleGetReferralInfo[\s\S]*$/m, (s) => s) +
   "\n; Object.assign(globalThis, { referralHexOrNull, handleGetReferralInfo, gmPartnerBySlug," +
@@ -80,7 +83,7 @@ const base = {
   t("client language 'en' is honored", r.body.language, "en");
   t("logo presence reported", r.body.has_logo, true);
   t("logo served through the EXISTING logo-image route",
-    r.body.logo_url, "https://apex-api.example/api/clients/c1/logo-image");
+    r.body.logo_url, "https://apex-api.example/api/clients/c1/logo-image?v=c1");
   t("no raw R2 key is ever exposed publicly", /logos\//.test(r.body.logo_url), false);
 }
 
@@ -155,7 +158,11 @@ el.onerror();
 t("a failed logo stays hidden rather than showing a broken icon", el.className, "logo");
 
 // ── The page stays dependency-free ────────────────────────────────────────
-t("referral.html pulls in no external script", /<script[^>]+src=/.test(referral), false);
+// Every page now loads native-bridge.js (the iOS wrapper shim, a no-op in a browser); that one first-party
+// file is the only script src allowed. Anything else (a CDN, Firebase, an app script) fails.
+const srcs = [...referral.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1]);
+t("referral.html pulls in no external script (only the first-party native-bridge.js shim)",
+  srcs.filter((u) => !/^native-bridge\.js(\?v=\d+)?$/.test(u)), []);
 t("referral.html pulls in no external stylesheet", /<link[^>]+stylesheet/.test(referral), false);
 t("the manual language toggle still exists", /function toggleLang\(\)/.test(referral), true);
 t("the toggle button is still in the markup", /onclick="toggleLang\(\)"/.test(referral), true);

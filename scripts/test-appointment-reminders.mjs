@@ -10,21 +10,26 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) fail+
 const FNS = [
   "apptRemWall", "apptRemTime", "apptRemFmt12", "apptRemLead", "apptRemFindSessions",
   "apptRemFindClientEvents", "apptRemRoleEmails", "apptRemSend", "runAppointmentReminders",
-  "handleGetApptReminderDryRun"
+  "handleGetApptReminderDryRun", "planClientAnd", "sessionGetsTextReminder", "clientZoneFor", "tzIsValid", "tzZoneForState"
 ];
-const VARS = ["APEX_TIMEZONE", "APPT_REMINDER_LEADS_MIN", "APPT_REMINDER_WINDOW_MIN", "APPT_REMINDER_OWNER_ROLE"];
+const VARS = ["APEX_TIMEZONE", "APPT_REMINDER_LEADS_MIN", "APPT_REMINDER_WINDOW_MIN", "APPT_REMINDER_OWNER_ROLE", "TZ_STATE_ZONES", "TZ_STATE_NAMES"];
 
 function world(stubOverrides) {
   const d = makeDb([]);
   d.raw.exec(`
     CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, client_name TEXT NOT NULL, client_id TEXT, date TEXT NOT NULL, time TEXT,
-      session_type TEXT, status TEXT NOT NULL DEFAULT 'pending', location TEXT, created_by TEXT);
+      session_type TEXT, status TEXT NOT NULL DEFAULT 'pending', location TEXT, created_by TEXT, send_text_reminder INTEGER);
     CREATE TABLE IF NOT EXISTS gm_events (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, event_type TEXT, title TEXT NOT NULL,
-      event_date TEXT NOT NULL, start_time TEXT, end_time TEXT, all_day INTEGER NOT NULL DEFAULT 0, location TEXT);
+      event_date TEXT NOT NULL, start_time TEXT, end_time TEXT, all_day INTEGER NOT NULL DEFAULT 0, location TEXT, lead_id TEXT);
+    CREATE TABLE IF NOT EXISTS gm_leads (id TEXT PRIMARY KEY, telefone TEXT);
+    CREATE TABLE IF NOT EXISTS gm_booking_requests (id TEXT PRIMARY KEY, event_id TEXT, client_id TEXT, sms_consent_status TEXT);
     CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, email TEXT, role TEXT);
     CREATE TABLE IF NOT EXISTS push_sent_log (dedupe_key TEXT PRIMARY KEY, sent_at TEXT NOT NULL DEFAULT (datetime('now')));
     INSERT INTO users (email, role) VALUES ('rafa@test.com', 'rafa'), ('alice1@test.com', 'alice'), ('alice2@test.com', 'alice'), ('dev@test.com', 'developer');
   `);
+  // Columns the client query reads that the shim's clients table may not carry (added to the app after this test).
+  const have = d.raw.prepare("PRAGMA table_info(clients)").all().map((c) => c.name);
+  ["location_state", "owners"].forEach((c) => { if (have.indexOf(c) < 0) { d.raw.exec("ALTER TABLE clients ADD COLUMN " + c + " TEXT"); } });
   const calls = [];
   const state = { result: { sent: 1, failed: 0, total: 1 } };
   const stubs = Object.assign({}, baseStubs, {

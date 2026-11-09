@@ -21,6 +21,12 @@
 // contact auto-advances the lead to "Contato inicial" (advanceLeadStage), and
 // that has to keep working when the entry arrives through the new buttons.
 //
+// UPDATED 2026-11-09 for commit 1920e54d (2026-08-29, "Log the contact when it
+// happens, ask how it went when she is back"): the buttons no longer open the
+// form. Each tap POSTs the attempt to /contact-log at the moment of the click
+// (Method = the button tapped, Result "Awaiting reply") and the outcome is asked
+// later, so rule 1 now reads: the LOGGED Method must match the button tapped.
+//
 // The real client.html functions are eval'd against a tiny DOM fake; the real
 // worker handler is eval'd against a recording fake D1.
 import { readFileSync } from "fs";
@@ -48,7 +54,7 @@ const t = (label, actual, expected) => {
 // so a typo'd method name surfaces as "" rather than silently passing.
 const CL_METHOD_OPTIONS = ["WhatsApp", "Phone call", "Email", "In person", "Text message"];
 
-let els, navigations, opened, popupBlocked;
+let els, navigations, opened, popupBlocked, posts;
 function makeEl(id) {
   const el = {
     id, innerHTML: "", textContent: "", value: "", hidden: true,
@@ -75,6 +81,7 @@ function resetDom({ en = false, hasContactActions = true } = {}) {
   navigations = [];
   opened = [];
   popupBlocked = false;
+  posts = [];
   const ids = ["clNotes", "clStatus2", "clMethod", "clResult", "modalContactLog"];
   if (hasContactActions) { ids.push("leadContactActions", "leadContactMoreBtn", "leadContactMorePanel"); }
   ids.forEach((id) => { els[id] = makeEl(id); });
@@ -96,6 +103,10 @@ function resetDom({ en = false, hasContactActions = true } = {}) {
 // renderContactLogOptions() localizes the dropdown text; not under test here,
 // but openContactLogModal() calls it, so it must exist.
 globalThis.renderContactLogOptions = () => {};
+// logContactAttempt() records the attempt through apiFetch; capture what it posts.
+globalThis.CLIENT_ID = "c1";
+globalThis.apiFetch = (url, opts) => { posts.push({ url, method: opts.method, body: opts.body }); return Promise.resolve({}); };
+const attempts = () => posts.map((p) => p.body.method);
 
 // ── Load the real client.html functions ───────────────────────────────────
 eval(slice(page, "    var CL_ICON_PHONE =", "    function saveContactLogEntry()") +
@@ -108,8 +119,9 @@ eval(slice(page, "    var CL_ICON_PHONE =", "    function saveContactLogEntry()"
   resetDom();
   globalThis.clientData = { phone: "(305) 555-0142", whatsapp: null };
   startLeadCall();
-  t("Call pre-selects Method 'Phone call'", els.clMethod.value, "Phone call");
-  t("Call opens the existing modalContactLog", els.modalContactLog.hidden, false);
+  t("Call logs the attempt with Method 'Phone call'", attempts(), ["Phone call"]);
+  t("Call logs it to this client's contact-log as 'Awaiting reply'", posts.map((p) => [p.url, p.method, p.body.result]), [["/api/clients/c1/contact-log", "POST", "Awaiting reply"]]);
+  t("Call opens no form: the attempt is saved at the click, the outcome is asked later", els.modalContactLog.hidden, true);
   t("Call launches a tel: link", navigations, ["tel:3055550142"]);
   t("Call opens no popup window", opened.length, 0);
 }
@@ -117,18 +129,18 @@ eval(slice(page, "    var CL_ICON_PHONE =", "    function saveContactLogEntry()"
   resetDom();
   globalThis.clientData = { phone: "(305) 555-0142", whatsapp: null };
   startLeadWhatsapp();
-  t("WhatsApp pre-selects Method 'WhatsApp'", els.clMethod.value, "WhatsApp");
-  t("WhatsApp opens the existing modalContactLog", els.modalContactLog.hidden, false);
+  t("WhatsApp logs the attempt with Method 'WhatsApp'", attempts(), ["WhatsApp"]);
+  t("WhatsApp opens no form: the attempt is saved at the click, the outcome is asked later", els.modalContactLog.hidden, true);
   t("WhatsApp launches wa.me with the country code added", opened, ["https://wa.me/13055550142"]);
 }
 {
-  // A stale Method from a previous entry must be overwritten, not preserved —
-  // this is the case where a wrong pre-selection would actually reach the DB.
+  // A stale Method left in the dropdown from a previous entry must never leak
+  // into the logged attempt: the method comes from the button, not the form.
   resetDom();
   globalThis.clientData = { phone: "3055550142" };
   els.clMethod.value = "Email";
   startLeadCall();
-  t("Call overwrites a stale Method", els.clMethod.value, "Phone call");
+  t("Call logs 'Phone call' whatever the dropdown held", attempts(), ["Phone call"]);
 }
 {
   // whatsapp beats phone when both are on file, same precedence as
@@ -187,6 +199,7 @@ eval(slice(page, "    var CL_ICON_PHONE =", "    function saveContactLogEntry()"
   t("no-phone Call navigates nowhere", navigations.length, 0);
   t("no-phone WhatsApp opens nothing", opened.length, 0);
   t("no-phone taps do not open the modal", els.modalContactLog.hidden, true);
+  t("no-phone taps log nothing", posts.length, 0);
 }
 {
   resetDom();
@@ -227,8 +240,8 @@ eval(slice(page, "    var CL_ICON_PHONE =", "    function saveContactLogEntry()"
   resetDom();
   globalThis.clientData = { phone: "(305) 555-0142", email: "lead@example.com" };
   startLeadSms();
-  t("SMS pre-selects Method 'Text message'", els.clMethod.value, "Text message");
-  t("SMS opens the existing modalContactLog", els.modalContactLog.hidden, false);
+  t("SMS logs the attempt with Method 'Text message'", attempts(), ["Text message"]);
+  t("SMS opens no form: the attempt is saved at the click, the outcome is asked later", els.modalContactLog.hidden, true);
   t("SMS launches an sms: link", navigations, ["sms:3055550142"]);
   t("SMS opens no popup window", opened.length, 0);
 }
@@ -236,8 +249,8 @@ eval(slice(page, "    var CL_ICON_PHONE =", "    function saveContactLogEntry()"
   resetDom();
   globalThis.clientData = { phone: "(305) 555-0142", email: "lead@example.com" };
   startLeadEmail();
-  t("Email pre-selects Method 'Email'", els.clMethod.value, "Email");
-  t("Email opens the existing modalContactLog", els.modalContactLog.hidden, false);
+  t("Email logs the attempt with Method 'Email'", attempts(), ["Email"]);
+  t("Email opens no form: the attempt is saved at the click, the outcome is asked later", els.modalContactLog.hidden, true);
   t("Email launches a mailto: link", navigations, ["mailto:lead@example.com"]);
   t("Email opens no popup window", opened.length, 0);
 }
@@ -247,12 +260,12 @@ eval(slice(page, "    var CL_ICON_PHONE =", "    function saveContactLogEntry()"
   globalThis.clientData = { phone: "3055550142", email: "lead@example.com" };
   els.clMethod.value = "In person";
   startLeadSms();
-  t("SMS overwrites a stale Method", els.clMethod.value, "Text message");
+  t("SMS logs 'Text message' whatever the dropdown held", attempts(), ["Text message"]);
   resetDom();
   globalThis.clientData = { phone: "3055550142", email: "lead@example.com" };
   els.clMethod.value = "In person";
   startLeadEmail();
-  t("Email overwrites a stale Method", els.clMethod.value, "Email");
+  t("Email logs 'Email' whatever the dropdown held", attempts(), ["Email"]);
 }
 {
   // SMS follows the SAME phone precedence as Call/WhatsApp — whatsapp||phone.
@@ -381,6 +394,8 @@ globalThis.authenticate = async () => ({ role: "alice" });
 
 eval(slice(worker, "function isAdminRole(user)", "// ---------------------------------------------------------------------------\n// LEAD PIPELINE") +
   "\n; globalThis.isAdminRole = isAdminRole;");
+eval(slice(worker, "function actorName(user)", "\n// ---------------------------------------------------------------------------\n// BUSINESS SYSTEM") +
+  "\n; globalThis.actorName = actorName;");
 eval(slice(worker, "var LEAD_STAGES = [", "// ---------------------------------------------------------------------------\n// Route: GET /api/role") +
   "\n; Object.assign(globalThis, { LEAD_STAGES, LEAD_CONTACT_METHODS, " +
   "LEAD_CONTACT_RESULTS, leadStageIndex, advanceLeadStage });");

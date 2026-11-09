@@ -20,6 +20,7 @@ const harness = `
   var gmLeadsData = null;
   var gmLeadMonth = "";
   function gmLeadMatchesMonth() { return true; }
+  function gmLeadMatchesSeller() { return true; }   // the seller filter is its own feature; "all sellers" here
   function gmStageLabel(s) { return ({ novo:"Novo", estimate:"Estimate", negociacao:"Negociação", fechado:"Fechado" })[s] || s; }
   ${code}
   return {

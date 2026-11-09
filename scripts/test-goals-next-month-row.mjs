@@ -59,6 +59,10 @@ eval(slice("    function daysLeftInMonth(ds) {", "    function loadGoalState()")
   "\n; globalThis.daysLeftInMonth = daysLeftInMonth;");
 eval(slice("    var goalsMonth = todayStr().slice(0, 7);", "    var goalsFormMonth") +
   "\n; globalThis.goalsMonth = goalsMonth;");
+// goalsOn() is the real switch (Pr. Rafa can turn goals off); it reads entryState.
+globalThis.entryState = {};
+eval(slice("    function goalsOn() {", "\n") +
+  "\n; globalThis.goalsOn = goalsOn;");
 eval(slice("    function renderNextMonthGoalRow() {", "    // Pages the navigator") +
   "\n; globalThis.renderNextMonthGoalRow = renderNextMonthGoalRow;");
 eval(slice("    function renderGoalsMonthButtonLabel(hasGoals) {", "    function loadGoalsTab()") +
@@ -81,6 +85,12 @@ for (const d of days) {
   const r = render(ungoaled(d));
   ok(r.shown, `${d}: prompt is visible (${daysLeftInMonth(d)} days left) — no 8-day visibility gate`);
 }
+
+// ---- 4b. goals switched OFF: no banner at all, even on the last day ----
+globalThis.entryState = { goals_enabled: false };
+const off = render(ungoaled("2026-07-31"));
+ok(!off.shown && off.html === "", "goals switched off: the prompt is hidden and empty");
+globalThis.entryState = {};
 
 // ---- 5. urgency: the 8-day rule styles the prompt, it does not hide it ----
 const early = render(ungoaled("2026-07-10"));

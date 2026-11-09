@@ -73,6 +73,9 @@ for (const f of files) {
     // Comments are documentation of the anti-pattern, not uses of it.
     const t = line.trim();
     if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) return;
+    // Deliberate UTC calendar arithmetic (a date built with Date.UTC and read back with
+    // toISOString), marked on the line itself so the intent is reviewed once, in the diff.
+    if (/utc-ok/.test(line)) return;
     offenders.push(`${f}:${i + 1}  ${t.slice(0, 100)}`);
   });
 }

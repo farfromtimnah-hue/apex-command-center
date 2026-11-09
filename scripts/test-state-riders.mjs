@@ -32,18 +32,32 @@ const BANNED_PROCESS = ["Notice of Commencement", "Final Payment Affidavit", "Su
 const STATE_BLOCKERS = ["license", "recovery_fund", "pool_safety_feature", "pool_docs"];
 const NON_FL = data.states.map(function (s) { return s.code; }).filter(function (c) { return c !== "FL"; });
 
+// Since Task 2.5 (commit 8b6b677e, 2026-10-19) a contract with no job state, no
+// state in the address and no business state is no longer silently Florida: it
+// carries ONE extra blocker, "state_missing", so it cannot be sent. That blocker
+// is the only deliberate difference from the golden files (which were made
+// before it existed and are never remade). Every printed word, rule and field
+// must still equal the golden file, so the comparison drops that one blocker
+// and the test checks separately that it is there.
+function noStateView(comp) {
+  const v = goldenView(comp);
+  v.blockers = v.blockers.filter(function (b) { return b.code !== "state_missing"; });
+  return v;
+}
+const hasStateMissing = function (comp) { return comp.blockers.filter(function (b) { return b.code === "state_missing"; }).length === 1; };
+
 // ── A. A Florida contract does not change at all ─────────────────────────
 for (const name of Object.keys(FLORIDA_FIXTURES)) {
   const golden = readFileSync(new URL("state-riders-golden-" + name + ".json", GOLDEN_DIR), "utf8");
   const g = JSON.stringify(JSON.parse(golden));
   const none = await h.compose(fx(name, {}));
-  ok(JSON.stringify(goldenView(none.comp)) === g, "Florida golden, no job state and no business state: " + name);
+  ok(JSON.stringify(noStateView(none.comp)) === g && hasStateMissing(none.comp), "Florida golden (apart from the one state_missing blocker), no job state and no business state: " + name);
   const fl = await h.compose(fx(name, { flags: { job_state: "FL" } }));
   ok(JSON.stringify(goldenView(fl.comp)) === g, "Florida golden, job state FL: " + name);
   const flBiz = await h.compose(fx(name, { flags: { job_state: "FL" }, settings: { values: { business_state: "FL" } } }));
   ok(JSON.stringify(goldenView(flBiz.comp)) === g, "Florida golden, job state FL and business state FL: " + name);
   const unknown = await h.compose(fx(name, { flags: { job_state: "ZZ" } }));
-  ok(JSON.stringify(goldenView(unknown.comp)) === g && unknown.comp.state.code === "FL", "an unknown job state (ZZ) falls back to Florida and equals the golden file: " + name);
+  ok(JSON.stringify(noStateView(unknown.comp)) === g && hasStateMissing(unknown.comp) && unknown.comp.state.code === "FL", "an unknown job state (ZZ) falls back to Florida and equals the golden file: " + name);
   ok(none.comp.checklist === null && none.comp.state.florida === true && Object.keys(none.comp.option_warnings).length === 0, "Florida carries no state checklist and no option warnings: " + name);
 }
 {
@@ -390,7 +404,8 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
       gmConProblemsHtml: function (b) { return "<problems>" + b.length + "</problems>"; }, formatDateTimeUTC: String, formatDate: String,
       GM_CON_PROPERTY_TYPES: [["single_family", "Casa unifamiliar", "Single-family home"]], gmConFieldType: function () { return "text"; }, gmConFieldLabel: function (k) { return k; }, gmConUsToIso: String,
       gmConSourceLabel: function () { return "src"; }, GM_CON_TO_LEAD: {}, GM_CON_CUSTOM_STATUS: {}, gmConAreaTitle: function (a) { return a.title; }, gmConOptTitle: function (o) { return o.title; }, gmConOptDesc: function (o) { return o.owner_description || ""; },
-      gmConCustomHtml: function () { return ""; }, gmSheetOpen: function (t, b) { out = b; }, document: { getElementById: function () { return null; } }, gmDocMsgAttach: function () {}, window: { GmLabels: GmLabels }, GmLabels: GmLabels, gmCOWizardOpen: function () {}
+      gmConCustomHtml: function () { return ""; }, gmSheetOpen: function (t, b) { out = b; }, document: { getElementById: function () { return null; } }, gmDocMsgAttach: function () {}, window: { GmLabels: GmLabels }, GmLabels: GmLabels, gmCOWizardOpen: function () {},
+      gmMatContractSheetRow: function () { return ""; } // the Materials orders row on the contract sheet (Nov 2026); not under test here
     };
     const names = Object.keys(stubs);
     const fn = new Function(...names, cut(src, "gmRenderContractSheet") + "\n" + cut(src, "gmConStateCardHtml") + "\n" + cut(src, "gmConStateLinksHtml") + "\n" + cut(src, "gmConStateFactsHtml") + "\n" + cut(src, "gmConStateValuesHtml") + "\nreturn function(c) { gmConDetail = c; gmRenderContractSheet(); };")(...names.map(function (k) { return stubs[k]; }));

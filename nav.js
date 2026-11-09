@@ -1014,6 +1014,8 @@ function navSvg(type) {
   var MTAB_DOCUMENTOS = mobileTabDef("documents", "documents.html", "file",         "Documentos",                   "Documents");
   var MTAB_CONFIG     = mobileTabDef("settings",  "settings.html",  "settings",     "Configura&ccedil;&otilde;es",  "Settings");
   var MTAB_ADDUSER    = mobileTabDef("adduser",   "add-user.html",  "user-plus",    "Adicionar Usu&aacute;rio",     "Add User");
+  // Same label and icon as the desktop developer menu entry (Task 3.2): the read-only login activity and lost-device review screen.
+  var MTAB_LOGINACT   = mobileTabDef("loginactivity", "login-activity.html", "file", "Atividade", "Activity");
   var MTAB_CLIENTANALYTICS = mobileTabDef("clientanalytics", "client-analytics.html", "target", "An&aacute;lise de Clientes", "Client Analytics");
   // Same label and icon as the desktop side menu's CONTRACT_REVIEW_ITEM.
   var MTAB_CONTRATO   = mobileTabDef("contractreview", "contract-review.html", "file", "Revis&atilde;o do contrato", "Contract review");
@@ -1041,7 +1043,7 @@ function navSvg(type) {
     }
     var clients = [MTAB_CLIENTES, MTAB_CLIENTANALYTICS];
     if (opts && opts.contractReview) { clients.push(MTAB_CONTRATO); }
-    if (navRole === "developer") { clients.push(MTAB_ADDUSER); }
+    if (navRole === "developer") { clients.push(MTAB_ADDUSER); clients.push(MTAB_LOGINACT); }
 
     var agenda, fifth, business;
     if (navRole === "rafa") {

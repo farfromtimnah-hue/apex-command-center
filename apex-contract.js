@@ -162,7 +162,7 @@
   function centsInput(c) { return c ? (Math.round(c) / 100).toFixed(2) : ""; }
   function todayET() {
     try { var p = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); return p; }
-    catch (e) { return new Date().toISOString().slice(0, 10); }
+    catch (e) { return (function(d){return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2);})(new Date()); }
   }
   function addMonths(s, n, dayWanted) {
     var p = s.split("-").map(Number);
@@ -172,7 +172,7 @@
     var d = Math.min(dayWanted || p[2], last);
     return y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
   }
-  function addDays(s, n) { var d = new Date(s + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+  function addDays(s, n) { var d = new Date(s + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); } // utc-ok: UTC calendar arithmetic on purpose
   function fmtDate(s) { if (!/^\d{4}-\d{2}-\d{2}$/.test(s || "")) { return ""; } var p = s.split("-"); return p[1] + "/" + p[2] + "/" + p[0]; }
   function fmtWhen(v) {
     if (!v) { return ""; }

@@ -31,6 +31,13 @@ function world() {
   const d = makeDb(MIGRATIONS);
   const stubs = Object.assign({}, baseStubs, {
     gmEasternToday: () => TODAY,
+    // The Worker windows bank lines with "14 days before now" (Date.now()). The test pins its own
+    // "today" (TODAY), so the Worker's clock is pinned to the same day; otherwise the dated
+    // fixtures age out of the window as the real calendar moves on.
+    Date: class extends Date {
+      constructor(...a) { if (a.length === 0) { super(TODAY + "T16:00:00Z"); } else { super(...a); } }
+      static now() { return new Date(TODAY + "T16:00:00Z").getTime(); }
+    },
     authenticate: async () => ({ role: "alice", display_name: "Alice" }),
     jsonErr2: (pt, en, status) => ({ status: status || 400, error: en, error_pt: pt, error_en: en })
   });

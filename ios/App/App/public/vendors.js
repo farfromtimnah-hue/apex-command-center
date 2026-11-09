@@ -1,6 +1,8 @@
 // Fornecedores page logic. Plain var/function, ASCII only (\u escapes for
 // accents), matching the house style of the rest of this codebase.
 (function () {
+  // Today / a Date as YYYY-MM-DD on the viewer's own calendar. NEVER toISOString().slice(0, 10): that is UTC and shows tomorrow in the evening in Florida.
+  function vLocalDate(d) { return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
 
   var OVERVIEW = null;
   var VENDORS_BY_ID = {};
@@ -570,7 +572,7 @@
     var v = VENDORS_BY_ID[vendorId];
     el("sentVendorName").textContent = v ? v.name : "";
     el("sentAmount").value = v ? (v.due_total_cents / 100).toFixed(2) : "";
-    el("sentDate").value = new Date().toISOString().slice(0, 10);
+    el("sentDate").value = vLocalDate(new Date());
     el("sentStatus").textContent = "";
     var body = el("sentItemsBody");
     var html = "";
@@ -621,7 +623,7 @@
     el("payAmount").value = "";
     el("payNote").value = "";
     var now = new Date();
-    el("payDate").value = now.toISOString().slice(0, 10);
+    el("payDate").value = vLocalDate(now);
     el("payStatus").textContent = "";
     apiFetch("/api/vendors/remitly-unmatched").then(function (r) { return r.json(); }).then(function (data) {
       CURRENT_PAY_UNASSIGNED = data.transactions || [];
@@ -860,7 +862,7 @@
     el("asLabel").value = "";
     el("asPrice").value = "";
     el("asFirstMonth").value = "";
-    el("asStartsOn").value = new Date().toISOString().slice(0, 10);
+    el("asStartsOn").value = vLocalDate(new Date());
     el("asMonths").value = "";
     el("asNote").value = "";
     el("asKind").value = "monthly";

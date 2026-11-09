@@ -4092,7 +4092,7 @@
       // The tiles are always "this month", so the report is too. Read from the
       // same clock the summary call uses rather than a filter the user may
       // have changed elsewhere on the page.
-      return new Date().toISOString().slice(0, 7);
+      return localMonthStr();
     }
 
     function openLedger(side) {
@@ -4961,7 +4961,7 @@
       var monthsEn = ["January","February","March","April","May","June",
                       "July","August","September","October","November","December"];
       var mi = Number(parts[1]) - 1;
-      var thisMonth = new Date().toISOString().slice(0, 7);
+      var thisMonth = localMonthStr();
       var sameMonth = String(iso).slice(0, 7) === thisMonth;
       if (en) { return sameMonth ? "the " + d + "th" : monthsEn[mi] + " " + d; }
       return sameMonth ? d : d + " de " + monthsPt[mi];
@@ -5411,7 +5411,7 @@
 
     // Charges this month that look like fuel but are not filed as fuel.
     function maybeFuelTxns() {
-      var month = new Date().toISOString().slice(0, 7);
+      var month = localMonthStr();
       return (TRANSACTIONS || []).filter(function(x) {
         if (!x || x.voided_at) { return false; }
         if (!(x.amount_cents < 0)) { return false; }
@@ -6687,7 +6687,7 @@
       var d = new Date(String(iso).slice(0, 10) + "T00:00:00Z");
       if (isNaN(d.getTime())) { return String(iso).slice(0, 10); }
       d.setUTCDate(d.getUTCDate() - d.getUTCDay());
-      return d.toISOString().slice(0, 10);
+      return d.toISOString().slice(0, 10); // utc-ok: UTC calendar arithmetic on purpose
     }
 
     // The charts' month. "" = all time; otherwise "YYYY-MM". Defaults to the
@@ -6839,7 +6839,7 @@
       if (CHART_MONTH === "" && !chartMonthPicked) {
         chartMonthPicked = true;
         var keys = chartMonthKeys();
-        var thisMonth = new Date().toISOString().slice(0, 7);
+        var thisMonth = localMonthStr();
         CHART_MONTH = keys.indexOf(thisMonth) !== -1 ? thisMonth : (keys[0] || "");
       }
       renderChartMonthPicker();
@@ -6860,7 +6860,7 @@
       // so it falls back to the newest month WITH DATA and says so in its own
       // caveat rather than silently showing a month the picker does not name.
       var vsMonthInput = document.getElementById("vendorShareMonth");
-      var vsMonth = CHART_MONTH || chartMonthKeys()[0] || new Date().toISOString().slice(0, 7);
+      var vsMonth = CHART_MONTH || chartMonthKeys()[0] || localMonthStr();
       if (vsMonthInput && vsMonthInput.value !== vsMonth) {
         vsMonthInput.value = vsMonth;
         vendorShareLoaded = false;
@@ -7553,7 +7553,7 @@
 
     function statusLabel(inv, forceEn) {
       var en = (forceEn === undefined) ? isEn() : forceEn;
-      var today = new Date().toISOString().slice(0, 10);
+      var today = localDateStr();
 
       // A client who is PAYING is not overdue, whatever the due date says.
       // Prime Group owed $997, paid $400, and would otherwise have been
@@ -7653,7 +7653,7 @@
 
     function initCategoryMonth() {
       var el = document.getElementById("catMonth");
-      if (el && !el.value) { el.value = new Date().toISOString().slice(0, 7); }
+      if (el && !el.value) { el.value = localMonthStr(); }
     }
 
     function loadCategories() {
@@ -7766,7 +7766,7 @@
     // two parts of one whole, no axis to read.
     function loadVendorShare() {
       var monthEl = document.getElementById("vendorShareMonth");
-      var month = (monthEl && monthEl.value) || new Date().toISOString().slice(0, 7);
+      var month = (monthEl && monthEl.value) || localMonthStr();
       return apiFetch("/api/finance-new/vendor-share?month=" + encodeURIComponent(month))
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -7836,7 +7836,7 @@
       var monthEl = document.getElementById("incMonth");
       var wantAll = !!(allEl && allEl.checked);
       if (monthEl) { monthEl.disabled = wantAll; }
-      if (monthEl && !monthEl.value) { monthEl.value = new Date().toISOString().slice(0, 7); }
+      if (monthEl && !monthEl.value) { monthEl.value = localMonthStr(); }
       var qs = wantAll ? "all=1" : "month=" + encodeURIComponent(monthEl ? monthEl.value : "");
       return apiFetch("/api/finance-new/income/by-source?" + qs)
         .then(function(r) { return r.json(); })
@@ -7911,7 +7911,7 @@
 
     function loadCategoryBreakdown() {
       var monthEl = document.getElementById("catMonth");
-      var month = (monthEl && monthEl.value) || new Date().toISOString().slice(0, 7);
+      var month = (monthEl && monthEl.value) || localMonthStr();
       return apiFetch("/api/finance-new/categories/breakdown?month=" + encodeURIComponent(month))
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -8697,7 +8697,7 @@
     function easternTodayStr() {
       try {
         return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-      } catch (e) { return new Date().toISOString().slice(0, 10); }
+      } catch (e) { return localDateStr(); }
     }
 
     function onRecordPaymentMethodChange() {

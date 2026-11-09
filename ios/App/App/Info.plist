@@ -53,6 +53,8 @@
 	<string>Apex Command Center uses the camera when you choose to take a photo, for example a logo, a flyer or a seller photo.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Apex Command Center uses the microphone so you can speak your tasks and notes instead of typing them.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Apex Command Center can use Bluetooth only if you connect a card reader to take card payments. The app does not use Bluetooth for anything else.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

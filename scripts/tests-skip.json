@@ -50,5 +50,8 @@
   "test-vendor-unassign-and-stale-cleanup.mjs",
   "test-whatsapp-channel.mjs"
  ],
- "needs_outside": []
+ "needs_outside": [
+  "test-help-system.mjs"
+ ],
+ "_needs_outside_note": "test-help-system.mjs checks Aprenda pictures that live in gitignored help-private/ on Nicole's Macs, so it cannot pass on a clean GitHub checkout. Run it locally."
 }

@@ -313,8 +313,10 @@
     // answer goes to the Worker as agreed or declined with the booking.
     function consentHtml() {
       var biz = escHtml((D.business && D.business.name) || T("a empresa", "the business"));
-      var text = T("Concordo em receber mensagens de texto sobre o meu agendamento de " + biz + ". Podem ser aplicadas tarifas de mensagens e dados. Responda STOP para cancelar.",
-        "I agree to receive text messages about my appointment from " + biz + ". Message and data rates may apply. Reply STOP to opt out.");
+      var smsLink = '<a href="https://apex.resonateai.online/sms-terms.html" target="_blank" rel="noopener">';
+      var privLink = '<a href="https://apex.resonateai.online/privacy.html" target="_blank" rel="noopener">';
+      var text = T("Concordo em receber mensagens de texto sobre o meu agendamento de " + biz + ": confirmação e lembretes. A frequência varia conforme os agendamentos. Podem ser aplicadas tarifas de mensagens e dados. Responda HELP para ajuda ou STOP para cancelar. Veja os " + smsLink + "termos das mensagens de texto</a> e a " + privLink + "Política de Privacidade</a>.",
+        "I agree to receive text messages about my appointment from " + biz + ": a confirmation and reminders. Message frequency varies with your appointments. Message and data rates may apply. Reply HELP for help or STOP to opt out. See the " + smsLink + "text message terms</a> and the " + privLink + "Privacy Policy</a>.");
       return '<div class="consent"><input type="checkbox" id="f_sms"' + (smsConsent ? " checked" : "") + '><label for="f_sms">' + text + '</label></div>';
     }
 

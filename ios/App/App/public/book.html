@@ -745,7 +745,9 @@
           if (usedToken && generalSlug && d && !d.active) { throw new Error("gone"); }
           D = d;
           if (D.business) { applyBranding(D.business); }
-          if (firstLoad) { setLang(D.language === "pt" ? "pt" : "en"); firstLoad = false; }
+          // English opens first for every business (Nicole, 2026-11-10: the customers are
+          // mostly English speaking; PT and ES are there to put a customer at ease).
+          if (firstLoad) { setLang("en"); firstLoad = false; }
           seed();
           render();
         })

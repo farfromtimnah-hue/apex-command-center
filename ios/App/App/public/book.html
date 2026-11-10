@@ -29,6 +29,7 @@
     .langbar { display: flex; justify-content: flex-end; padding-top: 10px; }
     .langbar button { min-height: 36px; padding: 0 12px; border: 1px solid var(--border); background: #fff; color: var(--ink); font-weight: 700; font-size: 13px; cursor: pointer; }
     .langbar button:first-child { border-radius: 999px 0 0 999px; }
+    .langbar button:not(:first-child) { border-left: 0; }
     .langbar button:last-child { border-radius: 0 999px 999px 0; border-left: 0; }
     .langbar button.sel { background: var(--brand-accent); color: var(--on-brand-accent); border-color: var(--brand-accent); }
     label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
@@ -77,7 +78,7 @@
   </div>
 
   <div class="wrap" role="main">
-    <div class="langbar"><button type="button" id="langPt">PT</button><button type="button" id="langEn">EN</button></div>
+    <div class="langbar"><button type="button" id="langPt">PT</button><button type="button" id="langEn">EN</button><button type="button" id="langEs">ES</button></div>
     <div class="card" id="stepLoading" role="status"><div class="state"><p id="loadingTxt"></p></div></div>
     <div class="card hidden" id="stepInactive"></div>
     <div id="stepInfo" class="hidden"></div>
@@ -133,7 +134,56 @@
     var busy = false;
 
     function byId(id) { return document.getElementById(id); }
-    function T(pt, en) { return lang === "pt" ? pt : en; }
+    // Spanish (added 2026-11-10): the page was written with a Portuguese and an
+    // English string at every call. Spanish is looked up by the English string, so
+    // no call changes; a string not listed here shows in English.
+    var ES = {
+      "Loading...": "Cargando...",
+      "This link is no longer active.": "Este enlace ya no está activo.",
+      "Please contact ": "Por favor, comuníquese con ",
+      "the business": "la empresa",
+      "Edit": "Editar",
+      "optional": "opcional",
+      "Yes": "Sí",
+      "No": "No",
+      "Hi ": "Hola ",
+      "Book your visit": "Programe su visita",
+      "Confirm your details and choose the best day and time.": "Confirme sus datos y elija el mejor día y horario.",
+      "Fill in your details and choose a day and time.": "Complete sus datos y elija un día y un horario.",
+      "Service": "Servicio",
+      "About the job": "Sobre el servicio",
+      "Choose a day and time": "Elegir día y horario",
+      "Please enter your name.": "Ingrese su nombre.",
+      "Please enter your phone number.": "Ingrese su teléfono.",
+      "Please enter the address for the visit.": "Ingrese la dirección de la visita.",
+      "Pick a different time": "Elegir otro horario",
+      "Choose a day": "Elija un día",
+      "There are no open times right now. Please contact ": "No hay horarios disponibles en este momento. Por favor, comuníquese con ",
+      "Back": "Volver",
+      "Times shown in ": "Horarios en ",
+      "Confirm new time": "Confirmar nuevo horario",
+      "Confirm": "Confirmar",
+      "Another day": "Otro día",
+      "Too many attempts. Please try again in a few minutes.": "Demasiados intentos. Inténtelo de nuevo en unos minutos.",
+      "We could not book that just now. Please try again.": "No pudimos programar la visita ahora. Inténtelo de nuevo.",
+      "Sorry, that time was just taken. Please pick another.": "Lo sentimos, ese horario acaba de ser ocupado. Elija otro.",
+      "No connection. Please try again.": "Sin conexión. Inténtelo de nuevo.",
+      "Visit - ": "Visita - ",
+      "Your visit is booked!": "¡Su visita está programada!",
+      "Date": "Fecha",
+      "Time": "Hora",
+      "Address": "Dirección",
+      "Add to calendar": "Agregar al calendario",
+      "Need to change it?": "¿Necesita cambiarla?",
+      "Cancel the visit": "Cancelar la visita",
+      "Cancel this visit?": "¿Cancelar esta visita?",
+      "Yes, cancel my visit": "Sí, cancelar mi visita",
+      "Keep my visit": "Mantener mi visita",
+      "Book a new visit": "Programar una nueva visita",
+      "Your visit is cancelled.": "Su visita fue cancelada.",
+      "If you like, contact ": "Si lo desea, comuníquese con "
+    };
+    function T(pt, en) { return lang === "pt" ? pt : (lang === "es" && ES[en] ? ES[en] : en); }
     function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
     function lum(hex) { var h = hex.replace("#", ""); var rgb = [0, 2, 4].map(function(i) { var c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }); return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]; }
     function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
@@ -141,7 +191,8 @@
 
     var DAYS_PT = ["Domingo", "Segunda-feira", "Ter\u00e7a-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "S\u00e1bado"];
     var DAYS_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    function weekday(date) { var p = date.split("-"); var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])).getUTCDay(); return (lang === "pt" ? DAYS_PT : DAYS_EN)[d]; }
+    var DAYS_ES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+    function weekday(date) { var p = date.split("-"); var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])).getUTCDay(); return (lang === "pt" ? DAYS_PT : lang === "es" ? DAYS_ES : DAYS_EN)[d]; }
     function fmtDate(date) { var p = String(date || "").split("-"); return p.length === 3 ? p[1] + "/" + p[2] + "/" + p[0] : ""; }
     function fmtTime(hhmm) {
       var m = String(hhmm || "").match(/^(\d{1,2}):(\d{2})/); if (!m) { return ""; }
@@ -266,11 +317,12 @@
     }
 
     function setLang(l) {
-      lang = l === "pt" ? "pt" : "en";
+      lang = l === "pt" ? "pt" : l === "es" ? "es" : "en";
       document.documentElement.lang = lang;
-      var a = byId("langPt"), b = byId("langEn");
+      var a = byId("langPt"), b = byId("langEn"), c = byId("langEs");
       if (a) { a.classList.toggle("sel", lang === "pt"); }
       if (b) { b.classList.toggle("sel", lang === "en"); }
+      if (c) { c.classList.toggle("sel", lang === "es"); }
       var lt = byId("loadingTxt"); if (lt) { lt.textContent = T("Carregando...", "Loading..."); }
       if (D) {
         var tm = byId("stepTimes"), dy = byId("stepDays");
@@ -315,7 +367,8 @@
       var biz = escHtml((D.business && D.business.name) || T("a empresa", "the business"));
       var smsLink = '<a href="https://apex.resonateai.online/sms-terms.html" target="_blank" rel="noopener">';
       var privLink = '<a href="https://apex.resonateai.online/privacy.html" target="_blank" rel="noopener">';
-      var text = T("Concordo em receber mensagens de texto sobre o meu agendamento de " + biz + ": confirmação e lembretes. A frequência varia conforme os agendamentos. Podem ser aplicadas tarifas de mensagens e dados. Responda HELP para ajuda ou STOP para cancelar. Veja os " + smsLink + "termos das mensagens de texto</a> e a " + privLink + "Política de Privacidade</a>.",
+      var textEs = "Acepto recibir mensajes de texto sobre mi cita con " + biz + ": confirmación y recordatorios. La frecuencia varía según sus citas. Pueden aplicarse tarifas de mensajes y datos. Responda HELP para obtener ayuda o STOP para cancelar. Vea los " + smsLink + "términos de los mensajes de texto</a> y la " + privLink + "Política de Privacidad</a>.";
+      var text = lang === "es" ? textEs : T("Concordo em receber mensagens de texto sobre o meu agendamento de " + biz + ": confirmação e lembretes. A frequência varia conforme os agendamentos. Podem ser aplicadas tarifas de mensagens e dados. Responda HELP para ajuda ou STOP para cancelar. Veja os " + smsLink + "termos das mensagens de texto</a> e a " + privLink + "Política de Privacidade</a>.",
         "I agree to receive text messages about my appointment from " + biz + ": a confirmation and reminders. Message frequency varies with your appointments. Message and data rates may apply. Reply HELP for help or STOP to opt out. See the " + smsLink + "text message terms</a> and the " + privLink + "Privacy Policy</a>.");
       return '<div class="consent"><input type="checkbox" id="f_sms"' + (smsConsent ? " checked" : "") + '><label for="f_sms">' + text + '</label></div>';
     }
@@ -709,6 +762,8 @@
       var a = byId("langPt"), b = byId("langEn");
       if (a) { a.onclick = function() { setLang("pt"); }; }
       if (b) { b.onclick = function() { setLang("en"); }; }
+      var c = byId("langEs");
+      if (c) { c.onclick = function() { setLang("es"); }; }
       setLang("en");
       load();
     };

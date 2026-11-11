@@ -401,6 +401,11 @@
     /* Scheduling queue block. The rows themselves are styled by the shared
        scheduling-queue.css — only this page's framing lives here. */
     .sched-queue-block { margin: 0 0 26px; }
+    .text-reply { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin: 0 0 10px; }
+    .text-reply-top { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted, #666); }
+    .text-reply-body { margin: 6px 0; font-size: 15px; overflow-wrap: anywhere; }
+    .text-reply-meet { font-size: 13px; }
+    .text-reply-flag { font-weight: 600; }
     .sched-queue-title {
       font-size: 15px; font-weight: 600; margin: 0 0 12px;
       color: var(--text);
@@ -1691,6 +1696,16 @@
           <span class="show-en">Waiting on a time</span>
         </h2>
         <div id="schedQueue"></div>
+      </div>
+
+      <!-- Replies to meeting text messages. Read only. Staff see every reply;
+           a reply nobody could be told about shows as "not matched". -->
+      <div class="sched-queue-block" id="textRepliesBlock">
+        <h2 class="sched-queue-title">
+          <span class="show-pt">Respostas de texto</span>
+          <span class="show-en">Text replies</span>
+        </h2>
+        <div id="textReplies"></div>
       </div>
     </div><!-- /below-hero-section -->
 
@@ -3468,6 +3483,7 @@
       loadSchedQueue();
       loadRafaWaTemplate();
       loadRafaNonApex();
+      loadTextReplies();
       // Same post-auth rule as the calls above: apiFetch rejects while
       // currentUser is null, so this cannot live in window.onload.
       loadVoiceFlagged();
@@ -3572,6 +3588,54 @@
       return list.slice().sort(function(a, b) {
         return String(a.time || "").localeCompare(String(b.time || ""));
       });
+    }
+
+    // ── Replies to meeting text messages (read only) ─────────────────────
+    function trTwo(pt, en) {
+      return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span>';
+    }
+    // MM/DD/YYYY h:mm AM/PM on this device's clock, never an ISO string.
+    function trWhen(iso) {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) { return ""; }
+      var h = d.getHours();
+      var ap = h >= 12 ? "PM" : "AM";
+      var h12 = h % 12 === 0 ? 12 : h % 12;
+      var mi = d.getMinutes();
+      return (d.getMonth() + 1 < 10 ? "0" : "") + (d.getMonth() + 1) + "/" + (d.getDate() < 10 ? "0" : "") + d.getDate() + "/" + d.getFullYear() +
+        " " + h12 + ":" + (mi < 10 ? "0" : "") + mi + " " + ap;
+    }
+    function renderTextReplies(list) {
+      var box = document.getElementById("textReplies");
+      if (!box) { return; }
+      if (!list.length) {
+        box.innerHTML = '<p class="rafa-wa-sub">' + trTwo("Nenhuma resposta ainda.", "No replies yet.") + '</p>';
+        return;
+      }
+      var html = "";
+      for (var i = 0; i < list.length; i++) {
+        var r = list[i];
+        var meet = r.matched
+          ? escHtml(r.name || "") + (r.meeting_date ? " · " + escHtml(r.meeting_date) + " " + escHtml(r.meeting_time || "") : "")
+          : trTwo("Não associada a uma reunião", "Not matched to a meeting");
+        var fwd = r.forwarded ? trTwo("Avisado", "Forwarded") : trTwo("Não avisado", "Not forwarded");
+        html += '<div class="text-reply">' +
+          '<div class="text-reply-top"><span>' + escHtml(r.phone) + '</span><span>' + escHtml(trWhen(r.received_at)) + '</span></div>' +
+          '<div class="text-reply-body">' + escHtml(r.text) + (r.confirmed ? ' <span class="text-reply-flag">' + trTwo("(confirmou)", "(confirmed)") + '</span>' : "") + '</div>' +
+          '<div class="text-reply-meet">' + meet + ' · <span class="text-reply-flag">' + fwd + '</span></div>' +
+          '</div>';
+      }
+      box.innerHTML = html;
+    }
+    function loadTextReplies() {
+      if (!document.getElementById("textReplies")) { return; }
+      apiFetch("/api/text-replies")
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
+          if (!d) { var b = document.getElementById("textRepliesBlock"); if (b) { b.hidden = true; } return; }
+          renderTextReplies(d.replies || []);
+        })
+        .catch(function(e) { console.error("text replies failed", e); });
     }
 
     function loadRafaNonApex() {

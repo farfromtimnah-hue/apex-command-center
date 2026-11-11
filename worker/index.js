@@ -16319,6 +16319,8 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "doc-settings" || gmRest === "doc-settings/history") { return true; }
                 // Online booking setup (owner only: handler refuses sellers).
                 if (gmRest === "booking-settings") { return true; }
+                // Replies to text messages: the handler is owner only and shows only this client's own.
+                if (gmRest === "text-replies") { return true; }
                 if (gmRest === "wizard" || gmRest === "wizard/license" || gmRest === "wizard/logo-proxy") { return true; }
                 // A lead's booking block (the handler scopes a seller to their own leads).
                 if (/^leads\/[A-Za-z0-9-]+\/booking$/.test(gmRest)) { return true; }
@@ -52424,54 +52426,167 @@ function reminderTextTwiml() {
     return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
 }
 
-async function reminderTextHostTargets(env, f) {
-    if (!f) { return { targets: [], lang: "pt", url: "/calendar.html" }; }
-    if (f.path === "booking") {
+async function reminderTextHostTargets(env, f, row) {
+    if (f && f.path === "booking") {
         return {
             targets: await gmClientPushTargets(env, f.client_id, { owner: true }),
             lang: await gmOwnerPushLang(env, f.client_id), url: "/portal.html?tab=gmcalendar"
         };
     }
-    var role = APPT_REMINDER_OWNER_ROLE[String(f.created_by || "")];
+    var ref = row && row.session_ref ? String(row.session_ref) : "";
+    if (!f && ref.indexOf("ge:") === 0 && row.client_id) {
+        // The booking is gone (a cancel): the owner still hears the reply.
+        return { targets: await gmClientPushTargets(env, row.client_id, { owner: true }), lang: await gmOwnerPushLang(env, row.client_id), url: "/portal.html?tab=gmcalendar" };
+    }
+    var createdBy = f ? f.created_by : null;
+    if (!f && ref && ref.indexOf("ge:") !== 0) {
+        var srow = await env.DB.prepare("SELECT created_by FROM sessions WHERE id = ?").bind(ref).first();
+        createdBy = srow ? srow.created_by : null;
+    }
+    var role = APPT_REMINDER_OWNER_ROLE[String(createdBy || "")];
     return { targets: role ? await apptRemRoleEmails(env, {}, role) : [], lang: "pt", url: "/calendar.html" };
 }
 
+// Nicole's login (the developer role) hears about every reply nobody else could be told about.
+async function reminderTextPushDeveloper(env, row) {
+    var emails = await apptRemRoleEmails(env, {}, "developer");
+    if (!emails.length) { return false; }
+    var phone = reminderTextFormatPhone(row.phone_e164) || row.phone_e164;
+    var r = await pushToUsers(env, emails, {
+        title: "Resposta de texto não associada",
+        body: (phone + ": " + row.body).slice(0, 160), url: "/calendar.html", tag: "reply-dev-" + row.id
+    });
+    return !!(r && r.sent > 0);
+}
+
+// Tells someone about one stored reply: the host or owner first; if the reply
+// is unmatched, has nobody to tell, or the push failed, the developer role.
+// Marks forwarded = 1 only when somebody was actually told.
+async function reminderTextPushReply(env, row) {
+    var told = false;
+    if (row.session_ref) {
+        var f = await reminderTextFacts(env, row.session_ref);
+        var host = await reminderTextHostTargets(env, f, row);
+        if (host.targets.length) {
+            var en = host.lang === "en";
+            var who = row.person_name || (en ? "A customer" : "Um cliente");
+            var mt = row.meeting_at && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(row.meeting_at) ? row.meeting_at : (f ? f.date + " " + f.time : "");
+            var when = mt ? apptRemDateMDY(mt.slice(0, 10)) + (en ? " at " : " às ") + apptRemFmt12(mt.slice(11, 16)) : "";
+            var payload = row.kind === "confirm"
+                ? { title: en ? "Customer confirmed" : "Cliente confirmou", body: (who + (en ? " confirmed " : " confirmou ") + when).slice(0, 160) }
+                : { title: en ? "Customer replied" : "Cliente respondeu", body: (who + (when ? " (" + when + ")" : "") + ": " + row.body).slice(0, 160) };
+            payload.url = host.url;
+            payload.tag = "reply-" + row.id;
+            var pr = await pushToUsers(env, host.targets, payload);
+            told = !!(pr && pr.sent > 0);
+        }
+    }
+    if (!told) { told = await reminderTextPushDeveloper(env, row); }
+    if (told) { await env.DB.prepare("UPDATE reminder_text_replies SET forwarded = 1 WHERE id = ?").bind(row.id).run(); }
+    return told;
+}
+
+// The cron tick: any reply still not forwarded and younger than 24 hours is
+// tried again. One indexed read when there is nothing to do. A reply is left
+// alone for its first 2 minutes so it is not pushed twice by the tick and the
+// request that stored it.
+async function reminderTextRepliesRetry(env, nowMs) {
+    var out = { tried: 0, forwarded: 0 };
+    try {
+        nowMs = nowMs || Date.now();
+        var rows = await env.DB.prepare(
+            "SELECT id, phone_e164, session_ref, kind, body, client_id, person_name, meeting_at FROM reminder_text_replies " +
+            "WHERE forwarded = 0 AND received_at >= ? AND received_at <= ? ORDER BY received_at LIMIT 20"
+        ).bind(new Date(nowMs - 24 * 3600000).toISOString(), new Date(nowMs - 120000).toISOString()).all();
+        var list = rows.results || [];
+        for (var i = 0; i < list.length; i++) {
+            out.tried++;
+            if (await reminderTextPushReply(env, list[i])) { out.forwarded++; }
+        }
+    } catch (err) {
+        out.error = String(err && err.message ? err.message : err);
+        console.log("reminder text reply retry failed: " + out.error);
+    }
+    return out;
+}
+
+// Every reply is matched to the most recent text of ANY kind sent to that
+// phone (with a Twilio message id) in the last 30 days. "1" confirms only when
+// that text was a reminder; every other reply is a normal reply.
 async function reminderTextHandleReply(env, fromE164, text, messageSid, nowMs) {
     nowMs = nowMs || Date.now();
-    var since = new Date(nowMs - 48 * 3600000).toISOString();
+    var since = new Date(nowMs - 30 * 86400000).toISOString();
     var last = await env.DB.prepare(
-        "SELECT session_id FROM reminder_text_sends WHERE phone_e164 = ? AND kind = 'reminder' AND twilio_sid IS NOT NULL AND sent_at >= ? ORDER BY sent_at DESC LIMIT 1"
+        "SELECT session_id, recipient, kind, meeting_at FROM reminder_text_sends WHERE phone_e164 = ? AND twilio_sid IS NOT NULL AND sent_at >= ? ORDER BY sent_at DESC LIMIT 1"
     ).bind(fromE164, since).first();
     var ref = last ? last.session_id : null;
-    var isConfirm = !!ref && text === "1";
+    var isConfirm = !!ref && text === "1" && last.kind === "reminder";
     var kind = isConfirm ? "confirm" : (ref ? "reply" : "unmatched");
+    var clientId = null, personName = null;
+    if (last && last.recipient) {
+        var rid2 = String(last.recipient).slice(last.recipient.indexOf(":") + 1);
+        if (last.recipient.indexOf("lead:") === 0) {
+            var lr = await env.DB.prepare("SELECT cliente, client_id FROM gm_leads WHERE id = ?").bind(rid2).first();
+            if (lr) { personName = lr.cliente; clientId = lr.client_id; }
+        } else if (last.recipient.indexOf("client:") === 0) {
+            var cr = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(rid2).first();
+            personName = cr ? cr.name : null; clientId = rid2;
+        }
+    }
+    var row = {
+        id: crypto.randomUUID(), phone_e164: fromE164, session_ref: ref, kind: kind, body: text.slice(0, 1000),
+        client_id: clientId, person_name: personName, meeting_at: last && last.meeting_at ? last.meeting_at : null
+    };
     // The database decides a repeat: the same Twilio message is stored once,
     // and one confirmation per meeting and phone.
     var ins = await env.DB.prepare(
-        "INSERT OR IGNORE INTO reminder_text_replies (id, phone_e164, session_ref, kind, body, received_at, forwarded, message_sid) VALUES (?, ?, ?, ?, ?, ?, 0, ?)"
-    ).bind(crypto.randomUUID(), fromE164, ref, kind, text.slice(0, 1000), new Date(nowMs).toISOString(), messageSid || null).run();
-    if (!ins.meta || !ins.meta.changes || !ref) { return { stored: !!(ins.meta && ins.meta.changes), pushed: false, kind: kind }; }
-
-    var f = await reminderTextFacts(env, ref);
-    var host = await reminderTextHostTargets(env, f);
-    if (!host.targets.length) { return { stored: true, pushed: false, kind: kind }; }
-    var en = host.lang === "en";
-    var who = f && f.customer_name ? f.customer_name : (en ? "A customer" : "Um cliente");
-    var when = f ? apptRemDateMDY(f.date) + (en ? " at " : " às ") + apptRemFmt12(f.time) : "";
-    var payload = isConfirm
-        ? { title: en ? "Customer confirmed" : "Cliente confirmou",
-            body: (who + (en ? " confirmed " : " confirmou ") + when).slice(0, 160) }
-        : { title: en ? "Customer replied" : "Cliente respondeu",
-            body: (who + (when ? " (" + when + ")" : "") + ": " + text).slice(0, 160) };
-    payload.url = host.url;
-    payload.tag = "reply-" + ref;
-    var pr = await pushToUsers(env, host.targets, payload);
-    var pushed = !!(pr && pr.sent > 0);
-    if (pushed) {
-        await env.DB.prepare("UPDATE reminder_text_replies SET forwarded = 1 WHERE phone_e164 = ? AND session_ref = ? AND kind = ? AND body = ? AND received_at = ?")
-            .bind(fromE164, ref, kind, text.slice(0, 1000), new Date(nowMs).toISOString()).run();
-    }
+        "INSERT OR IGNORE INTO reminder_text_replies (id, phone_e164, session_ref, kind, body, received_at, forwarded, message_sid, client_id, person_name, meeting_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)"
+    ).bind(row.id, fromE164, ref, kind, row.body, new Date(nowMs).toISOString(), messageSid || null, clientId, personName, row.meeting_at).run();
+    if (!ins.meta || !ins.meta.changes) { return { stored: false, pushed: false, kind: kind }; }
+    var pushed = await reminderTextPushReply(env, row);
     return { stored: true, pushed: pushed, kind: kind };
+}
+
+// The "Text replies" list, newest first. clientId null = every reply (staff);
+// a client id = only replies for that client's own booking-link meetings (owner).
+async function reminderTextRepliesList(env, clientId) {
+    var sql = "SELECT id, phone_e164, session_ref, kind, body, received_at, forwarded, client_id, person_name, meeting_at FROM reminder_text_replies";
+    var res = clientId
+        ? await env.DB.prepare(sql + " WHERE client_id = ? AND session_ref LIKE 'ge:%' ORDER BY received_at DESC LIMIT 200").bind(clientId).all()
+        : await env.DB.prepare(sql + " ORDER BY received_at DESC LIMIT 200").all();
+    return (res.results || []).map(function(r) {
+        var mt = r.meeting_at && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(r.meeting_at) ? r.meeting_at : null;
+        return {
+            id: r.id, phone: reminderTextFormatPhone(r.phone_e164) || r.phone_e164, text: r.body,
+            matched: !!r.session_ref, confirmed: r.kind === "confirm", name: r.person_name || null,
+            meeting_date: mt ? apptRemDateMDY(mt.slice(0, 10)) : null, meeting_time: mt ? apptRemFmt12(mt.slice(11, 16)) : null,
+            forwarded: r.forwarded === 1, received_at: r.received_at
+        };
+    });
+}
+
+// GET /api/text-replies  (staff: alice, rafa, developer -- every reply)
+async function handleGetTextReplies(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        return jsonOk({ replies: await reminderTextRepliesList(env, null) });
+    } catch (e) {
+        return jsonErr("Error loading replies: " + e.message, 500);
+    }
+}
+
+// GET /api/clients/:id/gm/text-replies  (the client owner -- only that client's own; staff may open it too)
+async function handleGetGmTextReplies(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = gmDocSettingsOwnerOnly(user, id);
+        if (block) { return block; }
+        return jsonOk({ replies: await reminderTextRepliesList(env, id) });
+    } catch (e) {
+        return jsonErr("Error loading replies: " + e.message, 500);
+    }
 }
 
 async function handlePostTwilioInbound(request, env) {
@@ -61856,6 +61971,10 @@ export default {
         ctx.waitUntil(reminderTextQueueTick(env).catch(function(e) {
             console.log("reminder text queue failed: " + (e && e.message));
         }));
+        // A customer reply whose push failed is tried again (one indexed read when none).
+        ctx.waitUntil(reminderTextRepliesRetry(env).catch(function(e) {
+            console.log("reminder text reply retry failed: " + (e && e.message));
+        }));
         // Passkey login completion, Change G.5: purge login_activity rows
         // older than 120 days. Runs on every 5-minute tick but is a no-op
         // past the first hit of a UTC day (login_maintenance marker row), so
@@ -62395,6 +62514,7 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/fireflies/webhook"    && method === "POST") { return handleFirefliesWebhook(request, env); }
         if (path === "/api/stripe/webhook"       && method === "POST") { return handleStripeWebhook(request, env); }
         if (path === "/api/twilio/inbound"       && method === "POST") { return handlePostTwilioInbound(request, env); }
+        if (path === "/api/text-replies"         && method === "GET")  { return handleGetTextReplies(request, env); }
         if (path === "/api/fireflies/transcripts" && method === "GET")  { return handleGetFirefliesTranscripts(request, env); }
         if (path === "/api/fireflies/pull"        && method === "POST") { return handlePostFirefliesPull(request, env); }
         if (path === "/api/fireflies/dismiss"     && method === "POST") { return handlePostFirefliesDismiss(request, env); }
@@ -63193,6 +63313,7 @@ async function handleFetch(request, env, ctx) {
                     }
                 }
                 // Online booking (bk* block above "Enviar horarios").
+                if (segs.length === 5 && gmCol === "text-replies" && method === "GET") { return handleGetGmTextReplies(cid, request, env); }
                 if (segs.length === 5 && gmCol === "booking-settings") {
                     if (method === "GET") { return handleGetGmBookingSettings(cid, request, env); }
                     if (method === "PUT") { return handlePutGmBookingSettings(cid, request, env); }

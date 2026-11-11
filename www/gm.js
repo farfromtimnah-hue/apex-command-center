@@ -12678,12 +12678,49 @@ function gmLoadCalendar() {
       if (r[2]) { gmJobsData = r[2]; }
       if (r[3]) { gmLeadsData = r[3]; }
       gmRenderCalendar();
+      gmLoadTextReplies();
     })
     .catch(function(e) {
       body.innerHTML = '<div class="content-card"><p class="muted">' +
         gmT("Não foi possível carregar a agenda.", "Could not load the calendar.") +
         " " + escHtml(e.message) + '</p></div>';
     });
+}
+
+// Replies to the meeting text messages, under the calendar. Read only. The
+// owner sees only their own business's replies; the server refuses everyone
+// else (a salesperson gets a 403 and the section stays empty).
+function gmTextRepliesWhen(iso) {
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) { return ""; }
+  var h = d.getHours();
+  var h12 = h % 12 === 0 ? 12 : h % 12;
+  var mi = d.getMinutes();
+  return CalendarGrid.padZ(d.getMonth() + 1) + "/" + CalendarGrid.padZ(d.getDate()) + "/" + d.getFullYear() +
+    " " + h12 + ":" + CalendarGrid.padZ(mi) + " " + (h >= 12 ? "PM" : "AM");
+}
+
+function gmLoadTextReplies() {
+  var box = document.getElementById("gmTextReplies");
+  if (!box) { return; }
+  gmApi("text-replies").then(function(d) {
+    var list = (d && d.replies) || [];
+    var html = '<div class="content-card"><h3>' + gmT("Respostas de texto", "Text replies") + '</h3>';
+    if (!list.length) {
+      html += '<p class="muted">' + gmT("Nenhuma resposta ainda.", "No replies yet.") + '</p>';
+    }
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i];
+      var meet = r.matched
+        ? escHtml(r.name || "") + (r.meeting_date ? " · " + escHtml(r.meeting_date) + " " + escHtml(r.meeting_time || "") : "")
+        : gmT("Não associada a uma reunião", "Not matched to a meeting");
+      html += '<div class="gm-text-reply" style="border-top:1px solid var(--border);padding:10px 0;">' +
+        '<div class="muted" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px;"><span>' + escHtml(r.phone) + '</span><span>' + escHtml(gmTextRepliesWhen(r.received_at)) + '</span></div>' +
+        '<div style="margin:4px 0;overflow-wrap:anywhere;">' + escHtml(r.text) + (r.confirmed ? " <strong>" + gmT("(confirmou)", "(confirmed)") + "</strong>" : "") + '</div>' +
+        '<div class="muted" style="font-size:13px;">' + meet + ' · <strong>' + (r.forwarded ? gmT("Avisado", "Forwarded") : gmT("Não avisado", "Not forwarded")) + '</strong></div></div>';
+    }
+    box.innerHTML = html + '</div>';
+  }).catch(function() { box.innerHTML = ""; });
 }
 
 // Same shape as calendar.html's navPrev/navNext: Week steps ±7 days, Day

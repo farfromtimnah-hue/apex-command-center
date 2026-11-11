@@ -18,7 +18,7 @@ const FNS = [
   "reminderTextQuiet", "reminderTextHost", "reminderTextFacts", "reminderTextRefreshSnapshot", "reminderTextDecide", "reminderTextCount",
   "reminderTextHold", "reminderTextDispatch", "reminderTextQueueTick", "reminderTextSessionsBefore", "reminderTextSessionsChanged",
   "reminderTextSnapshots", "reminderTextCancelled", "reminderTextConfirmed", "reminderTextChangedEvent",
-  "reminderTextTwiml", "reminderTextHostTargets", "reminderTextHandleReply", "handlePostTwilioInbound", "stripeConstantTimeEqual",
+  "reminderTextTwiml", "reminderTextHostTargets", "reminderTextHandleReply", "reminderTextPushDeveloper", "reminderTextPushReply", "reminderTextRepliesRetry", "reminderTextRepliesList", "handleGetTextReplies", "handleGetGmTextReplies", "gmDocSettingsOwnerOnly", "requireClientAccess", "sessionSellerName", "handlePostTwilioInbound", "stripeConstantTimeEqual",
   "apptRemWall", "apptRemTime", "apptRemDateMDY", "apptRemFmt12", "apptRemClientPhone", "apptRemRoleEmails",
   "planClientAnd", "clientZoneFor", "tzIsValid", "tzZoneForState", "tzParts", "tzOffsetMinutes", "tzWallToUtcMs",
   "sendCounterRead", "sendCounterIncrement", "sendCounterDayKey", "sendCounterMonthKey", "sendCounterMaybeAlert",
@@ -51,7 +51,7 @@ function world(envOverrides, opts) {
     CREATE TABLE sessions (id TEXT PRIMARY KEY, client_name TEXT NOT NULL, client_id TEXT, date TEXT NOT NULL, time TEXT, session_type TEXT,
       status TEXT NOT NULL DEFAULT 'scheduled', location TEXT, created_by TEXT, send_text_reminder INTEGER, series_id TEXT);
     CREATE TABLE users (email TEXT PRIMARY KEY, role TEXT NOT NULL, display_name TEXT);   -- no phone column, as in production: the migration adds it
-    CREATE TABLE gm_leads (id TEXT PRIMARY KEY, telefone TEXT, cliente TEXT);
+    CREATE TABLE gm_leads (id TEXT PRIMARY KEY, client_id TEXT, telefone TEXT, cliente TEXT);
     CREATE TABLE gm_events (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, title TEXT, event_date TEXT NOT NULL, start_time TEXT, all_day INTEGER NOT NULL DEFAULT 0, lead_id TEXT);
     CREATE TABLE gm_booking_requests (id TEXT PRIMARY KEY, event_id TEXT, client_id TEXT, sms_consent_status TEXT, customer_phone TEXT);
   `);
@@ -62,6 +62,7 @@ function world(envOverrides, opts) {
   readFileSync(new URL("../migrations/2026-11-10_meeting_texts.sql", import.meta.url), "utf8").replace(/^\s*--[^\n]*$/gm, "").split(";").forEach((st) => {
     if (st.trim()) { d.raw.exec(st); }
   });
+  readFileSync(new URL("../migrations/2026-11-10_text_replies_visible.sql", import.meta.url), "utf8").replace(/^\s*--[^\n]*$/gm, "").split(";").forEach((st) => { if (st.trim()) { d.raw.exec(st); } });
   readFileSync(new URL("../migrations/2026-11-10_gm_events_customer_language.sql", import.meta.url), "utf8").replace(/^\s*--[^\n]*$/gm, "").split(";").forEach((st) => { if (st.trim()) { d.raw.exec(st); } });
   for (const c of ["location_state", "owners", "owners_json", "phone", "whatsapp"]) {
     const have = d.raw.prepare("PRAGMA table_info(clients)").all().map((x) => x.name);
@@ -72,12 +73,14 @@ function world(envOverrides, opts) {
   d.raw.prepare("INSERT INTO clients (id, name, status, language, timezone, archived, phone, owners_json) VALUES ('c2','JM Luxury Pools','active','es','America/New_York',0,'(321) 555-0188', ?)").run('[{"first":"Teo","last":"Mendes"}]');
   d.raw.prepare("INSERT INTO users (email, role, display_name, phone) VALUES ('rafa@t.test','rafa','Rafael Prata', ?)").run(opts.noHostPhone ? null : "+1 555-555-0123");
   d.raw.prepare("INSERT INTO users (email, role, display_name, phone) VALUES ('alice@t.test','alice','Alice Souza', NULL)").run();
-  const state = { calls: [], pushes: [], nextReply: null };
+  d.raw.prepare("INSERT INTO users (email, role, display_name, phone) VALUES ('dev@t.test','developer','Nicole', NULL)").run();
+  const state = { calls: [], pushes: [], nextReply: null, pushFail: false, noTargets: false, user: { role: "developer", email: "dev@t.test" } };
   const stubs = Object.assign({}, baseStubs, {
     fetch: fakeTwilio(state),
     notifyNicoleTelegram: async () => {},
-    pushToUsers: async (env, targets, payload) => { state.pushes.push({ targets, payload }); return { sent: 1, failed: 0, total: 1 }; },
-    gmClientPushTargets: async (env, cid) => ["login:owner-" + cid],
+    authenticate: async () => state.user,
+    pushToUsers: async (env, targets, payload) => { if (state.pushFail) { return { sent: 0, failed: 1, total: 1 }; } state.pushes.push({ targets, payload }); return { sent: 1, failed: 0, total: 1 }; },
+    gmClientPushTargets: async (env, cid) => (state.noTargets ? [] : ["login:owner-" + cid]),
     gmOwnerPushLang: async () => "en"
   });
   const F = build(FNS, VARS, stubs);
@@ -97,7 +100,7 @@ function addSession(w, id, o) {
 }
 function addBooking(w, n, consent, o) {
   o = Object.assign({ date: "2026-12-12", time: "10:00", phone: "407-555-0155", lang: null }, o || {});
-  w.d.raw.prepare("INSERT INTO gm_leads (id, telefone, cliente) VALUES (?,?,?)").run("L" + n, o.phone, "Customer " + n);
+  w.d.raw.prepare("INSERT INTO gm_leads (id, client_id, telefone, cliente) VALUES (?,?,?,?)").run("L" + n, "c2", o.phone, "Customer " + n);
   w.d.raw.prepare("INSERT INTO gm_events (id, client_id, title, event_date, start_time, all_day, lead_id, customer_language) VALUES (?,?,?,?,?,0,?,?)").run("ev" + n, "c2", "Visit", o.date, o.time, "L" + n, o.lang);
   w.d.raw.prepare("INSERT INTO gm_booking_requests (id, event_id, client_id, sms_consent_status, customer_phone) VALUES (?,?,?,?,?)").run("br" + n, "ev" + n, "c2", consent, o.phone);
 }
@@ -518,7 +521,7 @@ await section("inbound", async () => {
   ok(ok1.status === 200 && /^text\/xml/.test(ok1.type) && ok1.text === "<Response></Response>", "the answer is empty TwiML (text/xml, <Response></Response>)");
   const conf = rowsOf(w, "SELECT kind, session_ref, body, forwarded FROM reminder_text_replies");
   ok(conf.length === 1 && conf[0].kind === "confirm" && conf[0].session_ref === "r1" && conf[0].forwarded === 1, "a reply of 1 is recorded as a confirmation for that meeting and forwarded");
-  ok(w.state.pushes.length === 1 && w.state.pushes[0].targets.join() === "rafa@t.test" && /Client r1/.test(w.state.pushes[0].payload.body) && /12\/10\/2026/.test(w.state.pushes[0].payload.body) && /2:00 PM/.test(w.state.pushes[0].payload.body), "the host gets one push with the customer's name, the date and the time");
+  ok(w.state.pushes.length === 1 && w.state.pushes[0].targets.join() === "rafa@t.test" && /Acme Cleaning/.test(w.state.pushes[0].payload.body) && /12\/10\/2026/.test(w.state.pushes[0].payload.body) && /2:00 PM/.test(w.state.pushes[0].payload.body), "the host gets one push with the customer's name, the date and the time");
   await inbound(w, "s3cret-token", PHONE, "1", "SM2");
   ok(w.state.pushes.length === 1 && rowsOf(w, "SELECT 1 FROM reminder_text_replies WHERE kind = 'confirm'").length === 1, "a second 1 does not confirm or push again");
 
@@ -537,10 +540,10 @@ await section("inbound", async () => {
   ok(w.state.calls.length === callsBefore, "no reply of any kind is sent back (no cancel by text, no automatic answer)");
 
   const un = await TW(await inbound(w, "s3cret-token", "+14075559999", "hello"));
-  ok(un.status === 200 && un.text === "<Response></Response>" && rowsOf(w, "SELECT kind FROM reminder_text_replies WHERE phone_e164 = '+14075559999'")[0].kind === "unmatched" && w.state.pushes.length === 2, "a reply from a number we never texted is logged as unmatched, with no push");
+  ok(un.status === 200 && un.text === "<Response></Response>" && rowsOf(w, "SELECT kind FROM reminder_text_replies WHERE phone_e164 = '+14075559999'")[0].kind === "unmatched" && w.state.pushes.length === 3 && w.state.pushes[2].targets.join() === "dev@t.test", "a reply from a number we never texted is logged as unmatched and pushed to the developer role (changed: it used to be silent)");
   w.d.raw.exec("UPDATE reminder_text_sends SET sent_at = '2026-01-01T00:00:00.000Z'");
   const old = await TW(await inbound(w, "s3cret-token", PHONE, "1", "SM9"));
-  ok(old.status === 200 && rowsOf(w, "SELECT kind FROM reminder_text_replies WHERE message_sid = 'SM9'")[0].kind === "unmatched", "a reminder older than 48 hours is not matched");
+  ok(old.status === 200 && rowsOf(w, "SELECT kind FROM reminder_text_replies WHERE message_sid = 'SM9'")[0].kind === "unmatched", "a text older than 30 days is not matched (changed from 48 hours to 30 days, any kind)");
   const bad = await TW(await inbound(w, "s3cret-token", "", ""));
   ok(bad.status === 200 && bad.text === "<Response></Response>", "an empty call still gets empty TwiML");
 
@@ -552,6 +555,110 @@ await section("inbound", async () => {
   ok(wb.state.pushes.length === 1 && wb.state.pushes[0].targets.join() === "login:owner-c2" && /Customer 1 confirmed 12\/10\/2026 at 2:00 PM/.test(wb.state.pushes[0].payload.body), "booking link: the owner is told the customer confirmed (name, date, time)");
   // route registered
   ok(/path === "\/api\/twilio\/inbound"\s*&& method === "POST"/.test(workerSrc), "the route is registered for POST /api/twilio/inbound");
+});
+
+// ── 10b. Replies are never missed ───────────────────────────────────────────
+await section("replies", async () => {
+  const DAY = 86400000;
+  const w = world({ TWILIO_INBOUND_TOKEN: "tok" });
+  const PH = "+14075550155";                                             // booking 1's customer
+  addBooking(w, 1, "agreed", { date: "2026-12-20", time: "10:00" });
+  // (a) a reply to a CONFIRMATION, 5 days later, is matched and pushed
+  await w.F.reminderTextDispatch(w.env, "confirmation", "ge:ev1", { nowMs: NOW });
+  let r = await w.F.reminderTextHandleReply(w.env, PH, "Thank you, see you then", "SMa1", Date.now() + 5 * DAY);
+  let row = rowsOf(w, "SELECT * FROM reminder_text_replies WHERE message_sid = 'SMa1'")[0];
+  ok(r.kind === "reply" && row.session_ref === "ge:ev1" && row.client_id === "c2" && row.person_name === "Customer 1" && row.forwarded === 1, "a reply to a confirmation text 5 days later is matched to the meeting and forwarded");
+  ok(w.state.pushes.length === 1 && w.state.pushes[0].targets.join() === "login:owner-c2" && /Thank you, see you then/.test(w.state.pushes[0].payload.body) && /12\/20\/2026 at 10:00 AM/.test(w.state.pushes[0].payload.body), "the owner got the reply text with the customer's name, date and time");
+  // (b) "1" after a confirmation is a normal reply, not a confirmation
+  r = await w.F.reminderTextHandleReply(w.env, PH, "1", "SMa2", Date.now() + 5 * DAY);
+  ok(r.kind === "reply" && rowsOf(w, "SELECT 1 FROM reminder_text_replies WHERE kind = 'confirm'").length === 0 && /Customer replied/.test(w.state.pushes[1].payload.title) && /: 1$/.test(w.state.pushes[1].payload.body), "\"1\" after a confirmation text is a normal reply, pushed with its text");
+  // "1" after a REMINDER confirms
+  w.d.raw.exec("UPDATE reminder_text_sends SET sent_at = '2020-01-01T00:00:00.000Z'");
+  await w.F.reminderTextDispatch(w.env, "reminder", "ge:ev1", { nowMs: Date.UTC(2026, 11, 20, 14, 0) });
+  r = await w.F.reminderTextHandleReply(w.env, PH, "1", "SMa3", Date.now() + 1000);
+  ok(r.kind === "confirm" && /Customer confirmed/.test(w.state.pushes[2].payload.title), "\"1\" after a reminder confirms the meeting");
+  // (c) a reply to a CANCEL text is matched (the meeting is gone)
+  const w2 = world({ TWILIO_INBOUND_TOKEN: "tok" });
+  addBooking(w2, 1, "agreed", { date: "2026-12-20", time: "10:00" });
+  const snap = await w2.F.reminderTextFacts(w2.env, "ge:ev1");
+  w2.d.raw.exec("DELETE FROM gm_events");
+  await w2.F.reminderTextDispatch(w2.env, "cancel", "ge:ev1", { nowMs: NOW, facts: snap });
+  const rc = await w2.F.reminderTextHandleReply(w2.env, PH, "Why was it cancelled?", "SMc1", Date.now() + 1000);
+  const rowc = rowsOf(w2, "SELECT * FROM reminder_text_replies WHERE message_sid = 'SMc1'")[0];
+  ok(rc.kind === "reply" && rowc.session_ref === "ge:ev1" && rowc.person_name === "Customer 1" && rowc.meeting_at === "2026-12-20 10:00" && rowc.forwarded === 1 && w2.state.pushes[0].targets.join() === "login:owner-c2", "a reply to a cancel text is matched and reaches the owner even though the meeting is gone");
+  // (d) unmatched: the developer role hears it, with the phone and the text
+  const w3 = world({ TWILIO_INBOUND_TOKEN: "tok" });
+  await w3.F.reminderTextHandleReply(w3.env, "+15555550999", "who is this?", "SMu1", Date.now());
+  ok(w3.state.pushes.length === 1 && w3.state.pushes[0].targets.join() === "dev@t.test" && w3.state.pushes[0].payload.title === "Resposta de texto não associada" && /\+1 555-555-0999: who is this\?/.test(w3.state.pushes[0].payload.body) && rowsOf(w3, "SELECT forwarded FROM reminder_text_replies")[0].forwarded === 1, "an unmatched reply is pushed to the developer role with the phone and the text, and marked forwarded");
+  // matched but nobody to push to
+  const w4 = world({ TWILIO_INBOUND_TOKEN: "tok" });
+  addBooking(w4, 1, "agreed", { date: "2026-12-20", time: "10:00" });
+  await w4.F.reminderTextDispatch(w4.env, "confirmation", "ge:ev1", { nowMs: NOW });
+  w4.state.noTargets = true;
+  await w4.F.reminderTextHandleReply(w4.env, PH, "hello", "SMn1", Date.now());
+  ok(w4.state.pushes.length === 1 && w4.state.pushes[0].targets.join() === "dev@t.test", "a matched reply with no host or owner to tell goes to the developer role");
+  // (e) a failed push is retried by the cron, then marked forwarded
+  const w5 = world({ TWILIO_INBOUND_TOKEN: "tok" });
+  addBooking(w5, 1, "agreed", { date: "2026-12-20", time: "10:00" });
+  await w5.F.reminderTextDispatch(w5.env, "confirmation", "ge:ev1", { nowMs: NOW });
+  w5.state.pushFail = true;
+  const t0 = Date.now();
+  await w5.F.reminderTextHandleReply(w5.env, PH, "call me", "SMf1", t0);
+  ok(rowsOf(w5, "SELECT forwarded FROM reminder_text_replies")[0].forwarded === 0 && w5.state.pushes.length === 0, "when every push fails the reply is saved and stays forwarded = 0");
+  const early = await w5.F.reminderTextRepliesRetry(w5.env, t0 + 30000);
+  ok(early.tried === 0, "the tick leaves a brand new reply alone for 2 minutes");
+  w5.state.pushFail = true;
+  const still = await w5.F.reminderTextRepliesRetry(w5.env, t0 + 5 * 60000);
+  ok(still.tried === 1 && still.forwarded === 0 && rowsOf(w5, "SELECT forwarded FROM reminder_text_replies")[0].forwarded === 0, "a tick while pushes still fail tries once and leaves it for the next tick");
+  w5.state.pushFail = false;
+  const fixed = await w5.F.reminderTextRepliesRetry(w5.env, t0 + 10 * 60000);
+  ok(fixed.forwarded === 1 && rowsOf(w5, "SELECT forwarded FROM reminder_text_replies")[0].forwarded === 1 && /call me/.test(w5.state.pushes[0].payload.body), "the cron tick retries and then marks it forwarded");
+  w5.d.log.length = 0;
+  const none = await w5.F.reminderTextRepliesRetry(w5.env, t0 + 15 * 60000);
+  ok(none.tried === 0 && w5.d.log.length === 1 && /FROM reminder_text_replies/.test(w5.d.log[0]), "an idle tick costs one read");
+  const plan = w5.d.raw.prepare("EXPLAIN QUERY PLAN SELECT id FROM reminder_text_replies WHERE forwarded = 0 AND received_at >= ? AND received_at <= ? ORDER BY received_at LIMIT 20").all("a", "b").map((x) => x.detail).join(" ");
+  ok(/idx_rtr_retry/.test(plan), "and that read uses the index");
+  const w6 = world({ TWILIO_INBOUND_TOKEN: "tok" });
+  w6.state.pushFail = true;
+  const t1 = Date.now();
+  await w6.F.reminderTextHandleReply(w6.env, "+15555550998", "old one", "SMo1", t1);
+  w6.state.pushFail = false;
+  ok((await w6.F.reminderTextRepliesRetry(w6.env, t1 + 25 * 3600000)).tried === 0, "a reply older than 24 hours is no longer retried");
+
+  // (f) the list: staff see all, an owner only their own
+  const L = new world({ TWILIO_INBOUND_TOKEN: "tok" });
+  addBooking(L, 1, "agreed", { date: "2026-12-20", time: "10:00" });
+  addSession(L, "sa", { date: "2026-12-20", time: "14:00" });
+  await L.F.reminderTextDispatch(L.env, "confirmation", "ge:ev1", { nowMs: NOW });
+  await L.F.reminderTextDispatch(L.env, "confirmation", "sa", { nowMs: NOW });
+  await L.F.reminderTextHandleReply(L.env, "+14075550155", "booking reply", "SML1", Date.now());
+  await L.F.reminderTextHandleReply(L.env, "+14075550101", "admin reply", "SML2", Date.now() + 1000);
+  await L.F.reminderTextHandleReply(L.env, "+15555550999", "stranger", "SML3", Date.now() + 2000);
+  for (const role of ["alice", "rafa", "developer"]) {
+    L.state.user = { role, email: role + "@t.test" };
+    const out = await L.F.handleGetTextReplies({}, L.env);
+    ok(out.status === 200 && out.data.replies.length === 3, role + " sees every reply (3)");
+  }
+  L.state.user = { role: "developer" };
+  const all = (await L.F.handleGetTextReplies({}, L.env)).data.replies;
+  ok(all[0].text === "stranger" && all[1].text === "admin reply" && all[2].text === "booking reply", "newest first");
+  const br = all[2], un = all[0];
+  ok(br.phone === "+1 407-555-0155" && br.matched === true && br.name === "Customer 1" && br.meeting_date === "12/20/2026" && br.meeting_time === "10:00 AM" && br.forwarded === true && /^\d{4}-\d\d-\d\dT/.test(br.received_at), "a row has the formatted phone, the text, the meeting (name, MM/DD/YYYY, 12-hour), forwarded and the time");
+  ok(un.matched === false && un.name === null && un.meeting_date === null && un.phone === "+1 555-555-0999", "an unmatched reply says so");
+  L.state.user = { role: "client", client_id: "c2", email: "o@t.test" };
+  const own = await L.F.handleGetGmTextReplies("c2", {}, L.env);
+  ok(own.status === 200 && own.data.replies.length === 1 && own.data.replies[0].text === "booking reply", "a client owner sees only the replies for their own client's meetings");
+  const other = await L.F.handleGetGmTextReplies("c1", {}, L.env);
+  ok(other.status === 403, "an owner cannot open another client's replies");
+  L.state.user = { role: "client", client_id: "c1", email: "o1@t.test" };
+  ok((await L.F.handleGetGmTextReplies("c1", {}, L.env)).data.replies.length === 0, "an owner never sees Apex staff meeting replies or unmatched ones");
+  ok((await L.F.handleGetTextReplies({}, L.env)).status === 403, "the all-replies list is staff only");
+  L.state.user = { role: "client", client_id: "c2", login_role: "seller", seller_name: "Bia" };
+  ok((await L.F.handleGetGmTextReplies("c2", {}, L.env)).status === 403, "a salesperson login does not see customer replies");
+  L.state.user = { role: "alice" };
+  ok((await L.F.handleGetGmTextReplies("c2", {}, L.env)).data.replies.length === 1, "staff can open one client's list too");
+  L.state.user = null;
+  ok((await L.F.handleGetTextReplies({}, L.env)).status === 401, "no login, no list");
 });
 
 // ── 11. The migration ───────────────────────────────────────────────────────

@@ -18,7 +18,7 @@ const FNS = [
   "reminderTextQuiet", "reminderTextMeetingMs", "reminderTextHost", "reminderTextFacts", "reminderTextRefreshSnapshot", "reminderTextDecide", "reminderTextCount",
   "reminderTextHold", "reminderTextDispatch", "reminderTextQueueTick", "reminderTextSessionsBefore", "reminderTextSessionsChanged",
   "reminderTextSnapshots", "reminderTextCancelled", "reminderTextConfirmed", "reminderTextChangedEvent",
-  "reminderTextTwiml", "reminderTextOptKind", "reminderTextXmlEscape", "reminderTextFindLast", "reminderTextHandleOptEvent", "reminderTextHelpMessage", "reminderTextHostTargets", "reminderTextHandleReply", "reminderTextPushDeveloper", "reminderTextPushReply", "reminderTextRepliesRetry", "reminderTextRepliesList", "handleGetTextReplies", "handleGetGmTextReplies", "gmDocSettingsOwnerOnly", "requireClientAccess", "sessionSellerName", "handlePostTwilioInbound", "stripeConstantTimeEqual",
+  "reminderTextTwiml", "reminderTextOptKind", "reminderTextOptKindForPhone", "reminderTextPushVisit", "reminderTextPushText", "reminderTextLastKindFor", "reminderTextXmlEscape", "reminderTextFindLast", "reminderTextHandleOptEvent", "reminderTextHelpMessage", "reminderTextHostTargets", "reminderTextHandleReply", "reminderTextPushDeveloper", "reminderTextPushReply", "reminderTextRepliesRetry", "reminderTextRepliesList", "handleGetTextReplies", "handleGetGmTextReplies", "gmDocSettingsOwnerOnly", "requireClientAccess", "sessionSellerName", "handlePostTwilioInbound", "stripeConstantTimeEqual",
   "apptRemWall", "apptRemTime", "apptRemDateMDY", "apptRemFmt12", "apptRemClientPhone", "apptRemRoleEmails",
   "planClientAnd", "clientZoneFor", "tzIsValid", "tzZoneForState", "tzParts", "tzOffsetMinutes", "tzWallToUtcMs",
   "sendCounterRead", "sendCounterIncrement", "sendCounterDayKey", "sendCounterMonthKey", "sendCounterMaybeAlert",
@@ -26,7 +26,7 @@ const FNS = [
   "passkeyNormalizePhone", "passkeyCountryCode", "passkeyMaskPhone", "easternDateStr"
 ];
 const VARS = ["REMINDER_TEXT_TEMPLATES", "REMINDER_TEXT_QUIET_START_MIN", "REMINDER_TEXT_QUIET_END_MIN", "REMINDER_TEXT_QUIET_MIN_LEAD_MIN", "APEX_TIMEZONE",
-  "APPT_REMINDER_OWNER_ROLE", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "TWILIO_STOP_WORDS", "TWILIO_HELP_WORDS", "REMINDER_TEXT_HELP"];
+  "APPT_REMINDER_OWNER_ROLE", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "TWILIO_STOP_WORDS", "TWILIO_HELP_WORDS", "REMINDER_TEXT_HELP", "REMINDER_TEXT_START_WORDS", "REMINDER_TEXT_PUSH_MONTHS", "REMINDER_TEXT_PUSH_WORDS"];
 
 function fakeTwilio(state) {
   return async function fetch(url, init) {
@@ -649,7 +649,7 @@ await section("inbound", async () => {
   ok(ok1.status === 200 && /^text\/xml/.test(ok1.type) && ok1.text === "<Response></Response>", "the answer is empty TwiML (text/xml, <Response></Response>)");
   const conf = rowsOf(w, "SELECT kind, session_ref, body, forwarded FROM reminder_text_replies");
   ok(conf.length === 1 && conf[0].kind === "confirm" && conf[0].session_ref === "r1" && conf[0].forwarded === 1, "a reply of 1 is recorded as a confirmation for that meeting and forwarded");
-  ok(w.state.pushes.length === 1 && w.state.pushes[0].targets.join() === "rafa@t.test" && /Acme Cleaning/.test(w.state.pushes[0].payload.body) && /12\/10\/2026/.test(w.state.pushes[0].payload.body) && /2:00 PM/.test(w.state.pushes[0].payload.body), "the host gets one push with the customer's name, the date and the time");
+  ok(w.state.pushes.length === 1 && w.state.pushes[0].targets.join() === "rafa@t.test" && w.state.pushes[0].payload.body === "Acme Cleaning confirmou a visita em 10 de dezembro às 2:00 PM.", "the host gets one Portuguese sentence: who confirmed, which meeting (date and time), no mention of how");
   await inbound(w, "s3cret-token", PHONE, "1", "SM2");
   ok(w.state.pushes.length === 1 && rowsOf(w, "SELECT 1 FROM reminder_text_replies WHERE kind = 'confirm'").length === 1, "a second 1 does not confirm or push again");
 
@@ -670,10 +670,12 @@ await section("inbound", async () => {
     const rr = await TW(await inbound(w, "s3cret-token", PHONE, word));
     ok(rr.status === 200 && rr.text === "<Response></Response>", word + " without OptOutType: answered with empty TwiML");
   }
-  ok(rowsOf(w, "SELECT 1 FROM reminder_text_replies WHERE kind = 'optin'").length === 0 && w.state.pushes.length === 5, "START, UNSTOP and YES without OptOutType are normal replies (pushed), not a start");
+  // The number is opted out here (STOP words above), so the first start word clears it; once it is
+  // not opted out, UNSTOP and YES are ordinary replies again (pushed).
+  ok(rowsOf(w, "SELECT 1 FROM reminder_text_replies WHERE kind = 'optin'").length === 1 && rowsOf(w, "SELECT 1 FROM reminder_text_optouts WHERE phone_e164 = ?".replace("?", "'" + PHONE + "'")).length === 0 && w.state.pushes.length === 4, "START while opted out clears the opt-out (not pushed); UNSTOP and YES afterwards are normal replies (pushed)");
 
   const un = await TW(await inbound(w, "s3cret-token", "+14075559999", "hello"));
-  ok(un.status === 200 && un.text === "<Response></Response>" && rowsOf(w, "SELECT kind FROM reminder_text_replies WHERE phone_e164 = '+14075559999'")[0].kind === "unmatched" && w.state.pushes.length === 6 && w.state.pushes[5].targets.join() === "dev@t.test", "a reply from a number we never texted is logged as unmatched and pushed to the developer role (changed: it used to be silent)");
+  ok(un.status === 200 && un.text === "<Response></Response>" && rowsOf(w, "SELECT kind FROM reminder_text_replies WHERE phone_e164 = '+14075559999'")[0].kind === "unmatched" && w.state.pushes.length === 5 && w.state.pushes[4].targets.join() === "dev@t.test", "a reply from a number we never texted is logged as unmatched and pushed to the developer role (changed: it used to be silent)");
   w.d.raw.exec("UPDATE reminder_text_sends SET sent_at = '2026-01-01T00:00:00.000Z'");
   const old = await TW(await inbound(w, "s3cret-token", PHONE, "1", "SM9"));
   ok(old.status === 200 && rowsOf(w, "SELECT kind FROM reminder_text_replies WHERE message_sid = 'SM9'")[0].kind === "unmatched", "a text older than 30 days is not matched (changed from 48 hours to 30 days, any kind)");
@@ -685,7 +687,7 @@ await section("inbound", async () => {
   addBooking(wb, 1, "agreed", { date: "2026-12-10", time: "14:00", phone: "(407) 555-0155" });
   await wb.F.reminderTextDispatch(wb.env, "reminder", "ge:ev1", { nowMs: NOW });
   await inbound(wb, "tok", "+14075550155", "1", "SMb1");
-  ok(wb.state.pushes.length === 1 && wb.state.pushes[0].targets.join() === "login:owner-c2" && /Customer 1 confirmed 12\/10\/2026 at 2:00 PM/.test(wb.state.pushes[0].payload.body), "booking link: the owner is told the customer confirmed (name, date, time)");
+  ok(wb.state.pushes.length === 1 && wb.state.pushes[0].targets.join() === "login:owner-c2" && wb.state.pushes[0].payload.body === "Customer 1 confirmed the visit on December 10 at 2:00 PM.", "booking link: the owner is told the customer confirmed (name, date, time)");
   // route registered
   ok(/path === "\/api\/twilio\/inbound"\s*&& method === "POST"/.test(workerSrc), "the route is registered for POST /api/twilio/inbound");
 });
@@ -701,10 +703,10 @@ await section("replies", async () => {
   let r = await w.F.reminderTextHandleReply(w.env, PH, "Thank you, see you then", "SMa1", Date.now() + 5 * DAY);
   let row = rowsOf(w, "SELECT * FROM reminder_text_replies WHERE message_sid = 'SMa1'")[0];
   ok(r.kind === "reply" && row.session_ref === "ge:ev1" && row.client_id === "c2" && row.person_name === "Customer 1" && row.forwarded === 1, "a reply to a confirmation text 5 days later is matched to the meeting and forwarded");
-  ok(w.state.pushes.length === 1 && w.state.pushes[0].targets.join() === "login:owner-c2" && /Thank you, see you then/.test(w.state.pushes[0].payload.body) && /12\/20\/2026 at 10:00 AM/.test(w.state.pushes[0].payload.body), "the owner got the reply text with the customer's name, date and time");
+  ok(w.state.pushes.length === 1 && w.state.pushes[0].targets.join() === "login:owner-c2" && w.state.pushes[0].payload.body === "Customer 1 (the visit on December 20 at 10:00 AM) replied: \u201cThank you, see you then\u201d", "the owner got the customer's name, the meeting and the quoted text with a plain label");
   // (b) "1" after a confirmation is a normal reply, not a confirmation
   r = await w.F.reminderTextHandleReply(w.env, PH, "1", "SMa2", Date.now() + 5 * DAY);
-  ok(r.kind === "reply" && rowsOf(w, "SELECT 1 FROM reminder_text_replies WHERE kind = 'confirm'").length === 0 && /Customer replied/.test(w.state.pushes[1].payload.title) && /: 1$/.test(w.state.pushes[1].payload.body), "\"1\" after a confirmation text is a normal reply, pushed with its text");
+  ok(r.kind === "reply" && rowsOf(w, "SELECT 1 FROM reminder_text_replies WHERE kind = 'confirm'").length === 0 && /Customer replied/.test(w.state.pushes[1].payload.title) && w.state.pushes[1].payload.body === "Customer 1 answered the confirmation of the visit on December 20 at 10:00 AM.", "\"1\" after a confirmation text is a normal reply, read by what the last text was (and never says how they replied)");
   // "1" after a REMINDER confirms
   w.d.raw.exec("UPDATE reminder_text_sends SET sent_at = '2020-01-01T00:00:00.000Z'");
   await w.F.reminderTextDispatch(w.env, "reminder", "ge:ev1", { nowMs: Date.UTC(2026, 11, 20, 14, 0) });
@@ -832,14 +834,37 @@ await section("optout", async () => {
   const w2 = setup();
   await inbound(w2, "tok", PH, " stop ", "SMp1");
   ok(rowsOf(w2, "SELECT 1 FROM reminder_text_optouts WHERE phone_e164 = '+14075550155'").length === 1 && rowsOf(w2, "SELECT kind FROM reminder_text_replies")[0].kind === "optout", "a plain STOP without OptOutType records the opt-out");
-  // a plain YES, START or UNSTOP without OptOutType is a normal reply
+  // BUG 1 (2026-11-11): Twilio re-subscribed the customer but sent no OptOutType START, so Apex kept the opt-out.
+  // START, UNSTOP and YES count as a start when the number is opted out right now.
   const w3 = setup();
   await w3.F.reminderTextDispatch(w3.env, "confirmation", "ge:ev1", { nowMs: NOW });
-  w3.d.raw.exec("INSERT INTO reminder_text_optouts VALUES ('+14075550155', 'x')");
-  await inbound(w3, "tok", PH, "YES", "SMy1");
-  ok(rowsOf(w3, "SELECT 1 FROM reminder_text_optouts").length === 1 && rowsOf(w3, "SELECT kind FROM reminder_text_replies WHERE message_sid = 'SMy1'")[0].kind === "reply" && w3.state.pushes.length === 1, "a plain YES without OptOutType is a normal reply, not a start");
-  await inbound(w3, "tok", PH, "YES", "SMy2", "START");
-  ok(rowsOf(w3, "SELECT 1 FROM reminder_text_optouts").length === 0, "YES with OptOutType START is a start");
+  // not opted out: START, UNSTOP and YES stay ordinary replies (pushed), no optin row
+  for (const [i, word] of ["START", "unstop", " Yes "].entries()) { await inbound(w3, "tok", PH, word, "SMn" + i); }
+  ok(rowsOf(w3, "SELECT kind FROM reminder_text_replies WHERE kind = 'reply'").length === 3 && rowsOf(w3, "SELECT 1 FROM reminder_text_replies WHERE kind = 'optin'").length === 0 && w3.state.pushes.length === 3, "START, UNSTOP and YES from a number that is NOT opted out are ordinary replies (pushed)");
+  // stop then start (no OptOutType on the START, as seen live)
+  await inbound(w3, "tok", PH, "STOP", "SMy0");
+  ok(rowsOf(w3, "SELECT 1 FROM reminder_text_optouts").length === 1, "STOP stores the opt-out");
+  const pushesBefore = w3.state.pushes.length;
+  const sr = await TW(await inbound(w3, "tok", PH, "start", "SMy1"));
+  ok(sr.text === "<Response></Response>" && rowsOf(w3, "SELECT 1 FROM reminder_text_optouts").length === 0 && rowsOf(w3, "SELECT kind, forwarded FROM reminder_text_replies WHERE message_sid = 'SMy1'")[0].kind === "optin" && w3.state.pushes.length === pushesBefore, "stop then START (no OptOutType): the opt-out row is deleted, the reply is stored as optin, nobody is pushed");
+  // YES while opted out clears it too; UNSTOP the same
+  for (const word of ["YES", " Unstop "]) {
+    w3.d.raw.exec("INSERT OR IGNORE INTO reminder_text_optouts VALUES ('+14075550155', 'x')");
+    await inbound(w3, "tok", PH, word, "SMz" + word.trim());
+    ok(rowsOf(w3, "SELECT 1 FROM reminder_text_optouts").length === 0 && rowsOf(w3, "SELECT kind FROM reminder_text_replies WHERE message_sid = 'SMz" + word.trim() + "'")[0].kind === "optin", word.trim() + " while opted out clears the opt-out and is stored as optin");
+  }
+  // STOP and HELP behave exactly as before
+  ok(w3.F.reminderTextOptKind(null, "STOP") === "stop" && w3.F.reminderTextOptKind(null, "help") === "help" && (await w3.F.reminderTextOptKindForPhone(w3.env, null, "STOP", PH)) === "stop" && (await w3.F.reminderTextOptKindForPhone(w3.env, null, "hello", PH)) === null && (await w3.F.reminderTextOptKindForPhone(w3.env, null, "YES", PH)) === null, "STOP and HELP are read as before; YES when not opted out is not an opt event");
+  // a held text for that number sends again afterward
+  const wq = setup();
+  await inbound(wq, "tok", PH, "STOP", "SMq1", "STOP");
+  await inbound(wq, "tok", PH, "YES", "SMq2");
+  const heldNow = Date.UTC(2026, 11, 10, 3, 30);   // 10:30 PM local: quiet hours
+  const held = await wq.F.reminderTextDispatch(wq.env, "reminder", "ge:ev1", { nowMs: heldNow });
+  ok(held.held === true && rowsOf(wq, "SELECT 1 FROM reminder_text_queue WHERE status = 'pending' AND phone_e164 = '+14075550155'").length === 1, "after stop then YES a reminder is accepted and held for the morning (not refused as opted out)");
+  const callsQ = wq.state.calls.length;
+  const tq = await wq.F.reminderTextQueueTick(wq.env, Date.UTC(2026, 11, 10, 13, 0));
+  ok(tq.sent === 1 && wq.state.calls.length === callsQ + 1, "and the 8:00 AM tick sends it");
   ok(w3.F.reminderTextOptKind("stop", "hello") === "stop" && w3.F.reminderTextOptKind("Help", "") === "help" && w3.F.reminderTextOptKind("", "INFO") === "help" && w3.F.reminderTextOptKind("", "hello") === null && w3.F.reminderTextOptKind("WHATEVER", "STOPALL") === "stop" && w3.F.reminderTextOptKind(null, "START") === null, "OptOutType is read case-insensitively, then the body decides");
 
   // HELP
@@ -900,6 +925,98 @@ await section("migration", async () => {
   ok(r.reason === "already_sent" && w.state.calls.length === 0, "a reminder that was sent before the migration is not sent again");
   const rn = await w.F.reminderTextDispatch(w.env, "confirmation", "s-old", { nowMs: NOW });
   ok(rn.sent === true, "but the old row does not block a different kind for the same meeting");
+});
+
+// ── 12. What the business hears (push sentences) ────────────────────────────
+// Rules from Nicole (2026-11-11): one full sentence, who, which meeting (date and time in the
+// reader's language, 12-hour), what it means. Never HOW they replied. Customers' texts unchanged.
+await section("push sentences", async () => {
+  const PH = "+14075550155";
+  const Q = (t) => "\u201c" + t + "\u201d";
+  const VISIT = "the visit on December 20 at 10:00 AM";
+  // one fresh booking world per kind of last text; returns the body the owner got
+  const flow = async (lastKind, reply) => {
+    const w = world({ TWILIO_INBOUND_TOKEN: "tok" });
+    addBooking(w, 1, "agreed", { date: "2026-12-20", time: "10:00" });
+    if (lastKind === "cancel") {
+      const snap = await w.F.reminderTextFacts(w.env, "ge:ev1");
+      w.d.raw.exec("DELETE FROM gm_events");
+      await w.F.reminderTextDispatch(w.env, "cancel", "ge:ev1", { nowMs: NOW, facts: snap });
+    } else {
+      await w.F.reminderTextDispatch(w.env, lastKind, "ge:ev1", { nowMs: lastKind === "reminder" ? Date.UTC(2026, 11, 20, 14, 0) : NOW });
+    }
+    await w.F.reminderTextHandleReply(w.env, PH, reply, "SMk" + lastKind + reply.length, Date.now() + 1000);
+    return { w, push: w.state.pushes[0] };
+  };
+  // (a) a 1 to a reminder: confirmed
+  let x = await flow("reminder", "1");
+  ok(x.push.payload.body === "Customer 1 confirmed " + VISIT + "." && x.push.payload.title === "Customer confirmed" && x.push.targets.join() === "login:owner-c2", "owner, reminder + 1: \"Customer 1 confirmed the visit on December 20 at 10:00 AM.\"");
+  // (b) a 1 to a confirmation, a change and a cancel is read by what the last text was
+  x = await flow("confirmation", "1");
+  ok(x.push.payload.body === "Customer 1 answered the confirmation of " + VISIT + ".", "owner, confirmation + 1: says they answered the confirmation");
+  x = await flow("change", "1");
+  ok(x.push.payload.body === "Customer 1 answered the notice that " + VISIT + " was changed.", "owner, change notice + 1: says they answered the change notice");
+  x = await flow("cancel", "1");
+  ok(x.push.payload.body === "Customer 1 replied after " + VISIT + " was cancelled.", "owner, cancel notice + 1: says the customer replied after the visit was cancelled");
+  // (c) free text after each kind: name, meeting, the text quoted, label "replied:"
+  for (const k of ["reminder", "confirmation", "change"]) {
+    x = await flow(k, "Can we do 5 PM?");
+    ok(x.push.payload.body === "Customer 1 (" + VISIT + ") replied: " + Q("Can we do 5 PM?") && x.push.payload.title === "Customer replied", "owner, " + k + " + free text: name, meeting, \"replied:\" and the quoted text");
+  }
+  x = await flow("cancel", "Why?");
+  ok(x.push.payload.body === "Customer 1 (" + VISIT + ", cancelled) replied: " + Q("Why?"), "owner, cancel notice + free text: the meeting is marked cancelled");
+  // never says HOW they replied, never guesses a pronoun
+  const all = [];
+  for (const k of ["reminder", "confirmation", "change", "cancel"]) { all.push((await flow(k, "1")).push.payload.body); }
+  ok(all.every((b) => !/\bby replying\b|\breplied 1\b|\banswered 1\b|"1"|\bher\b|\bhis\b/i.test(b)), "no sentence says how they replied or guesses a pronoun");
+  // the stored name missing: a plain word, not "null"
+  ok(x.w.F.reminderTextPushText("en", { kind: "reply", body: "hi", person_name: null }, "reminder", "2026-12-20 10:00").body === "A customer (" + VISIT + ") replied: " + Q("hi"), "no customer name: \"A customer\"");
+  // (d) the owner's own language, Portuguese with accents, Spanish; 12-hour time
+  const P = (lastKind, body, kind) => x.w.F.reminderTextPushText("pt", { kind: kind || "reply", body: body, person_name: "Maria" }, lastKind, "2026-11-22 11:00");
+  ok(P("reminder", "1", "confirm").body === "Maria confirmou a visita em 22 de novembro às 11:00 AM." && P("reminder", "1", "confirm").title === "Cliente confirmou", "pt: confirmed, with the date in words and the accent in \"às\"");
+  ok(P("confirmation", "1").body === "Maria respondeu à confirmação sobre a visita em 22 de novembro às 11:00 AM." && P("change", "1").body === "Maria respondeu ao aviso de que a visita em 22 de novembro às 11:00 AM foi alterada." && P("cancel", "1").body === "Maria respondeu depois que a visita em 22 de novembro às 11:00 AM foi cancelada.", "pt: 1 after a confirmation, a change and a cancel");
+  ok(P("reminder", "Posso ir às 17h?").body === "Maria (a visita em 22 de novembro às 11:00 AM) respondeu: " + Q("Posso ir às 17h?") && P("cancel", "Por quê?").body === "Maria (a visita em 22 de novembro às 11:00 AM, cancelada) respondeu: " + Q("Por quê?") && P("reminder", "x").title === "Cliente respondeu", "pt: free text and free text after a cancel");
+  const E = (lastKind, body, kind) => x.w.F.reminderTextPushText("es", { kind: kind || "reply", body: body, person_name: "Maria" }, lastKind, "2026-11-22 11:00");
+  ok(E("reminder", "1", "confirm").body === "Maria confirmó la visita el 22 de noviembre a las 11:00 AM." && E("reminder", "x").title === "Cliente respondió" && E("cancel", "1").body === "Maria respondió después de que la visita el 22 de noviembre a las 11:00 AM fue cancelada." && E("confirmation", "1").body === "Maria respondió a la confirmación sobre la visita el 22 de noviembre a las 11:00 AM.", "es: confirmed, replied, accents, date in words");
+  ok(x.w.F.reminderTextPushText("en", { kind: "confirm", body: "1", person_name: "Maria" }, "reminder", "2026-11-22 11:00").body === "Maria confirmed the visit on November 22 at 11:00 AM." && x.w.F.reminderTextPushText("en", { kind: "reply", body: "1", person_name: "Maria" }, "reminder", "2026-11-22 23:05").body === "Maria answered a text about the visit on November 22 at 11:05 PM.", "en: the example sentence from Nicole, and 12-hour PM time");
+  ok(x.w.F.reminderTextPushText("en", { kind: "reply", body: "z".repeat(500), person_name: "Maria" }, "reminder", "2026-11-22 11:00").body.length <= 160, "a long reply is cut so the push stays within 160 characters");
+  // the admin path (staff) is Portuguese
+  const wa = world({ TWILIO_INBOUND_TOKEN: "tok" });
+  addSession(wa, "a1", { date: "2026-12-12", time: "10:00" });
+  await wa.F.reminderTextDispatch(wa.env, "confirmation", "a1", { nowMs: NOW });
+  await wa.F.reminderTextHandleReply(wa.env, "+14075550101", "1", "SMa1", Date.now() + 1000);
+  ok(wa.state.pushes[0].payload.body === "Acme Cleaning respondeu à confirmação sobre a visita em 12 de dezembro às 10:00 AM.", "staff (admin meetings) hear it in Portuguese");
+
+  // (e) the developer fallback: matched rows name the client, the customer and the meeting
+  const wd = world({ TWILIO_INBOUND_TOKEN: "tok" });
+  addBooking(wd, 1, "agreed", { date: "2026-12-20", time: "10:00" });
+  await wd.F.reminderTextDispatch(wd.env, "confirmation", "ge:ev1", { nowMs: NOW });
+  wd.state.noTargets = true;
+  await wd.F.reminderTextHandleReply(wd.env, PH, "Can we do 5 PM?", "SMd1", Date.now() + 1000);
+  const dp = wd.state.pushes[0];
+  ok(dp.targets.join() === "dev@t.test" && dp.payload.title === "Resposta de texto associada" && dp.payload.body === "JM Luxury Pools: Customer 1 (a visita em 20 de dezembro às 10:00 AM) respondeu: " + Q("Can we do 5 PM?"), "developer fallback, matched: title says matched; body names the client, the customer, the meeting and the text");
+  await wd.F.reminderTextHandleReply(wd.env, PH, "1", "SMd2", Date.now() + 2000);
+  ok(wd.state.pushes[1].payload.body === "JM Luxury Pools: Customer 1 respondeu à confirmação sobre a visita em 20 de dezembro às 10:00 AM." && wd.state.pushes[1].payload.title === "Resposta de texto associada", "developer fallback, matched, a 1 after a confirmation");
+  // a reminder confirmation with nobody else to tell
+  const wd2 = world({ TWILIO_INBOUND_TOKEN: "tok" });
+  addBooking(wd2, 1, "agreed", { date: "2026-12-20", time: "10:00" });
+  await wd2.F.reminderTextDispatch(wd2.env, "reminder", "ge:ev1", { nowMs: Date.UTC(2026, 11, 20, 14, 0) });
+  wd2.state.noTargets = true;
+  await wd2.F.reminderTextHandleReply(wd2.env, PH, "1", "SMd3", Date.now() + 1000);
+  ok(wd2.state.pushes[0].payload.body === "JM Luxury Pools: Customer 1 confirmou a visita em 20 de dezembro às 10:00 AM.", "developer fallback, matched, confirmed");
+  // the retry path (cron) has only the stored row: it still reads the last text kind from the sends table
+  const wr = world({ TWILIO_INBOUND_TOKEN: "tok" });
+  addBooking(wr, 1, "agreed", { date: "2026-12-20", time: "10:00" });
+  await wr.F.reminderTextDispatch(wr.env, "cancel", "ge:ev1", { nowMs: NOW });
+  wr.state.pushFail = true;
+  await wr.F.reminderTextHandleReply(wr.env, PH, "1", "SMr1", Date.now() - 600000);
+  wr.state.pushFail = false;
+  const retry = await wr.F.reminderTextRepliesRetry(wr.env, Date.now() + 120000 * 2);
+  ok(retry.forwarded === 1 && wr.state.pushes[0].payload.body === "Customer 1 replied after " + VISIT + " was cancelled.", "the cron retry builds the same sentence from the stored row");
+  // a truly unmatched reply keeps the unassociated title and the phone
+  const wu = world({ TWILIO_INBOUND_TOKEN: "tok" });
+  await wu.F.reminderTextHandleReply(wu.env, "+15555550999", "who is this?", "SMu9", Date.now());
+  ok(wu.state.pushes[0].payload.title === "Resposta de texto não associada" && wu.state.pushes[0].payload.body === "+1 555-555-0999: who is this?", "a truly unmatched reply keeps the \"unassociated\" title, the phone and the text");
 });
 
 console.log("\n" + pass + " passed, " + fail + " failed");

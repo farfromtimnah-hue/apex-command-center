@@ -52451,8 +52451,8 @@ async function reminderTextChangedEvent(env, ref) {
 // and no reply cancels a meeting.
 // STOP, START and HELP. With Twilio Advanced Opt-Out on, Twilio sends its own fixed
 // reply AND posts the message here with an OptOutType field (STOP, START or HELP).
-// Without it the field is absent and the words below decide, except that START,
-// UNSTOP and YES count as a start ONLY when OptOutType says START.
+// Without it the field is absent and the words below decide. START, UNSTOP and YES
+// count as a start when OptOutType says START, or when the number is opted out.
 var TWILIO_STOP_WORDS = ["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "REVOKE", "OPTOUT"];
 var TWILIO_HELP_WORDS = ["HELP", "INFO"];
 var REMINDER_TEXT_HELP = {
@@ -52470,6 +52470,19 @@ function reminderTextOptKind(optOutType, body) {
     if (TWILIO_STOP_WORDS.indexOf(b) !== -1) { return "stop"; }
     if (TWILIO_HELP_WORDS.indexOf(b) !== -1) { return "help"; }
     return null;
+}
+
+// START, UNSTOP and YES count as a start ONLY for a number that is opted out right
+// now. Twilio does not always send OptOutType START, so the body decides here.
+// For any other number these words stay ordinary replies.
+var REMINDER_TEXT_START_WORDS = ["START", "UNSTOP", "YES"];
+async function reminderTextOptKindForPhone(env, optOutType, body, e164) {
+    var kind = reminderTextOptKind(optOutType, body);
+    if (kind) { return kind; }
+    var b = String(body == null ? "" : body).trim().toUpperCase();
+    if (REMINDER_TEXT_START_WORDS.indexOf(b) === -1) { return null; }
+    var out = await env.DB.prepare("SELECT 1 AS x FROM reminder_text_optouts WHERE phone_e164 = ?").bind(e164).first();
+    return out ? "start" : null;
 }
 
 function reminderTextXmlEscape(v) {
@@ -52503,15 +52516,127 @@ async function reminderTextHostTargets(env, f, row) {
     return { targets: role ? await apptRemRoleEmails(env, {}, role) : [], lang: "pt", url: "/calendar.html" };
 }
 
+// ---- what the business hears -----------------------------------------------
+// One full sentence that decodes a reply: who, which meeting, what it means.
+// How they replied is never written ("1" is never mentioned). What customers
+// receive is not touched here. Pronouns are never guessed: the sentence says
+// "the visit", never "her visit".
+var REMINDER_TEXT_PUSH_MONTHS = {
+    en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+    pt: ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"],
+    es: ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+};
+var REMINDER_TEXT_PUSH_WORDS = {
+    en: {
+        customer: "A customer", on: "on", at: "at", visit: "the visit",
+        title_confirm: "Customer confirmed", title_reply: "Customer replied",
+        confirm: "{who} confirmed {visit}.",
+        ack_confirmation: "{who} answered the confirmation of {visit}.",
+        ack_change: "{who} answered the notice that {visit} was changed.",
+        ack_other: "{who} answered a text about {visit}.",
+        after_cancel: "{who} replied after {visit} was cancelled.",
+        reply: "{who} ({visit}) replied: \u201c{text}\u201d",
+        reply_cancel: "{who} ({visit}, cancelled) replied: \u201c{text}\u201d"
+    },
+    pt: {
+        customer: "Um cliente", on: "em", at: "às", visit: "a visita",
+        title_confirm: "Cliente confirmou", title_reply: "Cliente respondeu",
+        confirm: "{who} confirmou {visit}.",
+        ack_confirmation: "{who} respondeu à confirmação sobre {visit}.",
+        ack_change: "{who} respondeu ao aviso de que {visit} foi alterada.",
+        ack_other: "{who} respondeu a um texto sobre {visit}.",
+        after_cancel: "{who} respondeu depois que {visit} foi cancelada.",
+        reply: "{who} ({visit}) respondeu: \u201c{text}\u201d",
+        reply_cancel: "{who} ({visit}, cancelada) respondeu: \u201c{text}\u201d"
+    },
+    es: {
+        customer: "Un cliente", on: "el", at: "a las", visit: "la visita",
+        title_confirm: "Cliente confirmó", title_reply: "Cliente respondió",
+        confirm: "{who} confirmó {visit}.",
+        ack_confirmation: "{who} respondió a la confirmación sobre {visit}.",
+        ack_change: "{who} respondió al aviso de que {visit} fue cambiada.",
+        ack_other: "{who} respondió a un texto sobre {visit}.",
+        after_cancel: "{who} respondió después de que {visit} fue cancelada.",
+        reply: "{who} ({visit}) respondió: \u201c{text}\u201d",
+        reply_cancel: "{who} ({visit}, cancelada) respondió: \u201c{text}\u201d"
+    }
+};
+
+// "the visit on November 22 at 11:00 AM", in the reader's language (12-hour, local).
+function reminderTextPushVisit(lang, meetingAt) {
+    var W = REMINDER_TEXT_PUSH_WORDS[lang];
+    var m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(String(meetingAt || ""));
+    if (!m) { return W.visit; }
+    var month = REMINDER_TEXT_PUSH_MONTHS[lang][Number(m[2]) - 1];
+    var day = String(Number(m[3]));
+    var date = lang === "en" ? month + " " + day : day + " de " + month;
+    return W.visit + " " + W.on + " " + date + " " + W.at + " " + apptRemFmt12(m[4] + ":" + m[5]);
+}
+
+// The title and the sentence for one stored reply. lastKind is the kind of the
+// last text the customer was sent (reminder, confirmation, change, cancel).
+function reminderTextPushText(lang, row, lastKind, meetingAt) {
+    lang = REMINDER_TEXT_PUSH_WORDS[lang] ? lang : "en";
+    var W = REMINDER_TEXT_PUSH_WORDS[lang];
+    var who = String(row.person_name || "").trim() || W.customer;
+    var visit = reminderTextPushVisit(lang, meetingAt);
+    var text = String(row.body == null ? "" : row.body).trim();
+    var fill = function(t, q) { return t.split("{who}").join(who).split("{visit}").join(visit).split("{text}").join(q == null ? "" : q); };
+    var title = row.kind === "confirm" ? W.title_confirm : W.title_reply;
+    var one = text === "1";
+    var sentence;
+    if (row.kind === "confirm") {
+        sentence = fill(W.confirm);
+    } else if (one && lastKind === "cancel") {
+        sentence = fill(W.after_cancel);
+    } else if (one && lastKind === "confirmation") {
+        sentence = fill(W.ack_confirmation);
+    } else if (one && lastKind === "change") {
+        sentence = fill(W.ack_change);
+    } else if (one) {
+        sentence = fill(W.ack_other);
+    } else {
+        var tpl = lastKind === "cancel" ? W.reply_cancel : W.reply;
+        var room = 160 - fill(tpl, "").length;
+        sentence = fill(tpl, text.length > room ? text.slice(0, Math.max(room - 1, 1)).trimEnd() + "\u2026" : text);
+    }
+    return { title: title, body: sentence.slice(0, 160) };
+}
+
+// The kind of the last text this customer was sent for that meeting (null when unknown).
+async function reminderTextLastKindFor(env, row) {
+    if (row.last_kind) { return row.last_kind; }
+    try {
+        var r = row.session_ref
+            ? await env.DB.prepare("SELECT kind FROM reminder_text_sends WHERE phone_e164 = ? AND session_id = ? AND twilio_sid IS NOT NULL ORDER BY sent_at DESC LIMIT 1").bind(row.phone_e164, row.session_ref).first()
+            : null;
+        return r ? r.kind : null;
+    } catch (e) { return null; }
+}
+
 // Nicole's login (the developer role) hears about every reply nobody else could be told about.
+// It names the client, the customer and the meeting whenever the stored row has them.
 async function reminderTextPushDeveloper(env, row) {
     var emails = await apptRemRoleEmails(env, {}, "developer");
     if (!emails.length) { return false; }
     var phone = reminderTextFormatPhone(row.phone_e164) || row.phone_e164;
-    var r = await pushToUsers(env, emails, {
-        title: "Resposta de texto não associada",
-        body: (phone + ": " + row.body).slice(0, 160), url: "/calendar.html", tag: "reply-dev-" + row.id
-    });
+    var matched = !!(row.session_ref || row.person_name || row.client_id);
+    var payload;
+    if (matched) {
+        var cname = null;
+        if (row.client_id) {
+            var c = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(row.client_id).first();
+            cname = c ? c.name : null;
+        }
+        var mt = row.meeting_at && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(row.meeting_at) ? row.meeting_at : null;
+        var t = reminderTextPushText("pt", row, await reminderTextLastKindFor(env, row), mt);
+        payload = { title: "Resposta de texto associada", body: ((cname ? cname + ": " : "") + t.body).slice(0, 160) };
+    } else {
+        payload = { title: "Resposta de texto não associada", body: (phone + ": " + row.body).slice(0, 160) };
+    }
+    payload.url = "/calendar.html";
+    payload.tag = "reply-dev-" + row.id;
+    var r = await pushToUsers(env, emails, payload);
     return !!(r && r.sent > 0);
 }
 
@@ -52524,13 +52649,8 @@ async function reminderTextPushReply(env, row) {
         var f = await reminderTextFacts(env, row.session_ref);
         var host = await reminderTextHostTargets(env, f, row);
         if (host.targets.length) {
-            var en = host.lang === "en";
-            var who = row.person_name || (en ? "A customer" : "Um cliente");
             var mt = row.meeting_at && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(row.meeting_at) ? row.meeting_at : (f ? f.date + " " + f.time : "");
-            var when = mt ? apptRemDateMDY(mt.slice(0, 10)) + (en ? " at " : " às ") + apptRemFmt12(mt.slice(11, 16)) : "";
-            var payload = row.kind === "confirm"
-                ? { title: en ? "Customer confirmed" : "Cliente confirmou", body: (who + (en ? " confirmed " : " confirmou ") + when).slice(0, 160) }
-                : { title: en ? "Customer replied" : "Cliente respondeu", body: (who + (when ? " (" + when + ")" : "") + ": " + row.body).slice(0, 160) };
+            var payload = reminderTextPushText(host.lang, row, await reminderTextLastKindFor(env, row), mt);
             payload.url = host.url;
             payload.tag = "reply-" + row.id;
             var pr = await pushToUsers(env, host.targets, payload);
@@ -52659,7 +52779,8 @@ async function reminderTextHandleReply(env, fromE164, text, messageSid, nowMs) {
     }
     var row = {
         id: crypto.randomUUID(), phone_e164: fromE164, session_ref: ref, kind: kind, body: text.slice(0, 1000),
-        client_id: clientId, person_name: personName, meeting_at: last && last.meeting_at ? last.meeting_at : null
+        client_id: clientId, person_name: personName, meeting_at: last && last.meeting_at ? last.meeting_at : null,
+        last_kind: last ? last.kind : null
     };
     // The database decides a repeat: the same Twilio message is stored once,
     // and one confirmation per meeting and phone.
@@ -52724,7 +52845,7 @@ async function handlePostTwilioInbound(request, env) {
         var form = new URLSearchParams(await request.text());
         var norm = passkeyNormalizePhone(form.get("From") || "");
         var text = String(form.get("Body") || "").trim();
-        var optKind = reminderTextOptKind(form.get("OptOutType"), text);
+        var optKind = norm && norm.e164 ? await reminderTextOptKindForPhone(env, form.get("OptOutType"), text, norm.e164) : reminderTextOptKind(form.get("OptOutType"), text);
         if (norm && norm.e164 && optKind) {
             var oe = await reminderTextHandleOptEvent(env, norm.e164, optKind, text, form.get("MessageSid") || null);
             return reminderTextTwiml(oe.message);

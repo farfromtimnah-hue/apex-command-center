@@ -6754,6 +6754,10 @@ async function handlePostSessionsSchedule(request, env) {
             sessionIds.push(sessionId);
         }
 
+        // Confirmation text, only when the staff box was ticked. A series gets
+        // ONE confirmation, for its first meeting (not one per occurrence).
+        if (sendTextReminder && sessionIds.length) { await reminderTextConfirmed(env, sessionIds[0]); }
+
         // Session scheduled for a lead → "Agendamento" (no-op for real clients).
         await advanceLeadStage(env, clientId, "Agendamento", actorName(user), "auto:session_scheduled");
 
@@ -7604,6 +7608,8 @@ async function handlePostSessionCancel(sessionId, request, env) {
         // is deliberately NOT re-stamped -- it answers a different question.
         var cancelledAt = new Date().toISOString();
         var cancelledBy = actorName(user);
+        // Cancel notice: the meetings are read BEFORE they are removed.
+        var cancelSnaps = await reminderTextSnapshots(env, scopeRows.map(function(r) { return r.id; }));
         for (var i = 0; i < scopeRows.length; i++) {
             if (mode === "mistake") {
                 await env.DB.prepare("DELETE FROM sessions WHERE id = ?").bind(scopeRows[i].id).run();
@@ -7619,6 +7625,7 @@ async function handlePostSessionCancel(sessionId, request, env) {
             await schedReleaseBookingForSession(env, scopeRows[i].id);
         }
 
+        await reminderTextCancelled(env, cancelSnaps);
         return jsonOk({ ok: true, mode: mode, scope: scope, updated: scopeRows.length, google_event_removed: googleRemoved, google_error: null });
     } catch (e) {
         return jsonErr("Error cancelling session: " + e.message, 500);
@@ -7673,6 +7680,7 @@ async function handlePostSessionReschedule(sessionId, request, env) {
         if (session.calendar_provider !== "apex") {
             return jsonErr("Legacy sessions are read-only history and cannot be rescheduled.", 400);
         }
+        var textBefore = await reminderTextSessionsBefore(env, session);
 
         // The Google event PATCH needs an end; default to start-plus-one-hour
         // (same convention as event creation) when none was given or stored.
@@ -7737,6 +7745,7 @@ async function handlePostSessionReschedule(sessionId, request, env) {
             await env.DB.prepare(
                 "UPDATE sessions SET date = ?, time = ?, end_time = ? WHERE id = ?"
             ).bind(body.date, body.time, newEnd, sessionId).run();
+            await reminderTextSessionsChanged(env, textBefore);
             return jsonOk({ ok: true, scope: "single", updated: 1, google_warning: googleWarning });
         }
 
@@ -7805,6 +7814,7 @@ async function handlePostSessionReschedule(sessionId, request, env) {
                     ).bind(occDateF, body.time, newEnd, newMasterId, followingRows[fi].id).run();
                 }
             }
+            await reminderTextSessionsChanged(env, textBefore);
             return jsonOk({ ok: true, scope: "following", updated: followingRows.length, google_warning: googleWarning });
         }
 
@@ -7831,6 +7841,7 @@ async function handlePostSessionReschedule(sessionId, request, env) {
                 "UPDATE sessions SET date = ?, time = ?, end_time = ? WHERE id = ?"
             ).bind(occDateA, body.time, newEnd, rowsToMove[ai].id).run();
         }
+        await reminderTextSessionsChanged(env, textBefore);
         return jsonOk({ ok: true, scope: "all", updated: rowsToMove.length, google_warning: googleWarning });
     } catch (e) {
         return jsonErr("Error rescheduling session: " + e.message, 500);
@@ -7910,6 +7921,7 @@ async function handlePatchSessionDetails(sessionId, request, env) {
         if (session.calendar_provider !== "apex") {
             return jsonErr("Legacy sessions are read-only history and cannot be edited.", 400);
         }
+        var textBefore = (hasDate || hasTime) ? await reminderTextSessionsBefore(env, session) : null;
 
         // ---- Resolve every field to its post-edit value -------------------
         var newCategory = session.meeting_category || "client";
@@ -8287,6 +8299,7 @@ async function handlePatchSessionDetails(sessionId, request, env) {
             updated++;
         }
 
+        await reminderTextSessionsChanged(env, textBefore);
         return jsonOk({
             ok: true,
             scope: scope,
@@ -29487,6 +29500,10 @@ async function handlePostGmEvent(id, request, env) {
             actorName(user), actorName(user)
         ).run();
 
+        // Confirmation text: only a booking-link meeting with a recorded
+        // "agreed" ever passes, so a hand-made event does not text.
+        if (f.lead_id) { await reminderTextConfirmed(env, "ge:" + eventId); }
+
         var row = await env.DB.prepare("SELECT * FROM gm_events WHERE id = ?").bind(eventId).first();
         return jsonOk({ event: gmEventOut(row) });
     } catch (e) {
@@ -29501,7 +29518,7 @@ async function handlePutGmEvent(id, eventId, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
 
         var existing = await env.DB.prepare(
-            "SELECT id FROM gm_events WHERE id = ? AND client_id = ?"
+            "SELECT id, event_date, start_time, lead_id FROM gm_events WHERE id = ? AND client_id = ?"
         ).bind(eventId, id).first();
         if (!existing) { return jsonErr("Event not found", 404); }
 
@@ -29528,6 +29545,10 @@ async function handlePutGmEvent(id, eventId, request, env) {
         ).bind(...binds).run();
 
         var row = await env.DB.prepare("SELECT * FROM gm_events WHERE id = ?").bind(eventId).first();
+        // Change notice: only when the date or the time really moved.
+        if (row && row.lead_id && (row.event_date !== existing.event_date || row.start_time !== existing.start_time)) {
+            await reminderTextChangedEvent(env, "ge:" + eventId);
+        }
         return jsonOk({ event: gmEventOut(row) });
     } catch (e) {
         return jsonErr("Error updating event: " + e.message, 500);
@@ -29541,12 +29562,15 @@ async function handleDeleteGmEvent(id, eventId, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
 
         var row = await env.DB.prepare(
-            "SELECT id FROM gm_events WHERE id = ? AND client_id = ?"
+            "SELECT id, lead_id FROM gm_events WHERE id = ? AND client_id = ?"
         ).bind(eventId, id).first();
         if (!row) { return jsonErr("Event not found", 404); }
 
+        // Cancel notice: read BEFORE the event is deleted.
+        var delSnaps = row.lead_id ? await reminderTextSnapshots(env, ["ge:" + eventId]) : [];
         await env.DB.prepare("DELETE FROM gm_events WHERE id = ? AND client_id = ?")
             .bind(eventId, id).run();
+        await reminderTextCancelled(env, delSnaps);
         return jsonOk({ deleted: true });
     } catch (e) {
         return jsonErr("Error deleting event: " + e.message, 500);
@@ -51812,15 +51836,56 @@ async function pushToUsers(env, emails, payloadObj) {
 }
 
 // ---------------------------------------------------------------------------
-// TASK 1.5: text reminders for meetings, through Twilio. OFF by default --
-// nothing sends unless REMINDER_TEXTS_ENABLED === "1" AND a sender is
-// configured (TWILIO_MESSAGING_SERVICE_SID or TWILIO_FROM_NUMBER) AND the
-// caps allow it. The template is ONE generic string with merge fields; it
-// never has a business name written into the code -- [nome]/[name] and
-// [empresa]/[business] come from the meeting and its business record.
+// TEXT MESSAGES FOR MEETINGS, through Twilio. Four kinds: a confirmation when
+// a meeting is booked, a reminder one hour before, a notice when it is
+// changed, a notice when it is cancelled. OFF by default.
+//
+// THE RULE: a text of any kind goes out only when a clear yes exists for that
+// meeting. No yes, no text. There is no workaround for opt-in.
+//   1. Admin meeting (sessions row with a client_id): only when the staff box
+//      "Enviar lembrete por texto" was ticked at creation (send_text_reminder).
+//   2. Booking-link meeting (gm_events row with a lead_id): ONLY when the
+//      booking's sms_consent_status is exactly "agreed". NULL and "declined"
+//      never text.
+//   3. A scheduling-link session ("Agendamento pelo cliente"): only if a
+//      consent of "agreed" is recorded for that booking. That flow records
+//      none anywhere today, so those meetings do not text.
+//   4. Every other origin (fireflies, google_calendar, untagged) never texts.
+//
+// SWITCHES (read at send time): REMINDER_TEXTS_ENABLED === "1" AND a sender
+// (TWILIO_MESSAGING_SERVICE_SID or TWILIO_FROM_NUMBER), plus
+// REMINDER_TEXTS_ADMIN_MEETINGS === "1" for paths 1 and 3, or
+// REMINDER_TEXTS_BOOKING_LINK === "1" for path 2. The daily and monthly caps
+// and the STOP opt-out table apply to every kind.
+//
+// The wording never says the name of the software company: {who} is the
+// host's first name (admin meeting) or the business name (booking link).
+// Dates are MM/DD/YYYY and times 12-hour with AM/PM in every language.
 // ---------------------------------------------------------------------------
-var REMINDER_TEXT_TEMPLATE_PT = "Lembrete: sua reunião com {name} de {business} é em {date} às {time}. Responda STOP para não receber mais.";
-var REMINDER_TEXT_TEMPLATE_EN = "Reminder: your meeting with {name} from {business} is on {date} at {time}. Reply STOP to opt out.";
+var REMINDER_TEXT_TEMPLATES = {
+    reminder: {
+        en: "Reminder: you have an appointment with {who} on {date} at {time}. Reply 1 to confirm. To change it or ask a question, tap {phone}. Msg and data rates may apply. Reply HELP for help, STOP to opt out.",
+        es: "Recordatorio: tiene una cita con {who} el {date} a las {time}. Responda 1 para confirmar. Para cambiarla o hacer preguntas, toque {phone}. Pueden aplicarse tarifas de mensajes y datos. Responda HELP para ayuda, STOP para dejar de recibir mensajes.",
+        pt: "Lembrete: você tem um horário com {who} em {date} às {time}. Responda 1 para confirmar. Para mudar ou tirar dúvidas, toque em {phone}. Podem ser aplicadas tarifas de mensagens e dados. Responda HELP para ajuda, STOP para cancelar os textos."
+    },
+    confirmation: {
+        en: "Your appointment with {who} is confirmed for {date} at {time}. To reach {name}, tap {phone}. Msgs vary with your appointments. Msg and data rates may apply. Reply HELP for help, STOP to opt out.",
+        es: "Su cita con {who} está confirmada para el {date} a las {time}. Para comunicarse con {name}, toque {phone}. Los mensajes varían según sus citas. Pueden aplicarse tarifas de mensajes y datos. Responda HELP para ayuda, STOP para dejar de recibir mensajes.",
+        pt: "Seu horário com {who} está confirmado para {date} às {time}. Para falar com {name}, toque em {phone}. A frequência das mensagens varia conforme os agendamentos. Podem ser aplicadas tarifas de mensagens e dados. Responda HELP para ajuda, STOP para cancelar os textos."
+    },
+    change: {
+        en: "Your appointment with {who} was changed to {date} at {time}. To reach {name}, tap {phone}. Reply STOP to opt out.",
+        es: "Su cita con {who} fue cambiada para el {date} a las {time}. Para comunicarse con {name}, toque {phone}. Responda STOP para dejar de recibir mensajes.",
+        pt: "Seu horário com {who} foi alterado para {date} às {time}. Para falar com {name}, toque em {phone}. Responda STOP para cancelar os textos."
+    },
+    cancel: {
+        en: "Your appointment with {who} on {date} was cancelled. To reach {name}, tap {phone}. Reply STOP to unsubscribe.",
+        es: "Su cita con {who} del {date} fue cancelada. Para comunicarse con {name}, toque {phone}. Responda STOP para dejar de recibir mensajes.",
+        pt: "Seu horário com {who} em {date} foi cancelado. Para falar com {name}, toque em {phone}. Responda STOP para cancelar os textos."
+    }
+};
+var REMINDER_TEXT_QUIET_START_MIN = 21 * 60;
+var REMINDER_TEXT_QUIET_END_MIN = 8 * 60;
 
 function reminderTextsEnabled(env) {
     return !!env && String(env.REMINDER_TEXTS_ENABLED || "") === "1";
@@ -51831,13 +51896,62 @@ function reminderTextSenderConfigured(env) {
 function reminderTextsConfigured(env) {
     return reminderTextsEnabled(env) && reminderTextSenderConfigured(env);
 }
+// The per-path switch. path is "admin" (admin meetings and scheduling-link
+// sessions) or "booking" (a customer's booking-link meeting).
+function reminderTextSwitchOn(env, path) {
+    if (!reminderTextsEnabled(env)) { return false; }
+    if (path === "admin") { return String(env.REMINDER_TEXTS_ADMIN_MEETINGS || "") === "1"; }
+    if (path === "booking") { return String(env.REMINDER_TEXTS_BOOKING_LINK || "") === "1"; }
+    return false;
+}
 
-function reminderTextFill(template, name, business, dateStr, timeStr) {
-    return template
-        .replace("{name}", name || "")
-        .replace("{business}", business || "")
-        .replace("{date}", dateStr)
-        .replace("{time}", timeStr);
+// The stored language when it is en, pt or es; anything else or missing is EN.
+function reminderTextLang(v) {
+    var s = String(v == null ? "" : v).trim().toLowerCase();
+    return (s === "en" || s === "pt" || s === "es") ? s : "en";
+}
+
+function reminderTextFill(kind, lang, v) {
+    var set = REMINDER_TEXT_TEMPLATES[kind];
+    if (!set) { return ""; }
+    var out = set[reminderTextLang(lang)];
+    v = v || {};
+    ["who", "name", "phone", "date", "time"].forEach(function(k) {
+        out = out.split("{" + k + "}").join(String(v[k] == null ? "" : v[k]));
+    });
+    return out;
+}
+
+// "+1 555-555-5555" (US and Canada) or "+55 11-91234-5678" (Brazil), from any
+// phone the system holds. null when the number is not a real one. It is
+// written with the country code and dashes so the phone makes it tappable;
+// it is never a link and never shortened.
+function reminderTextFormatPhone(raw) {
+    var n = passkeyNormalizePhone(raw);
+    if (!n || !n.e164) { return null; }
+    var d = n.e164.slice(1);
+    if (d.charAt(0) === "1") { return "+1 " + d.slice(1, 4) + "-" + d.slice(4, 7) + "-" + d.slice(7); }
+    var rest = d.slice(2);
+    return "+55 " + rest.slice(0, 2) + "-" + rest.slice(2, rest.length - 4) + "-" + rest.slice(-4);
+}
+
+function reminderTextFirstName(v) {
+    var s = String(v == null ? "" : v).trim();
+    if (!s) { return ""; }
+    return s.split(/\s+/)[0];
+}
+
+// First owner's first name from a client row: owners_json first, then the
+// legacy owners string ("Ana e Joao", "Ana, Joao", "Ana & Joao").
+function reminderTextOwnerFirst(row) {
+    try {
+        var list = row && row.owners_json ? JSON.parse(row.owners_json) : null;
+        if (Array.isArray(list) && list.length && list[0] && list[0].first) { return reminderTextFirstName(list[0].first); }
+    } catch (e) {
+        console.log("reminder text: owners_json unreadable for a client row");
+    }
+    var legacy = row && row.owners ? String(row.owners).split(/,|&| e | and /)[0] : "";
+    return reminderTextFirstName(legacy);
 }
 
 // One Twilio REST call. Never throws -- returns { ok, sid, error }. Basic
@@ -51884,17 +51998,25 @@ async function reminderTextOptedOut(env, phoneE164) {
     return !!row;
 }
 
-// Sends one reminder text for one meeting + recipient, guarded by the
-// UNIQUE(session_id, recipient) key so it can never send twice even if two
-// cron ticks overlap. The row is inserted ONLY after Twilio accepted the
-// message (per the brief: "record the send only after Twilio accepted").
-// recipient is a stable key (person name or email), never the phone itself.
-async function reminderTextSend(env, sessionId, recipient, phoneE164, name, business, dateStr, timeStr, lang) {
+// Sends ONE text of one kind for one meeting + recipient.
+// o = { ref, recipient, phone, kind, lang, meetingAt, vars: {who,name,phone,date,time} }
+//   ref        the meeting reference: a sessions id, or "ge:<gm_events id>"
+//   recipient  a stable key (never the phone): "client:<id>" or "lead:<id>"
+//   meetingAt  "YYYY-MM-DD HH:MM", the meeting's own date and time at the moment of sending
+// Never sent twice: the claim row below is written BEFORE Twilio is called, and
+// UNIQUE (session_id, recipient, kind, meeting_at) lets the database decide when
+// two ticks overlap. A refused or failed send releases the claim so a later
+// tick can retry; a send Twilio accepted keeps it. A rescheduled meeting has a
+// new meetingAt, so it can get its change notice and its new reminder.
+async function reminderTextSend(env, o) {
     if (!reminderTextsConfigured(env)) { return { sent: false, reason: "not_configured" }; }
-    var already = await env.DB.prepare("SELECT 1 AS x FROM reminder_text_sends WHERE session_id = ? AND recipient = ?")
-        .bind(sessionId, recipient).first();
+    var kind = o.kind || "reminder";
+    var meetingAt = o.meetingAt || "";
+    var already = await env.DB.prepare(
+        "SELECT 1 AS x FROM reminder_text_sends WHERE session_id = ? AND recipient = ? AND kind = ? AND (meeting_at = ? OR meeting_at = '')"
+    ).bind(o.ref, o.recipient, kind, meetingAt).first();
     if (already) { return { sent: false, reason: "already_sent" }; }
-    if (await reminderTextOptedOut(env, phoneE164)) { return { sent: false, reason: "opted_out" }; }
+    if (await reminderTextOptedOut(env, o.phone)) { return { sent: false, reason: "opted_out" }; }
 
     var dayKey = sendCounterDayKey();
     var monthKey = sendCounterMonthKey();
@@ -51903,20 +52025,25 @@ async function reminderTextSend(env, sessionId, recipient, phoneE164, name, busi
     var monthlyCount = await sendCounterRead(env, "reminder_sms", monthKey);
     if (monthlyCount >= reminderSmsMonthlyCap(env)) { return { sent: false, reason: "monthly_cap" }; }
 
-    var template = lang === "en" ? REMINDER_TEXT_TEMPLATE_EN : REMINDER_TEXT_TEMPLATE_PT;
-    var body = reminderTextFill(template, name, business, dateStr, timeStr);
-    var r = await twilioSendSms(env, phoneE164, body);
+    // The claim. The database, not a read, decides a race.
+    var rowId = crypto.randomUUID();
+    var claim = await env.DB.prepare(
+        "INSERT OR IGNORE INTO reminder_text_sends (id, session_id, recipient, phone_e164, sent_at, twilio_sid, kind, meeting_at) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)"
+    ).bind(rowId, o.ref, o.recipient, o.phone, new Date().toISOString(), kind, meetingAt).run();
+    if (!claim.meta || !claim.meta.changes) { return { sent: false, reason: "already_sent" }; }
+
+    var body = reminderTextFill(kind, o.lang, o.vars);
+    var r = await twilioSendSms(env, o.phone, body);
     if (!r.ok) {
+        await env.DB.prepare("DELETE FROM reminder_text_sends WHERE id = ?").bind(rowId).run();
         if (r.error === "opted_out") {
             await env.DB.prepare("INSERT OR IGNORE INTO reminder_text_optouts (phone_e164, opted_out_at) VALUES (?, ?)")
-                .bind(phoneE164, new Date().toISOString()).run();
+                .bind(o.phone, new Date().toISOString()).run();
         }
         return { sent: false, reason: r.error };
     }
-    // Recorded only now, after Twilio accepted it.
-    await env.DB.prepare(
-        "INSERT INTO reminder_text_sends (id, session_id, recipient, phone_e164, sent_at, twilio_sid) VALUES (?, ?, ?, ?, ?, ?)"
-    ).bind(crypto.randomUUID(), sessionId, recipient, phoneE164, new Date().toISOString(), r.sid).run();
+    await env.DB.prepare("UPDATE reminder_text_sends SET twilio_sid = ?, sent_at = ? WHERE id = ?")
+        .bind(r.sid, new Date().toISOString(), rowId).run();
     var newDaily = await sendCounterIncrement(env, "reminder_sms", dayKey);
     var newMonthly = await sendCounterIncrement(env, "reminder_sms", monthKey);
     await sendCounterMaybeAlert(env, "reminder_sms", monthKey, newMonthly, reminderSmsMonthlyCap(env), "reminder text SMS (monthly)");
@@ -51928,21 +52055,441 @@ async function reminderTextSend(env, sessionId, recipient, phoneE164, name, busi
     return { sent: true, sid: r.sid };
 }
 
-// Text consent from the booking page. Only a customer who declined is skipped.
-// NULL (every booking made before the checkbox existed) and "agreed" both send,
-// exactly as before. The STOP handling in reminderTextSend is separate.
+// Text consent from the booking page. ONLY "agreed" is a yes. NULL (every
+// booking made before the checkbox existed), "declined", empty and anything
+// else never text.
 function reminderTextConsentAllows(status) {
-    return status !== "declined";
+    return status === "agreed";
 }
 
-// A hand-made meeting (calendar.html / client.html) texts only when ticked
-// at creation (sessions.send_text_reminder). A scheduling-page booking
-// ("Agendamento pelo cliente") is ALWAYS eligible -- no checkbox exists for
-// it because the brief's rule is unconditional for that path. Every other
-// origin (fireflies, an untagged row) is never eligible.
+// An admin meeting (calendar.html / client.html) texts only when ticked at
+// creation (sessions.send_text_reminder). A scheduling-link booking
+// ("Agendamento pelo cliente") texts only when a consent of "agreed" is
+// recorded for it; that flow records none, so it does not text. Every other
+// origin (fireflies, google_calendar, an untagged row) never texts.
 function sessionGetsTextReminder(s) {
-    if (String(s.created_by || "") === "Agendamento pelo cliente") { return true; }
+    var by = String(s.created_by || "");
+    if (by === "Agendamento pelo cliente") { return reminderTextConsentAllows(s.sms_consent_status); }
+    if (by === "" || by === "fireflies" || by === "google_calendar") { return false; }
     return !!s.send_text_reminder;
+}
+
+// Quiet hours: never between 9:00 PM and 8:00 AM on the business's local
+// clock. Returns { quiet, resumeMs }; resumeMs is the first 8:00 AM local at
+// or after now (as a real instant), so a held text goes out at the first cron
+// tick at or after it. The wall clock comes from apptRemWall (Intl, no offset
+// arithmetic); the 8:00 AM instant from tzWallToUtcMs, which handles the
+// clock change days.
+function reminderTextQuiet(nowMs, tz) {
+    var wall = apptRemWall(nowMs, tz);
+    var date = wall.slice(0, 10);
+    var mins = Number(wall.slice(11, 13)) * 60 + Number(wall.slice(14, 16));
+    if (mins >= REMINDER_TEXT_QUIET_END_MIN && mins < REMINDER_TEXT_QUIET_START_MIN) { return { quiet: false, resumeMs: nowMs }; }
+    var y = Number(date.slice(0, 4)), m = Number(date.slice(5, 7)), d = Number(date.slice(8, 10));
+    if (mins >= REMINDER_TEXT_QUIET_START_MIN) {
+        // Next calendar day: plain calendar arithmetic on the date, not on the clock.
+        var next = new Date(Date.UTC(y, m - 1, d + 1));
+        y = next.getUTCFullYear(); m = next.getUTCMonth() + 1; d = next.getUTCDate();
+    }
+    var zone = tz || APEX_TIMEZONE;
+    return { quiet: true, resumeMs: tzWallToUtcMs(y, m, d, 8, 0, zone) };
+}
+
+// ---- who is the meeting with, and may we text -------------------------------
+
+// The host of an admin meeting: first name and phone from the staff record
+// (users.display_name, users.phone) for the role that created the meeting.
+// Never invented: a missing phone stays null.
+async function reminderTextHost(env, createdBy) {
+    var role = APPT_REMINDER_OWNER_ROLE[String(createdBy || "")];
+    var name = reminderTextFirstName(createdBy);
+    var phone = null;
+    if (role) {
+        try {
+            var row = await env.DB.prepare(
+                "SELECT display_name, phone FROM users WHERE role = ? ORDER BY (phone IS NULL OR phone = ''), email LIMIT 1"
+            ).bind(role).first();
+            if (row) {
+                if (row.display_name && String(row.display_name).trim()) { name = reminderTextFirstName(row.display_name); }
+                phone = row.phone || null;
+            }
+        } catch (e) {
+            console.log("reminder text: staff phone not readable: " + (e && e.message));
+        }
+    }
+    return { name: name, phone: phone };
+}
+
+// Everything one meeting needs for a text, read fresh from the database.
+// ref is a sessions id, or "ge:<gm_events id>". Returns null when there is no
+// such live meeting. The result is plain data (safe to store as JSON for a
+// cancel notice, whose meeting is about to disappear).
+async function reminderTextFacts(env, ref) {
+    ref = String(ref || "");
+    if (ref.indexOf("ge:") === 0) {
+        var e = await env.DB.prepare(
+            "SELECT e.id, e.client_id, e.event_date, e.start_time, e.lead_id, e.all_day, " +
+            "c.name AS client_name, c.language AS language, c.timezone AS timezone, c.location_state AS location_state, " +
+            "c.phone AS client_phone, c.whatsapp AS client_whatsapp, c.owners AS owners, c.owners_json AS owners_json, " +
+            "l.telefone AS lead_phone, l.cliente AS lead_name, " +
+            "br.sms_consent_status AS sms_consent_status, br.customer_phone AS customer_phone " +
+            "FROM gm_events e JOIN clients c ON c.id = e.client_id LEFT JOIN gm_leads l ON l.id = e.lead_id " +
+            "LEFT JOIN gm_booking_requests br ON br.event_id = e.id AND br.client_id = e.client_id " +
+            "WHERE e.id = ? AND c.status IN ('active', 'paused') AND COALESCE(c.archived, 0) = 0"
+        ).bind(ref.slice(3)).first();
+        if (!e) { return null; }
+        var et = apptRemTime(e.start_time);
+        if (!e.lead_id || !et || e.all_day) { return null; }
+        return {
+            ref: ref, path: "booking", eligible: reminderTextConsentAllows(e.sms_consent_status),
+            client_id: e.client_id, recipient: "lead:" + e.lead_id,
+            zone: clientZoneFor(e), date: e.event_date, time: et, lang: reminderTextLang(e.language),
+            recipient_phone: e.customer_phone || e.lead_phone || null,
+            customer_name: e.lead_name || "",
+            who: String(e.client_name || ""), name: reminderTextOwnerFirst(e),
+            host_phone: e.client_phone || e.client_whatsapp || null
+        };
+    }
+    var s = await env.DB.prepare(
+        "SELECT id, client_id, client_name, date, time, created_by, send_text_reminder FROM sessions " +
+        "WHERE id = ? AND client_id IS NOT NULL AND status NOT IN ('discarded', 'cancelled', 'inbox', 'archived')" +
+        planClientAnd("client_id", "consulting")
+    ).bind(ref).first();
+    if (!s) { return null; }
+    var st = apptRemTime(s.time);
+    if (!st) { return null; }
+    var cp = await apptRemClientPhone(env, s.client_id);
+    var host = await reminderTextHost(env, s.created_by);
+    return {
+        ref: ref, path: "admin", eligible: sessionGetsTextReminder(s),
+        client_id: s.client_id, recipient: "client:" + s.client_id,
+        zone: APEX_TIMEZONE, date: s.date, time: st,
+        // Every Apex client speaks Portuguese: an admin meeting is ALWAYS texted in
+        // Portuguese, whatever clients.language says.
+        lang: "pt",
+        recipient_phone: cp ? cp.phone : null,
+        customer_name: s.client_name || "", created_by: s.created_by || "",
+        who: host.name, name: host.name, host_phone: host.phone
+    };
+}
+
+// Looks at a stored snapshot again just before a held text goes out: the
+// consent can have changed since it was captured. Meetings that no longer
+// exist cannot be re-read (a cancel notice); a booking's consent still can.
+async function reminderTextRefreshSnapshot(env, f) {
+    if (f && f.path === "booking" && String(f.ref).indexOf("ge:") === 0) {
+        var br = await env.DB.prepare("SELECT sms_consent_status FROM gm_booking_requests WHERE event_id = ? LIMIT 1")
+            .bind(String(f.ref).slice(3)).first();
+        f.eligible = !!br && reminderTextConsentAllows(br.sms_consent_status);
+    }
+    return f;
+}
+
+// The decision, with no database and no clock of its own. Returns
+//   { action: "skip", reason } | { action: "queue", sendAfterMs } | { action: "send", send: {...} }
+// reasons: no_meeting, not_eligible, switch_off, past, no_phone, no_callback_phone, quiet_hours
+function reminderTextDecide(env, kind, f, nowMs) {
+    if (!f) { return { action: "skip", reason: "no_meeting" }; }
+    if (!f.eligible) { return { action: "skip", reason: "not_eligible" }; }
+    if (!reminderTextSwitchOn(env, f.path)) { return { action: "skip", reason: "switch_off" }; }
+    // A past meeting never texts, of any kind.
+    if (!(f.date + " " + f.time > apptRemWall(nowMs, f.zone))) { return { action: "skip", reason: "past" }; }
+    var to = f.recipient_phone ? passkeyNormalizePhone(f.recipient_phone) : null;
+    if (!to || !to.e164 || passkeyCountryCode(to.e164) !== "1") { return { action: "skip", reason: "no_phone" }; }
+    var hostPhone = f.host_phone ? reminderTextFormatPhone(f.host_phone) : null;
+    if (!hostPhone || !String(f.name || "").trim() || !String(f.who || "").trim()) { return { action: "skip", reason: "no_callback_phone" }; }
+    var q = reminderTextQuiet(nowMs, f.zone);
+    if (q.quiet) {
+        if (kind === "reminder") { return { action: "skip", reason: "quiet_hours" }; }
+        return { action: "queue", sendAfterMs: q.resumeMs };
+    }
+    return {
+        action: "send",
+        send: {
+            ref: f.ref, recipient: f.recipient, phone: to.e164, kind: kind, lang: f.lang,
+            meetingAt: f.date + " " + f.time,
+            vars: { who: f.who, name: f.name, phone: hostPhone, date: apptRemDateMDY(f.date), time: apptRemFmt12(f.time) }
+        }
+    };
+}
+
+function reminderTextCount(out, reason, f) {
+    if (!out) { return; }
+    if (!out.text_skips) { out.text_skips = {}; }
+    out.text_skips[reason] = (out.text_skips[reason] || 0) + 1;
+    if (reason === "no_callback_phone" && f) {
+        if (!out.no_callback_phone) { out.no_callback_phone = []; }
+        var label = String(f.who || f.customer_name || f.client_id || f.ref);
+        if (out.no_callback_phone.indexOf(label) === -1) { out.no_callback_phone.push(label); }
+    }
+}
+
+// Holds a confirmation / change / cancel notice that came due in quiet hours.
+// The partial unique index (one pending row per kind + meeting + recipient) is
+// the guard: a second hold for the same thing is ignored by the database.
+// A change notice is not held when a confirmation for the same meeting is
+// already held: that confirmation names the new time itself.
+async function reminderTextHold(env, kind, f, sendAfterMs, nowMs) {
+    if (kind === "change") {
+        var conf = await env.DB.prepare(
+            "SELECT 1 AS x FROM reminder_text_queue WHERE status = 'pending' AND kind = 'confirmation' AND meeting_ref = ? AND recipient = ?"
+        ).bind(f.ref, f.recipient).first();
+        if (conf) { return { held: true, reason: "covered_by_confirmation" }; }
+    }
+    await env.DB.prepare(
+        "INSERT OR IGNORE INTO reminder_text_queue (id, kind, meeting_ref, recipient, created_at, send_after, status, payload) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)"
+    ).bind(crypto.randomUUID(), kind, f.ref, f.recipient, new Date(nowMs).toISOString(), new Date(sendAfterMs).toISOString(), JSON.stringify(f)).run();
+    return { held: true, reason: "quiet_hours_held" };
+}
+
+// The one entry point for every text. Never throws.
+//   kind: "reminder" | "confirmation" | "change" | "cancel"
+//   o: { nowMs, out, facts, fromQueue }
+//     facts  a stored snapshot (cancel notices, held notices); else read fresh
+// Returns { sent, held, retry, reason, sendAfterMs }.
+async function reminderTextDispatch(env, kind, ref, o) {
+    o = o || {};
+    try {
+        if (!reminderTextsEnabled(env)) { return { sent: false, reason: "off" }; }
+        var nowMs = o.nowMs || Date.now();
+        var f = o.facts || await reminderTextFacts(env, ref);
+        var d = reminderTextDecide(env, kind, f, nowMs);
+        if (d.action === "skip") {
+            reminderTextCount(o.out, d.reason, f);
+            return { sent: false, reason: d.reason };
+        }
+        if (d.action === "queue") {
+            if (o.fromQueue) { return { sent: false, retry: true, reason: "quiet_hours", sendAfterMs: d.sendAfterMs }; }
+            var h = await reminderTextHold(env, kind, f, d.sendAfterMs, nowMs);
+            if (o.out) { o.out.text_held = (o.out.text_held || 0) + 1; }
+            return { sent: false, held: true, reason: h.reason };
+        }
+        var r = await reminderTextSend(env, d.send);
+        if (r.sent) {
+            if (o.out) { o.out.texts_sent = (o.out.texts_sent || 0) + 1; }
+        } else {
+            reminderTextCount(o.out, r.reason, f);
+        }
+        return r;
+    } catch (err) {
+        console.log("reminder text (" + kind + ") failed: " + (err && err.message ? err.message : err));
+        return { sent: false, reason: "error" };
+    }
+}
+
+// Sends the held notices that are now allowed (first cron tick at or after
+// 8:00 AM local). ONE indexed read when nothing is due, and no read at all
+// while the texts are switched off. Each held row is claimed with a
+// conditional UPDATE, so two overlapping ticks cannot both send it, and the
+// meeting is checked again: still in the future, still a yes, nobody opted out.
+async function reminderTextQueueTick(env, nowMs) {
+    var out = { checked: false, sent: 0, dropped: 0, kept: 0 };
+    try {
+        if (!reminderTextsEnabled(env)) { return out; }
+        nowMs = nowMs || Date.now();
+        out.checked = true;
+        var due = await env.DB.prepare(
+            "SELECT id, kind, meeting_ref, payload FROM reminder_text_queue WHERE status = 'pending' AND send_after <= ? ORDER BY send_after LIMIT 25"
+        ).bind(new Date(nowMs).toISOString()).all();
+        var rows = due.results || [];
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            var claim = await env.DB.prepare("UPDATE reminder_text_queue SET status = 'sending' WHERE id = ? AND status = 'pending'").bind(row.id).run();
+            if (!claim.meta || !claim.meta.changes) { continue; }
+            var facts = null;
+            if (row.kind === "cancel") {
+                try { facts = JSON.parse(row.payload || "null"); } catch (pe) { facts = null; }
+                if (facts) { facts = await reminderTextRefreshSnapshot(env, facts); }
+            } else {
+                facts = await reminderTextFacts(env, row.meeting_ref);
+            }
+            var r = await reminderTextDispatch(env, row.kind, row.meeting_ref, { nowMs: nowMs, facts: facts, fromQueue: true });
+            if (r.sent) {
+                await env.DB.prepare("UPDATE reminder_text_queue SET status = 'sent' WHERE id = ?").bind(row.id).run();
+                out.sent++;
+            } else if (r.retry || r.reason === "daily_cap" || r.reason === "monthly_cap" || r.reason === "network" || /^twilio_/.test(String(r.reason))) {
+                // Still held: try again at the next tick that is allowed.
+                var again = r.sendAfterMs || (nowMs + 15 * 60000);
+                // The partial unique index allows one pending row per kind + meeting +
+                // recipient: if another identical one is already held, this one is dropped.
+                var back = await env.DB.prepare("UPDATE OR IGNORE reminder_text_queue SET status = 'pending', send_after = ? WHERE id = ?")
+                    .bind(new Date(again).toISOString(), row.id).run();
+                if (back.meta && back.meta.changes) { out.kept++; }
+                else {
+                    await env.DB.prepare("UPDATE reminder_text_queue SET status = 'dropped' WHERE id = ?").bind(row.id).run();
+                    out.dropped++;
+                }
+            } else {
+                await env.DB.prepare("UPDATE reminder_text_queue SET status = 'dropped' WHERE id = ?").bind(row.id).run();
+                out.dropped++;
+            }
+        }
+    } catch (err) {
+        out.error = String(err && err.message ? err.message : err);
+        console.log("reminder text queue failed: " + out.error);
+    }
+    return out;
+}
+
+// ---- hooks for the routes that create, move or cancel a meeting ----------------
+
+// Before a session route changes dates: remembers date and time of the
+// meeting (and the rest of its series). Costs nothing while texts are off.
+async function reminderTextSessionsBefore(env, session) {
+    if (!reminderTextsEnabled(env) || !session) { return null; }
+    try {
+        var rows = await env.DB.prepare(
+            "SELECT id, date, time FROM sessions WHERE id = ? OR (series_id IS NOT NULL AND series_id = ?)"
+        ).bind(session.id, session.series_id || "").all();
+        var map = {};
+        (rows.results || []).forEach(function(r) { map[r.id] = r.date + " " + r.time; });
+        return map;
+    } catch (e) {
+        console.log("reminder text: could not read sessions before a change: " + (e && e.message));
+        return null;
+    }
+}
+
+// After a session route moved dates: a change notice for the soonest meeting
+// whose date or time really changed (a whole series moving gets ONE notice).
+async function reminderTextSessionsChanged(env, before) {
+    if (!before) { return; }
+    try {
+        var ids = Object.keys(before);
+        var moved = [];
+        for (var i = 0; i < ids.length; i++) {
+            var f = await reminderTextFacts(env, ids[i]);
+            if (f && (f.date + " " + f.time) !== before[ids[i]] && f.eligible) { moved.push(f); }
+        }
+        moved.sort(function(a, b) { return (a.date + a.time) < (b.date + b.time) ? -1 : 1; });
+        for (var j = 0; j < moved.length; j++) {
+            var r = await reminderTextDispatch(env, "change", moved[j].ref, { facts: moved[j] });
+            if (r.sent || r.held) { break; }
+        }
+    } catch (e) {
+        console.log("reminder text: change notice failed: " + (e && e.message));
+    }
+}
+
+// Before a meeting is removed or cancelled: a snapshot per meeting (a cancel
+// notice cannot read a meeting that is gone). Costs nothing while texts are off.
+async function reminderTextSnapshots(env, refs) {
+    if (!reminderTextsEnabled(env)) { return []; }
+    var snaps = [];
+    try {
+        for (var i = 0; i < refs.length; i++) {
+            var f = await reminderTextFacts(env, refs[i]);
+            if (f && f.eligible) { snaps.push(f); }
+        }
+        snaps.sort(function(a, b) { return (a.date + a.time) < (b.date + b.time) ? -1 : 1; });
+    } catch (e) {
+        console.log("reminder text: could not snapshot before a cancel: " + (e && e.message));
+    }
+    return snaps;
+}
+
+// After the cancel is saved: ONE notice (for the soonest meeting still ahead).
+async function reminderTextCancelled(env, snaps) {
+    try {
+        for (var i = 0; i < (snaps || []).length; i++) {
+            var r = await reminderTextDispatch(env, "cancel", snaps[i].ref, { facts: snaps[i] });
+            if (r.sent || r.held) { break; }
+        }
+    } catch (e) {
+        console.log("reminder text: cancel notice failed: " + (e && e.message));
+    }
+}
+
+async function reminderTextConfirmed(env, ref) {
+    await reminderTextDispatch(env, "confirmation", ref, {});
+}
+
+// A booking-link meeting moved (by the customer or by staff): one change
+// notice naming the new date and time, read fresh.
+async function reminderTextChangedEvent(env, ref) {
+    await reminderTextDispatch(env, "change", ref, {});
+}
+
+// ---- replies --------------------------------------------------------------
+// Twilio calls POST /api/twilio/inbound when a customer answers a text. The
+// words Twilio handles itself are ignored here. "1" confirms the meeting; any
+// other reply goes to the host or owner as a push and is logged. The answer to
+// Twilio is always an empty TwiML response, so no automatic reply goes out,
+// and no reply cancels a meeting.
+var TWILIO_INBOUND_IGNORE = ["STOP", "HELP", "START", "UNSTOP", "CANCEL", "END", "QUIT", "UNSUBSCRIBE"];
+
+function reminderTextTwiml() {
+    return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
+}
+
+async function reminderTextHostTargets(env, f) {
+    if (!f) { return { targets: [], lang: "pt", url: "/calendar.html" }; }
+    if (f.path === "booking") {
+        return {
+            targets: await gmClientPushTargets(env, f.client_id, { owner: true }),
+            lang: await gmOwnerPushLang(env, f.client_id), url: "/portal.html?tab=gmcalendar"
+        };
+    }
+    var role = APPT_REMINDER_OWNER_ROLE[String(f.created_by || "")];
+    return { targets: role ? await apptRemRoleEmails(env, {}, role) : [], lang: "pt", url: "/calendar.html" };
+}
+
+async function reminderTextHandleReply(env, fromE164, text, messageSid, nowMs) {
+    nowMs = nowMs || Date.now();
+    var since = new Date(nowMs - 48 * 3600000).toISOString();
+    var last = await env.DB.prepare(
+        "SELECT session_id FROM reminder_text_sends WHERE phone_e164 = ? AND kind = 'reminder' AND twilio_sid IS NOT NULL AND sent_at >= ? ORDER BY sent_at DESC LIMIT 1"
+    ).bind(fromE164, since).first();
+    var ref = last ? last.session_id : null;
+    var isConfirm = !!ref && text === "1";
+    var kind = isConfirm ? "confirm" : (ref ? "reply" : "unmatched");
+    // The database decides a repeat: the same Twilio message is stored once,
+    // and one confirmation per meeting and phone.
+    var ins = await env.DB.prepare(
+        "INSERT OR IGNORE INTO reminder_text_replies (id, phone_e164, session_ref, kind, body, received_at, forwarded, message_sid) VALUES (?, ?, ?, ?, ?, ?, 0, ?)"
+    ).bind(crypto.randomUUID(), fromE164, ref, kind, text.slice(0, 1000), new Date(nowMs).toISOString(), messageSid || null).run();
+    if (!ins.meta || !ins.meta.changes || !ref) { return { stored: !!(ins.meta && ins.meta.changes), pushed: false, kind: kind }; }
+
+    var f = await reminderTextFacts(env, ref);
+    var host = await reminderTextHostTargets(env, f);
+    if (!host.targets.length) { return { stored: true, pushed: false, kind: kind }; }
+    var en = host.lang === "en";
+    var who = f && f.customer_name ? f.customer_name : (en ? "A customer" : "Um cliente");
+    var when = f ? apptRemDateMDY(f.date) + (en ? " at " : " às ") + apptRemFmt12(f.time) : "";
+    var payload = isConfirm
+        ? { title: en ? "Customer confirmed" : "Cliente confirmou",
+            body: (who + (en ? " confirmed " : " confirmou ") + when).slice(0, 160) }
+        : { title: en ? "Customer replied" : "Cliente respondeu",
+            body: (who + (when ? " (" + when + ")" : "") + ": " + text).slice(0, 160) };
+    payload.url = host.url;
+    payload.tag = "reply-" + ref;
+    var pr = await pushToUsers(env, host.targets, payload);
+    var pushed = !!(pr && pr.sent > 0);
+    if (pushed) {
+        await env.DB.prepare("UPDATE reminder_text_replies SET forwarded = 1 WHERE phone_e164 = ? AND session_ref = ? AND kind = ? AND body = ? AND received_at = ?")
+            .bind(fromE164, ref, kind, text.slice(0, 1000), new Date(nowMs).toISOString()).run();
+    }
+    return { stored: true, pushed: pushed, kind: kind };
+}
+
+async function handlePostTwilioInbound(request, env) {
+    var secret = String((env && env.TWILIO_INBOUND_TOKEN) || "");
+    var given = "";
+    try { given = new URL(request.url).searchParams.get("token") || ""; } catch (e) { given = ""; }
+    if (!secret || !stripeConstantTimeEqual(given, secret)) {
+        return new Response("Forbidden", { status: 403 });
+    }
+    try {
+        var form = new URLSearchParams(await request.text());
+        var norm = passkeyNormalizePhone(form.get("From") || "");
+        var text = String(form.get("Body") || "").trim();
+        if (norm && norm.e164 && text && TWILIO_INBOUND_IGNORE.indexOf(text.toUpperCase()) === -1) {
+            await reminderTextHandleReply(env, norm.e164, text, form.get("MessageSid") || null);
+        }
+    } catch (err) {
+        console.log("twilio inbound failed: " + (err && err.message ? err.message : err));
+    }
+    return reminderTextTwiml();
 }
 
 // ---------------------------------------------------------------------------
@@ -52174,19 +52721,13 @@ async function runAppointmentReminders(env, opts) {
                 };
                 if (dry) { out.staff.push({ id: s.id, name: s.client_name, when: s.date + " " + s.time, owner: s.created_by, role: role, recipients: emails.length }); continue; }
                 await apptRemSend(env, "apptrem:s:" + s.id + ":" + leadMin, emails, payload, out);
-                // Task 1.5: text reminder, SAME timing (one hour before) as
-                // the push above. Only for a meeting WITH the client -- the
-                // scheduling-page booking path is always eligible; a
-                // hand-made meeting needs its checkbox ticked.
-                if (leadMin === 60 && sessionGetsTextReminder(s) && s.client_id) {
-                    var cp = await apptRemClientPhone(env, s.client_id);
-                    if (cp && cp.phone) {
-                        var hostName = await apptRemStaffDisplayName(env, roleCache, role || "rafa");
-                        await reminderTextSend(
-                            env, s.id, "client:" + s.client_id, cp.phone, hostName, "Apex",
-                            apptRemDateMDY(s.date), apptRemFmt12(s.time), cp.language
-                        );
-                    }
+                // Text reminder, SAME timing (one hour before) as the push
+                // above. Only an admin meeting whose staff box was ticked at
+                // creation (or a scheduling-link booking with a recorded
+                // "agreed", which does not exist today). Every other rule
+                // (switches, quiet hours, host phone) lives in the dispatcher.
+                if (leadMin === 60 && s.client_id && sessionGetsTextReminder(s)) {
+                    await reminderTextDispatch(env, "reminder", s.id, { nowMs: nowMs, out: out });
                 }
             }
 
@@ -52205,20 +52746,10 @@ async function runAppointmentReminders(env, opts) {
                 };
                 if (dry) { out.clients.push({ id: e.id, client_id: e.client_id, title: e.title, when: e.date + " " + e.time, recipients: targets.length }); continue; }
                 await apptRemSend(env, "apptrem:g:" + e.id + ":" + leadMin, targets, cpayload, out);
-                // Task 1.5: a client-portal booking (book.html -> gm_events
-                // with a lead_id) always texts the customer who booked --
-                // SAME timing as the push above, no checkbox (this path has
-                // no hand-made-meeting form to put one on).
-                if (leadMin === 60 && e.lead_id && e.lead_phone && reminderTextConsentAllows(e.sms_consent_status)) {
-                    var leadPhoneNorm = passkeyNormalizePhone(e.lead_phone);
-                    if (leadPhoneNorm.e164 && passkeyCountryCode(leadPhoneNorm.e164) === "1") {
-                        var ownerFirst = e.owners ? String(e.owners).split(/,|&| e | and /)[0].trim() : "";
-                        await reminderTextSend(
-                            env, "ge:" + e.id, "lead:" + e.lead_id, leadPhoneNorm.e164,
-                            ownerFirst || e.client_name, e.client_name,
-                            apptRemDateMDY(e.date), apptRemFmt12(e.time), e.language
-                        );
-                    }
+                // A booking-link meeting (book.html -> gm_events with a
+                // lead_id) texts the customer ONLY with a recorded "agreed".
+                if (leadMin === 60 && e.lead_id && reminderTextConsentAllows(e.sms_consent_status)) {
+                    await reminderTextDispatch(env, "reminder", "ge:" + e.id, { nowMs: nowMs, out: out });
                 }
             }
         }
@@ -56055,6 +56586,8 @@ async function bkConfirm(env, ctx, body, nowMs) {
         }
         smsConsent = body.sms_consent_status;
     }
+    // A text needs a number to go to: "agreed" with no phone anywhere is refused.
+    if (smsConsent === "agreed" && !phone) { return bkErr(400, "Informe seu telefone para receber mensagens de texto, ou desmarque a caixa.", "Please enter your phone number to get text messages, or untick the box."); }
     var smsConsentAt = smsConsent ? new Date().toISOString() : null;
     var cleaned = bkCleanAnswers(s, body.answers);
     if (cleaned.error) { return cleaned.error; }
@@ -56125,6 +56658,8 @@ async function bkConfirm(env, ctx, body, nowMs) {
         var eventId = await bkCreateEvent(env, ctx, lead, reqRow, date, time, endTime, bkAnswersLines(cleaned.answers, s, lang));
         await env.DB.prepare("UPDATE gm_booking_requests SET event_id = ? WHERE id = ?").bind(eventId, reqId).run();
         await bkPush(env, ctx.clientId, lead, lang, "Visita agendada", "Visit booked", name, date, time);
+        // Confirmation text: only when the customer ticked the consent box.
+        await reminderTextConfirmed(env, "ge:" + eventId);
         var done = await env.DB.prepare("SELECT * FROM gm_booking_requests WHERE id = ?").bind(reqId).first();
         return { status: 200, data: { booked: true, token: done.token, booking: bkBookingView(done, tz) } };
     } catch (e2) {
@@ -56180,6 +56715,8 @@ async function bkChange(env, ctx, body, nowMs) {
             .bind(est, BK_ACTOR, lead.id, ctx.clientId).run();
         await gmLogLeadEvents(env, ctx.clientId, lead.id, BK_ACTOR, [{ action: "updated", field: "data_estimate", old_value: lead.data_estimate, new_value: est }]);
         await bkPush(env, ctx.clientId, lead, ctx.client.language, "Horário da visita alterado", "Visit time changed", req.customer_name || lead.cliente, date, time);
+        // Change notice (the facts are read now, so it names the NEW time).
+        if (req.event_id && (req.slot_date !== date || req.slot_time !== time)) { await reminderTextChangedEvent(env, "ge:" + req.event_id); }
     } catch (e2) { console.error("booking change follow-up failed", e2 && e2.message); }
     var done = await env.DB.prepare("SELECT * FROM gm_booking_requests WHERE id = ?").bind(req.id).first();
     return { status: 200, data: { booked: true, booking: bkBookingView(done, tz) } };
@@ -56192,6 +56729,8 @@ async function bkCancel(env, ctx) {
     var req = ctx.req;
     if (!req || (req.status !== "booked" && req.status !== "waiting")) { return bkErr(409, "Nada para cancelar.", "Nothing to cancel."); }
     var wasBooked = req.status === "booked";
+    // Cancel notice: read BEFORE the calendar entry is deleted.
+    var cancelSnaps = (wasBooked && req.event_id) ? await reminderTextSnapshots(env, ["ge:" + req.event_id]) : [];
     await env.DB.prepare("UPDATE gm_booking_requests SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?").bind(req.id).run();
     if (wasBooked) {
         try {
@@ -56205,6 +56744,7 @@ async function bkCancel(env, ctx) {
             }
             await bkPush(env, ctx.clientId, lead, ctx.client.language, "Visita cancelada", "Visit cancelled", req.customer_name || (lead && lead.cliente) || "", req.slot_date, req.slot_time);
         } catch (e) { console.error("booking cancel follow-up failed", e && e.message); }
+        await reminderTextCancelled(env, cancelSnaps);
     }
     return { status: 200, data: { cancelled: true } };
 }
@@ -61306,6 +61846,12 @@ export default {
         ctx.waitUntil(runAppointmentReminders(env).catch(function(e) {
             console.log("appointment reminders failed: " + (e && e.message));
         }));
+        // Held text notices (confirmation, change, cancel that came due in
+        // quiet hours) go out at the first tick at or after 8:00 AM local.
+        // One indexed read per tick, none while the texts are off.
+        ctx.waitUntil(reminderTextQueueTick(env).catch(function(e) {
+            console.log("reminder text queue failed: " + (e && e.message));
+        }));
         // Passkey login completion, Change G.5: purge login_activity rows
         // older than 120 days. Runs on every 5-minute tick but is a no-op
         // past the first hit of a UTC day (login_maintenance marker row), so
@@ -61844,6 +62390,7 @@ async function handleFetch(request, env, ctx) {
         }
         if (path === "/api/fireflies/webhook"    && method === "POST") { return handleFirefliesWebhook(request, env); }
         if (path === "/api/stripe/webhook"       && method === "POST") { return handleStripeWebhook(request, env); }
+        if (path === "/api/twilio/inbound"       && method === "POST") { return handlePostTwilioInbound(request, env); }
         if (path === "/api/fireflies/transcripts" && method === "GET")  { return handleGetFirefliesTranscripts(request, env); }
         if (path === "/api/fireflies/pull"        && method === "POST") { return handlePostFirefliesPull(request, env); }
         if (path === "/api/fireflies/dismiss"     && method === "POST") { return handlePostFirefliesDismiss(request, env); }
@@ -73357,7 +73904,8 @@ async function handlePostDevReminderTextTest(request, env) {
         return jsonErr2("Nenhum telefone cadastrado para você.", "No phone on file for you.", 400);
     }
     var sent = await twilioSendSms(env, phone.e164,
-        reminderTextFill(REMINDER_TEXT_TEMPLATE_PT, "Rafael Prata", "Apex", apptRemDateMDY(easternDateStr(0)), "5:00 PM"));
+        reminderTextFill("reminder", "pt", { who: "Nicole", name: "Nicole", phone: reminderTextFormatPhone(phone.e164) || "",
+            date: apptRemDateMDY(easternDateStr(0)), time: "5:00 PM" }));
     if (!sent.ok) {
         return jsonErr2("Falha no envio: " + sent.error, "Send failed: " + sent.error, 500);
     }

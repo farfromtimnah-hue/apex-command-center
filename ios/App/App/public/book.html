@@ -160,6 +160,7 @@
       "Choose a day and time": "Elegir día y horario",
       "Please enter your name.": "Ingrese su nombre.",
       "Please enter your phone number.": "Ingrese su teléfono.",
+      "Please enter your phone number to get text messages, or untick the box.": "Ingrese su teléfono para recibir mensajes de texto, o desmarque la casilla.",
       "Please enter the address for the visit.": "Ingrese la dirección de la visita.",
       "Pick a different time": "Elegir otro horario",
       "Choose a day": "Elija un día",
@@ -352,11 +353,16 @@
     // ---- step 1: details and questions ----
     var FIELDS = [["name", "Nome", "Name", "text"], ["phone", "Telefone", "Phone", "tel"], ["email", "E-mail", "Email", "email"], ["address", "Endere\u00e7o da visita", "Address for the visit", "text"], ["city", "Cidade", "City", "text"]];
 
-    function isRequired(key) { return key === "address" || (D.kind === "general" && (key === "name" || key === "phone")); }
+    function isRequired(key) { return key === "address" || key === "name" || (D.kind === "general" && key === "phone"); }
+
+    // A value the lead already has, ignoring stray spaces. The known row is
+    // decided by this alone (not by comparing text, so a phone saved with dashes
+    // or a name with a trailing space can never turn a known field into an empty input).
+    function leadHas(key) { return D.kind === "lead" && !!D.customer && String(D.customer[key] == null ? "" : D.customer[key]).trim() !== ""; }
 
     function fieldHtml(f) {
       var key = f[0];
-      var known = D.kind === "lead" && D.customer[key] && !editing[key] && cust[key] === D.customer[key];
+      var known = leadHas(key) && !editing[key];
       var label = T(f[1], f[2]);
       if (known) {
         return '<div class="known"><div class="kv"><div class="kl">' + escHtml(label) + '</div>' + escHtml(key === "phone" ? fmtPhone(cust[key]) : cust[key]) + '</div>' +
@@ -456,6 +462,8 @@
     function missingText() {
       if (!cust.name) { return T("Informe seu nome.", "Please enter your name."); }
       if (D.kind === "general" && !cust.phone) { return T("Informe seu telefone.", "Please enter your phone number."); }
+      // The text box is never required, but a text needs a phone number to go to.
+      if (smsConsent && !cust.phone) { return T("Informe seu telefone para receber mensagens de texto, ou desmarque a caixa.", "Please enter your phone number to get text messages, or untick the box."); }
       if (!cust.address) { return T("Informe o endere\u00e7o da visita.", "Please enter the address for the visit."); }
       return "";
     }
@@ -729,7 +737,12 @@
     }
 
     function seed() {
-      cust = { name: D.customer.name || "", phone: D.customer.phone || "", email: D.customer.email || "", address: D.customer.address || "", city: D.customer.city || "" };
+      var c = D.customer || {};
+      function t(v) { return String(v == null ? "" : v).trim(); }
+      cust = { name: t(c.name), phone: t(c.phone), email: t(c.email), address: t(c.address), city: t(c.city) };
+      // A new load starts clean: nothing a previous customer in this tab opened or ticked carries over.
+      editing = {};
+      smsConsent = false;
       answers = {};
       D.questions.forEach(function(q) { if (q.value !== "" && q.value != null) { answers[q.key] = q.value; } });
     }

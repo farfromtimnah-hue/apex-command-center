@@ -26,7 +26,9 @@ const block = workerSrc.slice(blockStart, blockEnd);
 const bkNames = [...block.matchAll(/^(?:async )?function ((?:bk|handle\w*Booking)\w*)\(/gm)].map((m) => m[1]);
 const helpers = ["schedMinutes", "schedHHMM", "schedAddDays", "schedDayOfWeek", "fmtTime12", "tzOffsetMs", "tzShortLabel", "gmStr", "gmNum", "gmDateStr", "gmTimeStr",
   "gmReferralSlug", "gmEstNewToken", "gmNyNowParts", "gmOwnedRow", "gmInsertLead", "gmLogLeadEvents", "tzIsValid", "tzParts", "tzPad2", "tzLocalNowStamp", "tzZoneForState", "clientZoneFor", "resolveRequestZone", "gmGetConfig", "gmParseJsonList", "gmParseJsonListNonEmpty", "gmDocSettingsOwnerOnly", "sessionSellerName", "sellerCanActOnLead", "logoVersionParam",
-  "docPrettyLink", "docLinkTarget", "docLinkSlugPart", "docLinkRandom", "gmOpeningBalanceAvailable"];
+  "docPrettyLink", "docLinkTarget", "docLinkSlugPart", "docLinkRandom", "gmOpeningBalanceAvailable",
+  // texts for meetings: switched off in this test, so each returns at once
+  "reminderTextsEnabled", "reminderTextDispatch", "reminderTextConfirmed", "reminderTextSnapshots", "reminderTextCancelled", "reminderTextChangedEvent"];
 const vars = ["TZ_STATE_ZONES", "TZ_STATE_NAMES", "BK_STEP_MIN", "BK_ACTOR", "BK_QTYPES", "BK_PRESETS", "BK_INACTIVE", "BRAZIL_TZ_LABELS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS", "GM_MONTH_NAMES_PT", "GM_DEFAULT_FINANCE_CATEGORIES", "GM_DEFAULT_VIEW_THRESHOLD", "APEX_TIMEZONE", "DEFAULT_ORIGIN", "DOC_LINK_ORIGIN", "DOC_LINK_PAGES", "DOC_LINK_LABELS"];
 
 function bkWorld() {
@@ -98,7 +100,7 @@ await section(async () => {
   }
 });
 
-// ── 2. the reminder sender skips only declined ─────────────────────────────
+// ── 2. the reminder sender texts ONLY a recorded "agreed" (changed 2026-11-10: NULL no longer texts) ──
 const RFNS = ["apptRemWall", "apptRemTime", "apptRemFmt12", "apptRemDateMDY", "apptRemLead", "apptRemFindSessions", "apptRemFindClientEvents", "apptRemRoleEmails", "apptRemSend",
   "apptRemClientPhone", "apptRemStaffDisplayName", "sessionGetsTextReminder", "runAppointmentReminders", "reminderTextConsentAllows", "passkeyNormalizePhone", "passkeyCountryCode",
   "planClientAnd", "clientZoneFor", "tzIsValid", "tzZoneForState", "tzParts", "tzPad2", "tzOffsetMs"];
@@ -117,7 +119,7 @@ function remWorld() {
   const stubs = Object.assign({}, baseStubs, {
     pushToUsers: async () => ({ sent: 1, failed: 0, total: 1 }),
     gmClientPushTargets: async (env, clientId) => ["login:" + clientId],
-    reminderTextSend: async (env, sessionId, recipient, phone) => { texts.push({ sessionId, recipient, phone }); return { sent: true }; }
+    reminderTextDispatch: async (env, kind, ref) => { texts.push({ sessionId: ref, kind }); return { sent: true }; }
   });
   const F = build(RFNS.filter(hasFn), RVARS.filter(hasVar), stubs);
   return { d, env: { DB: d.DB }, F, texts };
@@ -142,14 +144,33 @@ await section(async () => {
   const out = await w.F.runAppointmentReminders(w.env, { nowMs: RNOW });
   ok(!out.error, "the reminder runner finishes without an error");
   const sentTo = w.texts.map((t) => t.sessionId).sort().join(",");
-  ok(sentTo === "ge:ev2,ge:ev3", "reminder texts go to agreed and NULL, never to declined (sent: " + sentTo + ")");
+  ok(sentTo === "ge:ev2", "reminder texts go ONLY to agreed, never to declined or NULL (sent: " + sentTo + ")");
 });
 await section(async () => {
   const w = remWorld();
-  ok(w.F.reminderTextConsentAllows("declined") === false, "helper: declined is the only status that blocks");
-  ok(["agreed", null, undefined, ""].every((s) => w.F.reminderTextConsentAllows(s) === true), "helper: agreed, NULL, undefined and empty all allow (existing rows keep working)");
+  ok(w.F.reminderTextConsentAllows("agreed") === true, "helper: agreed allows");
+  ok(["declined", null, undefined, "", "AGREED", "yes", 1].every((s) => w.F.reminderTextConsentAllows(s) === false), "helper: declined, NULL, undefined, empty and anything else never allow");
   const send = workerSrc.slice(workerSrc.indexOf("async function reminderTextSend("), workerSrc.indexOf("function sessionGetsTextReminder"));
   ok(/reminder_text_optouts/.test(send), "the STOP handling (reminder_text_optouts) is still checked inside reminderTextSend");
+});
+
+// ── 3. lead link: the page's data, and consent recorded against the lead's phone ──
+await section(async () => {
+  const w = bkWorld();
+  const a = await freshLead(w);
+  const view = await w.F.bkPublicView(w.env, a.ctx, "https://x.test", NOW);
+  ok(view.customer.first_name === "Maria" && view.customer.phone === "(555) 111-2222" && view.customer.address === "12 Oak St", "the lead's page data: first name, phone and address come from the lead");
+  const r = await w.F.bkConfirm(w.env, a.ctx, book({ sms_consent_status: "agreed", customer: { name: "Maria Silva", phone: "(555) 111-2222", address: "12 Oak St" } }), NOW);
+  const row = w.d.q("SELECT sms_consent_status, customer_phone FROM gm_booking_requests WHERE id = '" + a.rid + "'")[0];
+  ok(r.status === 200 && row.sms_consent_status === "agreed" && row.customer_phone === "(555) 111-2222", "agreed is saved against the lead's phone");
+  w.d.raw.exec("INSERT INTO gm_leads (id, client_id, cliente, address, origem, estagio) VALUES ('LNP','c1','Ana Lima','1 A St','Site','novo_lead')");
+  w.d.raw.exec("INSERT INTO gm_booking_requests (id, token, client_id, lead_id, kind, status) VALUES ('RNP','" + "n".repeat(48) + "','c1','LNP','lead','waiting')");
+  const ctx = await w.F.bkResolve(w.env, "lead", "n".repeat(48));
+  const r2 = await w.F.bkConfirm(w.env, ctx, book({ sms_consent_status: "agreed", customer: { name: "Ana Lima", address: "1 A St" } }), NOW);
+  const st = w.d.q("SELECT status, sms_consent_status FROM gm_booking_requests WHERE id = 'RNP'")[0];
+  ok(r2.status === 400 && st.status === "waiting" && st.sms_consent_status === null, "agreed with no phone anywhere is refused and nothing is saved");
+  const r3 = await w.F.bkConfirm(w.env, ctx, book({ sms_consent_status: "declined", slot_time: "14:00", customer: { name: "Ana Lima", address: "1 A St" } }), NOW);
+  ok(r3.status === 200, "declined with no phone still books");
 });
 
 console.log("\n" + pass + " passed, " + fail + " failed");

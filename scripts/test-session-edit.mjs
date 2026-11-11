@@ -123,6 +123,11 @@ const scope = {
   // Cancelling a session also frees any scheduling-link booking tied to it (an
   // unrelated D1 write, added 2026-08-12). Stubbed so DB_WRITES stays the session row only.
   async schedReleaseBookingForSession() {},
+  // Texts for meetings are switched off in this test (nothing to send): the routes call these and they do nothing.
+  async reminderTextSessionsBefore() { return null; },
+  async reminderTextSessionsChanged() {},
+  async reminderTextSnapshots() { return []; },
+  async reminderTextCancelled() {},
 };
 
 const factory = new Function(...Object.keys(scope), src + "\n;return { handlePatchSessionDetails, resolveScope, handlePostSessionCancel };");

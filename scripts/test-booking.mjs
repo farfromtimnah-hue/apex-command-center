@@ -24,7 +24,9 @@ const block = workerSrc.slice(blockStart, blockEnd);
 const names = [...block.matchAll(/^(?:async )?function ((?:bk|handle\w*Booking)\w*)\(/gm)].map((m) => m[1]);
 const helpers = ["schedMinutes", "schedHHMM", "schedAddDays", "schedDayOfWeek", "fmtTime12", "tzOffsetMs", "tzShortLabel", "gmStr", "gmNum", "gmDateStr", "gmTimeStr",
   "gmReferralSlug", "gmEstNewToken", "gmNyNowParts", "gmOwnedRow", "gmInsertLead", "gmLogLeadEvents", "tzIsValid", "tzParts", "tzPad2", "tzLocalNowStamp", "tzZoneForState", "clientZoneFor", "resolveRequestZone", "gmGetConfig", "gmParseJsonList", "gmParseJsonListNonEmpty", "gmDocSettingsOwnerOnly", "sessionSellerName", "sellerCanActOnLead", "logoVersionParam",
-  "gmOpeningBalanceAvailable", "docPrettyLink", "docLinkTarget", "docLinkSlugPart", "docLinkRandom"];
+  "gmOpeningBalanceAvailable",
+  // texts for meetings: switched off in this test, so each returns at once
+  "reminderTextsEnabled", "reminderTextDispatch", "reminderTextConfirmed", "reminderTextSnapshots", "reminderTextCancelled", "reminderTextChangedEvent", "docPrettyLink", "docLinkTarget", "docLinkSlugPart", "docLinkRandom"];
 const vars = ["gmOpeningColumnsKnown", "gmOpeningColumnsCheckedAt", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "BK_STEP_MIN", "BK_ACTOR", "BK_QTYPES", "BK_PRESETS", "BK_INACTIVE", "BRAZIL_TZ_LABELS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS", "GM_MONTH_NAMES_PT", "GM_DEFAULT_FINANCE_CATEGORIES", "GM_DEFAULT_VIEW_THRESHOLD", "APEX_TIMEZONE", "DEFAULT_ORIGIN", "DOC_LINK_ORIGIN", "DOC_LINK_PAGES", "DOC_LINK_LABELS"];
 
 function world() {

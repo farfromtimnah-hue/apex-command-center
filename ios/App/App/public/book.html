@@ -568,6 +568,7 @@
         var hp = byId("f_website");
         body.website = (hp && hp.value) || "";
         body.sms_consent_status = smsConsent ? "agreed" : "declined";
+        body.customer_language = lang;
         body.elapsed_ms = Date.now() - loadedAt;
       }
       postJson(path, body).then(function(r) {

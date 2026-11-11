@@ -62,6 +62,7 @@ function world(envOverrides, opts) {
   readFileSync(new URL("../migrations/2026-11-10_meeting_texts.sql", import.meta.url), "utf8").replace(/^\s*--[^\n]*$/gm, "").split(";").forEach((st) => {
     if (st.trim()) { d.raw.exec(st); }
   });
+  readFileSync(new URL("../migrations/2026-11-10_gm_events_customer_language.sql", import.meta.url), "utf8").replace(/^\s*--[^\n]*$/gm, "").split(";").forEach((st) => { if (st.trim()) { d.raw.exec(st); } });
   for (const c of ["location_state", "owners", "owners_json", "phone", "whatsapp"]) {
     const have = d.raw.prepare("PRAGMA table_info(clients)").all().map((x) => x.name);
     if (have.indexOf(c) < 0) { d.raw.exec("ALTER TABLE clients ADD COLUMN " + c + " TEXT"); }
@@ -95,9 +96,9 @@ function addSession(w, id, o) {
     .run(id, "Client " + id, o.client, o.date, o.time, "online_meet", o.status, o.by, o.ticked, o.series);
 }
 function addBooking(w, n, consent, o) {
-  o = Object.assign({ date: "2026-12-12", time: "10:00", phone: "407-555-0155" }, o || {});
+  o = Object.assign({ date: "2026-12-12", time: "10:00", phone: "407-555-0155", lang: null }, o || {});
   w.d.raw.prepare("INSERT INTO gm_leads (id, telefone, cliente) VALUES (?,?,?)").run("L" + n, o.phone, "Customer " + n);
-  w.d.raw.prepare("INSERT INTO gm_events (id, client_id, title, event_date, start_time, all_day, lead_id) VALUES (?,?,?,?,?,0,?)").run("ev" + n, "c2", "Visit", o.date, o.time, "L" + n);
+  w.d.raw.prepare("INSERT INTO gm_events (id, client_id, title, event_date, start_time, all_day, lead_id, customer_language) VALUES (?,?,?,?,?,0,?,?)").run("ev" + n, "c2", "Visit", o.date, o.time, "L" + n, o.lang);
   w.d.raw.prepare("INSERT INTO gm_booking_requests (id, event_id, client_id, sms_consent_status, customer_phone) VALUES (?,?,?,?,?)").run("br" + n, "ev" + n, "c2", consent, o.phone);
 }
 const sentTo = (w) => w.state.calls.map((c) => c.params.Body);
@@ -232,7 +233,7 @@ await section("matrix", async () => {
   ok(["declined", null, undefined, "", "AGREED"].every((x) => w.F.reminderTextConsentAllows(x) === false) && w.F.reminderTextConsentAllows("agreed") === true, "booking consent: ONLY the exact word agreed passes");
   // the booking text uses the number the customer gave with the consent
   const w2 = world();
-  addBooking(w2, 1, "agreed", { phone: "(407) 555-0177" });
+  addBooking(w2, 1, "agreed", { phone: "(407) 555-0177", lang: "es" });
   w2.d.raw.exec("UPDATE gm_leads SET telefone = '321-555-0000' WHERE id = 'L1'");
   await w2.F.reminderTextDispatch(w2.env, "confirmation", "ge:ev1", { nowMs: NOW });
   ok(w2.state.calls[0].params.To === "+14075550177", "booking: the text goes to the phone saved with the consent");
@@ -259,12 +260,25 @@ await section("language", async () => {
       ok(pt, "admin " + kind + " is Portuguese when the client language is " + JSON.stringify(lang));
     }
   }
-  for (const [lang, re] of [[null, /^Your appointment with JM Luxury Pools is confirmed/], ["", /^Your appointment with JM Luxury Pools is confirmed/], ["fr", /^Your appointment with JM Luxury Pools is confirmed/], ["en", /^Your appointment with JM Luxury Pools is confirmed/], ["es", /^Su cita con JM Luxury Pools está confirmada/], ["pt", /^Seu horário com JM Luxury Pools está confirmado/]]) {
-    const w = world();
-    w.d.raw.prepare("UPDATE clients SET language = ? WHERE id = 'c2'").run(lang);
-    addBooking(w, 1, "agreed");
-    await w.F.reminderTextDispatch(w.env, "confirmation", "ge:ev1", { nowMs: NOW });
-    ok(re.test((w.state.calls[0] || { params: {} }).params.Body || ""), "booking link, saved language " + JSON.stringify(lang) + " sends " + (lang === "es" ? "Spanish" : lang === "pt" ? "Portuguese" : "English"));
+  // booking link: the CUSTOMER's language from the booking page; the client's language never matters
+  const BODY = {
+    en: { reminder: /^Reminder: you have an appointment with JM Luxury Pools on 12\/12\/2026 at 10:00 AM/, confirmation: /^Your appointment with JM Luxury Pools is confirmed for 12\/12\/2026 at 10:00 AM/, change: /^Your appointment with JM Luxury Pools was changed to 12\/12\/2026 at 10:00 AM/, cancel: /^Your appointment with JM Luxury Pools on 12\/12\/2026 was cancelled/ },
+    pt: { reminder: /^Lembrete: você tem um horário com JM Luxury Pools em 12\/12\/2026 às 10:00 AM/, confirmation: /^Seu horário com JM Luxury Pools está confirmado para 12\/12\/2026 às 10:00 AM/, change: /^Seu horário com JM Luxury Pools foi alterado para 12\/12\/2026 às 10:00 AM/, cancel: /^Seu horário com JM Luxury Pools em 12\/12\/2026 foi cancelado/ },
+    es: { reminder: /^Recordatorio: tiene una cita con JM Luxury Pools el 12\/12\/2026 a las 10:00 AM/, confirmation: /^Su cita con JM Luxury Pools está confirmada para el 12\/12\/2026 a las 10:00 AM/, change: /^Su cita con JM Luxury Pools fue cambiada para el 12\/12\/2026 a las 10:00 AM/, cancel: /^Su cita con JM Luxury Pools del 12\/12\/2026 fue cancelada/ }
+  };
+  for (const [saved, expect] of [["en", "en"], ["pt", "pt"], ["es", "es"], [null, "en"], ["fr", "en"], ["", "en"], ["PT", "en"]]) {
+    for (const clientLang of ["pt", "en", "es"]) {
+      const w = world();
+      w.d.raw.prepare("UPDATE clients SET language = ? WHERE id = 'c2'").run(clientLang);
+      addBooking(w, 1, "agreed", { lang: saved });
+      for (const kind of ["reminder", "confirmation", "change", "cancel"]) {
+        w.d.raw.exec("DELETE FROM reminder_text_sends");
+        w.state.calls.length = 0;
+        const facts = await w.F.reminderTextFacts(w.env, "ge:ev1");
+        await w.F.reminderTextDispatch(w.env, kind, "ge:ev1", { nowMs: NOW, facts: facts });
+        ok(BODY[expect][kind].test((w.state.calls[0] || { params: {} }).params.Body || ""), "booking link " + kind + ": customer language " + JSON.stringify(saved) + " (client language " + clientLang + ") sends " + expect);
+      }
+    }
   }
 });
 

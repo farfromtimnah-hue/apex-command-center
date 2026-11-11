@@ -87,6 +87,12 @@ async function book(tick, cust) {
   const a = await book(true);
   ok(a && a.url.endsWith("/book") && a.body.sms_consent_status === "agreed", "ticked: the booking says agreed");
   ok(a.body.customer.phone === "407-555-0123", "...recorded with the lead's phone");
+  ok(a.body.customer_language === "en", "the booking carries the page language (en)");
+  for (const l of ["pt", "es"]) {
+    const q = boot(); q.load("lead", FULL); q.run('lang = "' + l + '"; var vs = viewSlots(); chosenDate = vs[0].date; chosenTime = vs[0].times[0]; submit();');
+    await new Promise((r) => setTimeout(r, 5));
+    ok(q.posted[0].body.customer_language === l, "the booking carries the page language (" + l + ")");
+  }
   const d = await book(false);
   ok(d.body.sms_consent_status === "declined", "left unticked: the booking says declined");
   const p = boot(); p.load("lead", { name: "Ana", first_name: "Ana", phone: "", address: "1 A St" });

@@ -52129,7 +52129,7 @@ async function reminderTextFacts(env, ref) {
     if (ref.indexOf("ge:") === 0) {
         var e = await env.DB.prepare(
             "SELECT e.id, e.client_id, e.event_date, e.start_time, e.lead_id, e.all_day, " +
-            "c.name AS client_name, c.language AS language, c.timezone AS timezone, c.location_state AS location_state, " +
+            "c.name AS client_name, e.customer_language AS customer_language, c.timezone AS timezone, c.location_state AS location_state, " +
             "c.phone AS client_phone, c.whatsapp AS client_whatsapp, c.owners AS owners, c.owners_json AS owners_json, " +
             "l.telefone AS lead_phone, l.cliente AS lead_name, " +
             "br.sms_consent_status AS sms_consent_status, br.customer_phone AS customer_phone " +
@@ -52143,7 +52143,9 @@ async function reminderTextFacts(env, ref) {
         return {
             ref: ref, path: "booking", eligible: reminderTextConsentAllows(e.sms_consent_status),
             client_id: e.client_id, recipient: "lead:" + e.lead_id,
-            zone: clientZoneFor(e), date: e.event_date, time: et, lang: reminderTextLang(e.language),
+            zone: clientZoneFor(e), date: e.event_date, time: et,
+            // The CUSTOMER's language from the booking page, never the client's (clients.language).
+            lang: (e.customer_language === "en" || e.customer_language === "pt" || e.customer_language === "es") ? e.customer_language : "en",
             recipient_phone: e.customer_phone || e.lead_phone || null,
             customer_name: e.lead_name || "",
             who: String(e.client_name || ""), name: reminderTextOwnerFirst(e),
@@ -56526,14 +56528,14 @@ async function bkApplyToLead(env, ctx, lead, req, date, time, fills) {
     await gmLogLeadEvents(env, ctx.clientId, lead.id, BK_ACTOR, events);
 }
 
-async function bkCreateEvent(env, ctx, lead, req, date, time, endTime, answersText) {
+async function bkCreateEvent(env, ctx, lead, req, date, time, endTime, answersText, customerLanguage) {
     var config = await gmGetConfig(env, ctx.clientId);
     var eventId = crypto.randomUUID();
     await env.DB.prepare(
         "INSERT INTO gm_events (id, client_id, event_type, title, title_overridden, event_date, start_time, end_time, " +
-        "all_day, location, description, lead_id, created_by, updated_by) VALUES (?, ?, ?, ?, 0, ?, ?, ?, 0, ?, ?, ?, ?, ?)"
+        "all_day, location, description, lead_id, created_by, updated_by, customer_language) VALUES (?, ?, ?, ?, 0, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)"
     ).bind(eventId, ctx.clientId, bkEventType(ctx.settings, config), req.customer_name, date, time, endTime,
-        req.customer_address || null, answersText || null, lead.id, BK_ACTOR, BK_ACTOR).run();
+        req.customer_address || null, answersText || null, lead.id, BK_ACTOR, BK_ACTOR, customerLanguage || null).run();
     return eventId;
 }
 
@@ -56589,6 +56591,8 @@ async function bkConfirm(env, ctx, body, nowMs) {
     // A text needs a number to go to: "agreed" with no phone anywhere is refused.
     if (smsConsent === "agreed" && !phone) { return bkErr(400, "Informe seu telefone para receber mensagens de texto, ou desmarque a caixa.", "Please enter your phone number to get text messages, or untick the box."); }
     var smsConsentAt = smsConsent ? new Date().toISOString() : null;
+    // The language the customer used on the page: exactly en, pt or es, else unknown (NULL).
+    var customerLanguage = (body.customer_language === "en" || body.customer_language === "pt" || body.customer_language === "es") ? body.customer_language : null;
     var cleaned = bkCleanAnswers(s, body.answers);
     if (cleaned.error) { return cleaned.error; }
 
@@ -56655,7 +56659,7 @@ async function bkConfirm(env, ctx, body, nowMs) {
             }
         });
         await bkApplyToLead(env, ctx, lead, reqRow, date, time, [["telefone", phone], ["email", email], ["address", address], ["city", city], ["servico_desc", need]]);
-        var eventId = await bkCreateEvent(env, ctx, lead, reqRow, date, time, endTime, bkAnswersLines(cleaned.answers, s, lang));
+        var eventId = await bkCreateEvent(env, ctx, lead, reqRow, date, time, endTime, bkAnswersLines(cleaned.answers, s, lang), customerLanguage);
         await env.DB.prepare("UPDATE gm_booking_requests SET event_id = ? WHERE id = ?").bind(eventId, reqId).run();
         await bkPush(env, ctx.clientId, lead, lang, "Visita agendada", "Visit booked", name, date, time);
         // Confirmation text: only when the customer ticked the consent box.

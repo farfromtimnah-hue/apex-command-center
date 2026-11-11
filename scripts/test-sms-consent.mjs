@@ -16,7 +16,7 @@ const MIG = [
   "migrations/gm_lead_contacts.sql", "migrations/gm_lead_events.sql",
   "migrations/client_estimates_invoices_p1.sql", "migrations/client_estimates_invoices_p1b.sql", "migrations/hero_gallery_doc_settings.sql",
   "migrations/hero_flip.sql", "migrations/gm_booking.sql", "migrations/doc_links.sql",
-  "migrations/2026-11-05_booking_sms_consent.sql"
+  "migrations/2026-11-05_booking_sms_consent.sql", "migrations/2026-11-10_gm_events_customer_language.sql"
 ];
 
 // every top-level bk* function in the booking block, plus the helpers it reuses
@@ -171,6 +171,21 @@ await section(async () => {
   ok(r2.status === 400 && st.status === "waiting" && st.sms_consent_status === null, "agreed with no phone anywhere is refused and nothing is saved");
   const r3 = await w.F.bkConfirm(w.env, ctx, book({ sms_consent_status: "declined", slot_time: "14:00", customer: { name: "Ana Lima", address: "1 A St" } }), NOW);
   ok(r3.status === 200, "declined with no phone still books");
+});
+
+// ── 4. the customer's page language is stored on the meeting ──
+await section(async () => {
+  const w = bkWorld();
+  const days = ["2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15"];   // one day each, so no time is taken
+  const cases = [["en", "en"], ["pt", "pt"], ["es", "es"], ["fr", null], ["PT", null], [undefined, null], [null, null], [5, null]];
+  for (let i = 0; i < cases.length; i++) {
+    const a = await freshLead(w);
+    const body = book({ slot_date: days[i], slot_time: "10:00" });
+    if (cases[i][0] !== undefined) { body.customer_language = cases[i][0]; }
+    const r = await w.F.bkConfirm(w.env, a.ctx, body, NOW);
+    const ev = w.d.q("SELECT customer_language FROM gm_events WHERE lead_id = '" + a.lid + "'")[0];
+    ok(r.status === 200 && ev && ev.customer_language === cases[i][1], "booking sent with language " + JSON.stringify(cases[i][0]) + " stores " + JSON.stringify(cases[i][1]));
+  }
 });
 
 console.log("\n" + pass + " passed, " + fail + " failed");

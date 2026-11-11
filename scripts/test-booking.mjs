@@ -13,7 +13,7 @@ const MIG = [
   "migrations/gm_leads_costs_commission.sql", "migrations/gm_leads_stage_keys.sql", "migrations/customer_referrals.sql",
   "migrations/gm_lead_contacts.sql", "migrations/gm_lead_events.sql",
   "migrations/client_estimates_invoices_p1.sql", "migrations/client_estimates_invoices_p1b.sql", "migrations/hero_gallery_doc_settings.sql",
-  "migrations/hero_flip.sql", "migrations/gm_booking.sql", "migrations/doc_links.sql", "migrations/2026-10-13_lead_structured_address.sql", "migrations/2026-10-13_lead_geocode.sql", "migrations/2026-10-19_lead_geocode_precision.sql", "migrations/2026-11-05_booking_sms_consent.sql"
+  "migrations/hero_flip.sql", "migrations/gm_booking.sql", "migrations/doc_links.sql", "migrations/2026-10-13_lead_structured_address.sql", "migrations/2026-10-13_lead_geocode.sql", "migrations/2026-10-19_lead_geocode_precision.sql", "migrations/2026-11-05_booking_sms_consent.sql", "migrations/2026-11-10_gm_events_customer_language.sql"
 ];
 
 // every top-level bk* function in the block, plus the helpers it reuses

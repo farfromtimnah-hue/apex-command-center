@@ -15,7 +15,7 @@ const FNS = [
   "reminderTextsEnabled", "reminderTextSenderConfigured", "reminderTextsConfigured", "reminderTextSwitchOn", "reminderTextLang",
   "reminderTextFill", "reminderTextFormatPhone", "reminderTextFirstName", "reminderTextOwnerFirst",
   "twilioSendSms", "reminderTextOptedOut", "reminderTextSend", "reminderTextConsentAllows", "sessionGetsTextReminder",
-  "reminderTextQuiet", "reminderTextHost", "reminderTextFacts", "reminderTextRefreshSnapshot", "reminderTextDecide", "reminderTextCount",
+  "reminderTextQuiet", "reminderTextMeetingMs", "reminderTextHost", "reminderTextFacts", "reminderTextRefreshSnapshot", "reminderTextDecide", "reminderTextCount",
   "reminderTextHold", "reminderTextDispatch", "reminderTextQueueTick", "reminderTextSessionsBefore", "reminderTextSessionsChanged",
   "reminderTextSnapshots", "reminderTextCancelled", "reminderTextConfirmed", "reminderTextChangedEvent",
   "reminderTextTwiml", "reminderTextOptKind", "reminderTextXmlEscape", "reminderTextFindLast", "reminderTextHandleOptEvent", "reminderTextHelpMessage", "reminderTextHostTargets", "reminderTextHandleReply", "reminderTextPushDeveloper", "reminderTextPushReply", "reminderTextRepliesRetry", "reminderTextRepliesList", "handleGetTextReplies", "handleGetGmTextReplies", "gmDocSettingsOwnerOnly", "requireClientAccess", "sessionSellerName", "handlePostTwilioInbound", "stripeConstantTimeEqual",
@@ -25,7 +25,7 @@ const FNS = [
   "sendCounterMonthlyCap", "passkeySmsMonthlyCap", "reminderSmsDailyCap", "reminderSmsMonthlyCap",
   "passkeyNormalizePhone", "passkeyCountryCode", "passkeyMaskPhone", "easternDateStr"
 ];
-const VARS = ["REMINDER_TEXT_TEMPLATES", "REMINDER_TEXT_QUIET_START_MIN", "REMINDER_TEXT_QUIET_END_MIN", "APEX_TIMEZONE",
+const VARS = ["REMINDER_TEXT_TEMPLATES", "REMINDER_TEXT_QUIET_START_MIN", "REMINDER_TEXT_QUIET_END_MIN", "REMINDER_TEXT_QUIET_MIN_LEAD_MIN", "APEX_TIMEZONE",
   "APPT_REMINDER_OWNER_ROLE", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "TWILIO_STOP_WORDS", "TWILIO_HELP_WORDS", "REMINDER_TEXT_HELP"];
 
 function fakeTwilio(state) {
@@ -410,32 +410,73 @@ await section("quiet", async () => {
   ok(Q(Date.UTC(2026, 10, 1, 3, 30)).resumeMs === Date.UTC(2026, 10, 1, 13, 0), "fall back: 11:30 PM Saturday (EDT) resumes at 8:00 AM Sunday EST = 13:00Z");
   ok(Q(Date.UTC(2026, 10, 1, 8, 0)).quiet === true && Q(Date.UTC(2026, 10, 1, 8, 0)).resumeMs === Date.UTC(2026, 10, 1, 13, 0), "fall back: 3:00 AM EST on the clock change day is quiet and resumes at 13:00Z");
 
-  // a reminder due in quiet hours is skipped and counted, never held
-  const NIGHT = Date.UTC(2026, 11, 10, 3, 30);            // 10:30 PM Eastern, Dec 9
-  const w2 = world();
-  addSession(w2, "q1", { date: "2026-12-10", time: "23:30" });
-  const out = {};
-  const r = await w2.F.reminderTextDispatch(w2.env, "reminder", "q1", { nowMs: NIGHT, out: out });
-  ok(r.reason === "quiet_hours" && out.text_skips.quiet_hours === 1 && w2.state.calls.length === 0, "a reminder due in quiet hours is skipped and counted as quiet_hours");
-  ok(rowsOf(w2, "SELECT 1 FROM reminder_text_queue").length === 0, "a skipped reminder is not held");
+  // ---- Quiet hours apply to REMINDERS ONLY ----------------------------------
+  const E = (y, m, d, h, mi) => Date.UTC(y, m - 1, d, h, mi);          // an instant, in UTC
+  const NIGHT = E(2026, 12, 10, 3, 15);                                  // 10:15 PM Eastern, Dec 9
+  const sentNow = (w, k) => w.state.calls.length;
+  const queueRows = (w) => rowsOf(w, "SELECT kind, status, send_after, payload FROM reminder_text_queue ORDER BY kind");
 
-  // the other three kinds are held until 8:00 AM local
+  // confirmation, change and cancel go out at once at any hour, and are never queued
+  const w2 = world();
   addBooking(w2, 1, "agreed", { date: "2026-12-14" });
   const c = await w2.F.reminderTextDispatch(w2.env, "confirmation", "ge:ev1", { nowMs: NIGHT });
-  const ch = await w2.F.reminderTextDispatch(w2.env, "change", "ge:ev1", { nowMs: NIGHT });
+  ok(c.sent === true && !c.held && w2.state.calls.length === 1 && queueRows(w2).length === 0, "a confirmation created at 10:15 PM sends immediately and is not queued");
+  const ch = await w2.F.reminderTextDispatch(w2.env, "change", "ge:ev1", { nowMs: E(2026, 12, 10, 7, 0) });
   const snap = await w2.F.reminderTextFacts(w2.env, "ge:ev1");
-  const ca = await w2.F.reminderTextDispatch(w2.env, "cancel", "ge:ev1", { nowMs: NIGHT, facts: snap });
-  ok(c.held && ch.held && ca.held && w2.state.calls.length === 0, "confirmation, change and cancel due in quiet hours are held, and nothing is sent");
-  const held = rowsOf(w2, "SELECT kind, status, send_after FROM reminder_text_queue ORDER BY kind");
-  ok(held.length === 2 && held.map((x) => x.kind).join() === "cancel,confirmation", "held: a cancel and a confirmation (the change is covered by the held confirmation, which names the new time)");
-  ok(held.every((x) => x.status === "pending" && x.send_after === new Date(Date.UTC(2026, 11, 10, 13, 0)).toISOString()), "held until 8:00 AM Eastern = 13:00Z");
-  const dupe = await w2.F.reminderTextDispatch(w2.env, "confirmation", "ge:ev1", { nowMs: NIGHT });
-  ok(rowsOf(w2, "SELECT 1 FROM reminder_text_queue").length === 2 && dupe.held, "holding the same notice twice keeps one row (the database refuses the copy)");
+  const ca = await w2.F.reminderTextDispatch(w2.env, "cancel", "ge:ev1", { nowMs: E(2026, 12, 10, 7, 0), facts: snap });
+  ok(ch.sent === true && ca.sent === true && w2.state.calls.length === 3 && queueRows(w2).length === 0, "a change notice and a cancel notice at 2:00 AM send immediately and are not queued");
+  const w2b = world();
+  addSession(w2b, "n1", { date: "2026-12-14" });
+  const nb = await w2b.F.reminderTextDispatch(w2b.env, "confirmation", "n1", { nowMs: E(2026, 12, 10, 8, 0) });
+  ok(nb.sent === true && /Rafael/.test(w2b.state.calls[0].params.Body) && queueRows(w2b).length === 0, "the same holds on the admin path (3:00 AM, sent at once)");
+
+  // at night the other rules still apply to those three kinds
+  const w2c = world();
+  addBooking(w2c, 1, "declined", { date: "2026-12-14" });
+  const nd = await w2c.F.reminderTextDispatch(w2c.env, "confirmation", "ge:ev1", { nowMs: NIGHT });
+  ok(nd.reason === "not_eligible" && w2c.state.calls.length === 0, "at night a confirmation still needs the yes (declined: nothing sent)");
+  const w2d = world();
+  addBooking(w2d, 1, "agreed", { date: "2026-12-14" });
+  w2d.d.raw.exec("INSERT INTO reminder_text_optouts VALUES ('+14075550155', 'x')");
+  const no = await w2d.F.reminderTextDispatch(w2d.env, "change", "ge:ev1", { nowMs: NIGHT });
+  ok(no.reason === "opted_out" && w2d.state.calls.length === 0, "at night a change notice still respects the opt-out list");
+  const w2e = world({ REMINDER_TEXTS_BOOKING_LINK: "" });
+  addBooking(w2e, 1, "agreed", { date: "2026-12-14" });
+  const ns = await w2e.F.reminderTextDispatch(w2e.env, "confirmation", "ge:ev1", { nowMs: NIGHT });
+  ok(ns.reason === "switch_off" && w2e.state.calls.length === 0, "at night a confirmation still respects the separate switch");
+  const w2f = world();
+  addBooking(w2f, 1, "agreed", { date: "2026-12-09", time: "09:00" });
+  const np = await w2f.F.reminderTextDispatch(w2f.env, "cancel", "ge:ev1", { nowMs: NIGHT, facts: await w2f.F.reminderTextFacts(w2f.env, "ge:ev1") });
+  ok(np.reason === "past" && w2f.state.calls.length === 0, "at night a past meeting never texts");
+  const w2g = world({ REMINDER_SMS_DAILY_CAP: "1" });
+  addBooking(w2g, 1, "agreed", { date: "2026-12-14" });
+  await w2g.F.reminderTextDispatch(w2g.env, "confirmation", "ge:ev1", { nowMs: NIGHT });
+  const ng = await w2g.F.reminderTextDispatch(w2g.env, "change", "ge:ev1", { nowMs: NIGHT });
+  ok(ng.reason === "daily_cap" && w2g.state.calls.length === 1 && queueRows(w2g).length === 0, "at night the daily cap still applies, and a refused notice is not queued");
+
+  // a reminder due at 2:00 PM is not affected
+  const wd = world();
+  addBooking(wd, 1, "agreed", { date: "2026-12-10", time: "15:00" });
+  const outd = {};
+  const rd = await wd.F.reminderTextDispatch(wd.env, "reminder", "ge:ev1", { nowMs: E(2026, 12, 10, 19, 0), out: outd });
+  ok(rd.sent === true && wd.state.calls.length === 1 && queueRows(wd).length === 0 && !outd.text_held && !outd.text_skips, "a reminder due at 2:00 PM is sent at once, not held, nothing counted");
+
+  // a reminder due in quiet hours is HELD (7:30 AM for an 8:45 AM meeting) and sent at the 8:00 AM tick
+  const SEVEN30 = E(2026, 12, 10, 12, 30);                                // 7:30 AM Eastern
+  const w3 = world();
+  addBooking(w3, 1, "agreed", { date: "2026-12-10", time: "08:45" });
+  const out3 = {};
+  const h3 = await w3.F.reminderTextDispatch(w3.env, "reminder", "ge:ev1", { nowMs: SEVEN30, out: out3 });
+  ok(h3.held === true && out3.text_held === 1 && w3.state.calls.length === 0, "a reminder due at 7:30 AM for an 8:45 AM meeting is held, and nothing is sent");
+  const q3 = queueRows(w3);
+  ok(q3.length === 1 && q3[0].kind === "reminder" && q3[0].status === "pending" && q3[0].send_after === new Date(E(2026, 12, 10, 13, 0)).toISOString() && q3[0].payload === "2026-12-10 08:45", "the held reminder waits in reminder_text_queue until 8:00 AM Eastern (13:00Z) and remembers the meeting time");
+  await w3.F.reminderTextDispatch(w3.env, "reminder", "ge:ev1", { nowMs: E(2026, 12, 10, 12, 40) });
+  ok(queueRows(w3).length === 1 && queueRows(w3)[0].status === "pending", "the cron asking again while it waits keeps one held row (the database refuses the copy)");
 
   // idle tick: ONE indexed read; none while off
-  w2.d.log.length = 0;
-  const early = await w2.F.reminderTextQueueTick(w2.env, Date.UTC(2026, 11, 10, 12, 55));
-  ok(early.sent === 0 && w2.state.calls.length === 0 && w2.d.log.length === 1 && /FROM reminder_text_queue/.test(w2.d.log[0]), "7:55 AM tick: nothing goes out and the tick costs exactly one read");
+  w3.d.log.length = 0;
+  const early = await w3.F.reminderTextQueueTick(w3.env, E(2026, 12, 10, 12, 55));
+  ok(early.sent === 0 && w3.state.calls.length === 0 && w3.d.log.length === 1 && /FROM reminder_text_queue/.test(w3.d.log[0]), "7:55 AM tick: nothing goes out and the tick costs exactly one read");
   const idle = world();
   idle.d.log.length = 0;
   await idle.F.reminderTextQueueTick(idle.env, NOW);
@@ -444,54 +485,139 @@ await section("quiet", async () => {
   off.d.log.length = 0;
   await off.F.reminderTextQueueTick(off.env, NOW);
   ok(off.d.log.length === 0, "with the texts switched off the tick reads nothing");
-  const plan = w2.d.raw.prepare("EXPLAIN QUERY PLAN SELECT id, kind, meeting_ref, payload FROM reminder_text_queue WHERE status = 'pending' AND send_after <= ? ORDER BY send_after LIMIT 25").all("x").map((r) => r.detail).join(" ");
+  const plan = w3.d.raw.prepare("EXPLAIN QUERY PLAN SELECT id, kind, meeting_ref, payload FROM reminder_text_queue WHERE status = 'pending' AND send_after <= ? ORDER BY send_after LIMIT 25").all("x").map((r) => r.detail).join(" ");
   ok(/idx_rtq_due/.test(plan), "the due read uses the index (" + plan + ")");
 
-  // 8:00 AM: both go out, after being looked at again
-  const t8 = await w2.F.reminderTextQueueTick(w2.env, Date.UTC(2026, 11, 10, 13, 0));
-  ok(t8.sent === 2 && w2.state.calls.length === 2, "the first tick at 8:00 AM sends the held confirmation and the held cancel");
-  ok(/is confirmed for 12\/14\/2026 at 10:00 AM/.test(w2.state.calls.map((x) => x.params.Body).join(" ")) || /confirmada para el 12\/14\/2026 a las 10:00 AM/.test(w2.state.calls.map((x) => x.params.Body).join(" ")), "the held confirmation names the meeting's date and time");
-  ok(rowsOf(w2, "SELECT status FROM reminder_text_queue").every((x) => x.status === "sent"), "sent rows are marked sent");
-  const t9 = await w2.F.reminderTextQueueTick(w2.env, Date.UTC(2026, 11, 10, 13, 5));
-  ok(t9.sent === 0 && w2.state.calls.length === 2, "the next tick sends nothing more");
+  const t3 = await w3.F.reminderTextQueueTick(w3.env, E(2026, 12, 10, 13, 0));
+  ok(t3.sent === 1 && w3.state.calls.length === 1 && /8:45 AM/.test(w3.state.calls[0].params.Body), "the first tick at 8:00 AM sends the held reminder, naming the meeting time");
+  ok(queueRows(w3)[0].status === "sent", "the sent row is marked sent");
+  const t3b = await w3.F.reminderTextQueueTick(w3.env, E(2026, 12, 10, 13, 5));
+  const again3 = await w3.F.reminderTextDispatch(w3.env, "reminder", "ge:ev1", { nowMs: E(2026, 12, 10, 13, 5) });
+  ok(t3b.sent === 0 && again3.reason === "already_sent" && w3.state.calls.length === 1, "the next tick sends nothing more, and nobody sends that reminder twice");
+
+  // the admin path holds and sends too
+  const w3a = world();
+  addSession(w3a, "a1", { date: "2026-12-10", time: "09:00" });
+  await w3a.F.reminderTextDispatch(w3a.env, "reminder", "a1", { nowMs: SEVEN30 });
+  ok(queueRows(w3a).length === 1 && (await w3a.F.reminderTextQueueTick(w3a.env, E(2026, 12, 10, 13, 0))).sent === 1, "an admin meeting reminder is held at 7:30 AM and sent at 8:00 AM");
+
+  // too late: less than 30 minutes away at 8:00 AM
+  const w4 = world();
+  addBooking(w4, 1, "agreed", { date: "2026-12-10", time: "07:00" });
+  const out4 = {};
+  const r4 = await w4.F.reminderTextDispatch(w4.env, "reminder", "ge:ev1", { nowMs: E(2026, 12, 10, 11, 0), out: out4 });
+  ok(r4.reason === "quiet_hours_too_late" && out4.text_skips.quiet_hours_too_late === 1 && w4.state.calls.length === 0 && queueRows(w4).length === 0, "a reminder due at 6:00 AM for a 7:00 AM meeting is skipped, counted as quiet_hours_too_late, and not held");
+  const w4b = world();
+  addBooking(w4b, 1, "agreed", { date: "2026-12-10", time: "08:29" });
+  const r4b = await w4b.F.reminderTextDispatch(w4b.env, "reminder", "ge:ev1", { nowMs: E(2026, 12, 10, 11, 0) });
+  addBooking(w4b, 2, "agreed", { date: "2026-12-10", time: "08:30", phone: "407-555-0166" });
+  const r4c = await w4b.F.reminderTextDispatch(w4b.env, "reminder", "ge:ev2", { nowMs: E(2026, 12, 10, 11, 0) });
+  ok(r4b.reason === "quiet_hours_too_late" && r4c.held === true, "the line is 30 minutes: an 8:29 AM meeting is skipped, an 8:30 AM meeting is held");
+  const w4d = world();
+  addBooking(w4d, 1, "agreed", { date: "2026-12-10", time: "08:45" });
+  await w4d.F.reminderTextDispatch(w4d.env, "reminder", "ge:ev1", { nowMs: SEVEN30 });
+  const o4d = await w4d.F.reminderTextQueueTick(w4d.env, E(2026, 12, 10, 13, 20));     // a late tick: 8:20 AM, 25 minutes before
+  ok(o4d.sent === 0 && o4d.dropped === 1 && o4d.text_skips.quiet_hours_too_late === 1 && w4d.state.calls.length === 0, "a held reminder whose meeting is under 30 minutes away when the tick finally runs is skipped as quiet_hours_too_late");
+  const w4e = world();
+  addBooking(w4e, 1, "agreed", { date: "2026-12-10", time: "21:30" });
+  const r4e = await w4e.F.reminderTextDispatch(w4e.env, "reminder", "ge:ev1", { nowMs: E(2026, 12, 11, 2, 30) });
+  ok(r4e.reason === "quiet_hours_too_late" || r4e.reason === "past", "a reminder due after 9:00 PM for a late meeting is never held to the next morning (" + r4e.reason + ")");
 
   // re-checks at 8:00 AM
-  const w3 = world();
-  addBooking(w3, 1, "agreed", { date: "2026-12-14" });
-  await w3.F.reminderTextDispatch(w3.env, "confirmation", "ge:ev1", { nowMs: NIGHT });
-  w3.d.raw.exec("UPDATE gm_booking_requests SET sms_consent_status = 'declined'");
-  ok((await w3.F.reminderTextQueueTick(w3.env, Date.UTC(2026, 11, 10, 13, 0))).dropped === 1 && w3.state.calls.length === 0, "held notice: the customer no longer says yes, so it is dropped");
-  const w4 = world();
-  addBooking(w4, 1, "agreed", { date: "2026-12-14" });
-  await w4.F.reminderTextDispatch(w4.env, "confirmation", "ge:ev1", { nowMs: NIGHT });
-  w4.d.raw.exec("DELETE FROM gm_events");
-  ok((await w4.F.reminderTextQueueTick(w4.env, Date.UTC(2026, 11, 10, 13, 0))).dropped === 1 && w4.state.calls.length === 0, "held notice: the meeting is gone, so it is dropped");
-  const w5 = world();
-  addBooking(w5, 1, "agreed", { date: "2026-12-14" });
-  await w5.F.reminderTextDispatch(w5.env, "confirmation", "ge:ev1", { nowMs: NIGHT });
-  ok((await w5.F.reminderTextQueueTick(w5.env, Date.UTC(2026, 11, 14, 16, 0))).dropped === 1 && w5.state.calls.length === 0, "held notice: the meeting is now in the past, so it is dropped");
-  const w6 = world();
-  addBooking(w6, 1, "agreed", { date: "2026-12-14" });
-  await w6.F.reminderTextDispatch(w6.env, "confirmation", "ge:ev1", { nowMs: NIGHT });
-  w6.d.raw.exec("INSERT INTO reminder_text_optouts VALUES ('+14075550155', 'x')");
-  const o6 = await w6.F.reminderTextQueueTick(w6.env, Date.UTC(2026, 11, 10, 13, 0));
-  ok(o6.dropped === 1 && w6.state.calls.length === 0, "held notice: the number opted out (STOP) in the meantime, so it is dropped");
-  const w7 = world({ REMINDER_TEXTS_BOOKING_LINK: "" });
-  addBooking(w7, 1, "agreed", { date: "2026-12-14" });
-  await w7.F.reminderTextDispatch(Object.assign({}, w7.env, { REMINDER_TEXTS_BOOKING_LINK: "1" }), "confirmation", "ge:ev1", { nowMs: NIGHT });
-  ok((await w7.F.reminderTextQueueTick(w7.env, Date.UTC(2026, 11, 10, 13, 0))).dropped === 1 && w7.state.calls.length === 0, "held notice: the path's switch was turned off in the meantime, so it is dropped");
+  const held = () => { const w = world(); addBooking(w, 1, "agreed", { date: "2026-12-10", time: "08:45" }); return w; };
+  const T8 = E(2026, 12, 10, 13, 0);
+  const wA = held();
+  await wA.F.reminderTextDispatch(wA.env, "reminder", "ge:ev1", { nowMs: SEVEN30 });
+  wA.d.raw.exec("UPDATE gm_booking_requests SET sms_consent_status = 'declined'");
+  ok((await wA.F.reminderTextQueueTick(wA.env, T8)).dropped === 1 && wA.state.calls.length === 0, "held reminder: the customer no longer says yes, so it is dropped");
+  const wB = held();
+  await wB.F.reminderTextDispatch(wB.env, "reminder", "ge:ev1", { nowMs: SEVEN30 });
+  wB.d.raw.exec("DELETE FROM gm_events");
+  ok((await wB.F.reminderTextQueueTick(wB.env, T8)).dropped === 1 && wB.state.calls.length === 0 && queueRows(wB)[0].status === "dropped", "held reminder: the meeting was cancelled (gone), so it is dropped");
+  const wB2 = world();
+  addSession(wB2, "a1", { date: "2026-12-10", time: "09:00" });
+  await wB2.F.reminderTextDispatch(wB2.env, "reminder", "a1", { nowMs: SEVEN30 });
+  wB2.d.raw.exec("UPDATE sessions SET status = 'cancelled'");
+  ok((await wB2.F.reminderTextQueueTick(wB2.env, T8)).dropped === 1 && wB2.state.calls.length === 0, "held reminder: an admin meeting was cancelled, so it is dropped");
+  const wC = held();
+  await wC.F.reminderTextDispatch(wC.env, "reminder", "ge:ev1", { nowMs: SEVEN30 });
+  wC.d.raw.exec("UPDATE gm_events SET start_time = '09:30'");
+  ok((await wC.F.reminderTextQueueTick(wC.env, T8)).dropped === 1 && wC.state.calls.length === 0, "held reminder: the meeting was moved to a new time, so the stale reminder is dropped");
+  const wC2 = held();
+  await wC2.F.reminderTextDispatch(wC2.env, "reminder", "ge:ev1", { nowMs: SEVEN30 });
+  wC2.d.raw.exec("UPDATE gm_events SET event_date = '2026-12-11'");
+  ok((await wC2.F.reminderTextQueueTick(wC2.env, T8)).dropped === 1 && wC2.state.calls.length === 0, "held reminder: the meeting was moved to a new day, so the stale reminder is dropped");
+  const wC3 = held();
+  await wC3.F.reminderTextDispatch(wC3.env, "reminder", "ge:ev1", { nowMs: SEVEN30 });
+  wC3.d.raw.exec("UPDATE gm_events SET start_time = '09:30'");
+  await wC3.F.reminderTextDispatch(wC3.env, "reminder", "ge:ev1", { nowMs: E(2026, 12, 10, 12, 40) });
+  const rowsC3 = queueRows(wC3);
+  ok(rowsC3.length === 2 && rowsC3.filter((x) => x.status === "dropped").length === 1 && rowsC3.filter((x) => x.status === "pending" && x.payload === "2026-12-10 09:30").length === 1, "a moved meeting: the stale held row is dropped at once and one fresh row holds the new time");
+  const tC3 = await wC3.F.reminderTextQueueTick(wC3.env, T8);
+  ok(tC3.sent === 1 && /9:30 AM/.test(wC3.state.calls[0].params.Body), "and the 8:00 AM tick sends the reminder for the new time");
+  const wD = held();
+  await wD.F.reminderTextDispatch(wD.env, "reminder", "ge:ev1", { nowMs: SEVEN30 });
+  wD.d.raw.exec("INSERT INTO reminder_text_optouts VALUES ('+14075550155', 'x')");
+  const oD = await wD.F.reminderTextQueueTick(wD.env, T8);
+  ok(oD.dropped === 1 && wD.state.calls.length === 0, "a held reminder is not sent to a phone that opted out");
+  const wE = held();
+  await wE.F.reminderTextDispatch(wE.env, "reminder", "ge:ev1", { nowMs: SEVEN30 });
+  wE.d.raw.exec("UPDATE gm_events SET event_date = '2026-12-09'");
+  ok((await wE.F.reminderTextQueueTick(wE.env, E(2026, 12, 10, 14, 0))).dropped === 1 && wE.state.calls.length === 0, "held reminder: the meeting is now in the past, so it is dropped");
+  const wF = world({ REMINDER_TEXTS_BOOKING_LINK: "" });
+  addBooking(wF, 1, "agreed", { date: "2026-12-10", time: "08:45" });
+  await wF.F.reminderTextDispatch(Object.assign({}, wF.env, { REMINDER_TEXTS_BOOKING_LINK: "1" }), "reminder", "ge:ev1", { nowMs: SEVEN30 });
+  ok((await wF.F.reminderTextQueueTick(wF.env, T8)).dropped === 1 && wF.state.calls.length === 0, "held reminder: the path's switch was turned off in the meantime, so it is dropped");
 
-  // across the fall-back day
+  // clock changes
   const w8 = world();
-  addBooking(w8, 1, "agreed", { date: "2026-11-05" });
-  await w8.F.reminderTextDispatch(w8.env, "confirmation", "ge:ev1", { nowMs: Date.UTC(2026, 10, 1, 3, 30) });
-  ok(rowsOf(w8, "SELECT send_after FROM reminder_text_queue")[0].send_after === new Date(Date.UTC(2026, 10, 1, 13, 0)).toISOString(), "fall back: held at 11:30 PM Saturday, due at 13:00Z (8:00 AM EST)");
-  ok((await w8.F.reminderTextQueueTick(w8.env, Date.UTC(2026, 10, 1, 12, 55))).sent === 0, "fall back: 7:55 AM EST, nothing goes out (an offset of 4 hours would have sent it at 12:00Z)");
-  ok((await w8.F.reminderTextQueueTick(w8.env, Date.UTC(2026, 10, 1, 13, 0))).sent === 1, "fall back: 8:00 AM EST, it goes out");
+  addBooking(w8, 1, "agreed", { date: "2026-11-01", time: "09:00" });
+  await w8.F.reminderTextDispatch(w8.env, "reminder", "ge:ev1", { nowMs: E(2026, 11, 1, 8, 30) });   // 3:30 AM EST (after the clocks went back)
+  ok(queueRows(w8)[0].send_after === new Date(E(2026, 11, 1, 13, 0)).toISOString(), "fall back: held at 3:30 AM EST, due at 13:00Z (8:00 AM EST)");
+  ok((await w8.F.reminderTextQueueTick(w8.env, E(2026, 11, 1, 12, 55))).sent === 0, "fall back: 7:55 AM EST, nothing goes out (an offset of 4 hours would have sent it at 12:00Z)");
+  ok((await w8.F.reminderTextQueueTick(w8.env, E(2026, 11, 1, 13, 0))).sent === 1, "fall back: 8:00 AM EST, it goes out");
+  const w8b = world();
+  addBooking(w8b, 1, "agreed", { date: "2026-11-01", time: "08:20" });
+  const r8b = await w8b.F.reminderTextDispatch(w8b.env, "reminder", "ge:ev1", { nowMs: E(2026, 11, 1, 11, 0) });
+  ok(r8b.reason === "quiet_hours_too_late", "fall back: 6:00 AM EST for an 8:20 AM EST meeting is too late (20 minutes after 8:00 AM)");
   const w9 = world();
-  addBooking(w9, 1, "agreed", { date: "2027-03-20" });
-  await w9.F.reminderTextDispatch(w9.env, "confirmation", "ge:ev1", { nowMs: Date.UTC(2027, 2, 14, 3, 30) });
-  ok((await w9.F.reminderTextQueueTick(w9.env, Date.UTC(2027, 2, 14, 11, 55))).sent === 0 && (await w9.F.reminderTextQueueTick(w9.env, Date.UTC(2027, 2, 14, 12, 0))).sent === 1, "spring forward: nothing at 7:55 AM EDT (11:55Z), sent at 8:00 AM EDT (12:00Z)");
+  addBooking(w9, 1, "agreed", { date: "2027-03-14", time: "08:45" });
+  await w9.F.reminderTextDispatch(w9.env, "reminder", "ge:ev1", { nowMs: E(2027, 3, 14, 11, 30) });  // 7:30 AM EDT
+  ok((await w9.F.reminderTextQueueTick(w9.env, E(2027, 3, 14, 11, 55))).sent === 0 && (await w9.F.reminderTextQueueTick(w9.env, E(2027, 3, 14, 12, 0))).sent === 1, "spring forward: nothing at 7:55 AM EDT (11:55Z), sent at 8:00 AM EDT (12:00Z)");
+  const w9b = world();
+  addBooking(w9b, 1, "agreed", { date: "2027-03-14", time: "08:20" });
+  const r9b = await w9b.F.reminderTextDispatch(w9b.env, "reminder", "ge:ev1", { nowMs: E(2027, 3, 14, 10, 0) });
+  const w9c = world();
+  addBooking(w9c, 1, "agreed", { date: "2027-03-14", time: "08:45" });
+  const r9c = await w9c.F.reminderTextDispatch(w9c.env, "reminder", "ge:ev1", { nowMs: E(2027, 3, 14, 10, 0) });
+  ok(r9b.reason === "quiet_hours_too_late" && r9c.held === true, "spring forward: 6:00 AM EDT, an 8:20 AM EDT meeting is too late and an 8:45 AM EDT meeting is held");
+  const w9d = world();
+  addBooking(w9d, 1, "agreed", { date: "2027-03-14", time: "10:00" });
+  await w9d.F.reminderTextDispatch(w9d.env, "confirmation", "ge:ev1", { nowMs: E(2027, 3, 14, 6, 30) });    // 1:30 AM EST, the night the clocks change
+  ok(w9d.state.calls.length === 1 && queueRows(w9d).length === 0, "spring forward: a confirmation at 1:30 AM on the clock change night sends at once");
+
+  // a different client time zone: Chicago
+  const wz = world();
+  wz.d.raw.exec("UPDATE clients SET timezone = 'America/Chicago' WHERE id = 'c2'");
+  addBooking(wz, 1, "agreed", { date: "2026-12-10", time: "08:45" });
+  const rz = await wz.F.reminderTextDispatch(wz.env, "reminder", "ge:ev1", { nowMs: E(2026, 12, 10, 13, 30) });   // 7:30 AM Chicago = 8:30 AM Eastern
+  ok(rz.held === true && queueRows(wz)[0].send_after === new Date(E(2026, 12, 10, 14, 0)).toISOString(), "Chicago: 7:30 AM Chicago is quiet (it would not be on the Eastern clock) and is held until 8:00 AM Chicago (14:00Z)");
+  ok((await wz.F.reminderTextQueueTick(wz.env, E(2026, 12, 10, 13, 55))).sent === 0 && (await wz.F.reminderTextQueueTick(wz.env, E(2026, 12, 10, 14, 0))).sent === 1, "Chicago: nothing at 7:55 AM Chicago, sent at 8:00 AM Chicago");
+  const wz2 = world();
+  wz2.d.raw.exec("UPDATE clients SET timezone = 'America/Chicago' WHERE id = 'c2'");
+  addBooking(wz2, 1, "agreed", { date: "2026-12-10", time: "21:30" });
+  const rz2 = await wz2.F.reminderTextDispatch(wz2.env, "reminder", "ge:ev1", { nowMs: E(2026, 12, 11, 2, 30) });   // 8:30 PM Chicago = 9:30 PM Eastern
+  ok(rz2.sent === true, "Chicago: 8:30 PM Chicago is not quiet (it would be on the Eastern clock), so the reminder is sent at once");
+  const wz3 = world();
+  wz3.d.raw.exec("UPDATE clients SET timezone = 'America/Chicago' WHERE id = 'c2'");
+  addBooking(wz3, 1, "agreed", { date: "2026-12-10", time: "08:20" });
+  const rz3 = await wz3.F.reminderTextDispatch(wz3.env, "reminder", "ge:ev1", { nowMs: E(2026, 12, 10, 12, 0) });   // 6:00 AM Chicago
+  ok(rz3.reason === "quiet_hours_too_late", "Chicago: 6:00 AM Chicago for an 8:20 AM Chicago meeting is too late");
+  const wz4 = world();
+  wz4.d.raw.exec("UPDATE clients SET timezone = 'America/Chicago' WHERE id = 'c2'");
+  addBooking(wz4, 1, "agreed", { date: "2026-12-14" });
+  await wz4.F.reminderTextDispatch(wz4.env, "confirmation", "ge:ev1", { nowMs: E(2026, 12, 11, 4, 15) });         // 10:15 PM Chicago
+  ok(wz4.state.calls.length === 1 && queueRows(wz4).length === 0, "Chicago: a confirmation at 10:15 PM Chicago sends at once");
 });
 
 // ── 10. Replies: POST /api/twilio/inbound ───────────────────────────────────
@@ -680,14 +806,15 @@ await section("optout", async () => {
   // STOP with OptOutType: recorded, queue cancelled, audit row, nothing pushed, next send refused
   const w = setup();
   await w.F.reminderTextDispatch(w.env, "confirmation", "ge:ev1", { nowMs: NOW });                               // sent by day
-  await w.F.reminderTextDispatch(w.env, "change", "ge:ev1", { nowMs: Date.UTC(2026, 11, 10, 3, 30) });          // 10:30 PM: held
-  await w.F.reminderTextDispatch(w.env, "cancel", "ge:ev1", { nowMs: Date.UTC(2026, 11, 10, 3, 30), facts: await w.F.reminderTextFacts(w.env, "ge:ev1") });
-  ok(rowsOf(w, "SELECT 1 FROM reminder_text_queue WHERE status = 'pending' AND phone_e164 = '+14075550155'").length === 2, "two notices are held for the phone (the queue knows the phone)");
+  addBooking(w, 2, "agreed", { date: "2026-12-21", time: "10:00" });                                              // a second meeting, same phone
+  await w.F.reminderTextDispatch(w.env, "reminder", "ge:ev1", { nowMs: Date.UTC(2026, 11, 10, 3, 30) });        // 10:30 PM: held
+  await w.F.reminderTextDispatch(w.env, "reminder", "ge:ev2", { nowMs: Date.UTC(2026, 11, 10, 3, 30) });        // 10:30 PM: held
+  ok(rowsOf(w, "SELECT 1 FROM reminder_text_queue WHERE status = 'pending' AND phone_e164 = '+14075550155'").length === 2, "two reminders are held for the phone (the queue knows the phone)");
   const sentBefore = w.state.calls.length;
   const r = await TW(await inbound(w, "tok", PH, "STOP", "SMs1", "STOP"));
   ok(r.status === 200 && /^text\/xml/.test(r.type) && r.text === "<Response></Response>", "STOP: empty TwiML (Twilio sends its own reply)");
   ok(rowsOf(w, "SELECT 1 FROM reminder_text_optouts WHERE phone_e164 = '+14075550155'").length === 1, "STOP: the phone is in reminder_text_optouts");
-  ok(rowsOf(w, "SELECT 1 FROM reminder_text_queue WHERE status = 'pending' AND phone_e164 = '+14075550155'").length === 0 && rowsOf(w, "SELECT 1 FROM reminder_text_queue WHERE status = 'dropped'").length === 2, "STOP: every pending held notice for that phone is cancelled");
+  ok(rowsOf(w, "SELECT 1 FROM reminder_text_queue WHERE status = 'pending' AND phone_e164 = '+14075550155'").length === 0 && rowsOf(w, "SELECT 1 FROM reminder_text_queue WHERE status = 'dropped'").length === 2, "STOP: every pending held reminder for that phone is cancelled");
   const orow = rowsOf(w, "SELECT kind, forwarded, session_ref, person_name FROM reminder_text_replies WHERE message_sid = 'SMs1'")[0];
   ok(orow && orow.kind === "optout" && orow.session_ref === "ge:ev1" && orow.person_name === "Customer 1" && w.state.pushes.length === 0, "STOP: an optout row is stored with the meeting it belongs to, and nothing is pushed");
   const refused = await w.F.reminderTextDispatch(w.env, "reminder", "ge:ev1", { nowMs: NOW });

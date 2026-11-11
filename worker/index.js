@@ -51888,6 +51888,9 @@ var REMINDER_TEXT_TEMPLATES = {
 };
 var REMINDER_TEXT_QUIET_START_MIN = 21 * 60;
 var REMINDER_TEXT_QUIET_END_MIN = 8 * 60;
+// A reminder held through quiet hours goes out at 8:00 AM only if the meeting
+// is still at least this many minutes away at that moment.
+var REMINDER_TEXT_QUIET_MIN_LEAD_MIN = 30;
 
 function reminderTextsEnabled(env) {
     return !!env && String(env.REMINDER_TEXTS_ENABLED || "") === "1";
@@ -52076,10 +52079,11 @@ function sessionGetsTextReminder(s) {
     return !!s.send_text_reminder;
 }
 
-// Quiet hours: never between 9:00 PM and 8:00 AM on the business's local
-// clock. Returns { quiet, resumeMs }; resumeMs is the first 8:00 AM local at
-// or after now (as a real instant), so a held text goes out at the first cron
-// tick at or after it. The wall clock comes from apptRemWall (Intl, no offset
+// Quiet hours: 9:00 PM to 8:00 AM on the recipient's local clock. They apply to
+// REMINDERS ONLY; a confirmation, change or cancel notice goes out at any hour.
+// Returns { quiet, resumeMs }; resumeMs is the first 8:00 AM local at
+// or after now (as a real instant), so a held reminder goes out at the first
+// cron tick at or after it. The wall clock comes from apptRemWall (Intl, no offset
 // arithmetic); the 8:00 AM instant from tzWallToUtcMs, which handles the
 // clock change days.
 function reminderTextQuiet(nowMs, tz) {
@@ -52189,10 +52193,19 @@ async function reminderTextRefreshSnapshot(env, f) {
     return f;
 }
 
+// The meeting's start as a real instant, on the meeting's own clock.
+function reminderTextMeetingMs(f) {
+    var y = Number(String(f.date).slice(0, 4)), m = Number(String(f.date).slice(5, 7)), d = Number(String(f.date).slice(8, 10));
+    var hh = Number(String(f.time).slice(0, 2)), mm = Number(String(f.time).slice(3, 5));
+    return tzWallToUtcMs(y, m, d, hh, mm, f.zone || APEX_TIMEZONE);
+}
+
 // The decision, with no database and no clock of its own. Returns
 //   { action: "skip", reason } | { action: "queue", sendAfterMs } | { action: "send", send: {...} }
-// reasons: no_meeting, not_eligible, switch_off, past, no_phone, no_callback_phone, quiet_hours
-function reminderTextDecide(env, kind, f, nowMs) {
+// reasons: no_meeting, not_eligible, switch_off, past, no_phone, no_callback_phone, quiet_hours_too_late
+// Only a REMINDER can be queued (held through quiet hours). fromQueue is true
+// when the 8:00 AM tick is sending a held reminder.
+function reminderTextDecide(env, kind, f, nowMs, fromQueue) {
     if (!f) { return { action: "skip", reason: "no_meeting" }; }
     if (!f.eligible) { return { action: "skip", reason: "not_eligible" }; }
     if (!reminderTextSwitchOn(env, f.path)) { return { action: "skip", reason: "switch_off" }; }
@@ -52202,10 +52215,17 @@ function reminderTextDecide(env, kind, f, nowMs) {
     if (!to || !to.e164 || passkeyCountryCode(to.e164) !== "1") { return { action: "skip", reason: "no_phone" }; }
     var hostPhone = f.host_phone ? reminderTextFormatPhone(f.host_phone) : null;
     if (!hostPhone || !String(f.name || "").trim() || !String(f.who || "").trim()) { return { action: "skip", reason: "no_callback_phone" }; }
-    var q = reminderTextQuiet(nowMs, f.zone);
-    if (q.quiet) {
-        if (kind === "reminder") { return { action: "skip", reason: "quiet_hours" }; }
-        return { action: "queue", sendAfterMs: q.resumeMs };
+    if (kind === "reminder") {
+        var meetingMs = reminderTextMeetingMs(f);
+        var leadMs = REMINDER_TEXT_QUIET_MIN_LEAD_MIN * 60000;
+        // A held reminder is checked again at the moment it would go out.
+        if (fromQueue && meetingMs - nowMs < leadMs) { return { action: "skip", reason: "quiet_hours_too_late" }; }
+        var q = reminderTextQuiet(nowMs, f.zone);
+        if (q.quiet) {
+            // Held until 8:00 AM, but only when the meeting is still 30 minutes away then.
+            if (meetingMs - q.resumeMs < leadMs) { return { action: "skip", reason: "quiet_hours_too_late" }; }
+            return { action: "queue", sendAfterMs: q.resumeMs };
+        }
     }
     return {
         action: "send",
@@ -52228,22 +52248,21 @@ function reminderTextCount(out, reason, f) {
     }
 }
 
-// Holds a confirmation / change / cancel notice that came due in quiet hours.
-// The partial unique index (one pending row per kind + meeting + recipient) is
-// the guard: a second hold for the same thing is ignored by the database.
-// A change notice is not held when a confirmation for the same meeting is
-// already held: that confirmation names the new time itself.
+// Holds a REMINDER that came due in quiet hours (9:00 PM to 8:00 AM). The
+// partial unique index (one pending row per kind + meeting + recipient) is the
+// guard: a second hold for the same reminder is ignored by the database.
+// The payload is the meeting's date and time at the moment of the hold. A
+// pending row for the same meeting with a DIFFERENT date or time is stale (the
+// meeting moved), so it is dropped first; this write only happens on a change.
 async function reminderTextHold(env, kind, f, sendAfterMs, nowMs) {
-    if (kind === "change") {
-        var conf = await env.DB.prepare(
-            "SELECT 1 AS x FROM reminder_text_queue WHERE status = 'pending' AND kind = 'confirmation' AND meeting_ref = ? AND recipient = ?"
-        ).bind(f.ref, f.recipient).first();
-        if (conf) { return { held: true, reason: "covered_by_confirmation" }; }
-    }
+    var meetingAt = f.date + " " + f.time;
+    await env.DB.prepare(
+        "UPDATE reminder_text_queue SET status = 'dropped' WHERE status = 'pending' AND kind = ? AND meeting_ref = ? AND recipient = ? AND payload != ?"
+    ).bind(kind, f.ref, f.recipient, meetingAt).run();
     var holdPhone = f.recipient_phone ? passkeyNormalizePhone(f.recipient_phone) : null;
     await env.DB.prepare(
         "INSERT OR IGNORE INTO reminder_text_queue (id, kind, meeting_ref, recipient, created_at, send_after, status, payload, phone_e164) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)"
-    ).bind(crypto.randomUUID(), kind, f.ref, f.recipient, new Date(nowMs).toISOString(), new Date(sendAfterMs).toISOString(), JSON.stringify(f), holdPhone && holdPhone.e164 ? holdPhone.e164 : null).run();
+    ).bind(crypto.randomUUID(), kind, f.ref, f.recipient, new Date(nowMs).toISOString(), new Date(sendAfterMs).toISOString(), meetingAt, holdPhone && holdPhone.e164 ? holdPhone.e164 : null).run();
     return { held: true, reason: "quiet_hours_held" };
 }
 
@@ -52258,7 +52277,7 @@ async function reminderTextDispatch(env, kind, ref, o) {
         if (!reminderTextsEnabled(env)) { return { sent: false, reason: "off" }; }
         var nowMs = o.nowMs || Date.now();
         var f = o.facts || await reminderTextFacts(env, ref);
-        var d = reminderTextDecide(env, kind, f, nowMs);
+        var d = reminderTextDecide(env, kind, f, nowMs, !!o.fromQueue);
         if (d.action === "skip") {
             reminderTextCount(o.out, d.reason, f);
             return { sent: false, reason: d.reason };
@@ -52282,11 +52301,14 @@ async function reminderTextDispatch(env, kind, ref, o) {
     }
 }
 
-// Sends the held notices that are now allowed (first cron tick at or after
+// Sends the held reminders that are now allowed (first cron tick at or after
 // 8:00 AM local). ONE indexed read when nothing is due, and no read at all
 // while the texts are switched off. Each held row is claimed with a
 // conditional UPDATE, so two overlapping ticks cannot both send it, and the
-// meeting is checked again: still in the future, still a yes, nobody opted out.
+// meeting is checked again: same date and time as when it was held, still at
+// least 30 minutes away, still a yes, nobody opted out, nobody already sent it.
+// (Rows of any other kind are old rows from before the rule changed: they are
+// sent now, read fresh, and no new one is ever held.)
 async function reminderTextQueueTick(env, nowMs) {
     var out = { checked: false, sent: 0, dropped: 0, kept: 0 };
     try {
@@ -52307,8 +52329,14 @@ async function reminderTextQueueTick(env, nowMs) {
                 if (facts) { facts = await reminderTextRefreshSnapshot(env, facts); }
             } else {
                 facts = await reminderTextFacts(env, row.meeting_ref);
+                // The meeting moved after the hold: the held reminder is stale.
+                if (row.kind === "reminder" && facts && String(row.payload || "") !== facts.date + " " + facts.time) {
+                    await env.DB.prepare("UPDATE reminder_text_queue SET status = 'dropped' WHERE id = ?").bind(row.id).run();
+                    out.dropped++;
+                    continue;
+                }
             }
-            var r = await reminderTextDispatch(env, row.kind, row.meeting_ref, { nowMs: nowMs, facts: facts, fromQueue: true });
+            var r = await reminderTextDispatch(env, row.kind, row.meeting_ref, { nowMs: nowMs, facts: facts, fromQueue: true, out: out });
             if (r.sent) {
                 await env.DB.prepare("UPDATE reminder_text_queue SET status = 'sent' WHERE id = ?").bind(row.id).run();
                 out.sent++;
@@ -62066,8 +62094,8 @@ export default {
         ctx.waitUntil(runAppointmentReminders(env).catch(function(e) {
             console.log("appointment reminders failed: " + (e && e.message));
         }));
-        // Held text notices (confirmation, change, cancel that came due in
-        // quiet hours) go out at the first tick at or after 8:00 AM local.
+        // Held text reminders (a reminder that came due in quiet hours, 9:00 PM
+        // to 8:00 AM) go out at the first tick at or after 8:00 AM local.
         // One indexed read per tick, none while the texts are off.
         ctx.waitUntil(reminderTextQueueTick(env).catch(function(e) {
             console.log("reminder text queue failed: " + (e && e.message));

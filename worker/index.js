@@ -52240,9 +52240,10 @@ async function reminderTextHold(env, kind, f, sendAfterMs, nowMs) {
         ).bind(f.ref, f.recipient).first();
         if (conf) { return { held: true, reason: "covered_by_confirmation" }; }
     }
+    var holdPhone = f.recipient_phone ? passkeyNormalizePhone(f.recipient_phone) : null;
     await env.DB.prepare(
-        "INSERT OR IGNORE INTO reminder_text_queue (id, kind, meeting_ref, recipient, created_at, send_after, status, payload) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)"
-    ).bind(crypto.randomUUID(), kind, f.ref, f.recipient, new Date(nowMs).toISOString(), new Date(sendAfterMs).toISOString(), JSON.stringify(f)).run();
+        "INSERT OR IGNORE INTO reminder_text_queue (id, kind, meeting_ref, recipient, created_at, send_after, status, payload, phone_e164) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)"
+    ).bind(crypto.randomUUID(), kind, f.ref, f.recipient, new Date(nowMs).toISOString(), new Date(sendAfterMs).toISOString(), JSON.stringify(f), holdPhone && holdPhone.e164 ? holdPhone.e164 : null).run();
     return { held: true, reason: "quiet_hours_held" };
 }
 
@@ -52420,10 +52421,37 @@ async function reminderTextChangedEvent(env, ref) {
 // other reply goes to the host or owner as a push and is logged. The answer to
 // Twilio is always an empty TwiML response, so no automatic reply goes out,
 // and no reply cancels a meeting.
-var TWILIO_INBOUND_IGNORE = ["STOP", "HELP", "START", "UNSTOP", "CANCEL", "END", "QUIT", "UNSUBSCRIBE"];
+// STOP, START and HELP. With Twilio Advanced Opt-Out on, Twilio sends its own fixed
+// reply AND posts the message here with an OptOutType field (STOP, START or HELP).
+// Without it the field is absent and the words below decide, except that START,
+// UNSTOP and YES count as a start ONLY when OptOutType says START.
+var TWILIO_STOP_WORDS = ["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "REVOKE", "OPTOUT"];
+var TWILIO_HELP_WORDS = ["HELP", "INFO"];
+var REMINDER_TEXT_HELP = {
+    en: { call: "{who}: for your appointment, call {phone}. For help with this text service, email support@resonateai.online.", plain: "{who}: for help with this text service, email support@resonateai.online." },
+    es: { call: "{who}: para su cita, llame al {phone}. Para ayuda con este servicio de mensajes, escriba a support@resonateai.online.", plain: "{who}: para ayuda con este servicio de mensajes, escriba a support@resonateai.online." },
+    pt: { call: "{who}: para o seu horário, ligue para {phone}. Para ajuda com este serviço de mensagens, escreva para support@resonateai.online.", plain: "{who}: para ajuda com este serviço de mensagens, escreva para support@resonateai.online." }
+};
 
-function reminderTextTwiml() {
-    return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
+function reminderTextOptKind(optOutType, body) {
+    var t = String(optOutType == null ? "" : optOutType).trim().toUpperCase();
+    if (t === "STOP") { return "stop"; }
+    if (t === "START") { return "start"; }
+    if (t === "HELP") { return "help"; }
+    var b = String(body == null ? "" : body).trim().toUpperCase();
+    if (TWILIO_STOP_WORDS.indexOf(b) !== -1) { return "stop"; }
+    if (TWILIO_HELP_WORDS.indexOf(b) !== -1) { return "help"; }
+    return null;
+}
+
+function reminderTextXmlEscape(v) {
+    return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Empty TwiML (no automatic reply), or one message when a follow-up is wanted.
+function reminderTextTwiml(message) {
+    var xml = message ? "<Response><Message>" + reminderTextXmlEscape(message) + "</Message></Response>" : "<Response></Response>";
+    return new Response(xml, { status: 200, headers: { "Content-Type": "text/xml" } });
 }
 
 async function reminderTextHostTargets(env, f, row) {
@@ -52513,12 +52541,80 @@ async function reminderTextRepliesRetry(env, nowMs) {
 // Every reply is matched to the most recent text of ANY kind sent to that
 // phone (with a Twilio message id) in the last 30 days. "1" confirms only when
 // that text was a reminder; every other reply is a normal reply.
-async function reminderTextHandleReply(env, fromE164, text, messageSid, nowMs) {
-    nowMs = nowMs || Date.now();
+// The most recent text of ANY kind sent to this phone in the last 30 days (with a Twilio id).
+async function reminderTextFindLast(env, fromE164, nowMs) {
     var since = new Date(nowMs - 30 * 86400000).toISOString();
-    var last = await env.DB.prepare(
+    return await env.DB.prepare(
         "SELECT session_id, recipient, kind, meeting_at FROM reminder_text_sends WHERE phone_e164 = ? AND twilio_sid IS NOT NULL AND sent_at >= ? ORDER BY sent_at DESC LIMIT 1"
     ).bind(fromE164, since).first();
+}
+
+// STOP, START and HELP. Every one is kept in reminder_text_replies as an audit
+// trail (never deleted) with forwarded = 1: nobody is pushed for these.
+//   stop  -> the phone goes into reminder_text_optouts at once, every held notice for it is dropped
+//   start -> the phone comes out of reminder_text_optouts
+//   help  -> a follow-up message with who to call (null when nothing can be matched)
+async function reminderTextHandleOptEvent(env, fromE164, kind, text, messageSid, nowMs) {
+    nowMs = nowMs || Date.now();
+    var last = await reminderTextFindLast(env, fromE164, nowMs);
+    var ref = last ? last.session_id : null;
+    var clientId = null, personName = null;
+    if (last && last.recipient) {
+        var rid = String(last.recipient).slice(last.recipient.indexOf(":") + 1);
+        if (last.recipient.indexOf("lead:") === 0) {
+            var lr = await env.DB.prepare("SELECT cliente, client_id FROM gm_leads WHERE id = ?").bind(rid).first();
+            if (lr) { personName = lr.cliente; clientId = lr.client_id; }
+        } else if (last.recipient.indexOf("client:") === 0) {
+            var cr = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(rid).first();
+            personName = cr ? cr.name : null; clientId = rid;
+        }
+    }
+    var rowKind = kind === "stop" ? "optout" : kind === "start" ? "optin" : "help";
+    if (kind === "stop") {
+        await env.DB.prepare("INSERT OR IGNORE INTO reminder_text_optouts (phone_e164, opted_out_at) VALUES (?, ?)").bind(fromE164, new Date(nowMs).toISOString()).run();
+        await env.DB.prepare("UPDATE reminder_text_queue SET status = 'dropped' WHERE phone_e164 = ? AND status = 'pending'").bind(fromE164).run();
+    } else if (kind === "start") {
+        await env.DB.prepare("DELETE FROM reminder_text_optouts WHERE phone_e164 = ?").bind(fromE164).run();
+    }
+    await env.DB.prepare(
+        "INSERT OR IGNORE INTO reminder_text_replies (id, phone_e164, session_ref, kind, body, received_at, forwarded, message_sid, client_id, person_name, meeting_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)"
+    ).bind(crypto.randomUUID(), fromE164, ref, rowKind, String(text || "").slice(0, 1000), new Date(nowMs).toISOString(), messageSid || null, clientId, personName, last && last.meeting_at ? last.meeting_at : null).run();
+    if (kind !== "help") { return { kind: rowKind, message: null }; }
+    return { kind: rowKind, message: await reminderTextHelpMessage(env, last) };
+}
+
+// The follow-up for HELP, in the language of the text the customer got: an admin
+// meeting is ALWAYS Portuguese; a booking-link meeting uses customer_language, English
+// when there is none. null when the last text cannot be matched to a business or host.
+async function reminderTextHelpMessage(env, last) {
+    if (!last) { return null; }
+    var ref = String(last.session_id);
+    var who = "", phone = null, lang = "en";
+    var f = await reminderTextFacts(env, ref);
+    if (f) {
+        who = f.who; phone = f.host_phone; lang = f.lang;
+    } else if (ref.indexOf("ge:") === 0) {
+        // The booking is gone (a cancel): the business still answers.
+        var lead = String(last.recipient).indexOf("lead:") === 0
+            ? await env.DB.prepare("SELECT client_id FROM gm_leads WHERE id = ?").bind(String(last.recipient).slice(5)).first() : null;
+        var c = lead ? await env.DB.prepare("SELECT name, phone, whatsapp FROM clients WHERE id = ?").bind(lead.client_id).first() : null;
+        if (!c) { return null; }
+        who = c.name; phone = c.phone || c.whatsapp; lang = "en";
+    } else {
+        var srow = await env.DB.prepare("SELECT created_by FROM sessions WHERE id = ?").bind(ref).first();
+        if (!srow) { return null; }
+        var host = await reminderTextHost(env, srow.created_by);
+        who = host.name; phone = host.phone; lang = "pt";
+    }
+    if (!String(who || "").trim()) { return null; }
+    var fmt = phone ? reminderTextFormatPhone(phone) : null;
+    var tpl = REMINDER_TEXT_HELP[reminderTextLang(lang)];
+    return (fmt ? tpl.call : tpl.plain).split("{who}").join(who).split("{phone}").join(fmt || "");
+}
+
+async function reminderTextHandleReply(env, fromE164, text, messageSid, nowMs) {
+    nowMs = nowMs || Date.now();
+    var last = await reminderTextFindLast(env, fromE164, nowMs);
     var ref = last ? last.session_id : null;
     var isConfirm = !!ref && text === "1" && last.kind === "reminder";
     var kind = isConfirm ? "confirm" : (ref ? "reply" : "unmatched");
@@ -52600,7 +52696,12 @@ async function handlePostTwilioInbound(request, env) {
         var form = new URLSearchParams(await request.text());
         var norm = passkeyNormalizePhone(form.get("From") || "");
         var text = String(form.get("Body") || "").trim();
-        if (norm && norm.e164 && text && TWILIO_INBOUND_IGNORE.indexOf(text.toUpperCase()) === -1) {
+        var optKind = reminderTextOptKind(form.get("OptOutType"), text);
+        if (norm && norm.e164 && optKind) {
+            var oe = await reminderTextHandleOptEvent(env, norm.e164, optKind, text, form.get("MessageSid") || null);
+            return reminderTextTwiml(oe.message);
+        }
+        if (norm && norm.e164 && text) {
             await reminderTextHandleReply(env, norm.e164, text, form.get("MessageSid") || null);
         }
     } catch (err) {

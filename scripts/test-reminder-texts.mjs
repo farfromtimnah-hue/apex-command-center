@@ -18,7 +18,7 @@ const FNS = [
   "reminderTextQuiet", "reminderTextHost", "reminderTextFacts", "reminderTextRefreshSnapshot", "reminderTextDecide", "reminderTextCount",
   "reminderTextHold", "reminderTextDispatch", "reminderTextQueueTick", "reminderTextSessionsBefore", "reminderTextSessionsChanged",
   "reminderTextSnapshots", "reminderTextCancelled", "reminderTextConfirmed", "reminderTextChangedEvent",
-  "reminderTextTwiml", "reminderTextHostTargets", "reminderTextHandleReply", "reminderTextPushDeveloper", "reminderTextPushReply", "reminderTextRepliesRetry", "reminderTextRepliesList", "handleGetTextReplies", "handleGetGmTextReplies", "gmDocSettingsOwnerOnly", "requireClientAccess", "sessionSellerName", "handlePostTwilioInbound", "stripeConstantTimeEqual",
+  "reminderTextTwiml", "reminderTextOptKind", "reminderTextXmlEscape", "reminderTextFindLast", "reminderTextHandleOptEvent", "reminderTextHelpMessage", "reminderTextHostTargets", "reminderTextHandleReply", "reminderTextPushDeveloper", "reminderTextPushReply", "reminderTextRepliesRetry", "reminderTextRepliesList", "handleGetTextReplies", "handleGetGmTextReplies", "gmDocSettingsOwnerOnly", "requireClientAccess", "sessionSellerName", "handlePostTwilioInbound", "stripeConstantTimeEqual",
   "apptRemWall", "apptRemTime", "apptRemDateMDY", "apptRemFmt12", "apptRemClientPhone", "apptRemRoleEmails",
   "planClientAnd", "clientZoneFor", "tzIsValid", "tzZoneForState", "tzParts", "tzOffsetMinutes", "tzWallToUtcMs",
   "sendCounterRead", "sendCounterIncrement", "sendCounterDayKey", "sendCounterMonthKey", "sendCounterMaybeAlert",
@@ -26,7 +26,7 @@ const FNS = [
   "passkeyNormalizePhone", "passkeyCountryCode", "passkeyMaskPhone", "easternDateStr"
 ];
 const VARS = ["REMINDER_TEXT_TEMPLATES", "REMINDER_TEXT_QUIET_START_MIN", "REMINDER_TEXT_QUIET_END_MIN", "APEX_TIMEZONE",
-  "APPT_REMINDER_OWNER_ROLE", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "TWILIO_INBOUND_IGNORE"];
+  "APPT_REMINDER_OWNER_ROLE", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "TWILIO_STOP_WORDS", "TWILIO_HELP_WORDS", "REMINDER_TEXT_HELP"];
 
 function fakeTwilio(state) {
   return async function fetch(url, init) {
@@ -62,6 +62,7 @@ function world(envOverrides, opts) {
   readFileSync(new URL("../migrations/2026-11-10_meeting_texts.sql", import.meta.url), "utf8").replace(/^\s*--[^\n]*$/gm, "").split(";").forEach((st) => {
     if (st.trim()) { d.raw.exec(st); }
   });
+  readFileSync(new URL("../migrations/2026-11-10_text_queue_phone.sql", import.meta.url), "utf8").replace(/^\s*--[^\n]*$/gm, "").split(";").forEach((st) => { if (st.trim()) { d.raw.exec(st); } });
   readFileSync(new URL("../migrations/2026-11-10_text_replies_visible.sql", import.meta.url), "utf8").replace(/^\s*--[^\n]*$/gm, "").split(";").forEach((st) => { if (st.trim()) { d.raw.exec(st); } });
   readFileSync(new URL("../migrations/2026-11-10_gm_events_customer_language.sql", import.meta.url), "utf8").replace(/^\s*--[^\n]*$/gm, "").split(";").forEach((st) => { if (st.trim()) { d.raw.exec(st); } });
   for (const c of ["location_state", "owners", "owners_json", "phone", "whatsapp"]) {
@@ -494,9 +495,10 @@ await section("quiet", async () => {
 });
 
 // ── 10. Replies: POST /api/twilio/inbound ───────────────────────────────────
-function inbound(w, token, from, body, sid) {
+function inbound(w, token, from, body, sid, optOutType) {
   const url = "https://api.test/api/twilio/inbound" + (token === null ? "" : "?token=" + encodeURIComponent(token));
   const form = new URLSearchParams({ From: from, Body: body, MessageSid: sid || "SMr" + Math.random() });
+  if (optOutType) { form.set("OptOutType", optOutType); }
   return w.F.handlePostTwilioInbound(new Request(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form.toString() }), w.env);
 }
 await section("inbound", async () => {
@@ -532,15 +534,20 @@ await section("inbound", async () => {
   ok(w.state.pushes.length === 2 && rowsOf(w, "SELECT 1 FROM reminder_text_replies WHERE kind = 'reply'").length === 1, "Twilio sending the same message twice is stored and forwarded once");
 
   const callsBefore = w.state.calls.length;
-  for (const word of ["STOP", "stop", "HELP", "Start", "UNSTOP", "CANCEL", "END", "QUIT", "UNSUBSCRIBE", " stop "]) {
+  for (const word of ["STOP", "stop", "CANCEL", "END", "QUIT", "UNSUBSCRIBE", " stop ", "STOPALL", "REVOKE", "OPTOUT"]) {
     const rr = await TW(await inbound(w, "s3cret-token", PHONE, word));
-    ok(rr.status === 200 && rr.text === "<Response></Response>", word.trim() + ": answered with empty TwiML");
+    ok(rr.status === 200 && rr.text === "<Response></Response>", word.trim() + ": a stop word is answered with empty TwiML");
   }
-  ok(rowsOf(w, "SELECT 1 FROM reminder_text_replies").length === 2 && w.state.pushes.length === 2, "STOP, HELP, START, UNSTOP, CANCEL, END, QUIT and UNSUBSCRIBE are ignored: nothing stored, no push");
+  ok(w.state.pushes.length === 2 && rowsOf(w, "SELECT 1 FROM reminder_text_replies WHERE kind = 'optout'").length === 10, "stop words are stored as opt-outs (an audit row each) and nobody is pushed");
   ok(w.state.calls.length === callsBefore, "no reply of any kind is sent back (no cancel by text, no automatic answer)");
+  for (const word of ["Start", "UNSTOP", "YES"]) {
+    const rr = await TW(await inbound(w, "s3cret-token", PHONE, word));
+    ok(rr.status === 200 && rr.text === "<Response></Response>", word + " without OptOutType: answered with empty TwiML");
+  }
+  ok(rowsOf(w, "SELECT 1 FROM reminder_text_replies WHERE kind = 'optin'").length === 0 && w.state.pushes.length === 5, "START, UNSTOP and YES without OptOutType are normal replies (pushed), not a start");
 
   const un = await TW(await inbound(w, "s3cret-token", "+14075559999", "hello"));
-  ok(un.status === 200 && un.text === "<Response></Response>" && rowsOf(w, "SELECT kind FROM reminder_text_replies WHERE phone_e164 = '+14075559999'")[0].kind === "unmatched" && w.state.pushes.length === 3 && w.state.pushes[2].targets.join() === "dev@t.test", "a reply from a number we never texted is logged as unmatched and pushed to the developer role (changed: it used to be silent)");
+  ok(un.status === 200 && un.text === "<Response></Response>" && rowsOf(w, "SELECT kind FROM reminder_text_replies WHERE phone_e164 = '+14075559999'")[0].kind === "unmatched" && w.state.pushes.length === 6 && w.state.pushes[5].targets.join() === "dev@t.test", "a reply from a number we never texted is logged as unmatched and pushed to the developer role (changed: it used to be silent)");
   w.d.raw.exec("UPDATE reminder_text_sends SET sent_at = '2026-01-01T00:00:00.000Z'");
   const old = await TW(await inbound(w, "s3cret-token", PHONE, "1", "SM9"));
   ok(old.status === 200 && rowsOf(w, "SELECT kind FROM reminder_text_replies WHERE message_sid = 'SM9'")[0].kind === "unmatched", "a text older than 30 days is not matched (changed from 48 hours to 30 days, any kind)");
@@ -659,6 +666,98 @@ await section("replies", async () => {
   ok((await L.F.handleGetGmTextReplies("c2", {}, L.env)).data.replies.length === 1, "staff can open one client's list too");
   L.state.user = null;
   ok((await L.F.handleGetTextReplies({}, L.env)).status === 401, "no login, no list");
+});
+
+// ── 10c. STOP, START and HELP ───────────────────────────────────────────────
+await section("optout", async () => {
+  const TW = async (r) => ({ status: r.status, type: r.headers.get("Content-Type"), text: await r.text() });
+  const PH = "+14075550155";                                          // the customer of booking 1
+  const setup = (envx, bookingLang) => {
+    const w = world(Object.assign({ TWILIO_INBOUND_TOKEN: "tok" }, envx || {}));
+    addBooking(w, 1, "agreed", { date: "2026-12-20", time: "10:00", lang: bookingLang === undefined ? "es" : bookingLang });
+    return w;
+  };
+  // STOP with OptOutType: recorded, queue cancelled, audit row, nothing pushed, next send refused
+  const w = setup();
+  await w.F.reminderTextDispatch(w.env, "confirmation", "ge:ev1", { nowMs: NOW });                               // sent by day
+  await w.F.reminderTextDispatch(w.env, "change", "ge:ev1", { nowMs: Date.UTC(2026, 11, 10, 3, 30) });          // 10:30 PM: held
+  await w.F.reminderTextDispatch(w.env, "cancel", "ge:ev1", { nowMs: Date.UTC(2026, 11, 10, 3, 30), facts: await w.F.reminderTextFacts(w.env, "ge:ev1") });
+  ok(rowsOf(w, "SELECT 1 FROM reminder_text_queue WHERE status = 'pending' AND phone_e164 = '+14075550155'").length === 2, "two notices are held for the phone (the queue knows the phone)");
+  const sentBefore = w.state.calls.length;
+  const r = await TW(await inbound(w, "tok", PH, "STOP", "SMs1", "STOP"));
+  ok(r.status === 200 && /^text\/xml/.test(r.type) && r.text === "<Response></Response>", "STOP: empty TwiML (Twilio sends its own reply)");
+  ok(rowsOf(w, "SELECT 1 FROM reminder_text_optouts WHERE phone_e164 = '+14075550155'").length === 1, "STOP: the phone is in reminder_text_optouts");
+  ok(rowsOf(w, "SELECT 1 FROM reminder_text_queue WHERE status = 'pending' AND phone_e164 = '+14075550155'").length === 0 && rowsOf(w, "SELECT 1 FROM reminder_text_queue WHERE status = 'dropped'").length === 2, "STOP: every pending held notice for that phone is cancelled");
+  const orow = rowsOf(w, "SELECT kind, forwarded, session_ref, person_name FROM reminder_text_replies WHERE message_sid = 'SMs1'")[0];
+  ok(orow && orow.kind === "optout" && orow.session_ref === "ge:ev1" && orow.person_name === "Customer 1" && w.state.pushes.length === 0, "STOP: an optout row is stored with the meeting it belongs to, and nothing is pushed");
+  const refused = await w.F.reminderTextDispatch(w.env, "reminder", "ge:ev1", { nowMs: NOW });
+  const refusedSend = await w.F.reminderTextSend(w.env, { ref: "ge:ev1", recipient: "lead:L1", phone: PH, kind: "change", lang: "en", meetingAt: "2026-12-20 11:00", vars: {} });
+  ok(refused.sent === false && refused.reason === "opted_out" && refusedSend.reason === "opted_out" && w.state.calls.length === sentBefore, "after STOP the next send to that phone, of any kind, is refused with no Twilio call");
+  const tick = await w.F.reminderTextQueueTick(w.env, Date.UTC(2026, 11, 10, 13, 0));
+  ok(tick.sent === 0 && w.state.calls.length === sentBefore, "and the 8:00 AM tick sends nothing to it");
+  // START with OptOutType: removed, audit row, the audit trail stays
+  const st = await TW(await inbound(w, "tok", PH, "START", "SMs2", "START"));
+  ok(st.text === "<Response></Response>" && rowsOf(w, "SELECT 1 FROM reminder_text_optouts WHERE phone_e164 = '+14075550155'").length === 0, "START: the phone comes out of reminder_text_optouts");
+  ok(rowsOf(w, "SELECT kind FROM reminder_text_replies WHERE message_sid = 'SMs2'")[0].kind === "optin" && rowsOf(w, "SELECT 1 FROM reminder_text_replies WHERE kind = 'optout'").length === 1 && w.state.pushes.length === 0, "START: an optin row is stored, the optout row is kept, nothing pushed");
+  const again = await w.F.reminderTextDispatch(w.env, "reminder", "ge:ev1", { nowMs: NOW });
+  ok(again.sent === true, "after START texts can go to the phone again");
+  // a plain STOP with no OptOutType (Advanced Opt-Out not on yet)
+  const w2 = setup();
+  await inbound(w2, "tok", PH, " stop ", "SMp1");
+  ok(rowsOf(w2, "SELECT 1 FROM reminder_text_optouts WHERE phone_e164 = '+14075550155'").length === 1 && rowsOf(w2, "SELECT kind FROM reminder_text_replies")[0].kind === "optout", "a plain STOP without OptOutType records the opt-out");
+  // a plain YES, START or UNSTOP without OptOutType is a normal reply
+  const w3 = setup();
+  await w3.F.reminderTextDispatch(w3.env, "confirmation", "ge:ev1", { nowMs: NOW });
+  w3.d.raw.exec("INSERT INTO reminder_text_optouts VALUES ('+14075550155', 'x')");
+  await inbound(w3, "tok", PH, "YES", "SMy1");
+  ok(rowsOf(w3, "SELECT 1 FROM reminder_text_optouts").length === 1 && rowsOf(w3, "SELECT kind FROM reminder_text_replies WHERE message_sid = 'SMy1'")[0].kind === "reply" && w3.state.pushes.length === 1, "a plain YES without OptOutType is a normal reply, not a start");
+  await inbound(w3, "tok", PH, "YES", "SMy2", "START");
+  ok(rowsOf(w3, "SELECT 1 FROM reminder_text_optouts").length === 0, "YES with OptOutType START is a start");
+  ok(w3.F.reminderTextOptKind("stop", "hello") === "stop" && w3.F.reminderTextOptKind("Help", "") === "help" && w3.F.reminderTextOptKind("", "INFO") === "help" && w3.F.reminderTextOptKind("", "hello") === null && w3.F.reminderTextOptKind("WHATEVER", "STOPALL") === "stop" && w3.F.reminderTextOptKind(null, "START") === null, "OptOutType is read case-insensitively, then the body decides");
+
+  // HELP
+  const H = async (w, from, sid) => TW(await inbound(w, "tok", from, "HELP", sid, "HELP"));
+  const wa = world({ TWILIO_INBOUND_TOKEN: "tok" });
+  addSession(wa, "h1", { date: "2026-12-20", time: "14:00" });
+  await wa.F.reminderTextDispatch(wa.env, "confirmation", "h1", { nowMs: NOW });
+  const ha = await H(wa, "+14075550101", "SMh1");
+  ok(/^text\/xml/.test(ha.type) && ha.text === "<Response><Message>Rafael: para o seu horário, ligue para +1 555-555-0123. Para ajuda com este serviço de mensagens, escreva para support@resonateai.online.</Message></Response>", "HELP after an admin text: Portuguese, host name and phone" + (ha.text.indexOf("Rafael") < 0 ? " got " + ha.text : ""));
+  ok(rowsOf(wa, "SELECT kind FROM reminder_text_replies WHERE message_sid = 'SMh1'")[0].kind === "help" && wa.state.pushes.length === 0, "HELP: a help row is stored, nobody is pushed");
+  ok(rowsOf(wa, "SELECT 1 FROM reminder_text_optouts").length === 0, "HELP does not opt anyone out");
+  const wes = setup({}, "es");
+  await wes.F.reminderTextDispatch(wes.env, "confirmation", "ge:ev1", { nowMs: NOW });
+  ok((await H(wes, PH, "SMh2")).text === "<Response><Message>JM Luxury Pools: para su cita, llame al +1 321-555-0188. Para ayuda con este servicio de mensajes, escriba a support@resonateai.online.</Message></Response>", "HELP after a booking text with customer_language es: Spanish, business name and owner phone");
+  const wen = setup({}, null);
+  wen.d.raw.exec("UPDATE clients SET language = 'pt' WHERE id = 'c2'");
+  await wen.F.reminderTextDispatch(wen.env, "confirmation", "ge:ev1", { nowMs: NOW });
+  ok((await H(wen, PH, "SMh3")).text === "<Response><Message>JM Luxury Pools: for your appointment, call +1 321-555-0188. For help with this text service, email support@resonateai.online.</Message></Response>", "HELP after a booking text with no language: English (not the client's Portuguese)");
+  const wpt = setup({}, "pt");
+  await wpt.F.reminderTextDispatch(wpt.env, "confirmation", "ge:ev1", { nowMs: NOW });
+  ok(/^<Response><Message>JM Luxury Pools: para o seu horário, ligue para \+1 321-555-0188\./.test((await H(wpt, PH, "SMh4")).text), "HELP after a booking text with customer_language pt: Portuguese");
+  const wnp = setup({}, "en");
+  await wnp.F.reminderTextDispatch(wnp.env, "confirmation", "ge:ev1", { nowMs: NOW });
+  wnp.d.raw.exec("UPDATE clients SET phone = NULL, whatsapp = NULL WHERE id = 'c2'");
+  ok((await H(wnp, PH, "SMh5")).text === "<Response><Message>JM Luxury Pools: for help with this text service, email support@resonateai.online.</Message></Response>", "HELP with no phone on record: the same text without the sentence about calling");
+  const wn = setup();
+  const hn = await H(wn, "+15555550777", "SMh6");
+  ok(hn.status === 200 && hn.text === "<Response></Response>" && rowsOf(wn, "SELECT kind FROM reminder_text_replies WHERE message_sid = 'SMh6'")[0].kind === "help", "HELP with no matched text: empty TwiML (Twilio already answered), and the row is still kept");
+  const wc = setup({}, "es");
+  const snapc = await wc.F.reminderTextFacts(wc.env, "ge:ev1");
+  await wc.F.reminderTextDispatch(wc.env, "cancel", "ge:ev1", { nowMs: NOW, facts: snapc });
+  wc.d.raw.exec("DELETE FROM gm_events");
+  ok(/^<Response><Message>JM Luxury Pools: for your appointment, call \+1 321-555-0188\./.test((await H(wc, PH, "SMh7")).text), "HELP after a cancel text (meeting gone): the business still answers");
+  const wx = setup();
+  wx.d.raw.exec("UPDATE clients SET name = 'Bob & <Sons>' WHERE id = 'c2'");
+  await wx.F.reminderTextDispatch(wx.env, "confirmation", "ge:ev1", { nowMs: NOW });
+  ok(/Bob &amp; &lt;Sons&gt;/.test((await H(wx, PH, "SMh8")).text), "names are escaped in the TwiML");
+  // the token check is unchanged
+  const wt = setup();
+  const t1 = await inbound(wt, null, PH, "STOP", "SMt1", "STOP");
+  const t2 = await inbound(wt, "wrong", PH, "STOP", "SMt2", "STOP");
+  ok(t1.status === 403 && t2.status === 403 && rowsOf(wt, "SELECT 1 FROM reminder_text_optouts").length === 0 && rowsOf(wt, "SELECT 1 FROM reminder_text_replies").length === 0, "no token or a wrong token: still 403, and a STOP with a bad token changes nothing");
+  // the help wording: exact words, the support address, and none of Twilio's own HELP text
+  const sw = workerSrc.slice(workerSrc.indexOf("var REMINDER_TEXT_HELP"), workerSrc.indexOf("function reminderTextOptKind"));
+  ok((sw.match(/support@resonateai\.online/g) || []).length === 6 && !/Reply HELP|Msg & data|Msg and data/i.test(sw), "help wording: the support address in all three languages, and not Twilio's own HELP words");
 });
 
 // ── 11. The migration ───────────────────────────────────────────────────────

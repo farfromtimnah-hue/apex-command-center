@@ -735,6 +735,9 @@ var STAFF_MANAGE_BLOCKED_MSG = "Este ato s\u00f3 pode ser feito pelo pr\u00f3pri
 // no flag row, a flag that is not 1, or a lookup that throws all give the
 // same read-only answer a plain preview always gave.
 async function previewWriteGate(request, env, path) {
+    // The Pipeline spreadsheet usage log only writes its own log row (marked
+    // previewing); it changes no client data, so a preview may record it.
+    if (request.method === "POST" && /^\/api\/clients\/[^\/]+\/gm\/leads-grid-events$/.test(path)) { return null; }
     var url = new URL(request.url);
     var cid = url.searchParams.get("previewAs");
     var readOnly = jsonErr(PREVIEW_READONLY_MSG, 403);
@@ -11150,6 +11153,306 @@ async function handlePostStaffClick(request, env) {
     return jsonOk({ ok: true });
 }
 
+// ==== LEADS GRID EVENTS BEGIN ====
+// ---------------------------------------------------------------------------
+// Route: POST /api/clients/:id/gm/leads-grid-events   { events: [ up to 25 ] }
+// Route: GET  /api/dev/leads-grid-events?client_id=&days=   (developer only)
+//
+// A usage log for the Pipeline spreadsheet view (migrations/2026-11-13_
+// leads_grid_events.sql). It records EVIDENCE (device, place, time, sign in)
+// so a person can judge what a client did and what Apex staff did for them.
+// It never proves who someone is, and nothing here names a verdict.
+//
+//   - who, role, login_ref, previewing, ip, country, region, city, asn and ua
+//     come from the verified session and the request. NEVER from the body. The
+//     page's own "at" time is ignored: the database stamps created_at.
+//   - action, mode and column_key are fixed lists. cap_reached is written by
+//     this Worker only; a page that sends it gets 400.
+//   - detail holds short fixed words and numbers only (see
+//     GRID_DETAIL_WORDS). A lead's name, phone, notes, or anything typed into
+//     a search box, filter or cell is refused with 400 and never stored.
+//   - lead_id must belong to the client in the URL for cell_saved,
+//     cell_refused and lead_opened (one query for the whole batch).
+//   - No cap per person. One safety valve for the database budget: at
+//     GRID_DAILY_CAP rows created today nothing more is stored, ONE
+//     cap_reached row is written for the day, and the answer is still 200.
+//   - Telemetry never breaks the screen: a missing table or failed write
+//     answers 200 {ok:true}. The body is never logged.
+// ---------------------------------------------------------------------------
+var GRID_EVENT_ACTIONS = [
+    "portal_session_started", "view_opened", "view_closed", "switched_to_stacked", "switched_to_rail",
+    "sort_set", "sort_cleared", "filter_set", "filter_cleared", "filters_cleared_all",
+    "column_hidden", "column_shown", "column_moved", "column_resized", "layout_reset",
+    "group_set", "group_cleared", "search_used", "search_cleared", "selection_stats_used",
+    "lead_opened", "view_saved", "view_opened_saved", "view_deleted",
+    "edit_mode_on", "edit_mode_off", "edit_mode_auto_off",
+    "cell_edit_started", "cell_edit_cancelled", "cell_saved", "cell_refused",
+    "copy_blocked", "cut_blocked", "print_blocked", "save_blocked", "contextmenu_blocked"
+];
+var GRID_COLUMN_KEYS = [
+    "cliente", "telefone", "origem", "parceiro", "servico", "vendedor", "estagio", "valor",
+    "data_lead", "data_contato", "data_estimate", "followups", "proxima_acao",
+    "mes_lead", "mes_fechamento", "dias_estagio", "observacao"
+];
+// The only words a detail may be made of, besides whole numbers and column
+// keys. A name such as "Silva" is a word that is not here, so it is refused.
+var GRID_DETAIL_WORDS = [
+    "asc", "desc", "ok", "refused", "gt", "lt", "between", "eq", "blank", "not_blank",
+    "contains", "not_contains", "begins", "values", "len", "w", "n", "pos",
+    "idle", "leave", "key", "mouse", "button", "grid", "stacked", "rail", "auto", "pagehide"
+];
+var GRID_LEAD_ACTIONS = ["cell_saved", "cell_refused", "lead_opened"];
+var GRID_STAFF_ROLES = ["alice", "rafa", "developer"];
+var GRID_ID_RE = /^[A-Za-z0-9-]{1,64}$/;
+var GRID_DETAIL_RE = /^[A-Za-z0-9._:,\/|-]{0,120}$/;
+var GRID_DAILY_CAP = 50000;
+var GRID_MAX_BATCH = 25;
+
+// The role written to the log: the staff role, or the client side role.
+function gridEventRole(user) {
+    if (GRID_STAFF_ROLES.indexOf(user.role) !== -1) { return user.role; }
+    var lr = user.login_role;
+    if (lr === "seller" || lr === "partner" || lr === "staff_finance" || lr === "staff") { return lr; }
+    return "owner";
+}
+
+function gridDetailOk(detail) {
+    if (detail === "") { return true; }
+    if (typeof detail !== "string" || !GRID_DETAIL_RE.test(detail)) { return false; }
+    var parts = detail.split(/[.:,\/|-]/);
+    for (var i = 0; i < parts.length; i++) {
+        var w = parts[i];
+        if (w === "") { continue; }
+        if (/^\d{1,9}$/.test(w)) { continue; }
+        if (GRID_DETAIL_WORDS.indexOf(w) !== -1 || GRID_COLUMN_KEYS.indexOf(w) !== -1) { continue; }
+        return false;
+    }
+    return true;
+}
+
+// One event from the body, reduced to the fields the page may send. Returns
+// null when anything is outside the allowed values (rejected, never repaired).
+function gridCleanEvent(e) {
+    if (!e || typeof e !== "object" || Array.isArray(e)) { return null; }
+    if (typeof e.action !== "string" || GRID_EVENT_ACTIONS.indexOf(e.action) === -1) { return null; }
+    if (e.mode !== "read" && e.mode !== "edit") { return null; }
+    var col = e.column_key;
+    if (col === undefined || col === null || col === "") { col = null; }
+    else if (typeof col !== "string" || GRID_COLUMN_KEYS.indexOf(col) === -1) { return null; }
+    var lead = e.lead_id;
+    if (lead === undefined || lead === null || lead === "") { lead = null; }
+    else if (typeof lead !== "string" || !GRID_ID_RE.test(lead)) { return null; }
+    if (GRID_LEAD_ACTIONS.indexOf(e.action) !== -1 && !lead) { return null; }
+    var detail = e.detail === undefined || e.detail === null ? "" : e.detail;
+    if (!gridDetailOk(detail)) { return null; }
+    var rows = e.row_count_after;
+    if (rows === undefined || rows === null) { rows = null; }
+    else if (typeof rows !== "number" || !isFinite(rows) || Math.floor(rows) !== rows || rows < 0 || rows > 1000000) { return null; }
+    if (typeof e.session_ref !== "string" || !GRID_ID_RE.test(e.session_ref)) { return null; }
+    if (typeof e.device_id !== "string" || !GRID_ID_RE.test(e.device_id)) { return null; }
+    return { action: e.action, mode: e.mode, column_key: col, lead_id: lead, detail: detail || null,
+             row_count_after: rows, session_ref: e.session_ref, device_id: e.device_id };
+}
+
+async function handlePostGmLeadsGridEvents(id, request, env) {
+    var user = await authenticate(request, env);
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+    var body = null;
+    try { body = await request.json(); } catch (e) { body = null; }
+    if (!body || typeof body !== "object" || !Array.isArray(body.events)) { return jsonErr("Invalid body", 400); }
+    if (body.events.length < 1 || body.events.length > GRID_MAX_BATCH) { return jsonErr("Invalid body", 400); }
+    var clean = [];
+    for (var i = 0; i < body.events.length; i++) {
+        var c = gridCleanEvent(body.events[i]);
+        if (!c) { return jsonErr("Invalid event", 400); }
+        clean.push(c);
+    }
+    try {
+        // One query for the whole batch: every lead_id that needs an owner
+        // check must belong to the client in the URL.
+        var need = [];
+        clean.forEach(function(c) {
+            if (GRID_LEAD_ACTIONS.indexOf(c.action) !== -1 && need.indexOf(c.lead_id) === -1) { need.push(c.lead_id); }
+        });
+        if (need.length) {
+            var marks = need.map(function() { return "?"; }).join(",");
+            var ownStmt = env.DB.prepare("SELECT id FROM gm_leads WHERE client_id = ? AND id IN (" + marks + ")");
+            var owned = await ownStmt.bind.apply(ownStmt, [id].concat(need)).all();
+            var ownedIds = ((owned && owned.results) || []).map(function(r) { return r.id; });
+            for (var k = 0; k < need.length; k++) {
+                if (ownedIds.indexOf(need[k]) === -1) { return jsonErr("Invalid event", 400); }
+            }
+        }
+    } catch (e2) {
+        // Telemetry must never break the screen: a failed lookup stores nothing.
+        return jsonOk({ ok: true });
+    }
+
+    try {
+        var who = actorName(user) || user.role;
+        var role = gridEventRole(user);
+        var loginRef = user.role === "client" ? (user.username || null) : null;
+        // previewing comes from the VERIFIED role plus the URL, never the body.
+        var previewing = (GRID_STAFF_ROLES.indexOf(user.role) !== -1 && !!new URL(request.url).searchParams.get("previewAs")) ? 1 : 0;
+        var ip = request.headers.get("CF-Connecting-IP") || null;
+        var cf = request.cf || {};
+        var country = cf.country ? String(cf.country).slice(0, 8) : null;
+        var region = cf.region ? String(cf.region).slice(0, 80) : null;
+        var city = cf.city ? String(cf.city).slice(0, 80) : null;
+        var asn = cf.asn !== undefined && cf.asn !== null ? String(cf.asn).slice(0, 20) : null;
+        var ua = (request.headers.get("User-Agent") || "").slice(0, 200) || null;
+        var insertSql = "INSERT INTO leads_grid_events (id, who, role, login_ref, client_id, mode, action, column_key, lead_id, detail, " +
+            "row_count_after, session_ref, device_id, previewing, ip, country, region, city, asn, ua) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        // The safety valve: one indexed COUNT per request.
+        var cnt = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM leads_grid_events WHERE created_at >= date('now')"
+        ).first();
+        if (cnt && Number(cnt.n) >= GRID_DAILY_CAP) {
+            var marker = await env.DB.prepare(
+                "SELECT 1 AS one FROM leads_grid_events WHERE action = 'cap_reached' AND created_at >= date('now') LIMIT 1"
+            ).first();
+            if (!marker) {
+                await env.DB.prepare(insertSql).bind(
+                    crypto.randomUUID(), "system", "system", null, id, "read", "cap_reached", null, null, "n:" + Number(cnt.n),
+                    null, "none", "none", 0, null, null, null, null, null, null
+                ).run();
+            }
+            return jsonOk({ ok: true });
+        }
+
+        var stmts = clean.map(function(c) {
+            return env.DB.prepare(insertSql).bind(
+                crypto.randomUUID(), who, role, loginRef, id, c.mode, c.action, c.column_key, c.lead_id, c.detail,
+                c.row_count_after, c.session_ref, c.device_id, previewing, ip, country, region, city, asn, ua
+            );
+        });
+        await env.DB.batch(stmts);
+    } catch (e3) {
+        // Table not there yet, or a failed write: a usage log must never show an error.
+    }
+    return jsonOk({ ok: true });
+}
+
+// Eastern calendar day for an hour bucket "YYYY-MM-DD HH" (UTC).
+function gridEasternDay(hourUtc) {
+    try {
+        var d = new Date(String(hourUtc).replace(" ", "T") + ":00:00Z");
+        return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d);
+    } catch (e) {
+        return String(hourUtc).slice(0, 10);
+    }
+}
+
+function gridUniq(list) {
+    var out = [];
+    list.forEach(function(v) { if (v !== null && v !== undefined && v !== "" && out.indexOf(v) === -1) { out.push(v); } });
+    return out;
+}
+
+async function handleGetDevLeadsGridEvents(request, env) {
+    var user = await authenticate(request, env);
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+    var url = new URL(request.url);
+    var clientId = url.searchParams.get("client_id");
+    if (clientId !== null && clientId !== "" && !GRID_ID_RE.test(clientId)) { return jsonErr("Invalid client_id", 400); }
+    if (clientId === "") { clientId = null; }
+    var daysRaw = url.searchParams.get("days");
+    var days = 14;
+    if (daysRaw !== null && daysRaw !== "") {
+        if (!/^\d{1,4}$/.test(daysRaw)) { return jsonErr("Invalid days", 400); }
+        days = Math.min(90, Math.max(1, Number(daysRaw)));
+    }
+    var out = { days: days, client_id: clientId, devices: [], different_place: [], counts: { action: [], column: [], who: [], day: [], mode: [] },
+                recent: [], edits: [], cap_days: [] };
+    try {
+        var where = "created_at >= datetime('now', ?)" + (clientId ? " AND client_id = ?" : "");
+        var binds = ["-" + days + " days"].concat(clientId ? [clientId] : []);
+        var run = async function(sql) {
+            var stmt = env.DB.prepare(sql.replace("{W}", where));
+            var res = await stmt.bind.apply(stmt, binds).all();
+            return (res && res.results) || [];
+        };
+        var devRows = await run(
+            "SELECT client_id, device_id, role, who, city, country, MIN(created_at) AS first_seen, MAX(created_at) AS last_seen, COUNT(*) AS n " +
+            "FROM leads_grid_events WHERE {W} AND device_id IS NOT NULL AND device_id != 'none' AND action != 'cap_reached' " +
+            "GROUP BY client_id, device_id, role, who, city, country LIMIT 5000");
+        var placeRows = await run(
+            "SELECT login_ref, client_id, date(created_at) AS day, country, city FROM leads_grid_events " +
+            "WHERE {W} AND login_ref IS NOT NULL GROUP BY login_ref, client_id, date(created_at), country, city LIMIT 5000");
+        var byAction = await run("SELECT action AS k, COUNT(*) AS n FROM leads_grid_events WHERE {W} GROUP BY action ORDER BY n DESC");
+        var byColumn = await run("SELECT column_key AS k, COUNT(*) AS n FROM leads_grid_events WHERE {W} AND column_key IS NOT NULL GROUP BY column_key ORDER BY n DESC");
+        var byWho = await run("SELECT who AS k, COUNT(*) AS n FROM leads_grid_events WHERE {W} GROUP BY who ORDER BY n DESC LIMIT 200");
+        var byMode = await run("SELECT mode AS k, COUNT(*) AS n FROM leads_grid_events WHERE {W} GROUP BY mode");
+        var byHour = await run("SELECT strftime('%Y-%m-%d %H', created_at) AS h, COUNT(*) AS n FROM leads_grid_events WHERE {W} GROUP BY h");
+        var recent = await run(
+            "SELECT created_at, who, role, device_id, city, country, mode, action, column_key, lead_id, previewing FROM leads_grid_events " +
+            "WHERE {W} ORDER BY created_at DESC LIMIT 100");
+        var edits = await run(
+            "SELECT created_at, who, role, device_id, city, country, mode, action, column_key, lead_id, previewing FROM leads_grid_events " +
+            "WHERE {W} AND action IN ('cell_saved', 'cell_refused') ORDER BY created_at DESC LIMIT 300");
+        var caps = await run("SELECT date(created_at) AS day FROM leads_grid_events WHERE {W} AND action = 'cap_reached' GROUP BY day");
+
+        // WHO WAS ON THE SAME DEVICE. A staff role and a client role on one
+        // device_id is evidence for a person to judge, never a verdict.
+        var devs = {};
+        devRows.forEach(function(r) {
+            if (!r.device_id || r.device_id === "none") { return; }
+            var key = r.client_id + "|" + r.device_id;
+            var d = devs[key] || (devs[key] = { client_id: r.client_id, device_short: String(r.device_id).slice(0, 6),
+                first_seen: r.first_seen, last_seen: r.last_seen, roles: [], names: [], cities: [], countries: [], n: 0 });
+            if (r.first_seen < d.first_seen) { d.first_seen = r.first_seen; }
+            if (r.last_seen > d.last_seen) { d.last_seen = r.last_seen; }
+            d.roles.push(r.role); d.names.push(r.who); d.cities.push(r.city); d.countries.push(r.country);
+            d.n += Number(r.n) || 0;
+        });
+        out.devices = Object.keys(devs).map(function(key) {
+            var d = devs[key];
+            d.roles = gridUniq(d.roles); d.names = gridUniq(d.names); d.cities = gridUniq(d.cities); d.countries = gridUniq(d.countries);
+            var staff = d.roles.filter(function(r) { return GRID_STAFF_ROLES.indexOf(r) !== -1; }).length > 0;
+            var client = d.roles.filter(function(r) { return GRID_STAFF_ROLES.indexOf(r) === -1 && r !== "system"; }).length > 0;
+            d.same_device_staff_and_client = staff && client;
+            return d;
+        }).sort(function(a, b) {
+            if (a.same_device_staff_and_client !== b.same_device_staff_and_client) { return a.same_device_staff_and_client ? -1 : 1; }
+            return a.last_seen < b.last_seen ? 1 : -1;
+        });
+
+        // A client login seen from more than one country or city in one day.
+        var places = {};
+        placeRows.forEach(function(r) {
+            var key = r.login_ref + "|" + r.client_id + "|" + r.day;
+            var p = places[key] || (places[key] = { login_ref: r.login_ref, client_id: r.client_id, day: r.day, countries: [], cities: [] });
+            p.countries.push(r.country); p.cities.push(r.city);
+        });
+        out.different_place = Object.keys(places).map(function(key) {
+            var p = places[key]; p.countries = gridUniq(p.countries); p.cities = gridUniq(p.cities); return p;
+        }).filter(function(p) { return p.countries.length > 1 || p.cities.length > 1; });
+
+        out.counts.action = byAction; out.counts.column = byColumn; out.counts.who = byWho; out.counts.mode = byMode;
+        var days2 = {};
+        byHour.forEach(function(r) { var dd = gridEasternDay(r.h); days2[dd] = (days2[dd] || 0) + Number(r.n); });
+        out.counts.day = Object.keys(days2).sort().reverse().map(function(dd) { return { k: dd, n: days2[dd] }; });
+        var shortDev = function(r) {
+            return { created_at: r.created_at, who: r.who, role: r.role, device_short: r.device_id ? String(r.device_id).slice(0, 6) : "",
+                     city: r.city, country: r.country, mode: r.mode, action: r.action, column_key: r.column_key,
+                     lead_id: r.lead_id, previewing: Number(r.previewing) === 1 };
+        };
+        out.recent = recent.map(shortDev);
+        out.edits = edits.map(shortDev);
+        out.cap_days = caps.map(function(r) { return r.day; });
+    } catch (e) {
+        // Table not there yet: the panel shows empty lists, not an error.
+        out.devices = []; out.different_place = []; out.recent = []; out.edits = []; out.cap_days = [];
+        out.counts = { action: [], column: [], who: [], day: [], mode: [] };
+    }
+    return jsonOk(out);
+}
+// ==== LEADS GRID EVENTS END ====
+
 // ---------------------------------------------------------------------------
 // Route: POST /api/diagnostics/zoom   (Fix 4, the random-zoom bug, 2026-10-18)
 // Any signed-in user (not staff-only, unlike staff/click): the app's own
@@ -16399,6 +16702,9 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "leads" || gmRest === "roadmap" || gmRest === "base-ouro" ||
                     gmRest === "partners" || gmRest === "finance" || gmRest === "jobs" ||
                     gmRest === "pricing" || gmRest === "pricing/import") { return true; }
+                // Pipeline spreadsheet usage log. The handler checks the
+                // session and the client in the URL; the body never sets who.
+                if (gmRest === "leads-grid-events") { return true; }
                 // Docs PDF build: a download link for one customer document.
                 // The handler replays the document's own GET with this
                 // session, so it can never reach more than that GET does.
@@ -16671,6 +16977,10 @@ function sellerRequestAllowed(path, method, clientId) {
     }
     if (method === "POST") {
         if (rest === "gm/leads") { return true; }
+        // Pipeline spreadsheet usage log: their own grid use, recorded
+        // under their own session. The handler checks the lead ids belong
+        // to this client and never takes who or role from the body.
+        if (rest === "gm/leads-grid-events") { return true; }
         // Promote their own won lead into a project. A seller can already move
         // a lead to 'fechado' (the PUT below), and closing one is the most
         // ordinary thing they do -- without this the promotion 403s on exactly
@@ -63233,6 +63543,7 @@ async function handleFetch(request, env, ctx) {
                     if (gmCol === "seller-diagnostics") { return handleGetGmSellerDiagnostics(cid, request, env); }
                 }
                 if (segs.length === 5 && method === "POST") {
+                    if (gmCol === "leads-grid-events") { return handlePostGmLeadsGridEvents(cid, request, env); }
                     if (gmCol === "leads")     { return handlePostGmLead(cid, request, env); }
                     if (gmCol === "roadmap")   { return handlePostGmRoadmap(cid, request, env); }
                     if (gmCol === "base-ouro") { return handlePostGmBaseOuro(cid, request, env); }
@@ -63944,6 +64255,7 @@ async function handleFetch(request, env, ctx) {
         if (supTicketUndo && method === "POST") { return handlePostSupportTicketUndoResolve(supTicketUndo[1], request, env); }
         var supTicketDetail = path.match(/^\/api\/support\/tickets\/([A-Za-z0-9_-]+)$/);
         if (supTicketDetail && method === "GET") { return handleGetSupportTicketDetail(supTicketDetail[1], request, env); }
+        if (path === "/api/dev/leads-grid-events" && method === "GET") { return handleGetDevLeadsGridEvents(request, env); }
         if (path === "/api/dev/error-alert-test" && method === "POST") { return handlePostDevErrorAlertTest(request, env); }
         if (path === "/api/dev/reminder-text-test" && method === "POST") { return handlePostDevReminderTextTest(request, env); }
         var vndByClient = path.match(/^\/api\/vendors\/by-client\/([A-Za-z0-9_-]+)$/);

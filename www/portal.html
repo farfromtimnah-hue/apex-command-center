@@ -95,7 +95,7 @@
   <title data-title-pt="Portal do Cliente — Apex" data-title-en="Apex &#8212; Client Portal">Portal do Cliente — Apex</title>
   <link rel="stylesheet" href="fonts.css?v=1">
   <link rel="stylesheet" href="mobile.css">
-  <link rel="stylesheet" href="gm.css?v=1794074442">
+  <link rel="stylesheet" href="gm.css?v=1794609858">
   <!-- Hero build: the customer-document header, shared with the homeowner
        pages and PDF templates, for the hero picker preview in Estimates > Settings. -->
   <link rel="stylesheet" href="doc-hero.css?v=1790541646">
@@ -8335,6 +8335,8 @@
         .then(function(me) {
           clientId = me.client_id;
           clientName = me.name || "";
+          // Usage log: the portal was opened on this device (once per browser session).
+          if (window.gmGridSessionStart) { window.gmGridSessionStart(); }
           // Live off clients.status, re-read server-side on every portal load.
           clientStatus = me.status || "active";
           helpRequestTemplate = me.help_request_template || null;
@@ -8445,7 +8447,7 @@
     init();
   </script>
   <script src="gm-measure.js?v=1794074434"></script>
-  <script src="gm.js?v=1794364054"></script>
+  <script src="gm.js?v=1794609859"></script>
   <script src="nav.js"></script>
   <script src="help-config.js"></script>
   <script src="help-core.js"></script>

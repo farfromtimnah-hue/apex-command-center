@@ -2002,6 +2002,7 @@ function gmLoadCrm() {
   Promise.all([gmLoadConfig(), gmApi("leads")])
     .then(function(results) {
       gmLeadsData = results[1];
+      gmGridSessionStart();
       gmRenderCrm();
       gmMetaOpenDeepLead();
     })
@@ -2539,6 +2540,11 @@ function gmRenderCrmList() {
 function gmRenderCrm() {
   var body = document.getElementById("gmCrmBody");
   if (!gmConfig || !gmLeadsData) { return; }
+  // The spreadsheet view is a THIRD way to see the leads. When it is the
+  // chosen one it draws the page; Stacked and Rail below are unchanged.
+  gmGridInitChoice();
+  if (gmGridWanted()) { gmGridRenderPage(body); return; }
+  if (gmGridActive) { gmGridDeactivate("leave"); }
   var mode = gmCrmViewMode();
   var html = '<div class="content-card">' + gmCrmSummaryHtml() + '</div>';
 
@@ -2547,10 +2553,13 @@ function gmRenderCrm() {
     (mode === "stacked"
       ? gmT("Pipeline completo em uma rolagem", "Whole pipeline in one scroll")
       : gmT("Toque em um estágio para filtrar", "Tap a stage to filter")) + '</span>' +
+    '<span class="gm-view-btns">' +
     '<button data-help="lead-fields#fields#9" type="button" class="btn-outline" data-tour="crm-view-toggle" onclick="gmToggleViewMode()">' +
     (mode === "stacked"
       ? gmT("Ver por estágio", "View by stage")
-      : gmT("Ver tudo empilhado", "View stacked")) + '</button></div>';
+      : gmT("Ver tudo empilhado", "View stacked")) + '</button>' +
+    '<button type="button" class="btn-outline" onclick="gmGridOpen()">' + gmT("Planilha", "Spreadsheet") + '</button>' +
+    '</span></div>';
 
   // Only worth showing when there is a list big enough to hunt through.
   if (((gmLeadsData && gmLeadsData.leads) || []).length) { html += gmLeadSearchHtml(); }
@@ -18336,3 +18345,1908 @@ function gmMyDevicesEncodeCredential(cred) {
     }
   };
 }
+
+// ============================================================================
+// PIPELINE SPREADSHEET VIEW ("Planilha"), 2026-11-13
+//
+// Why: Pr Rafa knows Excel and does not say what he wants from the Pipeline.
+// This view works like Excel on one client's leads and RECORDS what is done in
+// it (POST gm/leads-grid-events), so his use shows what to build next. The log
+// holds evidence (device, place, time, sign in), never a verdict.
+//
+// NO WAY OUT, on purpose: nothing in this view exports, downloads, prints or
+// bulk copies lead data. Copy, cut, drag, the context menu and Ctrl/Cmd+P and
+// Ctrl/Cmd+S are blocked while the grid is showing, and every blocked attempt
+// is itself a tracked event. If data could leave, the log would go blind.
+// Selecting text with the mouse for reading is NOT blocked, and the lead card
+// (another screen) still copies as before.
+//
+// Two blocks follow, each between markers so the tests load the real code:
+//   LEADS GRID LOGIC: pure functions, no DOM.
+//   LEADS GRID UI: state, rendering, events, edit mode.
+// ============================================================================
+
+// ==== LEADS GRID LOGIC BEGIN ====
+// type: text | num | date. editable: also needs the existing lead route to
+// accept it. followups and data_contato are NOT editable, exactly like the lead
+// card: both are derived from the outreach log (contatos_count and
+// primeiro_contato), and a typed number would disagree with the log. The month
+// columns are derived too. pick: the dropdown list the lead card uses.
+var GM_GRID_COLS = [
+  { key: "cliente",        type: "text", pt: "Cliente",            en: "Client",              editable: true,  w: 190, fixed: true },
+  { key: "telefone",       type: "text", pt: "Telefone",           en: "Phone",               editable: true,  w: 140 },
+  { key: "origem",         type: "text", pt: "Origem",             en: "Source",              editable: true,  w: 130, pick: "origem" },
+  { key: "parceiro",       type: "text", pt: "Parceiro",           en: "Partner",             editable: false, w: 150 },
+  { key: "servico",        type: "text", pt: "Serviço",            en: "Service",             editable: true,  w: 160, pick: "servico" },
+  { key: "vendedor",       type: "text", pt: "Vendedor",           en: "Salesperson",         editable: true,  w: 140, pick: "vendedor" },
+  { key: "estagio",        type: "text", pt: "Estágio",            en: "Stage",               editable: true,  w: 150, pick: "estagio" },
+  { key: "valor",          type: "num",  pt: "Valor",              en: "Value",               editable: true,  w: 120 },
+  { key: "data_lead",      type: "date", pt: "Data do lead",       en: "Lead date",           editable: true,  w: 170 },
+  { key: "data_contato",   type: "date", pt: "Data do 1º contato", en: "First contact date",  editable: false, w: 180 },
+  { key: "data_estimate",  type: "date", pt: "Data do estimate",   en: "Estimate date",       editable: true,  w: 170 },
+  { key: "followups",      type: "num",  pt: "Nº follow-ups",      en: "# follow-ups",        editable: false, w: 120 },
+  { key: "proxima_acao",   type: "text", pt: "Próxima ação",       en: "Next action",         editable: true,  w: 210 },
+  { key: "mes_lead",       type: "text", pt: "Mês do lead",        en: "Lead month",          editable: false, w: 140 },
+  { key: "mes_fechamento", type: "text", pt: "Mês de fechamento",  en: "Closing month",       editable: false, w: 160 },
+  { key: "dias_estagio",   type: "num",  pt: "Dias no estágio",    en: "Days in stage",       editable: false, w: 130 },
+  { key: "observacao",     type: "text", pt: "Observação",         en: "Notes",               editable: true,  w: 270 }
+];
+
+function gmGridCol(key) {
+  for (var i = 0; i < GM_GRID_COLS.length; i++) { if (GM_GRID_COLS[i].key === key) { return GM_GRID_COLS[i]; } }
+  return null;
+}
+
+function gmGridBlank(v) {
+  return v === null || v === undefined || v === "" || (typeof v === "number" && v !== v);
+}
+
+// Whole days since a UTC "YYYY-MM-DD HH:MM:SS" stamp (stage_changed_at). nowMs
+// is passed in so the result is testable. Null when there is no usable stamp.
+function gmGridDaysInStage(iso, nowMs) {
+  if (!iso) { return null; }
+  var s = String(iso).replace(" ", "T");
+  if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+  var t = Date.parse(s);
+  if (isNaN(t)) { return null; }
+  return Math.max(0, Math.floor((nowMs - t) / 86400000));
+}
+
+// "2026-10-05T09:30" or "2026-10-05 09:30:00" typed in the lead's own local
+// time: milliseconds of THAT local moment (never shifted by a time zone).
+function gmGridLocalMs(s) {
+  if (gmGridBlank(s)) { return null; }
+  var m = /^(\d{4})-(\d\d)-(\d\d)(?:[T ](\d\d):(\d\d))?/.exec(String(s));
+  if (!m) { return null; }
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4] || 0), Number(m[5] || 0)).getTime();
+}
+
+function gmGridUtcMs(s) {
+  if (gmGridBlank(s)) { return null; }
+  var x = String(s).replace(" ", "T");
+  if (!/[Zz]|[+-]\d\d:?\d\d$/.test(x)) { x += "Z"; }
+  var t = Date.parse(x);
+  return isNaN(t) ? null : t;
+}
+
+// The value a column sorts and filters on. Text is a string ("" is blank),
+// numbers are numbers, dates are milliseconds. ctx.nowMs is the clock.
+function gmGridRaw(lead, key, ctx) {
+  var v;
+  switch (key) {
+    case "valor":
+      v = lead.valor;
+      if (gmGridBlank(v)) { return null; }
+      v = Number(v);
+      return v === v ? v : null;
+    case "followups":
+      v = Number(lead.contatos_count);
+      return v === v ? v : 0;
+    case "dias_estagio":
+      return gmGridDaysInStage(lead.stage_changed_at, ctx.nowMs);
+    case "data_lead":     return gmGridLocalMs(lead.data_lead);
+    case "data_estimate": return gmGridLocalMs(lead.data_estimate);
+    case "data_contato":
+      // The logged first contact is UTC; the legacy typed one is local. Two
+      // sources, two parsers, exactly like the lead card.
+      return lead.primeiro_contato ? gmGridUtcMs(lead.primeiro_contato) : gmGridLocalMs(lead.data_contato);
+    case "mes_lead":
+      // The same rule as the Pipeline's month filter: when the lead arrived,
+      // falling back to when the row was created.
+      return String(lead.data_lead || lead.created_at || "").slice(0, 7);
+    case "parceiro": return lead.parceiro_name || "";
+    case "servico":  return gmServicoList(lead.servico).join(", ");
+    default:
+      v = lead[key];
+      return v === null || v === undefined ? "" : String(v);
+  }
+}
+
+// What the cell shows, in the person's language. Money in US dollars, dates
+// and times in the site's own 12-hour display (ctx helpers), never raw UTC.
+function gmGridLabel(lead, key, ctx) {
+  var r = gmGridRaw(lead, key, ctx);
+  if (gmGridBlank(r)) { return ""; }
+  switch (key) {
+    case "valor":        return ctx.fmtMoney(r);
+    case "followups":
+    case "dias_estagio": return String(r);
+    case "estagio":      return ctx.stageLabel(lead.estagio);
+    case "origem":       return ctx.statusLabel(lead.origem);
+    case "mes_lead":     return ctx.monthLabel(r);
+    case "telefone":     return ctx.fmtPhone(lead.telefone);
+    case "data_lead":    return ctx.fmtDateTime(lead.data_lead);
+    case "data_estimate": return ctx.fmtDateTime(lead.data_estimate);
+    case "data_contato":
+      return lead.primeiro_contato ? ctx.fmtDateTimeUtc(lead.primeiro_contato) : ctx.fmtDateTime(lead.data_contato);
+    default: return String(r);
+  }
+}
+
+// The text a checkbox filter lists and matches: dates by DAY (a list of every
+// distinct minute would be useless), everything else as shown.
+function gmGridKeyLabel(lead, key, ctx) {
+  var col = gmGridCol(key);
+  if (col && col.type === "date") {
+    var ms = gmGridRaw(lead, key, ctx);
+    return ms === null ? "" : ctx.fmtDay(ms);
+  }
+  return gmGridLabel(lead, key, ctx);
+}
+
+// The value a sort compares: a number, a normalized string, or null (blank).
+function gmGridSortKey(lead, key, ctx) {
+  var col = gmGridCol(key);
+  var r = gmGridRaw(lead, key, ctx);
+  if (gmGridBlank(r)) { return null; }
+  if (col.type === "num" || col.type === "date") { return r; }
+  if (key === "estagio" && ctx.stageOrder) {
+    var ix = ctx.stageOrder.indexOf(lead.estagio);
+    return ix === -1 ? 9999 : ix;
+  }
+  var lab = gmSearchNorm(gmGridLabel(lead, key, ctx));
+  return lab === "" ? null : lab;
+}
+
+function gmGridCompareKeys(a, b, dir) {
+  // Blanks are ALWAYS last, ascending or descending: a blank is "no answer",
+  // not the smallest or the largest answer.
+  if (a === null && b === null) { return 0; }
+  if (a === null) { return 1; }
+  if (b === null) { return -1; }
+  var c = a < b ? -1 : (a > b ? 1 : 0);
+  return dir === "desc" ? -c : c;
+}
+
+// sorts: [{key, dir:"asc"|"desc"}], first is the main level. Stable. Returns
+// a NEW array.
+function gmGridSortRows(rows, sorts, ctx) {
+  if (!sorts || !sorts.length) { return rows.slice(); }
+  var dec = rows.map(function(r, i) {
+    return { row: r, i: i, k: sorts.map(function(s) { return gmGridSortKey(r, s.key, ctx); }) };
+  });
+  dec.sort(function(x, y) {
+    for (var n = 0; n < sorts.length; n++) {
+      var c = gmGridCompareKeys(x.k[n], y.k[n], sorts[n].dir);
+      if (c !== 0) { return c; }
+    }
+    return x.i - y.i;
+  });
+  return dec.map(function(d) { return d.row; });
+}
+
+// The operators each kind of column offers.
+function gmGridOpsFor(type) {
+  if (type === "num" || type === "date") { return ["gt", "lt", "between", "eq", "blank", "not_blank"]; }
+  return ["contains", "not_contains", "begins", "blank"];
+}
+
+function gmGridDayStart(s) {
+  var m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(String(s || "").trim());
+  if (!m) { return null; }
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime();
+}
+function gmGridDayAfter(s) {
+  var m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(String(s || "").trim());
+  if (!m) { return null; }
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + 1).getTime();
+}
+
+// A condition counts as a filter only when it can actually be applied: a
+// half typed "between" or an empty "contains" filters nothing.
+function gmGridCondActive(f, type) {
+  if (!f || !f.op) { return false; }
+  if (f.op === "blank" || f.op === "not_blank") { return true; }
+  var has = function(v) { return v !== undefined && v !== null && String(v).trim() !== ""; };
+  if (type === "num") {
+    if (f.op === "between") { return gmParseMoney(f.v1) !== null && gmParseMoney(f.v2) !== null; }
+    return gmParseMoney(f.v1) !== null;
+  }
+  if (type === "date") {
+    if (f.op === "between") { return gmGridDayStart(f.v1) !== null && gmGridDayStart(f.v2) !== null; }
+    return gmGridDayStart(f.v1) !== null;
+  }
+  return has(f.v1);
+}
+
+function gmGridActiveFilterCount(filters) {
+  var n = 0;
+  Object.keys(filters || {}).forEach(function(k) {
+    var f = filters[k], col = gmGridCol(k);
+    if (!f || !col) { return; }
+    if (f.checked instanceof Array || gmGridCondActive(f, col.type)) { n++; }
+  });
+  return n;
+}
+
+function gmGridCondPasses(raw, label, type, f) {
+  if (!gmGridCondActive(f, type)) { return true; }
+  var op = f.op;
+  if (op === "blank")     { return gmGridBlank(raw); }
+  if (op === "not_blank") { return !gmGridBlank(raw); }
+  if (type === "text") {
+    var q = gmSearchNorm(f.v1), h = gmSearchNorm(label);
+    if (op === "contains")     { return h.indexOf(q) !== -1; }
+    if (op === "not_contains") { return h.indexOf(q) === -1; }
+    if (op === "begins")       { return h.indexOf(q) === 0; }
+    return true;
+  }
+  if (gmGridBlank(raw)) { return false; }   // a blank is never greater, smaller or equal
+  if (type === "num") {
+    var a = gmParseMoney(f.v1), b = gmParseMoney(f.v2);
+    if (op === "gt") { return raw > a; }
+    if (op === "lt") { return raw < a; }
+    if (op === "eq") { return raw === a; }
+    if (op === "between") { return raw >= Math.min(a, b) && raw <= Math.max(a, b); }
+    return true;
+  }
+  // date: compared by whole local days
+  var s1 = gmGridDayStart(f.v1), e1 = gmGridDayAfter(f.v1);
+  if (op === "gt") { return raw >= e1; }
+  if (op === "lt") { return raw < s1; }
+  if (op === "eq") { return raw >= s1 && raw < e1; }
+  if (op === "between") {
+    var s2 = gmGridDayStart(f.v2), e2 = gmGridDayAfter(f.v2);
+    return raw >= Math.min(s1, s2) && raw < Math.max(e1, e2);
+  }
+  return true;
+}
+
+// filters: { columnKey: { checked: null | [labels], op, v1, v2 } }. Every
+// column's filter must pass (AND). skipKey leaves one column out, which is how
+// a column's own checkbox list shows counts that ignore its own filter.
+function gmGridRowPasses(lead, filters, ctx, skipKey) {
+  var keys = Object.keys(filters || {});
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i], f = filters[key], col = gmGridCol(key);
+    if (!f || !col || key === skipKey) { continue; }
+    if (f.checked instanceof Array && f.checked.indexOf(gmGridKeyLabel(lead, key, ctx)) === -1) { return false; }
+    if (gmGridCondActive(f, col.type) &&
+        !gmGridCondPasses(gmGridRaw(lead, key, ctx), gmGridLabel(lead, key, ctx), col.type, f)) { return false; }
+  }
+  return true;
+}
+
+function gmGridFilterRows(rows, filters, ctx) {
+  return rows.filter(function(r) { return gmGridRowPasses(r, filters, ctx, null); });
+}
+
+// Every distinct value of one column with its count, among the rows that pass
+// the OTHER columns' filters. Sorted like the column sorts, blank last.
+function gmGridDistinct(rows, key, ctx, filters) {
+  var seen = {}, list = [];
+  rows.forEach(function(r) {
+    if (!gmGridRowPasses(r, filters, ctx, key)) { return; }
+    var label = gmGridKeyLabel(r, key, ctx);
+    var o = seen["k" + label];
+    if (!o) { o = seen["k" + label] = { label: label, count: 0, sk: gmGridSortKey(r, key, ctx) }; list.push(o); }
+    o.count++;
+  });
+  list.sort(function(a, b) { return gmGridCompareKeys(a.sk, b.sk, "asc"); });
+  return list.map(function(o) { return { label: o.label, count: o.count }; });
+}
+
+// One column grouping: label, count, valor subtotal, rows. Groups are ordered
+// like the column sorts, the blank group last.
+function gmGridGroupRows(rows, key, ctx) {
+  var map = {}, list = [];
+  rows.forEach(function(r) {
+    var label = gmGridKeyLabel(r, key, ctx);
+    var g = map["k" + label];
+    if (!g) { g = map["k" + label] = { label: label, count: 0, sum: 0, rows: [], sk: gmGridSortKey(r, key, ctx) }; list.push(g); }
+    g.count++;
+    g.rows.push(r);
+    var v = gmGridRaw(r, "valor", ctx);
+    if (v !== null) { g.sum += v; }
+  });
+  list.sort(function(a, b) { return gmGridCompareKeys(a.sk, b.sk, "asc"); });
+  list.forEach(function(g) { g.sum = Math.round(g.sum * 100) / 100; delete g.sk; });
+  return list;
+}
+
+// Count, sum and average of the NUMBERS in a selection (blanks are skipped).
+function gmGridStats(values) {
+  var count = 0, sum = 0;
+  (values || []).forEach(function(v) {
+    if (typeof v === "number" && v === v) { count++; sum += v; }
+  });
+  return {
+    count: count,
+    sum: Math.round(sum * 100) / 100,
+    avg: count ? Math.round((sum / count) * 100) / 100 : null
+  };
+}
+
+// The `detail` of a tracked event. Short fixed words and numbers ONLY: the
+// Worker refuses anything else. Never a name, a phone, a note or typed text.
+var GM_GRID_HOW = ["key", "mouse", "button", "idle", "leave", "grid", "stacked", "rail", "auto", "pagehide"];
+var gmGridDetail = {
+  OK: "ok",
+  REFUSED: "refused",
+  sort: function(dir, level) { return (dir === "desc" ? "desc" : "asc") + ":" + Math.max(1, Math.round(Number(level)) || 1); },
+  values: function(n) { return "values:" + Math.max(0, Math.round(Number(n)) || 0); },
+  op: function(name) { return ["gt", "lt", "between", "eq", "blank", "not_blank", "contains", "not_contains", "begins"].indexOf(name) !== -1 ? name : ""; },
+  count: function(n) { return "n:" + Math.max(0, Math.round(Number(n)) || 0); },
+  width: function(n) { return "w:" + Math.max(0, Math.round(Number(n)) || 0); },
+  pos: function(n) { return "pos:" + Math.max(0, Math.round(Number(n)) || 0); },
+  len: function(n) { return "len:" + Math.max(0, Math.round(Number(n)) || 0); },
+  how: function(w) { return GM_GRID_HOW.indexOf(w) !== -1 ? w : ""; }
+};
+
+// ── The event queue ──────────────────────────────────────────────────────
+// Events collect here and go out at most every 3 seconds, at once when 25 are
+// waiting, and on pagehide. Nothing is thrown away to save rows. deps carries
+// the clock and the sender so the rules are testable.
+function gmGridMakeQueue(deps) {
+  var items = [], timer = null;
+  var max = deps.max || 25, delay = deps.delay || 3000;
+  function flush(keepalive) {
+    if (timer !== null) { deps.clearTimeout(timer); timer = null; }
+    while (items.length) {
+      var batch = items.splice(0, max);
+      try {
+        var p = deps.send(batch, !!keepalive);
+        if (p && typeof p.then === "function") {
+          // Usage tracking must never break the screen: a failed send is ignored on purpose.
+          p.then(null, function() { return null; });
+        }
+      } catch (e) {
+        // Usage tracking must never break the screen: a failed send is ignored on purpose.
+      }
+    }
+  }
+  function push(ev) {
+    items.push(ev);
+    if (items.length >= max) { flush(false); }
+    else if (timer === null) {
+      timer = deps.setTimeout(function() { timer = null; flush(false); }, delay);
+    }
+  }
+  return { push: push, flush: flush, size: function() { return items.length; } };
+}
+
+// Merges typing: fn runs once, `ms` after the last call for that key.
+function gmGridMakeDebounce(deps) {
+  var timers = {};
+  return {
+    run: function(key, ms, fn) {
+      if (timers[key] !== undefined) { deps.clearTimeout(timers[key]); }
+      timers[key] = deps.setTimeout(function() { delete timers[key]; fn(); }, ms);
+    },
+    cancel: function(key) {
+      if (timers[key] !== undefined) { deps.clearTimeout(timers[key]); delete timers[key]; }
+    }
+  };
+}
+
+// ── Edit mode ────────────────────────────────────────────────────────────
+// Opens read only. Turning it on arms a timer; every edit or switch click
+// re-arms it; ten minutes of nothing turns it off by itself.
+var GM_GRID_EDIT_IDLE_MS = 10 * 60 * 1000;
+function gmGridMakeEditMode(deps) {
+  var on = false, timer = null;
+  var idle = deps.idleMs || GM_GRID_EDIT_IDLE_MS;
+  function disarm() { if (timer !== null) { deps.clearTimeout(timer); timer = null; } }
+  function arm() {
+    disarm();
+    timer = deps.setTimeout(function() {
+      timer = null;
+      if (on) { on = false; deps.onChange("read", "idle"); }
+    }, idle);
+  }
+  return {
+    isOn: function() { return on; },
+    turnOn: function(how) { if (on) { return; } on = true; arm(); deps.onChange("edit", how || "button"); },
+    turnOff: function(why) { if (!on) { return; } on = false; disarm(); deps.onChange("read", why || "button"); },
+    touch: function() { if (on) { arm(); } }
+  };
+}
+
+// What a cell edit sends to the EXISTING lead update route. The same field
+// names and shapes the lead card sends; the route keeps every rule (who may
+// change which lead, stage rules, money, history, updated_by).
+function gmGridBuildPayload(key, input, ctx) {
+  var col = gmGridCol(key);
+  if (!col || !col.editable) { return { ok: false, pt: "Este campo não pode ser editado aqui.", en: "This field cannot be edited here." }; }
+  var body = {}, v;
+  if (key === "valor") {
+    var raw = input === null || input === undefined ? "" : String(input);
+    v = gmParseMoney(raw);
+    if (raw.trim() !== "" && v === null) {
+      return { ok: false, pt: "Valor inválido. Use números, por exemplo 4.500,00.", en: "Invalid value. Use numbers, for example 4500.00." };
+    }
+    body.valor = v;
+    return { ok: true, body: body };
+  }
+  if (key === "servico") {
+    var list = input instanceof Array ? input : gmServicoList(input);
+    body.servico = list.length ? list.join(", ") : null;
+    return { ok: true, body: body };
+  }
+  v = input === null || input === undefined ? "" : String(input).trim();
+  if (key === "cliente" && v === "") {
+    return { ok: false, pt: "O nome do cliente é obrigatório.", en: "The client name is required." };
+  }
+  if (key === "estagio" && v === "") {
+    return { ok: false, pt: "Escolha um estágio.", en: "Choose a stage." };
+  }
+  if (key === "telefone" && v !== "" && ctx && ctx.looksLikePhone && !ctx.looksLikePhone(v)) {
+    return { ok: false, pt: "Telefone inválido.", en: "Invalid phone number." };
+  }
+  body[key] = v === "" ? null : v;
+  return { ok: true, body: body };
+}
+
+// Saves ONE cell through the existing lead update route and nothing else. The
+// answer decides: ok -> the server's lead row; refused -> the server's own
+// words, and the caller restores the old value. The tracked event carries the
+// column, the lead id and the word ok or refused, never the value.
+function gmGridCommitCell(deps, lead, key, input) {
+  var built = gmGridBuildPayload(key, input, deps.ctx);
+  var ev = { column_key: key, lead_id: lead.id };
+  if (!built.ok) {
+    deps.track("cell_refused", Object.assign({ detail: gmGridDetail.REFUSED }, ev));
+    return Promise.resolve({ ok: false, message: deps.isEn ? built.en : built.pt });
+  }
+  return deps.api("leads/" + lead.id, { method: "PUT", body: built.body }).then(function(d) {
+    deps.track("cell_saved", Object.assign({ detail: gmGridDetail.OK }, ev));
+    return { ok: true, lead: d && d.lead ? d.lead : null };
+  }, function(e) {
+    deps.track("cell_refused", Object.assign({ detail: gmGridDetail.REFUSED }, ev));
+    return { ok: false, message: e && e.message ? e.message : "" };
+  });
+}
+// The row to keep after a save. The route's answer is the raw row (the GET-only
+// fields such as the outreach count and the partner name are missing), so the
+// answer is laid over the old row. A refused save has no answer: the old row
+// stays, and the old value comes back on screen.
+function gmGridMergeServerLead(old, fresh) {
+  if (!fresh) { return old; }
+  var out = {};
+  Object.keys(old).forEach(function(k) { out[k] = old[k]; });
+  Object.keys(fresh).forEach(function(k) { out[k] = fresh[k]; });
+  return out;
+}
+// ==== LEADS GRID LOGIC END ====
+
+// ==== LEADS GRID UI BEGIN ====
+var GM_GRID_ROW_H = 30;      // fixed row height: what makes windowed rendering exact
+var GM_GRID_HEAD_H = 38;
+var GM_GRID_RN_W = 48;       // the row number column
+var GM_GRID_MIN_W = 70;
+var GM_GRID_MAX_W = 600;
+var GM_GRID_VIEWS_MAX = 20;
+var GM_GRID_OP_LABELS = {
+  gt:           ["maior que", "greater than"],
+  lt:           ["menor que", "less than"],
+  between:      ["entre", "between"],
+  eq:           ["igual a", "equals"],
+  blank:        ["está em branco", "is blank"],
+  not_blank:    ["não está em branco", "is not blank"],
+  contains:     ["contém", "contains"],
+  not_contains: ["não contém", "does not contain"],
+  begins:       ["começa com", "begins with"]
+};
+
+var gmGridOn = false;         // the grid is the chosen Pipeline view
+var gmGridActive = false;     // the grid is on screen right now (listeners installed)
+var gmGridInitFor = null;     // client id the remembered choice was read for
+var gmGrid = null;            // the state, one per client
+var gmGridSession = null;     // random id for this page load
+var gmGridTok = null;         // last token seen, for the pagehide send
+var gmGridWatchTimer = null;
+var gmGridPageHideSet = false;
+var gmGridPsDone = {};        // portal_session_started memory when sessionStorage is blocked
+var gmGridSuppressClick = false;
+var gmGridRefreshTimer = null;
+
+// ── Storage: every read and write is in try/catch; the page works without it ──
+function gmGridLsGet(k) {
+  try { return window.localStorage.getItem(k); } catch (e) { return null; }   // storage blocked: the grid still works, it just does not remember
+}
+function gmGridLsSet(k, v) {
+  try { window.localStorage.setItem(k, v); return true; } catch (e) { return false; }   // storage blocked: same as above
+}
+function gmGridPerson() {
+  return String(window.PORTAL_SELLER_NAME || window.PORTAL_LOGIN_ROLE || "staff").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+}
+function gmGridKeyView()   { return "apex_gm_pipeline_grid_" + clientId; }
+function gmGridKeyLayout() { return "apex_gm_grid_layout_" + clientId + "_" + gmGridPerson(); }
+function gmGridKeyViews()  { return "apex_gm_grid_views_" + clientId + "_" + gmGridPerson(); }
+
+function gmGridRand() {
+  try {
+    if (window.crypto && window.crypto.randomUUID) { return window.crypto.randomUUID(); }
+  } catch (e) { /* fall through to the plain random id */ }
+  var s = "";
+  for (var i = 0; i < 32; i++) { s += Math.floor(Math.random() * 16).toString(16); }
+  return s;
+}
+// One random id per browser, kept under one key shared by every page of the
+// site. No fingerprint of any kind: only this id.
+function gmGridDeviceId() {
+  try {
+    var id = window.localStorage.getItem("apex_device_id");
+    if (!id || !/^[A-Za-z0-9-]{8,64}$/.test(id)) {
+      id = gmGridRand();
+      window.localStorage.setItem("apex_device_id", id);
+    }
+    return id;
+  } catch (e) {
+    return "none";   // storage blocked
+  }
+}
+
+// ── Tracking ─────────────────────────────────────────────────────────────
+var gmGridEdit = null;   // the edit mode controller, built with the state
+var gmGridQueue = gmGridMakeQueue({
+  send: function(events, keepalive) { return gmGridSend(events, keepalive); },
+  setTimeout: function(fn, ms) { return window.setTimeout(fn, ms); },
+  clearTimeout: function(id) { window.clearTimeout(id); }
+});
+var gmGridDebounce = gmGridMakeDebounce({
+  setTimeout: function(fn, ms) { return window.setTimeout(fn, ms); },
+  clearTimeout: function(id) { window.clearTimeout(id); }
+});
+
+function gmGridRefreshToken() {
+  try {
+    if (typeof getToken === "function") { getToken().then(function(t) { gmGridTok = t; }, function() { return null; }); }
+  } catch (e) { /* tracking must never break the screen */ }
+}
+
+// Batches go through gmApi (the same signed in request as every other gm
+// call). On pagehide the page is going away, so a plain request would be
+// cancelled: that one send uses fetch with keepalive and the last token seen
+// (sendBeacon cannot carry the sign in header).
+function gmGridSend(events, keepalive) {
+  var body = { events: events };
+  if (keepalive && gmGridTok && typeof WORKER_URL !== "undefined") {
+    var path = "/api/clients/" + clientId + "/gm/leads-grid-events";
+    if (typeof PREVIEW_AS !== "undefined" && PREVIEW_AS) { path += "?previewAs=" + encodeURIComponent(PREVIEW_AS); }
+    return fetch(WORKER_URL + path, {
+      method: "POST", keepalive: true,
+      headers: { "Authorization": "Bearer " + gmGridTok, "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+  }
+  gmGridRefreshToken();
+  return gmApi("leads-grid-events", { method: "POST", body: body });
+}
+
+// o: { column_key, lead_id, detail, row_count_after, mode }. mode defaults to
+// the mode on screen. Edit mode events are recorded as "edit", including the
+// switch on and off, so mode=edit lists the whole editing window.
+function gmGridTrack(action, o) {
+  try {
+    o = o || {};
+    if (!gmGridSession) { gmGridSession = gmGridRand(); }
+    var mode = o.mode || (gmGridEdit && gmGridEdit.isOn() ? "edit" : "read");
+    var rows = o.row_count_after;
+    if (rows === undefined) { rows = gmGrid && gmGrid.dataRows ? gmGrid.dataRows.length : null; }
+    gmGridQueue.push({
+      action: action, mode: mode,
+      column_key: o.column_key || "", lead_id: o.lead_id || "", detail: o.detail || "",
+      row_count_after: rows,
+      session_ref: gmGridSession, device_id: gmGridDeviceId(), at: new Date().toISOString()
+    });
+  } catch (e) {
+    // Usage tracking must never break the screen: a failure here is ignored on purpose.
+  }
+}
+
+// Once per browser session and client, for every role that opens the portal
+// or the Pipeline, so one device seen under a staff login and a client login
+// shows up even on days the grid was never opened.
+function gmGridSessionStart() {
+  try {
+    if (!clientId) { return; }
+    var k = "apex_grid_ps_" + clientId;
+    var seen = false;
+    try {
+      seen = window.sessionStorage.getItem(k) === "1";
+      if (!seen) { window.sessionStorage.setItem(k, "1"); }
+    } catch (e) {
+      seen = !!gmGridPsDone[k];   // sessionStorage blocked: once per page load instead
+      gmGridPsDone[k] = true;
+    }
+    if (seen) { return; }
+    gmGridTrack("portal_session_started", { mode: "read", row_count_after: null });
+    gmGridInstallPageHide();
+  } catch (e2) {
+    // Usage tracking must never break the screen: a failure here is ignored on purpose.
+  }
+}
+
+function gmGridInstallPageHide() {
+  if (gmGridPageHideSet) { return; }
+  gmGridPageHideSet = true;
+  window.addEventListener("pagehide", function() {
+    if (gmGridActive) { gmGridDeactivate("pagehide"); }
+    gmGridQueue.flush(true);
+  });
+  document.addEventListener("visibilitychange", function() {
+    if (document.visibilityState === "hidden") { gmGridQueue.flush(false); }
+  });
+}
+
+// ── The shared context the pure logic needs ──────────────────────────────
+function gmGridCtx() {
+  var stages = (gmConfig && gmConfig.method && gmConfig.method.stages) || [];
+  return {
+    nowMs: Date.now(),
+    stageOrder: stages,
+    stageLabel: function(k) { return gmStageLabel(k); },
+    statusLabel: function(v) { return gmStatusLabel(v); },
+    monthLabel: function(k) { return gmMonthLabel(k); },
+    fmtMoney: function(n) { return gmMoney(Math.round(n * 100)); },
+    fmtDay: function(ms) {
+      var d = new Date(ms), p2 = function(n) { return String(n).padStart(2, "0"); };
+      return formatDate(d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()));
+    },
+    fmtDateTime: function(v) { return formatDateTime(v); },
+    fmtDateTimeUtc: function(v) { return formatDateTimeUTC(v); },
+    fmtPhone: function(v) { return gmFmtPhone(v); },
+    looksLikePhone: function(v) { return gmLooksLikePhone(v); }
+  };
+}
+
+function gmGridColLabel(col) { return gmT(col.pt, col.en); }
+function gmGridColEditable(col) {
+  if (!col.editable) { return false; }
+  // The route ignores a seller's change of salesperson, so the grid does not offer it.
+  if (col.key === "vendedor" && gmIsSeller()) { return false; }
+  return true;
+}
+
+// ── State ────────────────────────────────────────────────────────────────
+function gmGridNewState() {
+  var st = {
+    sorts: [], filters: {}, hidden: [], order: GM_GRID_COLS.map(function(c) { return c.key; }), widths: {},
+    groupBy: "", quick: "", collapsed: {},
+    rows: [], flat: [], dataRows: [], sel: null, cur: null, anchor: null,
+    editing: null, saving: false, dirty: false, opened: false, statsTracked: ""
+  };
+  var saved = null;
+  try { saved = JSON.parse(gmGridLsGet(gmGridKeyLayout()) || "null"); } catch (e) { saved = null; }   // a damaged saved layout is simply not used
+  if (saved && typeof saved === "object") {
+    if (saved.order instanceof Array) {
+      var seen = {}, ord = [];
+      saved.order.forEach(function(k) { if (gmGridCol(k) && !seen[k]) { seen[k] = 1; ord.push(k); } });
+      GM_GRID_COLS.forEach(function(c) { if (!seen[c.key]) { ord.push(c.key); } });
+      st.order = ord;
+    }
+    if (saved.hidden instanceof Array) { st.hidden = saved.hidden.filter(function(k) { return gmGridCol(k) && k !== "cliente"; }); }
+    if (saved.widths && typeof saved.widths === "object") {
+      Object.keys(saved.widths).forEach(function(k) {
+        var w = Number(saved.widths[k]);
+        if (gmGridCol(k) && w >= GM_GRID_MIN_W && w <= GM_GRID_MAX_W) { st.widths[k] = w; }
+      });
+    }
+  }
+  // Cliente is always first and always shown: it is the fixed column.
+  st.order = ["cliente"].concat(st.order.filter(function(k) { return k !== "cliente"; }));
+  return st;
+}
+
+function gmGridSaveLayout() {
+  gmGridLsSet(gmGridKeyLayout(), JSON.stringify({ order: gmGrid.order, hidden: gmGrid.hidden, widths: gmGrid.widths }));
+}
+
+function gmGridVisCols() {
+  return gmGrid.order.filter(function(k) { return gmGrid.hidden.indexOf(k) === -1 || k === "cliente"; }).map(gmGridCol);
+}
+function gmGridColW(col) { return gmGrid.widths[col.key] || col.w; }
+function gmGridTotalW() {
+  var w = GM_GRID_RN_W;
+  gmGridVisCols().forEach(function(c) { w += gmGridColW(c); });
+  return w;
+}
+
+// ── Compute: filter, sort, group, flatten ────────────────────────────────
+function gmGridQuickMatch(lead, q, ctx) {
+  // The Pipeline's own search (accents and case ignored), then every grid
+  // column as shown, so a month or a date is found too.
+  var prev = gmLeadSearch;
+  gmLeadSearch = q;
+  var hit = false;
+  try { hit = gmLeadMatchesSearch(lead); } finally { gmLeadSearch = prev; }
+  if (hit) { return true; }
+  var cols = gmGridVisCols();
+  for (var i = 0; i < cols.length; i++) {
+    if (gmSearchNorm(gmGridLabel(lead, cols[i].key, ctx)).indexOf(q) !== -1) { return true; }
+  }
+  return false;
+}
+
+function gmGridCompute() {
+  var ctx = gmGridCtx();
+  gmGrid.ctx = ctx;
+  var all = (gmLeadsData && gmLeadsData.leads) || [];
+  gmGrid.total = all.length;
+  var rows = gmGridFilterRows(all, gmGrid.filters, ctx);
+  var q = gmSearchNorm(gmGrid.quick);
+  if (q) { rows = rows.filter(function(l) { return gmGridQuickMatch(l, q, ctx); }); }
+  rows = gmGridSortRows(rows, gmGrid.sorts, ctx);
+  gmGrid.rows = rows;
+  var flat = [], data = [];
+  if (gmGrid.groupBy && gmGridCol(gmGrid.groupBy)) {
+    gmGridGroupRows(rows, gmGrid.groupBy, ctx).forEach(function(g) {
+      var open = !gmGrid.collapsed[g.label];
+      flat.push({ t: "g", label: g.label, count: g.count, sum: g.sum, open: open });
+      if (open) { g.rows.forEach(function(l) { var e = { t: "r", lead: l, r: data.length, fi: flat.length }; data.push(e); flat.push(e); }); }
+    });
+  } else {
+    rows.forEach(function(l) { var e = { t: "r", lead: l, r: data.length, fi: flat.length }; data.push(e); flat.push(e); });
+  }
+  gmGrid.flat = flat;
+  gmGrid.dataRows = data;
+  var vSum = 0;
+  rows.forEach(function(l) { var v = gmGridRaw(l, "valor", ctx); if (v !== null) { vSum += v; } });
+  gmGrid.valorSum = Math.round(vSum * 100) / 100;
+  if (gmGrid.sel) {
+    var maxR = data.length - 1, maxC = gmGridVisCols().length - 1;
+    if (maxR < 0) { gmGrid.sel = null; gmGrid.cur = null; gmGrid.anchor = null; }
+    else {
+      gmGrid.sel.r1 = Math.min(gmGrid.sel.r1, maxR); gmGrid.sel.r2 = Math.min(gmGrid.sel.r2, maxR);
+      gmGrid.sel.c1 = Math.min(gmGrid.sel.c1, maxC); gmGrid.sel.c2 = Math.min(gmGrid.sel.c2, maxC);
+    }
+  }
+}
+
+// ── Icons (small, drawn here: no library) ────────────────────────────────
+function gmGridSvg(inner) {
+  return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
+}
+var GM_GRID_SVG = {
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
+  funnel: '<path d="M4 5h16l-6.2 7.4V19l-3.6-1.8v-4.8L4 5z"/>',
+  lock:   '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  pencil: '<path d="M4 20l4.2-1 10-10a2 2 0 0 0-2.8-2.8l-10 10L4 20z"/><path d="M14.5 7.5l2 2"/>',
+  cols:   '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M9.5 5v14M14.5 5v14"/>',
+  views:  '<path d="M6 4h12v16l-6-3.6L6 20V4z"/>',
+  caret:  '<path d="M9 6l6 6-6 6"/>',
+  up:     '<path d="M6 14l6-6 6 6"/>',
+  down:   '<path d="M6 10l6 6 6-6"/>',
+  x:      '<path d="M6 6l12 12M18 6L6 18"/>'
+};
+function gmGridIcon(n) { return gmGridSvg(GM_GRID_SVG[n] || ""); }
+
+// ── Page: the third view inside Pipeline ─────────────────────────────────
+// Called by gmRenderCrm when the grid is the chosen view. Stacked and Rail are
+// untouched: this only decides whether they are drawn at all.
+function gmGridWanted() { return gmGridOn === true; }
+
+function gmGridInitChoice() {
+  if (gmGridInitFor === clientId) { return; }
+  gmGridInitFor = clientId;
+  gmGrid = null;
+  gmGridOn = gmGridLsGet(gmGridKeyView()) === "1";
+}
+
+function gmGridOpen() {
+  gmGridOn = true;
+  gmGridLsSet(gmGridKeyView(), "1");
+  gmRenderCrm();
+}
+
+// To Stacked or Rail from the grid. A choice the person makes, written the
+// same way the existing toggle writes it; the automatic switching is not touched.
+function gmGridLeaveTo(mode) {
+  gmGridDeactivate("button");
+  gmGridTrack(mode === "rail" ? "switched_to_rail" : "switched_to_stacked", { detail: gmGridDetail.how("button"), row_count_after: null });
+  gmGridOn = false;
+  gmGridLsSet(gmGridKeyView(), "0");
+  if (gmCrmViewMode() !== mode) { gmToggleViewMode(); } else { gmRenderCrm(); }
+}
+
+function gmGridRenderPage(body) {
+  if (!gmGrid) { gmGrid = gmGridNewState(); gmGridBuildEdit(); }
+  // A save in progress or a cell being edited must not be torn down by a
+  // background refresh: the refresh waits.
+  if (gmGrid.editing || gmGrid.saving) { gmGrid.dirty = true; return; }
+  var old = document.getElementById("gmGridScroll");
+  var keepTop = old ? old.scrollTop : 0, keepLeft = old ? old.scrollLeft : 0;
+  gmGridClosePop();
+  body.innerHTML = '<div id="gmGridSummary" class="content-card">' + gmCrmSummaryHtml() + '</div>' +
+    '<div class="gm-grid-wrap" id="gmGridWrap">' + gmGridShellHtml() + '</div>' +
+    gmPipelineFabHtml();
+  gmGridCompute();
+  gmGridBindShell();
+  gmGridRenderChrome();
+  var sc = document.getElementById("gmGridScroll");
+  sc.scrollTop = keepTop; sc.scrollLeft = keepLeft;
+  gmGridPaintAll();
+  if (!gmGridActive) { gmGridActivate(); }
+}
+
+function gmGridShellHtml() {
+  var s = gmGrid;
+  var nav = '<div class="gm-grid-nav" role="group" aria-label="' + escHtml(gmT("Modo de ver os leads", "How to see the leads")) + '">' +
+    '<button type="button" class="gm-grid-seg" data-act="stacked">' + escHtml(gmT("Empilhado", "Stacked")) + '</button>' +
+    '<button type="button" class="gm-grid-seg" data-act="rail">' + escHtml(gmT("Por estágio", "By stage")) + '</button>' +
+    '<button type="button" class="gm-grid-seg gm-grid-seg-on" aria-pressed="true">' + escHtml(gmT("Planilha", "Spreadsheet")) + '</button></div>';
+
+  var groupOpts = '<option value="">' + escHtml(gmT("Nenhum", "None")) + '</option>';
+  GM_GRID_COLS.forEach(function(c) {
+    groupOpts += '<option value="' + c.key + '"' + (s.groupBy === c.key ? " selected" : "") + '>' + escHtml(gmGridColLabel(c)) + '</option>';
+  });
+
+  var tools = '<div class="gm-grid-tools">' +
+    '<div class="gm-grid-box"><label class="gm-grid-box-label" for="gmGridQuick">' + escHtml(gmT("Buscar em todas as colunas", "Search all columns")) + '</label>' +
+    '<div class="gm-grid-box-line"><div class="gm-grid-box-row"><span class="gm-grid-box-ico">' + gmGridIcon("search") + '</span>' +
+    '<input type="text" id="gmGridQuick" class="gm-grid-box-input" autocomplete="off" autocorrect="off" spellcheck="false" value="' + escHtml(s.quick) + '" ' +
+    'placeholder="' + escHtml(gmT("Nome, telefone, cidade, mês…", "Name, phone, city, month…")) + '"></div>' +
+    '<button type="button" class="gm-grid-btn" id="gmGridQuickClear" data-act="quickclear"' + (s.quick ? "" : " hidden") + '>' + escHtml(gmT("Limpar", "Clear")) + '</button></div></div>' +
+    '<div class="gm-grid-btns">' +
+    '<button type="button" class="gm-grid-btn" data-act="cols">' + gmGridIcon("cols") + '<span>' + escHtml(gmT("Colunas", "Columns")) + '</span></button>' +
+    '<label class="gm-grid-group"><span>' + escHtml(gmT("Agrupar por", "Group by")) + '</span><select id="gmGridGroup" class="gm-grid-select">' + groupOpts + '</select></label>' +
+    '<button type="button" class="gm-grid-btn" data-act="views">' + gmGridIcon("views") + '<span>' + escHtml(gmT("Visões salvas", "Saved views")) + '</span></button>' +
+    '<button type="button" class="gm-grid-btn" id="gmGridClearFilters" data-act="clearfilters">' + escHtml(gmT("Limpar filtros", "Clear filters")) + '</button>' +
+    '<button type="button" class="gm-grid-btn" data-act="reset">' + escHtml(gmT("Restaurar layout", "Reset layout")) + '</button>' +
+    '</div></div>';
+
+  var mode = '<div class="gm-grid-mode" id="gmGridMode"></div>';
+  var banner = '<div class="gm-grid-callout" id="gmGridBanner" role="status" hidden></div>';
+  var scroll = '<div class="gm-grid-scroll" id="gmGridScroll" tabindex="0" role="grid" aria-label="' + escHtml(gmT("Planilha de leads", "Leads spreadsheet")) + '"></div>';
+  var status = '<div class="gm-grid-status" id="gmGridStatus" aria-live="polite"></div>';
+  return nav + mode + banner + tools + scroll + status + '<div id="gmGridPop"></div>';
+}
+
+// The parts that change with the state: the chip, the switch, the banner,
+// the Clear filters button, the status bar.
+function gmGridRenderChrome() {
+  var on = gmGridEdit && gmGridEdit.isOn();
+  var mode = document.getElementById("gmGridMode");
+  if (mode) {
+    mode.innerHTML =
+      '<span class="gm-grid-chip' + (on ? " gm-grid-chip-edit" : "") + '">' + gmGridIcon(on ? "pencil" : "lock") + '<span>' +
+      escHtml(on ? gmT("Modo de edição", "Edit mode") : gmT("Somente leitura", "Read only")) + '</span></span>' +
+      '<button type="button" class="gm-grid-switch" role="switch" aria-checked="' + (on ? "true" : "false") + '" data-act="editswitch">' +
+      '<span class="gm-grid-switch-track"><span class="gm-grid-switch-knob"></span></span>' +
+      '<span>' + escHtml(gmT("Modo de edição", "Edit mode")) + '</span></button>';
+  }
+  var banner = document.getElementById("gmGridBanner");
+  if (banner) {
+    banner.hidden = !on;
+    banner.innerHTML = on
+      ? '<span class="gm-grid-callout-ico">' + gmGridIcon("pencil") + '</span>' +
+        '<span class="gm-grid-callout-body"><strong>' + escHtml(gmT("Modo de edição ligado. Cada alteração é registrada.", "Edit mode is on. Every change is recorded.")) + '</strong>' +
+        '<span>' + escHtml(gmT("Dê dois cliques em uma célula, ou aperte Enter, para editar. Escape cancela.", "Double click a cell, or press Enter, to edit. Escape cancels.")) + '</span></span>' +
+        '<button type="button" class="gm-grid-btn" data-act="editoff">' + escHtml(gmT("Desligar", "Turn off")) + '</button>'
+      : "";
+  }
+  var cf = document.getElementById("gmGridClearFilters");
+  if (cf) { cf.disabled = gmGridActiveFilterCount(gmGrid.filters) === 0; }
+  var qc = document.getElementById("gmGridQuickClear");
+  if (qc) { qc.hidden = !gmGrid.quick; }
+  gmGridRenderStatus();
+}
+
+function gmGridMoney(n) { return gmMoney(Math.round(n * 100)); }
+
+function gmGridSelValues() {
+  var s = gmGrid, sel = s.sel;
+  if (!sel) { return null; }
+  var cols = gmGridVisCols(), vals = [], allNum = true;
+  var r1 = Math.min(sel.r1, sel.r2), r2 = Math.max(sel.r1, sel.r2), c1 = Math.min(sel.c1, sel.c2), c2 = Math.max(sel.c1, sel.c2);
+  for (var c = c1; c <= c2; c++) {
+    if (!cols[c] || cols[c].type !== "num") { allNum = false; break; }
+  }
+  if (!allNum) { return null; }
+  for (var r = r1; r <= r2; r++) {
+    if (!s.dataRows[r]) { continue; }
+    for (var cc = c1; cc <= c2; cc++) { vals.push(gmGridRaw(s.dataRows[r].lead, cols[cc].key, s.ctx)); }
+  }
+  return { vals: vals, key: cols[c1].key, cells: (r2 - r1 + 1) * (c2 - c1 + 1) };
+}
+
+function gmGridRenderStatus() {
+  var host = document.getElementById("gmGridStatus");
+  if (!host) { return; }
+  var s = gmGrid, n = s.rows.length, m = s.total || 0;
+  var html = '<span class="gm-grid-st"><strong>' + n + '</strong> ' + escHtml(gmT("de", "of")) + ' <strong>' + m + '</strong> ' + escHtml(gmT("leads", "leads")) + '</span>' +
+    '<span class="gm-grid-st">' + escHtml(gmT("Valor, soma", "Value, sum")) + ': <strong>' + escHtml(gmGridMoney(s.valorSum || 0)) + '</strong></span>';
+  var sv = gmGridSelValues();
+  if (sv) {
+    var st = gmGridStats(sv.vals);
+    if (st.count > 0) {
+      var f = sv.key === "valor" ? gmGridMoney : function(x) { return String(Math.round(x * 100) / 100); };
+      html += '<span class="gm-grid-st gm-grid-st-sel">' + escHtml(gmT("Seleção", "Selection")) + ': ' +
+        escHtml(gmT("Contagem", "Count")) + ' <strong>' + st.count + '</strong> · ' +
+        escHtml(gmT("Soma", "Sum")) + ' <strong>' + escHtml(f(st.sum)) + '</strong> · ' +
+        escHtml(gmT("Média", "Average")) + ' <strong>' + escHtml(f(st.avg)) + '</strong></span>';
+      if (sv.cells > 1) {
+        var tag = sv.key + ":" + st.count;
+        if (s.statsTracked !== tag) {
+          s.statsTracked = tag;
+          gmGridDebounce.run("stats", 800, function() { gmGridTrack("selection_stats_used", { column_key: sv.key, detail: gmGridDetail.count(st.count) }); });
+        }
+      }
+    }
+  }
+  host.innerHTML = html;
+}
+
+// ── Header and rows ──────────────────────────────────────────────────────
+function gmGridHeaderHtml() {
+  var s = gmGrid, cols = gmGridVisCols();
+  var html = '<div class="gm-grid-hrow" style="width:' + gmGridTotalW() + 'px;height:' + GM_GRID_HEAD_H + 'px">' +
+    '<div class="gm-grid-h gm-grid-rn gm-grid-h-rn" style="width:' + GM_GRID_RN_W + 'px">#</div>';
+  cols.forEach(function(col, i) {
+    var si = -1;
+    s.sorts.forEach(function(x, ix) { if (x.key === col.key) { si = ix; } });
+    var f = s.filters[col.key];
+    var fOn = !!f && (f.checked instanceof Array || gmGridCondActive(f, col.type));
+    html += '<div class="gm-grid-h' + (i === 0 ? " gm-grid-fix" : "") + (col.type === "num" ? " gm-grid-num" : "") + '" data-k="' + col.key + '" style="width:' + gmGridColW(col) + 'px" role="columnheader">' +
+      '<button type="button" class="gm-grid-h-label" data-act="sort" data-k="' + col.key + '">' +
+        '<span class="gm-grid-h-text">' + escHtml(gmGridColLabel(col)) + '</span>' +
+        (si !== -1 ? '<span class="gm-grid-sortmark">' + (s.sorts[si].dir === "desc" ? "▼" : "▲") + (s.sorts.length > 1 || si > 0 ? '<sup>' + (si + 1) + '</sup>' : "") + '</span>' : "") +
+      '</button>' +
+      '<button type="button" class="gm-grid-h-filter' + (fOn ? " gm-grid-h-filter-on" : "") + '" data-act="filter" data-k="' + col.key + '" aria-label="' +
+        escHtml(gmT("Filtro: ", "Filter: ") + gmGridColLabel(col)) + '"' + (fOn ? ' title="' + escHtml(gmT("Filtro ativo", "Filter on")) + '"' : "") + '>' + gmGridIcon("funnel") + '</button>' +
+      '<span class="gm-grid-resize" data-act="resize" data-k="' + col.key + '"></span></div>';
+  });
+  return html + '</div>';
+}
+
+function gmGridRowHtml(e, i, top) {
+  var s = gmGrid, cols = gmGridVisCols(), w = gmGridTotalW();
+  if (e.t === "g") {
+    return '<div class="gm-grid-row gm-grid-grp" style="top:' + top + 'px;width:' + w + 'px">' +
+      '<button type="button" class="gm-grid-grp-btn" data-act="grp" data-gi="' + i + '"><span class="gm-grid-caret' + (e.open ? " gm-grid-caret-open" : "") + '">' + gmGridIcon("caret") + '</span>' +
+      '<span class="gm-grid-grp-name">' + escHtml(e.label === "" ? gmT("(vazio)", "(blank)") : e.label) + '</span>' +
+      '<span class="gm-grid-grp-n">' + e.count + ' ' + escHtml(gmT("leads", "leads")) + '</span>' +
+      '<span class="gm-grid-grp-sum">' + escHtml(gmT("Valor", "Value")) + ' ' + escHtml(gmGridMoney(e.sum)) + '</span></button></div>';
+  }
+  var sel = s.sel, r1 = 0, r2 = -1, c1 = 0, c2 = -1;
+  if (sel) { r1 = Math.min(sel.r1, sel.r2); r2 = Math.max(sel.r1, sel.r2); c1 = Math.min(sel.c1, sel.c2); c2 = Math.max(sel.c1, sel.c2); }
+  var html = '<div class="gm-grid-row' + (e.r % 2 ? " gm-grid-z" : "") + '" data-r="' + e.r + '" style="top:' + top + 'px;width:' + w + 'px" role="row">' +
+    '<div class="gm-grid-rn" data-act="rn" data-r="' + e.r + '" style="width:' + GM_GRID_RN_W + 'px" title="' + escHtml(gmT("Dois cliques abre o lead", "Double click opens the lead")) + '">' + (e.r + 1) + '</div>';
+  cols.forEach(function(col, ci) {
+    var label = gmGridLabel(e.lead, col.key, s.ctx);
+    var inSel = sel && e.r >= r1 && e.r <= r2 && ci >= c1 && ci <= c2;
+    var isCur = s.cur && s.cur.r === e.r && s.cur.c === ci;
+    html += '<div class="gm-grid-c' + (ci === 0 ? " gm-grid-fix" : "") + (col.type === "num" ? " gm-grid-num" : "") + (inSel ? " gm-grid-sel" : "") + (isCur ? " gm-grid-cur" : "") +
+      '" data-r="' + e.r + '" data-ci="' + ci + '" data-k="' + col.key + '" style="width:' + gmGridColW(col) + 'px" role="gridcell"' +
+      (label.length > 24 ? ' title="' + escHtml(label) + '"' : "") + '>' + escHtml(label) + '</div>';
+  });
+  return html + '</div>';
+}
+
+// Only the rows in view are drawn (plus a few above and below), so a thousand
+// leads cost the same as forty.
+function gmGridPaintRows() {
+  var s = gmGrid, sc = document.getElementById("gmGridScroll"), body = document.getElementById("gmGridBodyRows");
+  if (!sc || !body) { return; }
+  var n = s.flat.length;
+  var first = Math.max(0, Math.floor((sc.scrollTop - GM_GRID_HEAD_H) / GM_GRID_ROW_H) - 6);
+  var last = Math.min(n, Math.ceil((sc.scrollTop + sc.clientHeight - GM_GRID_HEAD_H) / GM_GRID_ROW_H) + 6);
+  var html = "", drawn = {};
+  for (var i = first; i < last; i++) { html += gmGridRowHtml(s.flat[i], i, i * GM_GRID_ROW_H); drawn[i] = 1; }
+  // The row being edited stays on screen even when scrolled out of the window.
+  if (s.editing && s.editing.fi !== undefined && !drawn[s.editing.fi] && s.flat[s.editing.fi]) {
+    html += gmGridRowHtml(s.flat[s.editing.fi], s.editing.fi, s.editing.fi * GM_GRID_ROW_H);
+  }
+  body.innerHTML = html;
+  s.win = { first: first, last: last };
+  if (s.editing && s.editing.el && !body.contains(s.editing.el)) { s.editing.el = null; }
+}
+
+function gmGridPaintAll() {
+  var sc = document.getElementById("gmGridScroll");
+  if (!sc) { return; }
+  var s = gmGrid, n = s.flat.length;
+  var empty = "";
+  if (!s.total) {
+    empty = '<div class="gm-grid-empty">' + escHtml(gmT("Nenhum lead ainda.", "No leads yet.")) + '</div>';
+  } else if (!n) {
+    empty = '<div class="gm-grid-empty">' + escHtml(gmT("Nenhum lead com estes filtros.", "No leads match these filters.")) +
+      ' <button type="button" class="gm-grid-btn" data-act="clearfilters">' + escHtml(gmT("Limpar filtros", "Clear filters")) + '</button></div>';
+  }
+  sc.innerHTML = '<div class="gm-grid-inner" style="width:' + gmGridTotalW() + 'px">' + gmGridHeaderHtml() +
+    '<div class="gm-grid-body" style="height:' + (n * GM_GRID_ROW_H) + 'px;width:' + gmGridTotalW() + 'px"><div id="gmGridBodyRows"></div></div>' + empty + '</div>';
+  gmGridPaintRows();
+}
+
+// After a state change that keeps the scroll place.
+function gmGridApply() {
+  gmGridCompute();
+  gmGridPaintAll();
+  gmGridRenderChrome();
+}
+
+// ── Events ───────────────────────────────────────────────────────────────
+function gmGridBindShell() {
+  var wrap = document.getElementById("gmGridWrap"), sc = document.getElementById("gmGridScroll");
+  wrap.addEventListener("click", gmGridOnClick);
+  wrap.addEventListener("dblclick", gmGridOnDblClick);
+  wrap.addEventListener("change", gmGridOnChange);
+  wrap.addEventListener("input", gmGridOnInput);
+  wrap.addEventListener("pointerdown", gmGridOnPointerDown);
+  sc.addEventListener("keydown", gmGridOnKey);
+  var ticking = false;
+  sc.addEventListener("scroll", function() {
+    if (ticking) { return; }
+    ticking = true;
+    window.requestAnimationFrame(function() { ticking = false; gmGridPaintRows(); });
+  });
+  // NO WAY OUT: copy, cut, drag and the context menu are blocked inside the
+  // grid. Selecting text with the mouse for reading stays allowed. Each block
+  // is a tracked event.
+  sc.addEventListener("copy", function(e) { e.preventDefault(); gmGridTrack("copy_blocked", { detail: gmGridDetail.how("key") }); });
+  sc.addEventListener("cut", function(e) { e.preventDefault(); gmGridTrack("cut_blocked", { detail: gmGridDetail.how("key") }); });
+  sc.addEventListener("dragstart", function(e) { e.preventDefault(); gmGridTrack("copy_blocked", { detail: gmGridDetail.how("mouse") }); });
+  sc.addEventListener("contextmenu", function(e) { e.preventDefault(); gmGridTrack("contextmenu_blocked", { detail: gmGridDetail.how("mouse") }); });
+  var group = document.getElementById("gmGridGroup");
+  group.addEventListener("change", function() { gmGridSetGroup(group.value); });
+}
+
+function gmGridDocKey(e) {
+  var k = String(e.key || "").toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && (k === "p" || k === "s")) {
+    e.preventDefault();
+    gmGridTrack(k === "p" ? "print_blocked" : "save_blocked", { detail: gmGridDetail.how("key") });
+    return;
+  }
+  if (k === "escape" && gmGrid && gmGrid.pop) { gmGridClosePop(); }
+}
+function gmGridBeforePrint() { gmGridTrack("print_blocked", { detail: gmGridDetail.how("auto") }); }
+function gmGridDocClick(e) {
+  if (!gmGrid || !gmGrid.pop) { return; }
+  var pop = document.getElementById("gmGridPop");
+  if (pop && pop.contains(e.target)) { return; }
+  if (e.target.closest && e.target.closest('[data-act="filter"],[data-act="cols"],[data-act="views"]')) { return; }
+  gmGridClosePop();
+}
+
+function gmGridActivate() {
+  if (gmGridActive) { return; }
+  gmGridActive = true;
+  document.addEventListener("keydown", gmGridDocKey, true);
+  document.addEventListener("click", gmGridDocClick, true);
+  window.addEventListener("beforeprint", gmGridBeforePrint);
+  gmGridInstallPageHide();
+  gmGridRefreshToken();
+  if (!gmGridWatchTimer) { gmGridWatchTimer = window.setInterval(gmGridWatch, 2000); }
+  gmGridTrack("view_opened", { detail: gmGridDetail.how("grid") });
+}
+
+function gmGridDeactivate(why) {
+  if (!gmGridActive) { return; }
+  gmGridActive = false;
+  document.removeEventListener("keydown", gmGridDocKey, true);
+  document.removeEventListener("click", gmGridDocClick, true);
+  window.removeEventListener("beforeprint", gmGridBeforePrint);
+  if (gmGrid && gmGrid.editing) { gmGridFinishEdit(false); }
+  if (gmGridEdit && gmGridEdit.isOn()) { gmGridEdit.turnOff("leave"); }
+  gmGridTrack("view_closed", { detail: gmGridDetail.how(why) });
+  gmGridQueue.flush(why === "pagehide");
+}
+
+// Leaving the Pipeline (another tab, another section) is not an event the grid
+// is told about, so it looks: no longer on screen means it was left. Coming
+// back to a grid that is still the chosen view wakes it again.
+function gmGridWatch() {
+  if (!gmGridOn) { window.clearInterval(gmGridWatchTimer); gmGridWatchTimer = null; return; }
+  var wrap = document.getElementById("gmGridWrap");
+  var shown = !!wrap && wrap.offsetParent !== null;
+  if (shown && !gmGridActive) { gmGridActivate(); }
+  else if (!shown && gmGridActive) { gmGridDeactivate("leave"); }
+}
+
+function gmGridOnClick(e) {
+  var t = e.target;
+  var actEl = t.closest ? t.closest("[data-act]") : null;
+  var act = actEl ? actEl.getAttribute("data-act") : "";
+  var k = actEl ? actEl.getAttribute("data-k") : "";
+  if (gmGridSuppressClick && (act === "sort" || act === "filter")) { return; }
+  switch (act) {
+    case "stacked": gmGridLeaveTo("stacked"); return;
+    case "rail":    gmGridLeaveTo("rail"); return;
+    case "quickclear": gmGridQuickSet(""); document.getElementById("gmGridQuick").value = ""; document.getElementById("gmGridQuick").focus(); return;
+    case "cols":    gmGridTogglePop("cols", actEl); return;
+    case "views":   gmGridTogglePop("views", actEl); return;
+    case "filter":  gmGridTogglePop("filter", actEl, k); return;
+    case "clearfilters": gmGridClearAllFilters(); return;
+    case "reset":   gmGridResetLayout(); return;
+    case "editswitch": if (gmGridEdit.isOn()) { gmGridEdit.turnOff("button"); } else { gmGridEdit.turnOn("button"); } return;
+    case "editoff": gmGridEdit.turnOff("button"); return;
+    case "sort":    gmGridSortClick(k, e.shiftKey); return;
+    case "grp":     gmGridToggleGroup(Number(actEl.getAttribute("data-gi"))); return;
+    case "p-close": gmGridClosePop(); return;
+    case "p-selall": gmGridPopSelectAll(true); return;
+    case "p-selnone": gmGridPopSelectAll(false); return;
+    case "p-clearcol": gmGridClearColFilter(gmGrid.pop.key); return;
+    case "p-colsel": gmGridSelectColumn(gmGrid.pop.key); return;
+    case "p-up": gmGridMoveCol(k, -1); return;
+    case "p-down": gmGridMoveCol(k, 1); return;
+    case "p-reset": gmGridResetLayout(); return;
+    case "p-vsave": gmGridViewSave(); return;
+    case "p-vopen": gmGridViewOpen(Number(actEl.getAttribute("data-i"))); return;
+    case "p-vdel":  gmGridViewDelete(Number(actEl.getAttribute("data-i"))); return;
+    case "p-esave": gmGridPopEditSave(); return;
+    case "p-ecancel": gmGridFinishEdit(false); return;
+    default: break;
+  }
+  var cell = t.closest ? t.closest(".gm-grid-c, .gm-grid-rn[data-r]") : null;
+  if (cell && !cell.closest(".gm-grid-hrow")) {
+    var r = Number(cell.getAttribute("data-r"));
+    if (cell.classList.contains("gm-grid-rn")) { gmGridSelectRow(r); }
+    else { gmGridSelectCell(r, Number(cell.getAttribute("data-ci")), e.shiftKey); }
+    document.getElementById("gmGridScroll").focus({ preventScroll: true });
+  }
+}
+
+function gmGridOnDblClick(e) {
+  var t = e.target;
+  var rn = t.closest ? t.closest(".gm-grid-rn[data-r]") : null;
+  if (rn && !rn.closest(".gm-grid-hrow")) { gmGridOpenLead(Number(rn.getAttribute("data-r")), "mouse"); return; }
+  var cell = t.closest ? t.closest(".gm-grid-c") : null;
+  if (cell && gmGridEdit.isOn()) { gmGridStartEdit(Number(cell.getAttribute("data-r")), Number(cell.getAttribute("data-ci")), "mouse"); }
+}
+
+function gmGridOnChange(e) {
+  var t = e.target;
+  if (t.id === "gmGridGroup") { return; }
+  if (t.hasAttribute("data-fv")) { gmGridPopToggleValue(Number(t.getAttribute("data-fv")), t.checked); return; }
+  if (t.hasAttribute("data-col")) { gmGridToggleCol(t.getAttribute("data-col"), t.checked); return; }
+  if (t.id === "gmGridOp") { gmGridPopSetOp(t.value); return; }
+}
+
+function gmGridOnInput(e) {
+  var t = e.target;
+  if (t.id === "gmGridQuick") { gmGridQuickSet(t.value); return; }
+  if (t.id === "gmGridPopSearch") { gmGridPopSearchInput(t.value); return; }
+  if (t.id === "gmGridV1" || t.id === "gmGridV2") { gmGridPopSetVals(); }
+}
+
+// ── Quick search ─────────────────────────────────────────────────────────
+function gmGridQuickSet(v) {
+  gmGrid.quick = String(v || "");
+  gmGridApply();
+  var len = gmGrid.quick.length;
+  // Typing is merged: one event 800 ms after the person stops. Only the
+  // LENGTH is recorded, never the text.
+  gmGridDebounce.run("quick", 800, function() {
+    if (len > 0) { gmGridTrack("search_used", { detail: gmGridDetail.len(len) }); }
+    else { gmGridTrack("search_cleared", {}); }
+  });
+}
+
+// ── Sort ─────────────────────────────────────────────────────────────────
+function gmGridSortClick(key, shift) {
+  var s = gmGrid, cur = null, ix = -1;
+  s.sorts.forEach(function(x, i) { if (x.key === key) { cur = x; ix = i; } });
+  var next = !cur ? "asc" : (cur.dir === "asc" ? "desc" : null);
+  if (shift) {
+    if (!cur) { s.sorts.push({ key: key, dir: "asc" }); }
+    else if (next) { cur.dir = next; }
+    else { s.sorts.splice(ix, 1); }
+  } else {
+    s.sorts = next ? [{ key: key, dir: next }] : [];
+  }
+  gmGridApply();
+  var level = 0;
+  s.sorts.forEach(function(x, i) { if (x.key === key) { level = i + 1; } });
+  if (next) { gmGridTrack("sort_set", { column_key: key, detail: gmGridDetail.sort(next, level) }); }
+  else { gmGridTrack("sort_cleared", { column_key: key }); }
+}
+
+// ── Group by ─────────────────────────────────────────────────────────────
+function gmGridSetGroup(key) {
+  gmGrid.groupBy = gmGridCol(key) ? key : "";
+  gmGrid.collapsed = {};
+  gmGrid.sel = null; gmGrid.cur = null; gmGrid.anchor = null;
+  gmGridApply();
+  if (gmGrid.groupBy) { gmGridTrack("group_set", { column_key: gmGrid.groupBy }); }
+  else { gmGridTrack("group_cleared", {}); }
+}
+function gmGridToggleGroup(fi) {
+  var e = gmGrid.flat[fi];
+  if (!e || e.t !== "g") { return; }
+  gmGrid.collapsed[e.label] = e.open;   // open now, so it collapses
+  gmGridApply();
+}
+
+// ── Filters ──────────────────────────────────────────────────────────────
+function gmGridFilterOf(key) {
+  if (!gmGrid.filters[key]) { gmGrid.filters[key] = { checked: null, op: "", v1: "", v2: "" }; }
+  return gmGrid.filters[key];
+}
+// After a change to one column's filter: drop it when nothing is left, apply,
+// and record it (a checkbox change at once, a typed value 800 ms after typing).
+function gmGridFilterChanged(key, how, typed) {
+  var f = gmGrid.filters[key], col = gmGridCol(key);
+  var active = !!f && (f.checked instanceof Array || gmGridCondActive(f, col.type));
+  if (!active && f && !f.op) { delete gmGrid.filters[key]; }
+  gmGridApply();
+  var send = function() {
+    var ff = gmGrid.filters[key];
+    var still = !!ff && (ff.checked instanceof Array || gmGridCondActive(ff, col.type));
+    if (!still) { gmGridTrack("filter_cleared", { column_key: key }); return; }
+    var detail = ff.checked instanceof Array && !gmGridCondActive(ff, col.type) ? gmGridDetail.values(ff.checked.length) : gmGridDetail.op(ff.op);
+    gmGridTrack("filter_set", { column_key: key, detail: detail });
+  };
+  if (typed) { gmGridDebounce.run("filter:" + key, 800, send); } else { send(); }
+}
+function gmGridClearColFilter(key) {
+  if (!gmGrid.filters[key]) { return; }
+  delete gmGrid.filters[key];
+  gmGridApply();
+  gmGridTrack("filter_cleared", { column_key: key });
+  if (gmGrid.pop && gmGrid.pop.kind === "filter") { gmGridOpenPop("filter", gmGrid.pop.anchor, key); }
+}
+function gmGridClearAllFilters() {
+  var n = gmGridActiveFilterCount(gmGrid.filters);
+  if (!n) { return; }
+  gmGrid.filters = {};
+  gmGridClosePop();
+  gmGridApply();
+  gmGridTrack("filters_cleared_all", { detail: gmGridDetail.count(n) });
+}
+
+// ── Columns: hide, show, move, resize, reset ─────────────────────────────
+function gmGridToggleCol(key, show) {
+  var s = gmGrid;
+  if (key === "cliente") { return; }
+  var i = s.hidden.indexOf(key);
+  if (show && i !== -1) { s.hidden.splice(i, 1); } else if (!show && i === -1) { s.hidden.push(key); } else { return; }
+  gmGridSaveLayout();
+  s.sel = null; s.cur = null; s.anchor = null;
+  gmGridApply();
+  gmGridTrack(show ? "column_shown" : "column_hidden", { column_key: key });
+}
+function gmGridMoveCol(key, dir) {
+  var s = gmGrid, i = s.order.indexOf(key);
+  var j = i + dir;
+  if (key === "cliente" || i < 1 || j < 1 || j >= s.order.length) { return; }
+  s.order.splice(i, 1); s.order.splice(j, 0, key);
+  gmGridSaveLayout();
+  s.sel = null; s.cur = null; s.anchor = null;
+  gmGridApply();
+  gmGridTrack("column_moved", { column_key: key, detail: gmGridDetail.pos(j + 1) });
+  if (s.pop && s.pop.kind === "cols") { gmGridOpenPop("cols", s.pop.anchor); }
+}
+function gmGridMoveColTo(key, toIdx) {
+  var s = gmGrid, i = s.order.indexOf(key);
+  if (key === "cliente" || i < 1) { return; }
+  var j = Math.max(1, Math.min(s.order.length - 1, toIdx));
+  if (j === i) { return; }
+  s.order.splice(i, 1); s.order.splice(j, 0, key);
+  gmGridSaveLayout();
+  s.sel = null; s.cur = null; s.anchor = null;
+  gmGridApply();
+  gmGridTrack("column_moved", { column_key: key, detail: gmGridDetail.pos(j + 1) });
+}
+function gmGridResetLayout() {
+  var s = gmGrid;
+  s.order = GM_GRID_COLS.map(function(c) { return c.key; });
+  s.hidden = []; s.widths = {};
+  gmGridSaveLayout();
+  gmGridClosePop();
+  s.sel = null; s.cur = null; s.anchor = null;
+  gmGridApply();
+  gmGridTrack("layout_reset", {});
+}
+
+// Drag an edge to resize; drag a header to move it. One pointer handler for
+// both, listening on the document only while a drag is going.
+function gmGridOnPointerDown(e) {
+  if (e.button !== undefined && e.button !== 0) { return; }
+  var t = e.target;
+  var rz = t.closest ? t.closest(".gm-grid-resize") : null;
+  if (rz) { gmGridDragStart(e, "resize", rz.getAttribute("data-k")); return; }
+  var lab = t.closest ? t.closest(".gm-grid-h-label") : null;
+  if (lab && lab.getAttribute("data-k") !== "cliente") { gmGridDragStart(e, "move", lab.getAttribute("data-k")); }
+}
+function gmGridDragStart(e, kind, key) {
+  var col = gmGridCol(key);
+  var d = { kind: kind, key: key, x0: e.clientX, w0: gmGridColW(col), moved: false, target: null };
+  if (kind === "resize") { e.preventDefault(); }
+  var move = function(ev) {
+    var dx = ev.clientX - d.x0;
+    if (kind === "resize") {
+      d.moved = true;
+      var w = Math.max(GM_GRID_MIN_W, Math.min(GM_GRID_MAX_W, d.w0 + dx));
+      gmGrid.widths[key] = w;
+      gmGridApplyWidths(key, w);
+    } else {
+      if (!d.moved && Math.abs(dx) < 6) { return; }
+      d.moved = true;
+      gmGridShowDrop(d, ev.clientX);
+    }
+  };
+  var up = function() {
+    document.removeEventListener("pointermove", move);
+    document.removeEventListener("pointerup", up);
+    document.removeEventListener("pointercancel", up);
+    gmGridHideDrop();
+    if (!d.moved) { return; }
+    gmGridSuppressClick = true;
+    window.setTimeout(function() { gmGridSuppressClick = false; }, 0);
+    if (kind === "resize") {
+      gmGridSaveLayout();
+      // One event when the drag ENDS, not one per pixel.
+      gmGridTrack("column_resized", { column_key: key, detail: gmGridDetail.width(gmGrid.widths[key]) });
+    } else if (d.target !== null) {
+      gmGridMoveColTo(key, d.target);
+    }
+  };
+  document.addEventListener("pointermove", move);
+  document.addEventListener("pointerup", up);
+  document.addEventListener("pointercancel", up);
+}
+function gmGridApplyWidths(key, w) {
+  var wrap = document.getElementById("gmGridWrap");
+  if (!wrap) { return; }
+  var cells = wrap.querySelectorAll('[data-k="' + key + '"]');
+  for (var i = 0; i < cells.length; i++) {
+    if (cells[i].classList.contains("gm-grid-h") || cells[i].classList.contains("gm-grid-c")) { cells[i].style.width = w + "px"; }
+  }
+  var total = gmGridTotalW() + "px";
+  var wide = wrap.querySelectorAll(".gm-grid-inner, .gm-grid-hrow, .gm-grid-body, .gm-grid-row");
+  for (var j = 0; j < wide.length; j++) { wide[j].style.width = total; }
+}
+function gmGridShowDrop(d, x) {
+  var wrap = document.getElementById("gmGridWrap");
+  var heads = wrap.querySelectorAll(".gm-grid-hrow .gm-grid-h[data-k]");
+  var idx = gmGrid.order.length, left = null;
+  for (var i = 0; i < heads.length; i++) {
+    var r = heads[i].getBoundingClientRect();
+    if (x < r.left + r.width / 2) { idx = gmGrid.order.indexOf(heads[i].getAttribute("data-k")); left = r.left; break; }
+    left = r.right;
+  }
+  if (idx < 1) { idx = 1; }
+  var from = gmGrid.order.indexOf(d.key);
+  d.target = idx > from ? idx - 1 : idx;
+  var bar = document.getElementById("gmGridDrop");
+  if (!bar) { bar = document.createElement("div"); bar.id = "gmGridDrop"; bar.className = "gm-grid-dropbar"; document.body.appendChild(bar); }
+  var sr = document.getElementById("gmGridScroll").getBoundingClientRect();
+  bar.style.left = Math.round(left === null ? sr.left : left) + "px";
+  bar.style.top = Math.round(sr.top) + "px";
+  bar.style.height = GM_GRID_HEAD_H + "px";
+}
+function gmGridHideDrop() {
+  var bar = document.getElementById("gmGridDrop");
+  if (bar && bar.parentNode) { bar.parentNode.removeChild(bar); }
+}
+
+// ── Selection and keys ───────────────────────────────────────────────────
+function gmGridSelectCell(r, ci, extend) {
+  var s = gmGrid;
+  if (!s.dataRows[r]) { return; }
+  if (extend && s.anchor) { s.sel = { r1: s.anchor.r, c1: s.anchor.c, r2: r, c2: ci }; }
+  else { s.anchor = { r: r, c: ci }; s.sel = { r1: r, c1: ci, r2: r, c2: ci }; }
+  s.cur = { r: r, c: ci };
+  gmGridPaintRows();
+  gmGridRenderStatus();
+}
+function gmGridSelectRow(r) {
+  var s = gmGrid, last = gmGridVisCols().length - 1;
+  if (!s.dataRows[r]) { return; }
+  s.anchor = { r: r, c: 0 }; s.sel = { r1: r, c1: 0, r2: r, c2: last }; s.cur = { r: r, c: 0 };
+  gmGridPaintRows();
+  gmGridRenderStatus();
+}
+function gmGridSelectColumn(key) {
+  var s = gmGrid, cols = gmGridVisCols(), ci = -1;
+  cols.forEach(function(c, i) { if (c.key === key) { ci = i; } });
+  if (ci === -1 || !s.dataRows.length) { return; }
+  s.anchor = { r: 0, c: ci }; s.sel = { r1: 0, c1: ci, r2: s.dataRows.length - 1, c2: ci }; s.cur = { r: s.dataRows.length - 1, c: ci };
+  gmGridClosePop();
+  gmGridPaintRows();
+  gmGridRenderStatus();
+}
+function gmGridEnsureVisible(r, ci) {
+  var s = gmGrid, sc = document.getElementById("gmGridScroll"), e = s.dataRows[r];
+  if (!sc || !e) { return; }
+  var y = e.fi * GM_GRID_ROW_H, viewH = sc.clientHeight - GM_GRID_HEAD_H;
+  if (y < sc.scrollTop) { sc.scrollTop = y; }
+  else if (y + GM_GRID_ROW_H > sc.scrollTop + viewH) { sc.scrollTop = y + GM_GRID_ROW_H - viewH; }
+  var cols = gmGridVisCols(), left = GM_GRID_RN_W, i;
+  for (i = 0; i < ci; i++) { left += gmGridColW(cols[i]); }
+  var w = gmGridColW(cols[ci]), fixedW = GM_GRID_RN_W + gmGridColW(cols[0]);
+  if (ci > 0) {
+    if (left < sc.scrollLeft + fixedW) { sc.scrollLeft = left - fixedW; }
+    else if (left + w > sc.scrollLeft + sc.clientWidth) { sc.scrollLeft = left + w - sc.clientWidth; }
+  }
+}
+function gmGridOnKey(e) {
+  var s = gmGrid;
+  if (e.target.closest && e.target.closest(".gm-grid-edit, #gmGridPop")) { return; }
+  if (!s.dataRows.length) { return; }
+  var cols = gmGridVisCols(), maxR = s.dataRows.length - 1, maxC = cols.length - 1;
+  var key = e.key, cur = s.cur;
+  var move = function(dr, dc) {
+    if (!cur) { cur = { r: 0, c: 0 }; } else { cur = { r: Math.max(0, Math.min(maxR, cur.r + dr)), c: Math.max(0, Math.min(maxC, cur.c + dc)) }; }
+    gmGridSelectCell(cur.r, cur.c, e.shiftKey);
+    gmGridEnsureVisible(cur.r, cur.c);
+    gmGridPaintRows();
+    e.preventDefault();
+  };
+  var page = Math.max(1, Math.floor((document.getElementById("gmGridScroll").clientHeight - GM_GRID_HEAD_H) / GM_GRID_ROW_H) - 1);
+  if (key === "ArrowDown") { move(1, 0); }
+  else if (key === "ArrowUp") { move(-1, 0); }
+  else if (key === "ArrowRight") { move(0, 1); }
+  else if (key === "ArrowLeft") { move(0, -1); }
+  else if (key === "PageDown") { move(page, 0); }
+  else if (key === "PageUp") { move(-page, 0); }
+  else if (key === "Home") { move(0, -maxC); }
+  else if (key === "End") { move(0, maxC); }
+  else if (key === "Enter") {
+    if (!cur) { return; }
+    e.preventDefault();
+    var col = cols[cur.c];
+    if (gmGridEdit.isOn() && col && gmGridColEditable(col)) { gmGridStartEdit(cur.r, cur.c, "key"); }
+    else { gmGridOpenLead(cur.r, "key"); }
+  } else if (key === "Escape") {
+    s.sel = null; s.cur = null; s.anchor = null;
+    gmGridPaintRows(); gmGridRenderStatus();
+  }
+}
+
+function gmGridOpenLead(r, how) {
+  var e = gmGrid.dataRows[r];
+  if (!e) { return; }
+  gmGridTrack("lead_opened", { lead_id: e.lead.id, detail: gmGridDetail.how(how) });
+  gmOpenLeadById(e.lead.id);
+}
+
+// ── Popovers: filter, columns, saved views, and the two long editors ─────
+function gmGridClosePop() {
+  var host = document.getElementById("gmGridPop");
+  if (host) { host.innerHTML = ""; host.className = ""; host.removeAttribute("style"); }
+  if (gmGrid) { gmGrid.pop = null; }
+}
+function gmGridTogglePop(kind, anchor, key) {
+  var p = gmGrid.pop;
+  if (p && p.kind === kind && p.key === (key || undefined)) { gmGridClosePop(); return; }
+  gmGridOpenPop(kind, anchor, key);
+}
+function gmGridPlacePop(anchor) {
+  var host = document.getElementById("gmGridPop");
+  var r = anchor.getBoundingClientRect();
+  var vw = window.innerWidth || document.documentElement.clientWidth;
+  var w = Math.min(340, vw - 16);
+  var left = Math.max(8, Math.min(r.left, vw - w - 8));
+  host.className = "gm-grid-pop";
+  host.style.left = left + "px";
+  host.style.top = Math.round(r.bottom + 6) + "px";
+  host.style.width = w + "px";
+  host.style.maxHeight = Math.max(240, (window.innerHeight || 600) - r.bottom - 20) + "px";
+}
+function gmGridOpenPop(kind, anchor, key) {
+  var host = document.getElementById("gmGridPop");
+  if (!host || !anchor) { return; }
+  gmGrid.pop = { kind: kind, key: key, anchor: anchor, search: "" };
+  gmGridPlacePop(anchor);
+  if (kind === "filter") { host.innerHTML = gmGridPopFilterHtml(key); gmGridPopFillList(); }
+  else if (kind === "cols") { host.innerHTML = gmGridPopColsHtml(); }
+  else if (kind === "views") { host.innerHTML = gmGridPopViewsHtml(); }
+}
+
+function gmGridPopHead(title) {
+  return '<div class="gm-grid-pop-head"><span class="gm-grid-pop-title">' + escHtml(title) + '</span>' +
+    '<button type="button" class="gm-grid-pop-x" data-act="p-close" aria-label="' + escHtml(gmT("Fechar", "Close")) + '">' + gmGridIcon("x") + '</button></div>';
+}
+
+// Filter panel: conditions on top, then a search over the distinct values and
+// the checkbox list with counts.
+function gmGridPopFilterHtml(key) {
+  var col = gmGridCol(key), f = gmGrid.filters[key] || {};
+  var ops = gmGridOpsFor(col.type);
+  var opt = '<option value="">' + escHtml(gmT("(sem condição)", "(no condition)")) + '</option>';
+  ops.forEach(function(o) { opt += '<option value="' + o + '"' + (f.op === o ? " selected" : "") + '>' + escHtml(gmT(GM_GRID_OP_LABELS[o][0], GM_GRID_OP_LABELS[o][1])) + '</option>'; });
+  var html = gmGridPopHead(gmT("Filtrar: ", "Filter: ") + gmGridColLabel(col)) +
+    '<div class="gm-grid-pop-sec"><label class="gm-grid-pop-lbl" for="gmGridOp">' + escHtml(gmT("Condição", "Condition")) + '</label>' +
+    '<select id="gmGridOp" class="gm-grid-select">' + opt + '</select>' +
+    '<div class="gm-grid-pop-vals" id="gmGridVals">' + gmGridPopValsHtml(col, f) + '</div></div>' +
+    '<div class="gm-grid-pop-sec"><label class="gm-grid-pop-lbl" for="gmGridPopSearch">' + escHtml(gmT("Buscar nos valores", "Search the values")) + '</label>' +
+    '<div class="gm-grid-box-row"><span class="gm-grid-box-ico">' + gmGridIcon("search") + '</span>' +
+    '<input type="text" id="gmGridPopSearch" class="gm-grid-box-input" autocomplete="off" spellcheck="false"></div>' +
+    '<div class="gm-grid-pop-row"><button type="button" class="gm-grid-btn" data-act="p-selall">' + escHtml(gmT("Selecionar todos", "Select all")) + '</button>' +
+    '<button type="button" class="gm-grid-btn" data-act="p-selnone">' + escHtml(gmT("Limpar seleção", "Clear")) + '</button></div>' +
+    '<div class="gm-grid-pop-list" id="gmGridPopList"></div></div>' +
+    '<div class="gm-grid-pop-foot"><button type="button" class="gm-grid-btn" data-act="p-colsel">' + escHtml(gmT("Selecionar a coluna", "Select the column")) + '</button>' +
+    '<button type="button" class="gm-grid-btn" data-act="p-clearcol">' + escHtml(gmT("Limpar filtro", "Clear filter")) + '</button></div>';
+  return html;
+}
+function gmGridPopValsHtml(col, f) {
+  if (!f.op || f.op === "blank" || f.op === "not_blank") { return ""; }
+  var type = col.type === "date" ? "date" : "text";
+  var mode = col.type === "num" ? ' inputmode="decimal"' : "";
+  var one = '<input type="' + type + '" id="gmGridV1" class="gm-grid-in"' + mode + ' value="' + escHtml(f.v1 || "") + '" aria-label="' + escHtml(gmT("Valor", "Value")) + '">';
+  if (f.op === "between") {
+    one += '<span class="gm-grid-pop-and">' + escHtml(gmT("e", "and")) + '</span><input type="' + type + '" id="gmGridV2" class="gm-grid-in"' + mode +
+      ' value="' + escHtml(f.v2 || "") + '" aria-label="' + escHtml(gmT("Segundo valor", "Second value")) + '">';
+  }
+  return one;
+}
+// The list of distinct values (counts follow the OTHER columns' filters).
+function gmGridPopFillList() {
+  var p = gmGrid.pop, host = document.getElementById("gmGridPopList");
+  if (!p || p.kind !== "filter" || !host) { return; }
+  var all = (gmLeadsData && gmLeadsData.leads) || [];
+  var list = gmGridDistinct(all, p.key, gmGrid.ctx, gmGrid.filters);
+  var q = gmSearchNorm(p.search);
+  if (q) { list = list.filter(function(o) { return gmSearchNorm(o.label).indexOf(q) !== -1; }); }
+  p.list = list;
+  var f = gmGrid.filters[p.key], chk = f && f.checked instanceof Array ? f.checked : null;
+  var html = "", shown = list.slice(0, 400);
+  shown.forEach(function(o, i) {
+    var on = chk === null || chk.indexOf(o.label) !== -1;
+    html += '<label class="gm-grid-pop-item"><input type="checkbox" data-fv="' + i + '"' + (on ? " checked" : "") + '>' +
+      '<span class="gm-grid-pop-item-name">' + escHtml(o.label === "" ? gmT("(vazio)", "(blank)") : o.label) + '</span>' +
+      '<span class="gm-grid-pop-item-n">' + o.count + '</span></label>';
+  });
+  if (list.length > shown.length) {
+    html += '<div class="gm-grid-pop-more">' + escHtml(gmT("Mostrando 400 de ", "Showing 400 of ") + list.length + gmT(". Use a busca acima.", ". Use the search above.")) + '</div>';
+  }
+  if (!list.length) { html = '<div class="gm-grid-pop-more">' + escHtml(gmT("Nenhum valor.", "No values.")) + '</div>'; }
+  host.innerHTML = html;
+}
+function gmGridPopSearchInput(v) {
+  var p = gmGrid.pop;
+  if (!p) { return; }
+  p.search = v;
+  gmGridPopFillList();
+  var len = String(v).length, key = p.key;
+  gmGridDebounce.run("popsearch", 800, function() {
+    if (len > 0) { gmGridTrack("search_used", { column_key: key, detail: gmGridDetail.len(len) }); }
+  });
+}
+function gmGridAllLabels(key) {
+  var all = (gmLeadsData && gmLeadsData.leads) || [];
+  return gmGridDistinct(all, key, gmGrid.ctx, gmGrid.filters).map(function(o) { return o.label; });
+}
+function gmGridPopToggleValue(i, on) {
+  var p = gmGrid.pop;
+  if (!p || !p.list || !p.list[i]) { return; }
+  var label = p.list[i].label, f = gmGridFilterOf(p.key);
+  var cur = f.checked instanceof Array ? f.checked.slice() : gmGridAllLabels(p.key);
+  var at = cur.indexOf(label);
+  if (on && at === -1) { cur.push(label); } else if (!on && at !== -1) { cur.splice(at, 1); }
+  f.checked = cur.length === gmGridAllLabels(p.key).length ? null : cur;
+  gmGridFilterChanged(p.key, "values", false);
+}
+function gmGridPopSelectAll(on) {
+  var p = gmGrid.pop;
+  if (!p || p.kind !== "filter") { return; }
+  var f = gmGridFilterOf(p.key), shown = (p.list || []).map(function(o) { return o.label; });
+  var base = f.checked instanceof Array ? f.checked.slice() : gmGridAllLabels(p.key);
+  if (on) { shown.forEach(function(l) { if (base.indexOf(l) === -1) { base.push(l); } }); }
+  else { base = base.filter(function(l) { return shown.indexOf(l) === -1; }); }
+  f.checked = base.length === gmGridAllLabels(p.key).length ? null : base;
+  gmGridFilterChanged(p.key, "values", false);
+  gmGridPopFillList();
+}
+function gmGridPopSetOp(op) {
+  var p = gmGrid.pop;
+  if (!p) { return; }
+  var f = gmGridFilterOf(p.key), col = gmGridCol(p.key);
+  f.op = op; f.v1 = ""; f.v2 = "";
+  var vals = document.getElementById("gmGridVals");
+  if (vals) { vals.innerHTML = gmGridPopValsHtml(col, f); }
+  gmGridFilterChanged(p.key, "op", false);
+}
+function gmGridPopSetVals() {
+  var p = gmGrid.pop;
+  if (!p) { return; }
+  var f = gmGridFilterOf(p.key);
+  var a = document.getElementById("gmGridV1"), b = document.getElementById("gmGridV2");
+  f.v1 = a ? a.value : ""; f.v2 = b ? b.value : "";
+  gmGridFilterChanged(p.key, "op", true);
+}
+
+function gmGridPopColsHtml() {
+  var s = gmGrid, html = gmGridPopHead(gmT("Colunas", "Columns")) + '<div class="gm-grid-pop-list">';
+  s.order.forEach(function(k, i) {
+    var col = gmGridCol(k), hid = s.hidden.indexOf(k) !== -1, fix = k === "cliente";
+    html += '<div class="gm-grid-pop-item gm-grid-pop-col"><label class="gm-grid-pop-item-main"><input type="checkbox" data-col="' + k + '"' + (hid ? "" : " checked") + (fix ? " disabled" : "") + '>' +
+      '<span class="gm-grid-pop-item-name">' + escHtml(gmGridColLabel(col)) + (fix ? ' <em>' + escHtml(gmT("(fixa)", "(fixed)")) + '</em>' : "") + '</span></label>' +
+      (fix ? "" : '<button type="button" class="gm-grid-mini" data-act="p-up" data-k="' + k + '"' + (i <= 1 ? " disabled" : "") + ' aria-label="' + escHtml(gmT("Mover para a esquerda", "Move left")) + '">' + gmGridIcon("up") + '</button>' +
+        '<button type="button" class="gm-grid-mini" data-act="p-down" data-k="' + k + '"' + (i >= s.order.length - 1 ? " disabled" : "") + ' aria-label="' + escHtml(gmT("Mover para a direita", "Move right")) + '">' + gmGridIcon("down") + '</button>') + '</div>';
+  });
+  return html + '</div><div class="gm-grid-pop-foot"><button type="button" class="gm-grid-btn" data-act="p-reset">' + escHtml(gmT("Restaurar layout", "Reset layout")) + '</button></div>';
+}
+
+// ── Saved views: filters, sorts, hidden columns and grouping. Kept in this
+// browser only; the NAME is never sent anywhere. ────────────────────────────
+function gmGridViewsLoad() {
+  var arr = null;
+  try { arr = JSON.parse(gmGridLsGet(gmGridKeyViews()) || "[]"); } catch (e) { arr = []; }   // a damaged list is treated as empty
+  if (!(arr instanceof Array)) { return []; }
+  return arr.filter(function(v) { return v && typeof v.name === "string" && v.name; }).slice(0, GM_GRID_VIEWS_MAX);
+}
+function gmGridViewsStore(arr) { gmGridLsSet(gmGridKeyViews(), JSON.stringify(arr)); }
+function gmGridPopViewsHtml() {
+  var views = gmGridViewsLoad();
+  var html = gmGridPopHead(gmT("Visões salvas", "Saved views")) + '<div class="gm-grid-pop-list">';
+  if (!views.length) { html += '<div class="gm-grid-pop-more">' + escHtml(gmT("Nenhuma visão salva ainda.", "No saved views yet.")) + '</div>'; }
+  views.forEach(function(v, i) {
+    html += '<div class="gm-grid-pop-item gm-grid-pop-col"><span class="gm-grid-pop-item-name">' + escHtml(v.name) + '</span>' +
+      '<button type="button" class="gm-grid-btn" data-act="p-vopen" data-i="' + i + '">' + escHtml(gmT("Abrir", "Open")) + '</button>' +
+      '<button type="button" class="gm-grid-mini" data-act="p-vdel" data-i="' + i + '" aria-label="' + escHtml(gmT("Excluir visão", "Delete view")) + '">' + gmGridIcon("x") + '</button></div>';
+  });
+  html += '</div><div class="gm-grid-pop-sec"><label class="gm-grid-pop-lbl" for="gmGridViewName">' + escHtml(gmT("Nome da visão atual", "Name of the current view")) + '</label>' +
+    '<div class="gm-grid-pop-row"><input type="text" id="gmGridViewName" class="gm-grid-in" maxlength="40" autocomplete="off">' +
+    '<button type="button" class="gm-grid-btn" data-act="p-vsave">' + escHtml(gmT("Salvar", "Save")) + '</button></div></div>';
+  return html;
+}
+function gmGridViewSave() {
+  var inp = document.getElementById("gmGridViewName");
+  var name = inp ? inp.value.trim().slice(0, 40) : "";
+  if (!name) { gmToast(gmT("Dê um nome à visão.", "Give the view a name.")); if (inp) { inp.focus(); } return; }
+  var s = gmGrid, views = gmGridViewsLoad();
+  var v = { name: name, sorts: JSON.parse(JSON.stringify(s.sorts)), filters: JSON.parse(JSON.stringify(s.filters)), hidden: s.hidden.slice(), groupBy: s.groupBy };
+  var at = -1;
+  views.forEach(function(x, i) { if (x.name.toLowerCase() === name.toLowerCase()) { at = i; } });
+  if (at !== -1) { views[at] = v; }
+  else if (views.length >= GM_GRID_VIEWS_MAX) { gmToast(gmT("Limite de 20 visões. Exclua uma para salvar outra.", "Limit of 20 views. Delete one to save another.")); return; }
+  else { views.push(v); }
+  gmGridViewsStore(views);
+  gmGridTrack("view_saved", {});
+  gmToast(gmT("Visão salva.", "View saved."));
+  gmGridOpenPop("views", s.pop ? s.pop.anchor : null);
+}
+function gmGridViewOpen(i) {
+  var v = gmGridViewsLoad()[i], s = gmGrid;
+  if (!v) { return; }
+  s.sorts = (v.sorts instanceof Array ? v.sorts : []).filter(function(x) { return x && gmGridCol(x.key) && (x.dir === "asc" || x.dir === "desc"); });
+  s.filters = {};
+  Object.keys(v.filters || {}).forEach(function(k) { if (gmGridCol(k) && v.filters[k] && typeof v.filters[k] === "object") { s.filters[k] = v.filters[k]; } });
+  s.hidden = (v.hidden instanceof Array ? v.hidden : []).filter(function(k) { return gmGridCol(k) && k !== "cliente"; });
+  s.groupBy = gmGridCol(v.groupBy) ? v.groupBy : "";
+  s.collapsed = {}; s.sel = null; s.cur = null; s.anchor = null;
+  gmGridSaveLayout();
+  gmGridClosePop();
+  var g = document.getElementById("gmGridGroup");
+  if (g) { g.value = s.groupBy; }
+  gmGridApply();
+  gmGridTrack("view_opened_saved", {});
+}
+function gmGridViewDelete(i) {
+  var views = gmGridViewsLoad(), v = views[i];
+  if (!v) { return; }
+  views.splice(i, 1);
+  gmGridViewsStore(views);
+  gmGridTrack("view_deleted", {});
+  // No confirmation box: a short note with Undo, the same toast the app uses.
+  gmToast(gmT("Visão excluída.", "View deleted."), gmT("Desfazer", "Undo"), function() {
+    var now = gmGridViewsLoad(); now.splice(Math.min(i, now.length), 0, v); gmGridViewsStore(now);
+  });
+  gmGridOpenPop("views", gmGrid.pop ? gmGrid.pop.anchor : null);
+}
+
+// ── Edit mode ────────────────────────────────────────────────────────────
+function gmGridBuildEdit() {
+  if (gmGridEdit && gmGridEdit.isOn()) { gmGridEdit.turnOff("leave"); }
+  gmGridEdit = gmGridMakeEditMode({
+    setTimeout: function(fn, ms) { return window.setTimeout(fn, ms); },
+    clearTimeout: function(id) { window.clearTimeout(id); },
+    onChange: gmGridOnEditChange
+  });
+}
+function gmGridOnEditChange(mode, why) {
+  if (mode === "edit") {
+    gmGridTrack("edit_mode_on", { mode: "edit", detail: gmGridDetail.how(why) });
+  } else {
+    if (gmGrid && gmGrid.editing) { gmGridFinishEdit(false); }
+    gmGridClosePop();
+    gmGridTrack(why === "button" ? "edit_mode_off" : "edit_mode_auto_off", { mode: "edit", detail: gmGridDetail.how(why) });
+  }
+  if (document.getElementById("gmGridMode")) { gmGridRenderChrome(); }
+}
+
+function gmGridPickOptions(col) {
+  var cfg = (gmConfig && gmConfig.config) || {}, method = (gmConfig && gmConfig.method) || {};
+  var raw = col.pick === "origem" ? method.origens : (col.pick === "servico" ? cfg.servicos : (col.pick === "vendedor" ? cfg.vendedores : method.stages));
+  return (raw || []).map(function(v) {
+    return { value: v, label: col.pick === "estagio" ? gmStageLabel(v) : (col.pick === "origem" ? gmStatusLabel(v) : String(v)) };
+  });
+}
+function gmGridEditKind(col) {
+  if (col.key === "servico") { return "multi"; }
+  if (col.key === "observacao") { return "long"; }
+  if (col.pick) { return "select"; }
+  if (col.type === "date") { return "datetime"; }
+  return "input";
+}
+function gmGridEditStartValue(lead, col) {
+  var v = lead[col.key];
+  if (v === null || v === undefined) { return ""; }
+  if (col.type === "date") { return String(v).replace(" ", "T").slice(0, 16); }
+  return String(v);
+}
+
+function gmGridStartEdit(r, ci, how) {
+  var s = gmGrid;
+  if (!gmGridEdit.isOn() || s.editing || s.saving) { return; }
+  var e = s.dataRows[r], col = gmGridVisCols()[ci];
+  if (!e || !col || !gmGridColEditable(col)) { return; }
+  gmGridEdit.touch();
+  gmGridSelectCell(r, ci, false);
+  gmGridEnsureVisible(r, ci);
+  gmGridPaintRows();
+  var cell = document.querySelector('#gmGridWrap .gm-grid-c[data-r="' + r + '"][data-ci="' + ci + '"]');
+  if (!cell) { return; }
+  var kind = gmGridEditKind(col);
+  var start = gmGridEditStartValue(e.lead, col);
+  s.editing = { r: r, ci: ci, fi: e.fi, key: col.key, lead: e.lead, kind: kind, start: start, el: null };
+  gmGridTrack("cell_edit_started", { column_key: col.key, lead_id: e.lead.id, detail: gmGridDetail.how(how) });
+  if (kind === "multi" || kind === "long") { gmGridOpenLongEditor(cell, col, e.lead, kind, start); return; }
+  var el;
+  if (kind === "select") {
+    el = document.createElement("select");
+    var opts = gmGridPickOptions(col), has = false, html = "";
+    if (col.key !== "estagio") { html += '<option value=""></option>'; }
+    opts.forEach(function(o) { if (o.value === start) { has = true; } html += '<option value="' + escHtml(o.value) + '"' + (o.value === start ? " selected" : "") + '>' + escHtml(o.label) + '</option>'; });
+    // A stored value that is no longer on the list stays selectable, so
+    // opening the editor never silently changes it.
+    if (!has && start) { html += '<option value="' + escHtml(start) + '" selected>' + escHtml(start) + '</option>'; }
+    el.innerHTML = html;
+    el.addEventListener("change", function() { gmGridFinishEdit(true, el.value); });
+  } else {
+    el = document.createElement("input");
+    el.type = kind === "datetime" ? "datetime-local" : "text";
+    if (col.key === "valor") { el.setAttribute("inputmode", "decimal"); }
+    if (col.key === "telefone") { el.setAttribute("inputmode", "tel"); }
+    el.value = start;
+    el.addEventListener("keydown", function(ev) {
+      if (ev.key === "Enter") { ev.preventDefault(); gmGridFinishEdit(true, el.value); }
+      else if (ev.key === "Escape") { ev.preventDefault(); gmGridFinishEdit(false); }
+    });
+  }
+  el.className = "gm-grid-edit";
+  el.setAttribute("aria-label", gmGridColLabel(col));
+  if (kind === "select") {
+    el.addEventListener("keydown", function(ev) { if (ev.key === "Escape") { ev.preventDefault(); gmGridFinishEdit(false); } });
+  }
+  el.addEventListener("blur", function() {
+    // Leaving the box saves what was typed, like a spreadsheet. A select saves on change.
+    if (gmGrid.editing && gmGrid.editing.el === el && kind !== "select") { gmGridFinishEdit(true, el.value); }
+  });
+  cell.innerHTML = "";
+  cell.appendChild(el);
+  s.editing.el = el;
+  el.focus();
+  if (el.select && kind === "input") { el.select(); }
+}
+
+// Services (a checklist) and notes (a larger box) edit in a small panel.
+function gmGridOpenLongEditor(cell, col, lead, kind, start) {
+  var host = document.getElementById("gmGridPop");
+  gmGridPlacePop(cell);
+  var html = gmGridPopHead(gmGridColLabel(col));
+  if (kind === "multi") {
+    var chosen = gmServicoList(start);
+    html += '<div class="gm-grid-pop-list">';
+    gmGridPickOptions(col).forEach(function(o, i) {
+      html += '<label class="gm-grid-pop-item"><input type="checkbox" class="gm-grid-ms" value="' + escHtml(o.value) + '"' + (chosen.indexOf(o.value) !== -1 ? " checked" : "") + '><span class="gm-grid-pop-item-name">' + escHtml(o.label) + '</span></label>';
+    });
+    gmServicoList(start).forEach(function(v) {
+      if (gmGridPickOptions(col).every(function(o) { return o.value !== v; })) {
+        html += '<label class="gm-grid-pop-item"><input type="checkbox" class="gm-grid-ms" value="' + escHtml(v) + '" checked><span class="gm-grid-pop-item-name">' + escHtml(v) + '</span></label>';
+      }
+    });
+    html += '</div>';
+  } else {
+    html += '<div class="gm-grid-pop-sec"><textarea id="gmGridLong" class="gm-grid-in gm-grid-long" rows="6" maxlength="2000" aria-label="' + escHtml(gmGridColLabel(col)) + '">' + escHtml(start) + '</textarea></div>';
+  }
+  html += '<div class="gm-grid-pop-foot"><button type="button" class="gm-grid-btn gm-grid-btn-main" data-act="p-esave">' + escHtml(gmT("Salvar", "Save")) + '</button>' +
+    '<button type="button" class="gm-grid-btn" data-act="p-ecancel">' + escHtml(gmT("Cancelar", "Cancel")) + '</button></div>';
+  host.innerHTML = html;
+  gmGrid.pop = { kind: "edit", anchor: cell };
+  var ta = document.getElementById("gmGridLong");
+  if (ta) {
+    ta.addEventListener("keydown", function(ev) {
+      if (ev.key === "Escape") { ev.preventDefault(); gmGridFinishEdit(false); }
+      else if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); gmGridPopEditSave(); }
+    });
+    ta.focus();
+  }
+}
+function gmGridPopEditSave() {
+  var ed = gmGrid.editing;
+  if (!ed) { return; }
+  if (ed.kind === "multi") {
+    var boxes = document.querySelectorAll("#gmGridPop .gm-grid-ms"), out = [];
+    for (var i = 0; i < boxes.length; i++) { if (boxes[i].checked) { out.push(boxes[i].value); } }
+    gmGridFinishEdit(true, out);
+  } else {
+    var ta = document.getElementById("gmGridLong");
+    gmGridFinishEdit(true, ta ? ta.value : "");
+  }
+}
+
+// End of an edit. commit=false cancels. Otherwise the value goes through the
+// EXISTING lead update route (gmGridCommitCell) and the answer decides.
+function gmGridFinishEdit(commit, value) {
+  var s = gmGrid, ed = s.editing;
+  if (!ed) { return; }
+  s.editing = null;
+  gmGridClosePop();
+  var sameAsStart = ed.kind === "multi"
+    ? (value instanceof Array ? value.join(", ") : "") === gmServicoList(ed.start).join(", ")
+    : String(value === undefined ? "" : value) === (ed.kind === "long" ? ed.start : ed.start.replace(/\r?\n/g, " "));
+  if (!commit || sameAsStart) {
+    gmGridTrack("cell_edit_cancelled", { column_key: ed.key, lead_id: ed.lead.id });
+    gmGridPaintRows();
+    if (s.dirty) { s.dirty = false; gmGridRefreshNow(); }
+    return;
+  }
+  gmGridEdit.touch();
+  s.saving = true;
+  var cell = document.querySelector('#gmGridWrap .gm-grid-c[data-r="' + ed.r + '"][data-ci="' + ed.ci + '"]');
+  if (cell) { cell.classList.add("gm-grid-saving"); }
+  gmGridCommitCell({ api: gmApi, track: gmGridTrack, ctx: s.ctx, isEn: isEn() }, ed.lead, ed.key, value).then(function(res) {
+    s.saving = false;
+    if (res.ok) {
+      var merged = gmGridMergeServerLead(ed.lead, res.lead);
+      if (res.lead) { gmLeadComputed(merged); }
+      ((gmLeadsData && gmLeadsData.leads) || []).forEach(function(l, i) { if (l.id === merged.id) { gmLeadsData.leads[i] = merged; } });
+      gmGridEdit.touch();
+      gmGridApply();
+      gmGridFlash(ed, "gm-grid-flash", null);
+      gmGridScheduleRefresh();
+    } else {
+      // The old value comes back (the row was never changed) and the route's
+      // own words show in the cell for a few seconds.
+      gmGridApply();
+      gmGridFlash(ed, "gm-grid-refused", res.message || gmT("Alteração recusada.", "Change refused."));
+    }
+    if (s.dirty && !s.editing) { s.dirty = false; gmGridScheduleRefresh(); }
+  });
+}
+function gmGridFlash(ed, cls, text) {
+  var cell = document.querySelector('#gmGridWrap .gm-grid-c[data-r="' + ed.r + '"][data-ci="' + ed.ci + '"]');
+  if (!cell) { return; }
+  var keep = cell.textContent;
+  cell.classList.add(cls);
+  if (text) { cell.textContent = text; cell.title = text; }
+  window.setTimeout(function() {
+    if (text && gmGrid && !gmGrid.editing) { gmGridPaintRows(); return; }
+    cell.classList.remove(cls);
+  }, text ? 4500 : 1000);
+  return keep;
+}
+
+// The summary tiles and the other rows are refreshed from the server a moment
+// after a save, without disturbing the grid.
+function gmGridScheduleRefresh() {
+  if (gmGridRefreshTimer) { window.clearTimeout(gmGridRefreshTimer); }
+  gmGridRefreshTimer = window.setTimeout(gmGridRefreshNow, 1500);
+}
+function gmGridRefreshNow() {
+  gmGridRefreshTimer = null;
+  if (!gmGrid || gmGrid.editing || gmGrid.saving || !document.getElementById("gmGridWrap")) { return; }
+  gmApi("leads").then(function(d) {
+    if (!gmGrid || gmGrid.editing || gmGrid.saving) { return; }
+    gmLeadsData = d;
+    gmGridApply();
+    var host = document.getElementById("gmGridSummary");
+    if (host) { host.innerHTML = gmCrmSummaryHtml(); }
+  }).catch(function() { return null; });
+}
+// ==== LEADS GRID UI END ====

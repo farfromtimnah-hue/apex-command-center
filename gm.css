@@ -1356,7 +1356,7 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
 .gm-grid-c {
   flex: 0 0 auto; box-sizing: border-box; padding: 0 10px; line-height: 29px; font-family: 'Inter', sans-serif; font-size: 13px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #efe9df; border-bottom: 1px solid #ebe5da;
-  background: inherit; user-select: text; -webkit-user-select: text; cursor: cell;
+  background: inherit; user-select: none; -webkit-user-select: none; cursor: cell;
 }
 .gm-grid-num { text-align: right; font-variant-numeric: tabular-nums; }
 .gm-grid-h.gm-grid-fix { position: sticky; left: 48px; z-index: 9; background: var(--header); }
@@ -1426,3 +1426,13 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
 
 /* NO WAY OUT: nothing in the grid is printable. */
 @media print { .gm-grid-wrap { display: none !important; } }
+/* No way out (2026-11-14): nothing in the grid can be selected or long-pressed to copy;
+   only the one cell being edited accepts text selection. A faint stamp (device id and
+   time, set by gm.js) sits over the rows so a screenshot or photo can be traced. */
+.gm-grid-wrap { position: relative; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.gm-grid-wrap input, .gm-grid-wrap textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+.gm-grid-wrap::after {
+  content: ""; position: absolute; inset: 0; z-index: 30; pointer-events: none;
+  background-image: var(--gm-wm, none); background-repeat: repeat;
+}
+@media print { .gm-grid-wrap::after { display: none !important; } }

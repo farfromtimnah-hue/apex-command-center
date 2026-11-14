@@ -19398,6 +19398,12 @@ function gmGridBindShell() {
   sc.addEventListener("cut", function(e) { e.preventDefault(); gmGridTrack("cut_blocked", { detail: gmGridDetail.how("key") }); });
   sc.addEventListener("dragstart", function(e) { e.preventDefault(); gmGridTrack("copy_blocked", { detail: gmGridDetail.how("mouse") }); });
   sc.addEventListener("contextmenu", function(e) { e.preventDefault(); gmGridTrack("contextmenu_blocked", { detail: gmGridDetail.how("mouse") }); });
+  // Nothing in the grid can be selected (the one cell being edited is the exception).
+  sc.addEventListener("selectstart", function(e) {
+    var t = e.target && e.target.nodeType === 1 ? e.target : (e.target && e.target.parentElement);
+    if (t && t.closest && t.closest("input, textarea, select")) { return; }
+    e.preventDefault();
+  });
   var group = document.getElementById("gmGridGroup");
   group.addEventListener("change", function() { gmGridSetGroup(group.value); });
 }
@@ -19409,7 +19415,44 @@ function gmGridDocKey(e) {
     gmGridTrack(k === "p" ? "print_blocked" : "save_blocked", { detail: gmGridDetail.how("key") });
     return;
   }
+  if ((e.ctrlKey || e.metaKey) && (k === "a" || k === "c" || k === "x" || k === "insert") && gmGridFocusInside(e.target)) {
+    e.preventDefault();
+    gmGridTrack(k === "x" ? "cut_blocked" : "copy_blocked", { detail: gmGridDetail.how("key") });
+    return;
+  }
   if (k === "escape" && gmGrid && gmGrid.pop) { gmGridClosePop(); }
+}
+// True when the target is inside the grid, whether or not it is a text field.
+function gmGridFocusInside(t) {
+  var wrap = document.getElementById("gmGridWrap");
+  return !!(wrap && t && t.nodeType === 1 && wrap.contains(t));
+}
+// Copy or cut fired anywhere while the focus or the selection is inside the grid.
+function gmGridCopyGuard(e) {
+  var wrap = document.getElementById("gmGridWrap");
+  if (!wrap) { return; }
+  var sel = window.getSelection ? window.getSelection() : null;
+  var inside = gmGridFocusInside(e.target) || !!(sel && sel.anchorNode && wrap.contains(sel.anchorNode));
+  if (!inside) { return; }
+  e.preventDefault();
+  gmGridTrack(e.type === "cut" ? "cut_blocked" : "copy_blocked", { detail: gmGridDetail.how("key") });
+}
+// A faint stamp over the rows: this device's short id and the time, so a screenshot
+// or photo of the grid can be traced to a device in the usage log. No typed text.
+function gmGridStamp() {
+  var wrap = document.getElementById("gmGridWrap");
+  if (!wrap) { return; }
+  var id = gmGridDeviceId();
+  var short = id === "none" ? "none" : String(id).slice(0, 6);
+  var when = "";
+  try {
+    when = new Date().toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+  } catch (e) { when = ""; }
+  var text = "Apex " + short + " " + when;
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="340" height="150">' +
+    '<text x="12" y="90" transform="rotate(-20 12 90)" font-family="Arial, sans-serif" font-size="13" fill="rgba(30,30,30,0.09)">' +
+    text.replace(/[^A-Za-z0-9 :,.-]/g, "") + '</text></svg>';
+  wrap.style.setProperty("--gm-wm", 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")');
 }
 function gmGridBeforePrint() { gmGridTrack("print_blocked", { detail: gmGridDetail.how("auto") }); }
 function gmGridDocClick(e) {
@@ -19425,7 +19468,10 @@ function gmGridActivate() {
   gmGridActive = true;
   document.addEventListener("keydown", gmGridDocKey, true);
   document.addEventListener("click", gmGridDocClick, true);
+  document.addEventListener("copy", gmGridCopyGuard, true);
+  document.addEventListener("cut", gmGridCopyGuard, true);
   window.addEventListener("beforeprint", gmGridBeforePrint);
+  gmGridStamp();
   gmGridInstallPageHide();
   gmGridRefreshToken();
   if (!gmGridWatchTimer) { gmGridWatchTimer = window.setInterval(gmGridWatch, 2000); }
@@ -19437,6 +19483,8 @@ function gmGridDeactivate(why) {
   gmGridActive = false;
   document.removeEventListener("keydown", gmGridDocKey, true);
   document.removeEventListener("click", gmGridDocClick, true);
+  document.removeEventListener("copy", gmGridCopyGuard, true);
+  document.removeEventListener("cut", gmGridCopyGuard, true);
   window.removeEventListener("beforeprint", gmGridBeforePrint);
   if (gmGrid && gmGrid.editing) { gmGridFinishEdit(false); }
   if (gmGridEdit && gmGridEdit.isOn()) { gmGridEdit.turnOff("leave"); }
@@ -19453,7 +19501,9 @@ function gmGridWatch() {
   var shown = !!wrap && wrap.offsetParent !== null;
   if (shown && !gmGridActive) { gmGridActivate(); }
   else if (!shown && gmGridActive) { gmGridDeactivate("leave"); }
+  else if (shown && gmGridActive && Math.floor(Date.now() / 60000) !== gmGridStampMin) { gmGridStampMin = Math.floor(Date.now() / 60000); gmGridStamp(); }
 }
+var gmGridStampMin = 0;
 
 function gmGridOnClick(e) {
   var t = e.target;

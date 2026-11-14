@@ -78,7 +78,17 @@ t("Ctrl/Cmd+S is blocked and tracked as save_blocked", /save_blocked/.test(ui));
 t("the key blocker only lives while the grid is showing (added and removed)", /document\.addEventListener\("keydown", gmGridDocKey, true\)/.test(ui) && /document\.removeEventListener\("keydown", gmGridDocKey, true\)/.test(ui));
 t("a print attempt from the browser menu is tracked", /addEventListener\("beforeprint"/.test(ui));
 t("the print stylesheet hides the grid", /@media print\s*\{\s*\.gm-grid-wrap\s*\{\s*display:\s*none\s*!important/.test(gridCss));
-t("mouse text selection stays allowed in the cells", /\.gm-grid-c\s*\{[^}]*user-select:\s*text/.test(gridCss));
+// 2026-11-14 (Nicole: "make sure that no one can copy and paste the spreadsheet materials"):
+// the cells can no longer be selected at all; only a text field inside the grid (the one cell being edited) can.
+t("grid cells cannot be selected (user-select none)", /\.gm-grid-c\s*\{[^}]*user-select:\s*none/.test(gridCss) && !/\.gm-grid-c\s*\{[^}]*user-select:\s*text/.test(gridCss));
+t("the grid has no touch callout (iPhone long press copy)", /\.gm-grid-wrap\s*\{[^}]*-webkit-touch-callout:\s*none/.test(gridCss));
+t("selection starting inside the grid is stopped (selectstart), except in a text field", /addEventListener\("selectstart"[\s\S]{0,260}closest\("input, textarea, select"\)[\s\S]{0,80}return;[\s\S]{0,60}preventDefault\(\)/.test(ui));
+t("Ctrl/Cmd+A, C, X and Insert are blocked and tracked while focus is in the grid", /k === "a" \|\| k === "c" \|\| k === "x" \|\| k === "insert"\) && gmGridFocusInside\(e\.target\)[\s\S]{0,240}(copy_blocked|cut_blocked)/.test(ui));
+t("a document level copy and cut guard exists only while the grid is showing", /document\.addEventListener\("copy", gmGridCopyGuard, true\)/.test(ui) && /document\.addEventListener\("cut", gmGridCopyGuard, true\)/.test(ui) && /document\.removeEventListener\("copy", gmGridCopyGuard, true\)/.test(ui) && /document\.removeEventListener\("cut", gmGridCopyGuard, true\)/.test(ui));
+t("the copy guard leaves anything outside the grid (the lead card) alone", /if \(!inside\) \{ return; \}/.test(ui));
+t("a faint stamp (device id and time) sits over the rows", /gm-grid-wrap::after[\s\S]{0,200}var\(--gm-wm/.test(gridCss) && /function gmGridStamp\(\)/.test(ui) && /gmGridStamp\(\);\s*gmGridInstallPageHide/.test(ui));
+t("the stamp text holds only a device id and the time, never typed text", /var text = "Apex " \+ short \+ " " \+ when;/.test(ui) && /replace\(\/\[\^A-Za-z0-9 :,\.-\]\/g, ""\)/.test(ui));
+t("the stamp is hidden when printing", /@media print\s*\{\s*\.gm-grid-wrap::after\s*\{\s*display:\s*none\s*!important/.test(gridCss));
 t("the lead card's own copying is untouched: no copy handler outside the grid blocks", !/addEventListener\("copy"/.test(gm.replace(ui, "")));
 
 // What it must NOT depend on.

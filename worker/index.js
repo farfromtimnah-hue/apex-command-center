@@ -264,7 +264,7 @@ function corsOriginFor(request) {
 var CORS_HEADERS = {
     "Access-Control-Allow-Origin":  DEFAULT_ORIGIN,
     "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Tz",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Tz, X-Apex-Reason-UI",
     "Vary":                         "Origin"
 };
 
@@ -11187,12 +11187,15 @@ var GRID_EVENT_ACTIONS = [
     "lead_opened", "view_saved", "view_opened_saved", "view_deleted",
     "edit_mode_on", "edit_mode_off", "edit_mode_auto_off",
     "cell_edit_started", "cell_edit_cancelled", "cell_saved", "cell_refused",
-    "copy_blocked", "cut_blocked", "print_blocked", "save_blocked", "contextmenu_blocked"
+    "copy_blocked", "cut_blocked", "print_blocked", "save_blocked", "contextmenu_blocked",
+    "reason_set", "other_step_opened", "other_step_go_back", "other_saved", "pause_set", "pause_ended_early",
+    "banner_cleared", "finance_set"
 ];
 var GRID_COLUMN_KEYS = [
     "cliente", "telefone", "origem", "parceiro", "servico", "vendedor", "estagio", "valor",
     "data_lead", "data_contato", "data_estimate", "followups", "proxima_acao",
-    "mes_lead", "mes_fechamento", "dias_estagio", "observacao"
+    "mes_lead", "mes_fechamento", "dias_estagio", "observacao",
+    "lost_reason", "lost_reason_detail", "paused_until", "finance_status"
 ];
 // The only words a detail may be made of, besides whole numbers and column
 // keys. A name such as "Silva" is a word that is not here, so it is refused.
@@ -16780,6 +16783,8 @@ function clientRequestAllowed(path, method, clientId) {
                 // the handler re-scopes by client_id and refuses a lead that is
                 // not 'fechado'.
                 if (/^leads\/[A-Za-z0-9-]+\/promote$/.test(gmRest)) { return true; }
+                // The pause note on a lead: the handler scopes it to the client and, for a seller, to their own lead.
+                if (/^leads\/[A-Za-z0-9-]+\/pause-banner\/clear$/.test(gmRest)) { return true; }
             }
             // Recording the OUTCOME of a contact they already logged.
             //
@@ -16988,6 +16993,7 @@ function sellerRequestAllowed(path, method, clientId) {
         // Row-level scoping to their OWN lead is gmOwnedRow + the seller guard
         // inside the handler, the same as every other route in this list.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/promote$/.test(rest)) { return true; }
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/pause-banner\/clear$/.test(rest)) { return true; }
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts$/.test(rest)) { return true; }
         // Docs PDF build: a PDF link for a contract / change order / ack the
         // seller can already open. Row-level scoping is the replayed GET in
@@ -21040,13 +21046,13 @@ async function handleGetEntrySuggestions(id, request, env) {
             "COUNT(*) AS row_count, " +
             "SUM(CASE WHEN " + onDay + " THEN 1 ELSE 0 END) AS leads_gerados, " +
             "SUM(CASE WHEN date(data_estimate) = ? THEN 1 ELSE 0 END) AS envio_propostas, " +
-            "SUM(CASE WHEN estagio IN ('estimate_enviado','follow_up','negociacao') " +
+            "SUM(CASE WHEN estagio IN ('estimate_enviado','follow_up','negociacao') AND " + GM_NOT_PAUSED_SQL + " " +
             "         THEN COALESCE(valor,0) ELSE 0 END) AS pipeline_ativo, " +
             "AVG(CASE WHEN " + onDay + " AND data_lead IS NOT NULL AND trim(data_lead) <> '' " +
             "         AND data_contato IS NOT NULL AND trim(data_contato) <> '' " +
             "         THEN (julianday(data_contato) - julianday(data_lead)) * 24 END) AS velocidade_resposta " +
             "FROM gm_leads WHERE client_id = ?"
-        ).bind(date, win.start, win.end, date, date, win.start, win.end, id).first();
+        ).bind(date, win.start, win.end, date, gmLocalTodayFor(zone), date, win.start, win.end, id).first();
 
         // The leads counted above, by name, so staff can see the pipeline is in
         // the log. Capped; the rest is reported as a number.
@@ -24347,19 +24353,9 @@ async function handleGetGmLeads(id, request, env) {
             "WHERE l.client_id = ?" + sellerFilter + " " +
             "ORDER BY COALESCE(l.data_lead, l.created_at) DESC"
         ).bind(...leadBinds).all();
-        var summary = await env.DB.prepare(
-            "SELECT COUNT(*) AS leads_totais, " +
-            "SUM(CASE WHEN estagio IN ('estimate_enviado','follow_up','negociacao') THEN COALESCE(valor,0) ELSE 0 END) AS pipeline_ativo, " +
-            "SUM(CASE WHEN estagio = 'fechado' THEN COALESCE(valor,0) ELSE 0 END) AS receita_fechada, " +
-            "SUM(CASE WHEN estagio = 'fechado' THEN 1 ELSE 0 END) AS fechados, " +
-            "SUM(CASE WHEN data_lead IS NOT NULL AND data_contato IS NOT NULL " +
-            "AND (julianday(data_contato) - julianday(data_lead)) * 1440.0 > 5.0 THEN 1 ELSE 0 END) AS fora_sla_contato, " +
-            "SUM(CASE WHEN data_lead IS NOT NULL AND data_estimate IS NOT NULL " +
-            "AND (julianday(data_estimate) - julianday(data_lead)) > 1.0 THEN 1 ELSE 0 END) AS fora_sla_estimate, " +
-            "SUM(CASE WHEN estagio NOT IN ('fechado','perdido') THEN 1 ELSE 0 END) AS live_count " +
-            "FROM gm_leads WHERE client_id = ?" +
-            (sellerName ? " AND (vendedor = ? OR vendedor_secundario = ?)" : "")
-        ).bind(...leadBinds).first();
+        // Paused leads (paused_until later than the client's LOCAL today) leave
+        // out the live figures. Worked out here on every read, never stored.
+        var summary = await gmLeadsSummaryRow(env, id, sellerName, gmLocalTodayFor(await resolveRequestZone(request, env, id)));
         var leadsTotais = (summary && summary.leads_totais) || 0;
         var fechados = (summary && summary.fechados) || 0;
         // Does this business have anybody to assign a lead TO? Counts seller
@@ -24870,6 +24866,277 @@ function gmLeadEmailOk(v) {
     return typeof v === "string" && v.length <= 254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
 }
 
+// ==== LEAD REASON PAUSE FINANCE BEGIN ====
+// ---------------------------------------------------------------------------
+// LOST REASON, PAUSED and FINANCE STATUS on a lead (2026-11-14).
+// Columns and the other log table: migrations/2026-11-13_lead_reason_pause_finance.sql
+// (already on the live database; that file only records it).
+//
+// LOST REASON. Asked on every move INTO Perdido. The phrases are the way a
+// customer SAYS it, on purpose: sellers are not trained to name a root cause.
+// A later build maps each phrase to a root cause on the back end. Do not
+// rename or merge any. The first eight are the contact log's objections, in the
+// same order (GM_LEAD_OBJECTIONS, which this build does not touch).
+// gm.js carries the same list (GM_LOST_REASONS); a test proves they match.
+//   out_of_state needs a US state code in lost_reason_detail.
+//   out_of_scope needs 1 to 80 characters in lost_reason_detail.
+//   other is not in the picker: a second step in the page asks "do these
+//   really not fit" and then 20 to 300 characters. It is also copied to
+//   gm_lead_other_log so a person can review it.
+// lost_reason_source is set HERE, never from the body: 'person' when a person
+// answered, 'missing_old_app' when an old App Store build (which cannot show the
+// step, and so does not send X-Apex-Reason-UI: 1) moved the lead into Perdido.
+//
+// PAUSED. A lead is paused now when paused_until is later than TODAY in the
+// client's own zone. Worked out whenever it is read. No job, no write on the
+// date: the lead comes back by itself. Never the UTC date.
+// ---------------------------------------------------------------------------
+var GM_LEAD_LOST_REASONS = [
+    "too_expensive", "others_cheaper", "cant_afford", "need_to_think", "need_to_talk",
+    "getting_quotes", "already_have_someone", "dont_need_it", "no_response",
+    "out_of_state", "out_of_scope", "other"
+];
+var GM_US_STATES = [
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY",
+    "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH",
+    "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"
+];
+var GM_FINANCE_STATUSES = ["not_needed", "not_applied", "applied_waiting", "approved", "not_approved", "other"];
+// The columns a new lead row is created with (gmInsertLead). The two banner
+// columns start empty and are only ever written by the pause rules and the
+// clear route.
+var GM_LEAD_REASON_COLS = ["lost_reason", "lost_reason_detail", "lost_reason_source", "paused_until", "paused_at",
+                           "paused_reason", "finance_status", "finance_status_other"];
+// One placeholder: today's date in the client's zone. NOT paused now.
+var GM_NOT_PAUSED_SQL = "COALESCE(paused_until, '') <= ?";
+var GM_LEAD_RULE_BODY_KEYS = ["lost_reason", "lost_reason_detail", "paused_until", "paused_reason", "pause_end_now",
+                              "finance_status", "finance_status_other"];
+
+// True only for the new web screens: they always send X-Apex-Reason-UI: 1. The
+// old App Store app cannot show the reason step and never sends it.
+function gmReasonUiHeader(request) {
+    return !!(request && request.headers && request.headers.get("X-Apex-Reason-UI") === "1");
+}
+
+// Today (YYYY-MM-DD) on the wall clock of a zone. An invalid zone is Eastern.
+function gmLocalTodayFor(zone) {
+    return tzLocalNowStamp(tzIsValid(zone) ? zone : APEX_TIMEZONE).slice(0, 10);
+}
+
+// True while paused_until is later than today. Both are YYYY-MM-DD, so the
+// string comparison is the date comparison.
+function gmLeadIsPausedNow(lead, today) {
+    var u = lead && lead.paused_until;
+    return typeof u === "string" && u !== "" && today < u;
+}
+
+// null when the date is allowed, otherwise the sentence for the 400. A pause
+// date is a real calendar day, after today, and at most 24 months (two years,
+// same day, clamped to the end of the month) after today.
+function gmPauseDateError(s, today) {
+    if (typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(s)) { return "Invalid pause date"; }
+    var y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7)), d = Number(s.slice(8, 10));
+    if (m < 1 || m > 12 || d < 1 || d > new Date(Date.UTC(y, m, 0)).getUTCDate()) { return "Invalid pause date"; }
+    if (s <= today) { return "The pause date must be after today"; }
+    var ty = Number(today.slice(0, 4)), tm = Number(today.slice(5, 7)), td = Number(today.slice(8, 10));
+    var limit = (ty + 2) + "-" + tzPad2(tm) + "-" + tzPad2(Math.min(td, new Date(Date.UTC(ty + 2, tm, 0)).getUTCDate()));
+    if (s > limit) { return "The pause date is more than 24 months ahead"; }
+    return null;
+}
+
+// The reason and its detail, validated. Rejects, never repairs.
+function gmLostReasonCheck(body) {
+    var reason = body.lost_reason;
+    if (typeof reason !== "string" || GM_LEAD_LOST_REASONS.indexOf(reason) === -1) { return { error: "A valid lost reason is required" }; }
+    var d = body.lost_reason_detail;
+    var hasDetail = d !== undefined && d !== null && d !== "";
+    if (reason === "out_of_state") {
+        if (typeof d !== "string" || GM_US_STATES.indexOf(d) === -1) { return { error: "A valid US state code is required" }; }
+        return { reason: reason, detail: d };
+    }
+    if (reason === "out_of_scope" || reason === "other") {
+        var text = typeof d === "string" ? d.trim() : "";
+        var min = reason === "other" ? 20 : 1, max = reason === "other" ? 300 : 80;
+        if (text.length < min || text.length > max) { return { error: reason === "other" ? "Other needs 20 to 300 characters" : "The scope needs 1 to 80 characters" }; }
+        return { reason: reason, detail: text };
+    }
+    if (hasDetail) { return { error: "This reason takes no detail" }; }
+    return { reason: reason, detail: null };
+}
+
+// THE ONE FUNCTION every door shares (PUT and POST of a lead). It reads only the
+// keys named here from the body, validates them, and writes the columns onto f.
+// The server alone sets lost_reason_source, paused_at and the banner columns.
+//   existing: the stored row, or null for a new lead.
+//   opts:     { ui: the request carries X-Apex-Reason-UI: 1, today: client local date }
+// Returns { error, otherLog: [{field, text}], events: [...], skipLogged: [...] }.
+function gmLeadReasonRules(body, f, existing, opts) {
+    var out = { error: null, otherLog: [], events: [], skipLogged: [] };
+    function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
+    function fail(m) { out.error = m; return out; }
+    var today = opts.today;
+    var newStage = f.estagio !== undefined ? f.estagio : (existing ? existing.estagio : "novo_lead");
+    var intoLost = f.estagio === "perdido" && (!existing || existing.estagio !== "perdido");
+    var wantsReason = has("lost_reason") || has("lost_reason_detail");
+    var wantsPause = has("paused_until") || has("paused_reason");
+    var wantsEnd = has("pause_end_now");
+
+    if (wantsPause && wantsEnd) { return fail("Pause and end the pause cannot be sent together"); }
+    if (wantsPause && (wantsReason || intoLost)) { return fail("A lead cannot be paused and lost in one request"); }
+
+    if (wantsPause) {
+        if (newStage === "fechado" || newStage === "perdido") { return fail("A closed or lost lead cannot be paused"); }
+        if (!has("paused_until") || !has("paused_reason")) { return fail("A pause needs a date and a reason"); }
+        var dateError = gmPauseDateError(body.paused_until, today);
+        if (dateError) { return fail(dateError); }
+        var why = typeof body.paused_reason === "string" ? body.paused_reason.trim() : "";
+        if (why.length < 3 || why.length > 160) { return fail("The pause reason needs 3 to 160 characters"); }
+        f.paused_until = body.paused_until;
+        f.paused_at = today;
+        f.paused_reason = why;
+        // Pausing again brings a fresh banner.
+        f.pause_banner_cleared_at = null;
+        f.pause_banner_cleared_by = null;
+    }
+
+    if (wantsEnd) {
+        if (body.pause_end_now !== true) { return fail("Invalid request"); }
+        if (!existing || !gmLeadIsPausedNow(existing, today)) { return fail("This lead is not paused"); }
+        // The banner stays: nothing here touches the banner columns.
+        f.paused_until = today;
+        out.events.push({ action: "pause_ended_early", field: "paused_until", old_value: existing.paused_until, new_value: today });
+        out.skipLogged.push("paused_until");
+    }
+
+    if (intoLost || wantsReason) {
+        if (!intoLost && newStage !== "perdido") { return fail("A reason belongs to a lost lead only"); }
+        if (!wantsReason && opts.ui !== true) {
+            // An old App Store build cannot show the question. The move is
+            // accepted and the gap is recorded, never filled in.
+            f.lost_reason = null;
+            f.lost_reason_detail = null;
+            f.lost_reason_source = "missing_old_app";
+        } else {
+            var checked = gmLostReasonCheck(body);
+            if (checked.error) { return fail(checked.error); }
+            f.lost_reason = checked.reason;
+            f.lost_reason_detail = checked.detail;
+            f.lost_reason_source = "person";
+            var sameOther = existing && !intoLost && existing.lost_reason === "other" && existing.lost_reason_detail === checked.detail;
+            if (checked.reason === "other" && !sameOther) { out.otherLog.push({ field: "lost_reason", text: checked.detail }); }
+        }
+    }
+
+    if (has("finance_status") || has("finance_status_other")) {
+        if (!has("finance_status")) { return fail("The finance text needs a finance status"); }
+        var fs = body.finance_status;
+        var ft = body.finance_status_other;
+        var hasText = ft !== undefined && ft !== null && ft !== "";
+        if (fs === null) {
+            if (hasText) { return fail("Invalid finance status"); }
+            f.finance_status = null;
+            f.finance_status_other = null;
+        } else if (typeof fs !== "string" || GM_FINANCE_STATUSES.indexOf(fs) === -1) {
+            return fail("Invalid finance status");
+        } else if (fs === "other") {
+            var ftext = typeof ft === "string" ? ft.trim() : "";
+            if (ftext.length < 3 || ftext.length > 120) { return fail("Other needs 3 to 120 characters"); }
+            f.finance_status = "other";
+            f.finance_status_other = ftext;
+            var sameFin = existing && existing.finance_status === "other" && existing.finance_status_other === ftext;
+            if (!sameFin) { out.otherLog.push({ field: "finance_status", text: ftext }); }
+        } else {
+            if (hasText) { return fail("Only Other takes a text"); }
+            f.finance_status = fs;
+            f.finance_status_other = null;
+        }
+    }
+    return out;
+}
+
+// The statement that copies an Other answer to the log a person reviews.
+function gmOtherLogStmt(env, clientId, leadId, o, actor) {
+    return env.DB.prepare(
+        "INSERT INTO gm_lead_other_log (id, client_id, lead_id, field, text, created_by) VALUES (?, ?, ?, ?, ?, ?)"
+    ).bind(crypto.randomUUID(), clientId, leadId, o.field, o.text, actor || null);
+}
+
+// The summary row of the leads list. Paused leads (paused_until later than the
+// client's local today) leave out every LIVE figure: pipeline, live count and
+// both SLA counts. Totals, closed and lost figures are unchanged.
+async function gmLeadsSummaryRow(env, clientId, sellerName, today) {
+    var np = GM_NOT_PAUSED_SQL;
+    var binds = [today, today, today, today, clientId].concat(sellerName ? [sellerName, sellerName] : []);
+    var stmt = env.DB.prepare(
+        "SELECT COUNT(*) AS leads_totais, " +
+        "SUM(CASE WHEN estagio IN ('estimate_enviado','follow_up','negociacao') AND " + np + " THEN COALESCE(valor,0) ELSE 0 END) AS pipeline_ativo, " +
+        "SUM(CASE WHEN estagio = 'fechado' THEN COALESCE(valor,0) ELSE 0 END) AS receita_fechada, " +
+        "SUM(CASE WHEN estagio = 'fechado' THEN 1 ELSE 0 END) AS fechados, " +
+        "SUM(CASE WHEN data_lead IS NOT NULL AND data_contato IS NOT NULL " +
+        "AND (julianday(data_contato) - julianday(data_lead)) * 1440.0 > 5.0 AND " + np + " THEN 1 ELSE 0 END) AS fora_sla_contato, " +
+        "SUM(CASE WHEN data_lead IS NOT NULL AND data_estimate IS NOT NULL " +
+        "AND (julianday(data_estimate) - julianday(data_lead)) > 1.0 AND " + np + " THEN 1 ELSE 0 END) AS fora_sla_estimate, " +
+        "SUM(CASE WHEN estagio NOT IN ('fechado','perdido') AND " + np + " THEN 1 ELSE 0 END) AS live_count " +
+        "FROM gm_leads WHERE client_id = ?" +
+        (sellerName ? " AND (vendedor = ? OR vendedor_secundario = ?)" : "")
+    );
+    return stmt.bind.apply(stmt, binds).first();
+}
+
+// POST /api/clients/:id/gm/leads/:leadId/pause-banner/clear
+// Saves WHEN (server time) and WHO (the session) cleared the note on the lead.
+// The pause itself is untouched. One atomic statement: a second press changes
+// nothing and writes no second history row.
+async function handlePostGmLeadPauseBannerClear(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var existing = await gmOwnedRow(env, "gm_leads", leadId, id);
+        if (!existing) { return jsonErr("Lead not found", 404); }
+        var seller = sessionSellerName(user);
+        if (seller && !sellerCanActOnLead(existing, seller)) { return jsonErr("Forbidden", 403); }
+        if (!existing.paused_at) { return jsonErr("This lead has no pause note", 400); }
+        var actor = actorName(user);
+        var res = await env.DB.prepare(
+            "UPDATE gm_leads SET pause_banner_cleared_at = datetime('now'), pause_banner_cleared_by = ?, updated_by = ?, updated_at = datetime('now') " +
+            "WHERE id = ? AND client_id = ? AND paused_at IS NOT NULL AND pause_banner_cleared_at IS NULL"
+        ).bind(actor, actor, leadId, id).run();
+        var changed = res && res.meta && Number(res.meta.changes) > 0;
+        if (changed) {
+            await gmLogLeadEvents(env, id, leadId, actor, [
+                { action: "pause_banner_cleared", field: "pause_banner", old_value: null, new_value: null }
+            ]);
+        }
+        var row = await gmOwnedRow(env, "gm_leads", leadId, id);
+        return jsonOk({ cleared: true, already: !changed, lead: row });
+    } catch (e) {
+        console.error("pause banner clear failed: " + (e && e.message));
+        return jsonErr("Could not clear the note", 500);
+    }
+}
+
+// GET /api/dev/lead-other-log: the open "Other" answers, for the developer only.
+// Read only, newest first, at most 200. Dates go out as stored (UTC); the page
+// shows them in 12 hour Eastern time.
+async function handleGetDevLeadOtherLog(request, env) {
+    var user = await authenticate(request, env);
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+    try {
+        var res = await env.DB.prepare(
+            "SELECT o.field AS field, o.text AS text, c.name AS client_name, o.created_at AS created_at, o.created_by AS created_by " +
+            "FROM gm_lead_other_log o LEFT JOIN clients c ON c.id = o.client_id " +
+            "WHERE o.status = 'open' ORDER BY o.created_at DESC, o.id DESC LIMIT 200"
+        ).all();
+        return jsonOk({ rows: (res && res.results) || [] });
+    } catch (e) {
+        console.error("lead other log read failed: " + (e && e.message));
+        return jsonErr("Could not load", 500);
+    }
+}
+// ==== LEAD REASON PAUSE FINANCE END ====
+
 // Shared field extraction for lead create/update. Returns { fields, error }.
 // partial=true (PUT) only touches keys present in the body.
 async function gmLeadFields(body, config, partial, env, clientId) {
@@ -24981,7 +25248,8 @@ var GM_LEAD_LOGGED_FIELDS = [
     "observacao", "vendedor", "vendedor_secundario", "valor", "proxima_acao", "data_contato",
     "data_estimate", "mes_lead", "mes_fechamento", "address", "city",
     "addr_street", "addr_city", "addr_state", "addr_zip", "addr_access",
-    "servico_desc", "status_financiamento", "followups"
+    "servico_desc", "status_financiamento", "followups",
+    "lost_reason", "lost_reason_detail", "paused_until", "paused_reason", "finance_status", "finance_status_other"
 ].concat(GM_LEAD_COST_FIELDS);
 
 // Append one or more events. Accepts an array so a multi-field edit is a
@@ -25021,7 +25289,7 @@ async function gmLogLeadEvents(env, clientId, leadId, actor, events) {
 // referral form, which has no authenticated user — a referral genuinely has no
 // human author on our side, and NULL says that honestly rather than inventing
 // one.
-async function gmInsertLead(env, clientId, f, actor, zone) {
+async function gmInsertLead(env, clientId, f, actor, zone, otherLog) {
     var leadId = crypto.randomUUID();
     // A lead saved with no date is a lead that came in today, on the clock of
     // whoever is saving it. Callers that already built their own stamp keep it.
@@ -25037,11 +25305,17 @@ async function gmInsertLead(env, clientId, f, actor, zone) {
     var costBinds = GM_LEAD_COST_FIELDS.map(function(k) {
         return f[k] !== undefined ? f[k] : null;
     });
+    // Reason, pause and finance columns: only what the shared rules set.
+    var reasonCols = GM_LEAD_REASON_COLS.join(", ");
+    var reasonMarks = GM_LEAD_REASON_COLS.map(function() { return "?"; }).join(", ");
+    var reasonBinds = GM_LEAD_REASON_COLS.map(function(k) {
+        return f[k] !== undefined ? f[k] : null;
+    });
     await env.DB.prepare(
         "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, email, origem, parceiro_id, servico, " +
         "observacao, vendedor, data_contato, data_estimate, valor, estagio, followups, proxima_acao, mes_fechamento, " +
-        "address, city, addr_street, addr_city, addr_state, addr_zip, addr_access, addr_lat, addr_lon, addr_located, created_by, updated_by, " + costCols + ") " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " + costMarks + ")"
+        "address, city, addr_street, addr_city, addr_state, addr_zip, addr_access, addr_lat, addr_lon, addr_located, created_by, updated_by, " + costCols + ", " + reasonCols + ") " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " + costMarks + ", " + reasonMarks + ")"
     ).bind(
         leadId, clientId,
         f.mes_lead !== undefined ? f.mes_lead : null,
@@ -25073,11 +25347,17 @@ async function gmInsertLead(env, clientId, f, actor, zone) {
         f.addr_located !== undefined ? f.addr_located : null,
         actor || null,
         actor || null,
-        ...costBinds
+        ...costBinds,
+        ...reasonBinds
     ).run();
-    await gmLogLeadEvents(env, clientId, leadId, actor, [
-        { action: "created", field: "estagio", old_value: null, new_value: f.estagio }
-    ]);
+    var createEvents = [{ action: "created", field: "estagio", old_value: null, new_value: f.estagio }];
+    ["lost_reason", "lost_reason_detail", "paused_until", "paused_reason", "finance_status", "finance_status_other"].forEach(function(k) {
+        if (f[k] !== undefined && f[k] !== null) { createEvents.push({ action: "updated", field: k, old_value: null, new_value: f[k] }); }
+    });
+    await gmLogLeadEvents(env, clientId, leadId, actor, createEvents);
+    if (otherLog && otherLog.length) {
+        await env.DB.batch(otherLog.map(function(o) { return gmOtherLogStmt(env, clientId, leadId, o, actor); }));
+    }
     return leadId;
 }
 
@@ -25097,7 +25377,14 @@ async function handlePostGmLead(id, request, env) {
         // including by hand-crafting the JSON.
         var postSeller = sessionSellerName(user);
         if (postSeller) { parsed.fields.vendedor = postSeller; }
-        var leadId = await gmInsertLead(env, id, parsed.fields, actorName(user), await resolveRequestZone(request, env, id));
+        var postZone = await resolveRequestZone(request, env, id);
+        // Reason, pause and finance: the same rules as the update route. A lead
+        // created already as lost is asked the same question.
+        var postRules = gmLeadReasonRules(body, parsed.fields, null, {
+            ui: gmReasonUiHeader(request), today: gmLocalTodayFor(postZone)
+        });
+        if (postRules.error) { return jsonErr(postRules.error, 400); }
+        var leadId = await gmInsertLead(env, id, parsed.fields, actorName(user), postZone, postRules.otherLog);
         var row = await gmOwnedRow(env, "gm_leads", leadId, id);
         return jsonOk({ created: true, lead: row });
     } catch (e) {
@@ -25136,6 +25423,14 @@ async function handlePutGmLead(id, leadId, request, env) {
         // ...and they cannot hand the lead off to someone else on update
         // either, which would make it vanish from their own list.
         if (putSeller) { delete f.vendedor; }
+        // Reason, pause and finance (shared with the create route). The zone is
+        // only looked up when the request touches one of them.
+        var touchesRules = f.estagio !== undefined || GM_LEAD_RULE_BODY_KEYS.some(function(k) { return Object.prototype.hasOwnProperty.call(body, k); });
+        var rules = gmLeadReasonRules(body, f, existing, {
+            ui: gmReasonUiHeader(request),
+            today: touchesRules ? gmLocalTodayFor(await resolveRequestZone(request, env, id)) : null
+        });
+        if (rules.error) { return jsonErr(rules.error, 400); }
         // Geocode once, only when the structured address actually changed
         // (migrations/2026-10-13_lead_geocode.sql) -- never on an unrelated
         // field edit.
@@ -25185,6 +25480,9 @@ async function handlePutGmLead(id, leadId, request, env) {
                 leadBatch.push(jst.bind.apply(jst, jbinds.concat([id, leadId])));
             }
         }
+        // An Other answer is copied to the review log in the SAME batch.
+        var putActor = actor;
+        rules.otherLog.forEach(function(o) { leadBatch.push(gmOtherLogStmt(env, id, leadId, o, putActor)); });
         await env.DB.batch(leadBatch);
         // A value typed on a lead with a signed contract did not change it:
         // the event must not say it did.
@@ -25209,6 +25507,7 @@ async function handlePutGmLead(id, leadId, request, env) {
         var editReason = gmStr(body._reason, 500);
         GM_LEAD_LOGGED_FIELDS.forEach(function(k) {
             if (f[k] === undefined) { return; }
+            if (rules.skipLogged.indexOf(k) !== -1) { return; }
             var before = existing[k] === undefined ? null : existing[k];
             var after  = f[k];
             // Loose-ish compare via String() so 5 and "5" are not logged as a
@@ -25219,7 +25518,7 @@ async function handlePutGmLead(id, leadId, request, env) {
             events.push({ action: "updated", field: k, old_value: before, new_value: after,
                           reason: GM_LEAD_COST_FIELDS.indexOf(k) !== -1 ? editReason : null });
         });
-        await gmLogLeadEvents(env, id, leadId, actor, events);
+        await gmLogLeadEvents(env, id, leadId, actor, events.concat(rules.events));
         if (f.comissao !== undefined && existing.commission_review_json) {
             await env.DB.prepare("UPDATE gm_leads SET commission_review_json = NULL WHERE id = ? AND client_id = ?").bind(leadId, id).run();
         }
@@ -63820,6 +64119,10 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 7 && gmCol === "leads" && segs[6] === "events" && method === "GET") {
                     return handleGetGmLeadEvents(cid, segs[5], request, env);
                 }
+                // /gm/leads/:leadId/pause-banner/clear: clears the pause note on a lead.
+                if (segs.length === 8 && gmCol === "leads" && segs[6] === "pause-banner" && segs[7] === "clear" && method === "POST") {
+                    return handlePostGmLeadPauseBannerClear(cid, segs[5], request, env);
+                }
                 // /gm/leads/:leadId/promote — a won lead becomes a project.
                 if (segs.length === 7 && gmCol === "leads" && segs[6] === "promote" && method === "POST") {
                     return handlePromoteGmLead(cid, segs[5], request, env);
@@ -64256,6 +64559,7 @@ async function handleFetch(request, env, ctx) {
         var supTicketDetail = path.match(/^\/api\/support\/tickets\/([A-Za-z0-9_-]+)$/);
         if (supTicketDetail && method === "GET") { return handleGetSupportTicketDetail(supTicketDetail[1], request, env); }
         if (path === "/api/dev/leads-grid-events" && method === "GET") { return handleGetDevLeadsGridEvents(request, env); }
+        if (path === "/api/dev/lead-other-log" && method === "GET") { return handleGetDevLeadOtherLog(request, env); }
         if (path === "/api/dev/error-alert-test" && method === "POST") { return handlePostDevErrorAlertTest(request, env); }
         if (path === "/api/dev/reminder-text-test" && method === "POST") { return handlePostDevReminderTextTest(request, env); }
         var vndByClient = path.match(/^\/api\/vendors\/by-client\/([A-Za-z0-9_-]+)$/);
@@ -66048,10 +66352,12 @@ async function loadKickoffToday(env, clientId, today) {
     // The live pipeline is the CLIENT's own open leads, not Apex's.
     // The stage column is `estagio`, and the two terminal stages are
     // 'fechado' and 'perdido' -- everything else is still open.
+    // Paused leads are not live: today is the client's own local day.
+    var kickZone = clientZoneFor(await env.DB.prepare("SELECT timezone, location_state FROM clients WHERE id = ?").bind(clientId).first());
     var pipe = await env.DB.prepare(
         "SELECT COUNT(*) AS n, COALESCE(SUM(valor), 0) AS total FROM gm_leads " +
-        "WHERE client_id = ? AND estagio NOT IN ('fechado', 'perdido')"
-    ).bind(clientId).first();
+        "WHERE client_id = ? AND estagio NOT IN ('fechado', 'perdido') AND " + GM_NOT_PAUSED_SQL
+    ).bind(clientId, gmLocalTodayFor(kickZone)).first();
 
     return {
         date:            today,

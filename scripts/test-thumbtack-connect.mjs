@@ -24,7 +24,7 @@ const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientA
   "thumbtackE164", "handlePostGmThumbtackPhones", "handleGetThumbtackCallback", "thumbtackFmtPhone", "thumbtackLeadFields",
   "thumbtackStoreEvent", "thumbtackProcessEvent", "handlePostThumbtackWebhook", "thumbtackCron"];
 const VARS = ["DEFAULT_ORIGIN", "CORS_HEADERS", "GM_ACTOR_KEY_RE", "GM_HIDDEN_ACTORS", "TOKEN_SEAL_PREFIX", "APEX_TIMEZONE",
-  "GM_MONTH_NAMES_PT", "GM_LEAD_COST_FIELDS", "GM_ORIGENS", "THUMBTACK", "THUMBTACK_LEAD_ORIGEM", "THUMBTACK_ACTOR", "THUMBTACK_NA_PT", "THUMBTACK_NA_EN"];
+  "GM_MONTH_NAMES_PT", "GM_LEAD_COST_FIELDS", "GM_LEAD_REASON_COLS", "GM_ORIGENS", "THUMBTACK", "THUMBTACK_LEAD_ORIGEM", "THUMBTACK_ACTOR", "THUMBTACK_NA_PT", "THUMBTACK_NA_EN"];
 
 const CLIENT_ID = "tt-client-id-123";
 const SECRET = "tt-client-secret-ccc333";
@@ -55,7 +55,7 @@ async function read(res) {
 function world(opts) {
   opts = opts || {};
   const d = makeDb();
-  d.raw.exec("CREATE TABLE gm_leads (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, mes_lead TEXT, data_lead TEXT, cliente TEXT NOT NULL, telefone TEXT, email TEXT, origem TEXT, parceiro_id TEXT, servico TEXT, observacao TEXT, vendedor TEXT, data_contato TEXT, data_estimate TEXT, valor REAL, estagio TEXT NOT NULL DEFAULT 'novo_lead', followups INTEGER, proxima_acao TEXT, mes_fechamento TEXT, address TEXT, city TEXT, addr_street TEXT, addr_city TEXT, addr_state TEXT, addr_zip TEXT, addr_access TEXT, addr_lat REAL, addr_lon REAL, addr_located TEXT, created_by TEXT, updated_by TEXT, material REAL, mao_de_obra REAL, outros REAL, custo_administrativo REAL, comissao REAL, imposto REAL, created_at TEXT NOT NULL DEFAULT (datetime('now')))");
+  d.raw.exec("CREATE TABLE gm_leads (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, mes_lead TEXT, data_lead TEXT, cliente TEXT NOT NULL, telefone TEXT, email TEXT, origem TEXT, parceiro_id TEXT, servico TEXT, observacao TEXT, vendedor TEXT, data_contato TEXT, data_estimate TEXT, valor REAL, estagio TEXT NOT NULL DEFAULT 'novo_lead', followups INTEGER, proxima_acao TEXT, mes_fechamento TEXT, address TEXT, city TEXT, addr_street TEXT, addr_city TEXT, addr_state TEXT, addr_zip TEXT, addr_access TEXT, addr_lat REAL, addr_lon REAL, addr_located TEXT, created_by TEXT, updated_by TEXT, material REAL, mao_de_obra REAL, outros REAL, custo_administrativo REAL, comissao REAL, imposto REAL, lost_reason TEXT, lost_reason_detail TEXT, lost_reason_source TEXT, parsed_from TEXT, paused_until TEXT, paused_at TEXT, paused_reason TEXT, finance_status TEXT, finance_status_other TEXT, pause_banner_cleared_at TEXT, pause_banner_cleared_by TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))");
   d.raw.exec("CREATE TABLE gm_lead_events (id TEXT PRIMARY KEY, lead_id TEXT NOT NULL, client_id TEXT NOT NULL, action TEXT NOT NULL, field TEXT, old_value TEXT, new_value TEXT, actor TEXT, reason TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))");
   d.raw.exec("CREATE TABLE users (email TEXT, client_id TEXT, role TEXT)");
   d.raw.exec("CREATE TABLE client_logins (username TEXT, client_id TEXT, seller_name TEXT)");

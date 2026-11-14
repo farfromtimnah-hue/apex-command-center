@@ -55,6 +55,18 @@ export function makeDb(extraMigrations) {
       try { db.exec(stmt); } catch (e) { /* column or table already there */ }
     });
   });
+  // The eleven gm_leads columns and the gm_lead_other_log table that were added
+  // to the live database by hand on 2026-11-13 (the file only records them).
+  // Layered on last: a column is added only when the table exists and does not
+  // have it yet, so a test that has no gm_leads is left alone.
+  readFileSync(new URL("migrations/2026-11-13_lead_reason_pause_finance.sql", root), "utf8").replace(/^\s*--[^\n]*$/gm, "").split(";").forEach(function (stmt) {
+    const add = /^\s*ALTER TABLE (\w+) ADD COLUMN (\w+)/.exec(stmt);
+    if (add) {
+      const cols = db.prepare("PRAGMA table_info(" + add[1] + ")").all();
+      if (!cols.length || cols.some(function (c) { return c.name === add[2]; })) { return; }
+    }
+    if (stmt.trim()) { db.exec(stmt); }
+  });
   const log = [];
   const writes = [];   // every run()/batch statement with its bound values
   function prepared(sql, args) {

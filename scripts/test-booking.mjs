@@ -27,7 +27,7 @@ const helpers = ["schedMinutes", "schedHHMM", "schedAddDays", "schedDayOfWeek", 
   "gmOpeningBalanceAvailable",
   // texts for meetings: switched off in this test, so each returns at once
   "reminderTextsEnabled", "reminderTextDispatch", "reminderTextConfirmed", "reminderTextSnapshots", "reminderTextCancelled", "reminderTextChangedEvent", "docPrettyLink", "docLinkTarget", "docLinkSlugPart", "docLinkRandom"];
-const vars = ["gmOpeningColumnsKnown", "gmOpeningColumnsCheckedAt", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "BK_STEP_MIN", "BK_ACTOR", "BK_QTYPES", "BK_PRESETS", "BK_INACTIVE", "BRAZIL_TZ_LABELS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS", "GM_MONTH_NAMES_PT", "GM_DEFAULT_FINANCE_CATEGORIES", "GM_DEFAULT_VIEW_THRESHOLD", "APEX_TIMEZONE", "DEFAULT_ORIGIN", "DOC_LINK_ORIGIN", "DOC_LINK_PAGES", "DOC_LINK_LABELS"];
+const vars = ["gmOpeningColumnsKnown", "gmOpeningColumnsCheckedAt", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "BK_STEP_MIN", "BK_ACTOR", "BK_QTYPES", "BK_PRESETS", "BK_INACTIVE", "BRAZIL_TZ_LABELS", "GM_LEAD_COST_FIELDS", "GM_LEAD_REASON_COLS", "GM_LEAD_LOGGED_FIELDS", "GM_MONTH_NAMES_PT", "GM_DEFAULT_FINANCE_CATEGORIES", "GM_DEFAULT_VIEW_THRESHOLD", "APEX_TIMEZONE", "DEFAULT_ORIGIN", "DOC_LINK_ORIGIN", "DOC_LINK_PAGES", "DOC_LINK_LABELS"];
 
 function world() {
   const d = makeDb(MIG);

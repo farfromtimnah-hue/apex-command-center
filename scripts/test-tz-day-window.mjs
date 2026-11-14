@@ -20,8 +20,8 @@ let F;
 try {
   F = build(
     ["tzIsValid", "tzParts", "tzPad2", "tzSqlUtc", "tzMidnightUtcMs", "tzWallToUtcMs", "tzOffsetMinutes", "tzDayWindowUtc", "tzZoneForState", "clientZoneFor", "resolveRequestZone", "tzLocalNowStamp",
-     "handleGetEntrySuggestions", "gmInsertLead", "requireClientAccess", "isValidDateStr", "num0", "cents"],
-    ["APEX_TIMEZONE", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "GM_LEAD_COST_FIELDS"],
+     "handleGetEntrySuggestions", "gmLocalTodayFor", "gmInsertLead", "requireClientAccess", "isValidDateStr", "num0", "cents"],
+    ["APEX_TIMEZONE", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "GM_LEAD_COST_FIELDS", "GM_LEAD_REASON_COLS", "GM_NOT_PAUSED_SQL"],
     Object.assign({}, baseStubs, {
       URL: globalThis.URL, Intl: globalThis.Intl, Date: Date, Math: Math, Number: Number, Object: Object, crypto: globalThis.crypto,
       authenticate: async (r) => r.user,

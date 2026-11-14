@@ -17,11 +17,12 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass
 const FNS = [
   "geocodeOneLine", "geocodeAddress", "geoZip5", "geoState2", "geoCityClean", "geoLoadCenters", "geoFetchJson", "geoPlacesCenter", "geoZipCenter", "geoTownCenter", "geoLayerWordOk", "geoLayerFold", "geoLayerParseStreet", "geoLayerEntry", "geoLayerWhere", "geoLayerFetchJson", "geoLayerPick", "geoLayerCenter", "gmLeadAddressChanged", "gmLeadGeocodeIfNeeded",
   "gmLeadFields", "gmManualPosition", "gmInsertLead", "gmLogLeadEvents",
+  "gmLeadReasonRules", "gmLostReasonCheck", "gmPauseDateError", "gmLeadIsPausedNow", "gmLocalTodayFor", "gmReasonUiHeader", "gmOtherLogStmt",
   "tzIsValid", "tzParts", "tzPad2", "tzLocalNowStamp", "tzZoneForState", "clientZoneFor", "resolveRequestZone",
   "handlePostGmLead", "handlePutGmLead",
   "gmStr", "gmNum", "gmStageKey"
 ];
-const VARS = ["APEX_TIMEZONE", "GEO_CENSUS_TIMEOUT_MS", "GEO_CENSUS_RETRY_WAIT_MS", "GEO_FETCH_TIMEOUT_MS", "GEO_ZIP_MAP", "GEO_TOWN_MAP", "GEO_LAYERS", "GEO_LAYER_TIMEOUT_MS", "GEO_LAYER_TYPES", "GEO_LAYER_DIRS", "GEO_LAYER_UNIT_WORDS", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "GM_STAGE_DEFS", "GM_STAGES", "GM_ORIGENS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS"];
+const VARS = ["APEX_TIMEZONE", "GEO_CENSUS_TIMEOUT_MS", "GEO_CENSUS_RETRY_WAIT_MS", "GEO_FETCH_TIMEOUT_MS", "GEO_ZIP_MAP", "GEO_TOWN_MAP", "GEO_LAYERS", "GEO_LAYER_TIMEOUT_MS", "GEO_LAYER_TYPES", "GEO_LAYER_DIRS", "GEO_LAYER_UNIT_WORDS", "TZ_STATE_ZONES", "TZ_STATE_NAMES", "GM_STAGE_DEFS", "GM_STAGES", "GM_ORIGENS", "GM_LEAD_COST_FIELDS", "GM_LEAD_REASON_COLS", "GM_LEAD_LOST_REASONS", "GM_US_STATES", "GM_FINANCE_STATUSES", "GM_LEAD_RULE_BODY_KEYS", "GM_LEAD_LOGGED_FIELDS"];
 
 const LEAD_MIGRATIONS = [
   "migrations/2026-10-14_client_owners_state_city.sql",   // clients.location_state, read for the viewer zone
@@ -49,6 +50,7 @@ function world(fetchRouter, reuseDb) {
     // it was applied as a one-off command, never captured. Added here inline
     // so this fixture matches the real live table; not part of this task.
     try { d.raw.exec("ALTER TABLE gm_leads ADD COLUMN imposto REAL"); } catch (e) {}
+    // The eleven columns added to the live gm_leads on 2026-11-13 come from the shared shim (d1-shim.mjs).
     d.raw.prepare("INSERT INTO clients (id, name) VALUES ('c1', 'Acme Pools')").run();
   }
   const stubs = Object.assign({}, baseStubs, {

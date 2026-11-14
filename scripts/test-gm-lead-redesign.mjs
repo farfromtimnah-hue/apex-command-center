@@ -91,6 +91,13 @@ eval(slice(js, "function gmFmtPhone(", "\n}") + "\n}\n; globalThis.gmFmtPhone = 
 globalThis.window = globalThis.window || globalThis;
 eval(slice(js, "function gmListEmpty(", "\n}") + "\n}\n; globalThis.gmListEmpty = gmListEmpty;");
 
+// The lost reason / pause / finance rows and the pause note are real code too (2026-11-14); they need
+// the device date helpers and the page's day formatter.
+eval(slice(js, "function gmNowLocalIso() {", "\n}") + "\n}\n; globalThis.gmNowLocalIso = gmNowLocalIso;");
+eval(slice(js, "function gmTodayLocal()", "\n") + "\n; globalThis.gmTodayLocal = gmTodayLocal;");
+eval(slice(js, "// ==== LEAD REASON LOGIC BEGIN ====", "// ==== LEAD REASON UI END ====") +
+  "\n; Object.assign(globalThis, { gmPauseBannerHtml, gmLeadStatusSectionHtml, gmLeadPausedNow, gmLeadFlagsHtml });");
+
 // ── Load the real render code ─────────────────────────────────────────────
 eval(slice(js, "var GM_ICONS = {", "function gmRenderPartners(") +
   "\n; Object.assign(globalThis, { GM_ICONS, gmIcon });");
@@ -174,8 +181,9 @@ const render = (over) => {
   const titles = (html.match(/gm-sheet-section-title">([^<]*)/g) || [])
     .map((s) => s.replace(/.*">/, "").trim());
   // Estimates, Values and Outcome sections were added by later builds; the original four keep their order.
-  t("sections are Estimates / Next action / Values / Outcome / Contact activity / Lead details / other",
-    titles, ["Orçamentos", "Próxima ação", "Valores", "Resultado", "Atividade de contato", "Dados do lead", "Outros campos"]);
+  // "Situação do lead" (lost reason, pause, finance status) was added on 2026-11-14, right after Next action.
+  t("sections are Estimates / Next action / Lead status / Values / Outcome / Contact activity / Lead details / other",
+    titles, ["Orçamentos", "Próxima ação", "Situação do lead", "Valores", "Resultado", "Atividade de contato", "Dados do lead", "Outros campos"]);
   // Anchor past the section TITLE (which repeats the same words) to the group
   // that follows it, then count rows inside that group only.
   const nextGroup = slice(html, 'gm-sheet-group">', "</div></div>");

@@ -1436,3 +1436,77 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
   background-image: var(--gm-wm, none); background-repeat: repeat;
 }
 @media print { .gm-grid-wrap::after { display: none !important; } }
+
+/* ══ Lost reason, Pause and Finance status (2026-11-14) ════════════════════
+   Same tokens as the rest of the portal. One strong thing per screen (the off
+   black selected choice); everything else is paper and thin lines. No shadow
+   on a bordered card, no gradient, no side stripe. */
+.gm-lr-who { margin: 0 0 10px; font-family: 'Newsreader', Georgia, serif; font-size: 18px; font-weight: 500; color: var(--text); }
+.gm-lr-ask { margin: 0 0 12px; font-family: 'Newsreader', Georgia, serif; font-size: 19px; line-height: 1.35; font-weight: 500; color: var(--text); }
+.gm-lr-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.gm-lr-opt {
+  min-height: 48px; padding: 0 14px; border: 1.5px solid var(--border); border-radius: 12px; background: var(--card);
+  font-family: 'Inter', sans-serif; font-size: 15px; text-align: left; color: var(--text); cursor: pointer;
+}
+.gm-lr-opt:focus-visible, .gm-lr-link:focus-visible, .gm-lr-small:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.gm-lr-on { background: var(--header); border-color: var(--header); color: #f4efe6; }
+.gm-lr-detail { margin: -2px 0 6px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface, #f9f7f4); }
+.gm-lr-lab { display: block; margin: 10px 0 4px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: var(--muted); }
+.gm-lr-detail .gm-lr-lab:first-child { margin-top: 0; }
+.gm-lr-in {
+  width: 100%; box-sizing: border-box; min-height: 46px; padding: 0 12px; border: 1.5px solid #cfc7b8; border-radius: 10px;
+  background: var(--card); font-family: 'Inter', sans-serif; font-size: 15px; color: var(--text);
+}
+.gm-lr-in:focus { outline: 0; border-color: var(--gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 24%, transparent); }
+.gm-lr-area { min-height: 110px; padding: 10px 12px; resize: vertical; line-height: 1.4; }
+.gm-lr-count { margin: 4px 0 6px; font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.gm-lr-note {
+  display: flex; align-items: flex-start; gap: 10px; margin: 10px 0; padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 12px; background: color-mix(in srgb, var(--gold) 10%, var(--card)); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.4; color: var(--text);
+}
+.gm-lr-note-ico { display: flex; flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; color: var(--header); }
+.gm-lr-note-ico svg { width: 18px; height: 18px; }
+.gm-lr-link {
+  display: inline-block; min-height: 44px; padding: 0 2px; border: 0; background: none; font-family: 'Inter', sans-serif;
+  font-size: 13px; color: var(--muted); text-decoration: underline; cursor: pointer;
+}
+.gm-lr-small {
+  min-height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card);
+  font-family: 'Inter', sans-serif; font-size: 13px; color: var(--muted); cursor: pointer;
+}
+.gm-lr-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.gm-lr-actions .gm-btn-primary, .gm-lr-actions .gm-btn-secondary { width: 100%; margin: 0; }
+.gm-lr-actions .gm-btn-primary:disabled { opacity: 0.4; cursor: default; }
+.gm-lr-actions .gm-lr-small { align-self: flex-start; }
+
+/* The pause note at the top of a lead. A callout card: tinted, an icon, a short title, labeled rows. */
+.gm-pb {
+  margin: 0 0 12px; padding: 14px; border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--border)); border-radius: 14px;
+  background: color-mix(in srgb, var(--gold) 12%, var(--card));
+}
+.gm-pb-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.gm-pb-ico { display: flex; width: 22px; height: 22px; color: var(--header); }
+.gm-pb-ico svg { width: 22px; height: 22px; }
+.gm-pb-title { font-family: 'Newsreader', Georgia, serif; font-size: 19px; font-weight: 500; color: var(--text); }
+.gm-pb-row { display: flex; gap: 12px; padding: 5px 0; border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+.gm-pb-k { flex: 0 0 112px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; color: var(--muted); }
+.gm-pb-v { flex: 1; min-width: 0; font-family: 'Inter', sans-serif; font-size: 14px; color: var(--text); overflow-wrap: anywhere; }
+.gm-pb-follow .gm-pb-v { font-weight: 600; }
+.gm-pb-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.gm-pb-actions .gm-btn-secondary { width: auto; flex: 1 1 150px; margin: 0; }
+
+/* A paused lead stays in its stage but does not pull the eye: lower contrast, no accent colors. */
+.gm-lead-paused { opacity: 0.6; filter: grayscale(1); }
+.gm-lead-flags { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; margin-top: 4px; }
+.gm-pill-paused { background: #ece8e1; color: var(--muted); border-color: #ddd6ca; }
+.gm-show-paused {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 4px;
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer;
+}
+.gm-show-paused input { width: 18px; height: 18px; accent-color: var(--header); }
+.gm-grid-paused .gm-grid-c { color: var(--muted); opacity: 0.6; }
+
+@media (max-width: 420px) {
+  .gm-pb-row { flex-direction: column; gap: 2px; }
+  .gm-pb-k { flex-basis: auto; }
+}

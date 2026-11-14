@@ -71,9 +71,11 @@ t("days in stage: junk is blank", G.gmGridDaysInStage("not a date", NOW), null);
 t("column dias_estagio reads stage_changed_at", raw(L("9", { stage_changed_at: "2026-11-01 15:00:00" }), "dias_estagio"), 12);
 
 // ── Column values ─────────────────────────────────────────────────────────
-t("the columns are the 17 asked for, in order", G.GM_GRID_COLS.map(c => c.key), [
+t("the columns are the 17 asked for, in order", G.GM_GRID_COLS.map(c => c.key).slice(0, 17), [
   "cliente", "telefone", "origem", "parceiro", "servico", "vendedor", "estagio", "valor", "data_lead", "data_contato",
   "data_estimate", "followups", "proxima_acao", "mes_lead", "mes_fechamento", "dias_estagio", "observacao"]);
+// 2026-11-14: four columns were added after them (lost reason, reason detail, paused until, finance status).
+t("...followed by the four added on 2026-11-14", G.GM_GRID_COLS.map(c => c.key).slice(17), ["lost_reason", "lost_reason_detail", "paused_until", "finance_status"]);
 t("valor is a number column", G.GM_GRID_COLS.find(c => c.key === "valor").type, "num");
 t("data_lead is a date column", G.GM_GRID_COLS.find(c => c.key === "data_lead").type, "date");
 t("followups reads contatos_count", raw(leads[0], "followups"), 3);

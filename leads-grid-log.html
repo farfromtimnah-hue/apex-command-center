@@ -183,6 +183,8 @@
     .form-input:focus, .form-select:focus { border-color: var(--gold); }
     .form-select { cursor: pointer; padding-right: 8px; }
 
+    /* The open "Other" answers can not be selected or long pressed. */
+    .lg-nosel { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
     .act-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .act-table th {
       text-align: left; padding: 10px 16px;
@@ -318,6 +320,14 @@
         <div class="content-card">
           <div class="content-card-header"><div class="content-card-title"><span class="show-pt">Edições</span><span class="show-en">Edits</span></div></div>
           <div class="content-card-body lg-scroll" id="lgEdits"></div>
+        </div>
+
+        <div class="content-card lg-nosel" id="lgOtherCard">
+          <div class="content-card-header"><div class="content-card-title"><span class="show-pt">Respostas “Outro” em aberto</span><span class="show-en">Open “Other” answers</span></div></div>
+          <div class="content-card-body">
+            <div id="lgOtherNote" class="table-empty"></div>
+            <div class="lg-scroll" id="lgOther"></div>
+          </div>
         </div>
 
         <div class="content-card">
@@ -485,6 +495,38 @@
       document.getElementById("lgDaily").innerHTML = lgTable([t("Dia", "Day"), t("Eventos", "Events"), ""], rows);
     }
 
+    // ── Open "Other" answers (developer only, read only, 200 at most, newest first) ──
+    // The answers a person wrote when none of the listed reasons fit. The list can not be
+    // selected: the card is under user-select none, and the page has no way to take it out.
+    function lgOtherField(f) {
+      if (f === "lost_reason") { return t("Motivo da perda", "Lost reason"); }
+      if (f === "finance_status") { return t("Status financeiro", "Finance status"); }
+      return f;
+    }
+    function lgLoadOther() {
+      var note = document.getElementById("lgOtherNote");
+      var host = document.getElementById("lgOther");
+      note.textContent = t("Carregando...", "Loading...");
+      apiFetch("/api/dev/lead-other-log")
+        .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
+        .then(function(d) {
+          var list = d.rows || [];
+          note.textContent = t("Somente leitura. Até 200, as mais novas primeiro. Horários em Eastern, 12 horas.",
+                               "Read only. Up to 200, newest first. Times in Eastern, 12 hour.");
+          host.innerHTML = list.length ? lgTable(
+            [t("Campo", "Field"), t("Texto", "Text"), t("Cliente", "Client"), t("Quando (Eastern)", "When (Eastern)"), t("Quem", "Who")],
+            list.map(function(r) {
+              return '<tr><td>' + escHtml(lgOtherField(r.field)) + '</td><td>' + escHtml(r.text) + '</td><td>' + escHtml(r.client_name || "") +
+                '</td><td>' + escHtml(lgWhen(r.created_at)) + '</td><td>' + escHtml(r.created_by || "") + '</td></tr>';
+            }).join("")) : lgEmpty();
+        })
+        .catch(function() { note.textContent = t("Não foi possível carregar.", "Could not load."); host.innerHTML = ""; });
+    }
+
+    ["selectstart", "contextmenu", "dragstart"].forEach(function (name) {
+      document.getElementById("lgOtherCard").addEventListener(name, function (e) { e.preventDefault(); });
+    });
+
     // ── Page setup ──────────────────────────────────────────────────────────
     function setupPage(role) {
       var roleEl  = document.getElementById("headerRole");
@@ -505,6 +547,7 @@
       document.getElementById("appMain").hidden = false;
       window.initNav && window.initNav();
       lgLoad();
+      lgLoadOther();
     }
 
     function fetchAndApplyRole() {
@@ -560,7 +603,7 @@
 
     window.onload = function () { init(); };
 
-    document.addEventListener("apex:langchange", function () { lgLoad(); });
+    document.addEventListener("apex:langchange", function () { lgLoad(); lgLoadOther(); });
   </script>
   <div id="mobile-tab-bar"></div>
   <div id="mobile-more-menu"></div>

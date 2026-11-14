@@ -21,6 +21,7 @@ const harness = `
   var gmLeadMonth = "";
   function gmLeadMatchesMonth() { return true; }
   function gmLeadMatchesSeller() { return true; }   // the seller filter is its own feature; "all sellers" here
+  function gmLeadMatchesPaused() { return true; }   // "Show paused" is its own feature (tested in test-lead-reason-grid.mjs); shown here
   function gmStageLabel(s) { return ({ novo:"Novo", estimate:"Estimate", negociacao:"Negociação", fechado:"Fechado" })[s] || s; }
   ${code}
   return {

@@ -34,6 +34,12 @@ function gmIsSeller() { return window.PORTAL_IS_SELLER === true; }
 function gmSellerDisplayName() { return gmIsSeller() ? (window.PORTAL_SELLER_NAME || "") : ""; }
 
 function gmApi(path, opts) {
+  // The web screens ask the lost reason question, so every lead save they make
+  // says so. The old App Store app cannot show the question and never sends it;
+  // the Worker then records the gap instead of refusing the move.
+  if (opts && (opts.method === "PUT" || opts.method === "POST") && /^leads(\/[A-Za-z0-9-]+)?$/.test(path)) {
+    opts = Object.assign({}, opts, { headers: Object.assign({}, opts.headers || {}, { "X-Apex-Reason-UI": "1" }) });
+  }
   return apiFetch("/api/clients/" + clientId + "/gm/" + path, opts)
     .then(function(res) {
       return res.json().then(function(d) {
@@ -60,7 +66,26 @@ var GM_API_ERR_PT = {
   "Subcontractor not found": "Subempreiteiro não encontrado.",
   "Nothing to update": "Nada para salvar.",
   "Please agree to sign electronically": "Marque a caixa de consentimento.",
-  "Password change required": "Troque a senha para continuar."
+  "Password change required": "Troque a senha para continuar.",
+  "A valid lost reason is required": "Escolha um motivo da perda.",
+  "A valid US state code is required": "Escolha o estado.",
+  "Other needs 20 to 300 characters": "Escreva de 20 a 300 letras.",
+  "The scope needs 1 to 80 characters": "Diga qual era o escopo, até 80 letras.",
+  "This reason takes no detail": "Este motivo não leva detalhe.",
+  "A reason belongs to a lost lead only": "O motivo só vale para um lead perdido.",
+  "A lead cannot be paused and lost in one request": "Um lead não pode ser pausado e perdido ao mesmo tempo.",
+  "A closed or lost lead cannot be paused": "Um lead fechado ou perdido não pode ser pausado.",
+  "A pause needs a date and a reason": "A pausa precisa de uma data e de um motivo.",
+  "Invalid pause date": "Data de pausa inválida.",
+  "The pause date must be after today": "A data da pausa precisa ser depois de hoje.",
+  "The pause date is more than 24 months ahead": "A data da pausa passa de 24 meses.",
+  "The pause reason needs 3 to 160 characters": "O motivo da pausa precisa ter de 3 a 160 letras.",
+  "This lead is not paused": "Este lead não está pausado.",
+  "This lead has no pause note": "Este lead não tem aviso de pausa.",
+  "Invalid finance status": "Status de financiamento inválido.",
+  "Other needs 3 to 120 characters": "Escreva de 3 a 120 letras.",
+  "Only Other takes a text": "Só a opção Outro leva texto.",
+  "The finance text needs a finance status": "O texto precisa de um status de financiamento."
 };
 // The older validation routes answer in Portuguese only, or as one
 // "Português / English" string. An English screen gets the English (N8).
@@ -2196,7 +2221,7 @@ function gmLeadsMatching() {
   var leads = (gmLeadsData && gmLeadsData.leads) || [];
   var out = [];
   leads.forEach(function(l) {
-    if (!gmLeadMatchesMonth(l) || !gmLeadMatchesSeller(l)) { return; }
+    if (!gmLeadMatchesMonth(l) || !gmLeadMatchesSeller(l) || !gmLeadMatchesPaused(l)) { return; }
     var rank = gmLeadSearchRank(l);
     if (rank > 0) { out.push({ lead: l, rank: rank }); }
   });
@@ -2221,7 +2246,7 @@ function gmLeadsInStage(stage) {
   var out = [];
   ((gmLeadsData && gmLeadsData.leads) || []).forEach(function(l) {
     if (l.estagio === stage && gmLeadMatchesSearch(l) && gmLeadMatchesMonth(l) &&
-        gmLeadMatchesSeller(l)) { out.push(l); }
+        gmLeadMatchesSeller(l) && gmLeadMatchesPaused(l)) { out.push(l); }
   });
   return out;
 }
@@ -2272,7 +2297,8 @@ function gmLeadRowHtml(lead) {
     estHtml = '<div class="gm-lead-est">' + gmEstPillHtml(gmLeadEstShape(lead)) + '</div>';
     if (es.reminders.length) { line3 = '<span class="gm-warn">' + es.reminders.map(escHtml).join(" · ") + '</span>'; }
   }
-  return '<button type="button" class="gm-lead-row" data-tour="crm-lead-row" onclick="gmOpenLead(' + idx + ')">' +
+  var pausedNow = gmLeadPausedNow(lead, gmTodayLocal());
+  return '<button type="button" class="gm-lead-row' + (pausedNow ? " gm-lead-paused" : "") + '" data-tour="crm-lead-row" onclick="gmOpenLead(' + idx + ')">' +
     '<span class="gm-lead-main">' +
     '<span class="gm-lead-name">' + escHtml(lead.cliente) +
     (unassigned ? ' <span class="gm-unassigned" data-tour="crm-unassigned">' +
@@ -2280,7 +2306,7 @@ function gmLeadRowHtml(lead) {
     (line2 ? '<div class="gm-lead-sub">' + line2 + '</div>' : "") +
     (line3 ? '<div class="gm-lead-sub">' + line3 + '</div>' : "") +
     '</span>' +
-    '<span class="gm-lead-side">' + gmPillHtml(gmStageLabel(lead.estagio), GM_STAGE_PILL[lead.estagio]) + estHtml + '</span>' +
+    '<span class="gm-lead-side">' + gmPillHtml(gmStageLabel(lead.estagio), GM_STAGE_PILL[lead.estagio]) + estHtml + gmLeadFlagsHtml(lead) + '</span>' +
     '</button>';
 }
 
@@ -2307,25 +2333,29 @@ function gmComputeSummary(leads) {
     leads_totais: leads.length, pipeline_ativo: 0, receita_fechada: 0,
     fechados: 0, fora_sla_contato: 0, fora_sla_estimate: 0, live_count: 0
   };
+  var todayLocal = gmTodayLocal();
   leads.forEach(function(l) {
     var st = l.estagio;
     var valor = Number(l.valor) || 0;                      // COALESCE(valor,0)
-    if (st === "estimate_enviado" || st === "follow_up" || st === "negociacao") {
+    // A paused lead (paused_until later than the client's local today) is out of
+    // every LIVE figure, exactly like the Worker's summary SQL.
+    var paused = gmLeadPausedNow(l, todayLocal);
+    if ((st === "estimate_enviado" || st === "follow_up" || st === "negociacao") && !paused) {
       out.pipeline_ativo += valor;
     }
     if (st === "fechado") { out.receita_fechada += valor; out.fechados++; }
-    if (st !== "fechado" && st !== "perdido") { out.live_count++; }
+    if (st !== "fechado" && st !== "perdido" && !paused) { out.live_count++; }
     // julianday() differences in days; 5 minutes = 5/1440 of a day, 24h = 1.0.
     // Both sides null-guarded exactly as the SQL does, so a lead missing either
     // stamp counts as inside the SLA rather than silently failing it.
     var ms = 86400000;
     if (l.data_lead && l.data_contato) {
       var d1 = Date.parse(l.data_contato) - Date.parse(l.data_lead);
-      if (d1 === d1 && (d1 / ms) * 1440.0 > 5.0) { out.fora_sla_contato++; }
+      if (d1 === d1 && (d1 / ms) * 1440.0 > 5.0 && !paused) { out.fora_sla_contato++; }
     }
     if (l.data_lead && l.data_estimate) {
       var d2 = Date.parse(l.data_estimate) - Date.parse(l.data_lead);
-      if (d2 === d2 && (d2 / ms) > 1.0) { out.fora_sla_estimate++; }
+      if (d2 === d2 && (d2 / ms) > 1.0 && !paused) { out.fora_sla_estimate++; }
     }
   });
   out.conversao_pct = out.leads_totais > 0
@@ -2559,6 +2589,7 @@ function gmRenderCrm() {
       ? gmT("Ver por estágio", "View by stage")
       : gmT("Ver tudo empilhado", "View stacked")) + '</button>' +
     '<button type="button" class="btn-outline" onclick="gmGridOpen()">' + gmT("Planilha", "Spreadsheet") + '</button>' +
+    gmShowPausedSwitchHtml() +
     '</span></div>';
 
   // Only worth showing when there is a list big enough to hunt through.
@@ -3369,8 +3400,10 @@ function gmRenderLeadSheet() {
   var val = function(key) { return gmLeadFieldDisplay(lead, byKey[key].def); };
   var edit = function(key) { return "gmEditLeadField(" + byKey[key].i + ")"; };
 
+  // ── Pause note, at the very top until someone clears it ──────────────
+  var body = gmPauseBannerHtml(lead);
   // ── Contact actions ───────────────────────────────────────────────────
-  var body = gmContactButtonsHtml(lead.telefone);
+  body += gmContactButtonsHtml(lead.telefone);
   body += gmContactMoreHtml(lead.telefone, lead.email);
   // Part I4: the salesperson's contact card (with this customer's own
   // referral link), sent the same way the estimate is.
@@ -3429,6 +3462,9 @@ function gmRenderLeadSheet() {
   body += gmSheetSection(gmT("Próxima ação", "Next action"),
     gmSheetRowHtml("check", gmT("Próxima ação", "Next action"),
       val("proxima_acao"), edit("proxima_acao")));
+
+  // Lost reason (a lost lead), pause, finance status.
+  body += gmLeadStatusSectionHtml(lead);
 
   // ── Valores — the cost side of the price ──────────────────────────────
   // The same six rows as the project sheet, in the same order, because JM's
@@ -4095,6 +4131,8 @@ function gmOpenStagePicker() {
 }
 
 function gmSetStage(stage) {
+  // Every move INTO Perdido asks why first. The same step is used by the grid.
+  if (stage === "perdido" && gmDetailLead && gmDetailLead.estagio !== "perdido") { gmLeadOpenLostFlow(gmDetailLead, false); return; }
   gmSaveLeadField("estagio", stage, function() {
     gmRenderLeadSheet();
     // A won lead BECOMES a project, the way a lead becomes an active client on
@@ -4267,12 +4305,14 @@ function gmEditLeadField(defIdx) {
   });
 }
 
-function gmSaveLeadField(key, value, after, reason, leadOverride) {
+function gmSaveLeadField(key, value, after, reason, leadOverride, extra, onFail) {
   var lead = leadOverride || gmDetailLead;
   var payload = {};
   // "__position" carries the device position ({ manual_lat, manual_lon }) as the whole body.
   if (key === "__position") { payload = value; } else { payload[key] = value; }
   if (reason) { payload._reason = reason; }
+  // Extra fields the same save carries (the lost reason with the move into Perdido, the pause reason with its date).
+  if (extra) { Object.keys(extra).forEach(function(k) { payload[k] = extra[k]; }); }
   gmApi("leads/" + lead.id, { method: "PUT", body: payload })
     .then(function(d) {
       // N20: found by ID, not by object. The previous save's background
@@ -4314,7 +4354,11 @@ function gmSaveLeadField(key, value, after, reason, leadOverride) {
       gmLoadCrmSilent();
       if (after) { after(); }
     })
-    .catch(function(e) { gmToast(e.message); console.error(e); });
+    .catch(function(e) {
+      // A step (the lost reason, the pause) waits on the answer and shows the route's own words itself.
+      if (onFail) { onFail(e); return; }
+      gmToast(e.message); console.error(e);
+    });
 }
 
 // "Use my location" (lead and project sheets). One request to the browser for
@@ -18389,7 +18433,14 @@ var GM_GRID_COLS = [
   { key: "mes_lead",       type: "text", pt: "Mês do lead",        en: "Lead month",          editable: false, w: 140 },
   { key: "mes_fechamento", type: "text", pt: "Mês de fechamento",  en: "Closing month",       editable: false, w: 160 },
   { key: "dias_estagio",   type: "num",  pt: "Dias no estágio",    en: "Days in stage",       editable: false, w: 130 },
-  { key: "observacao",     type: "text", pt: "Observação",         en: "Notes",               editable: true,  w: 270 }
+  { key: "observacao",     type: "text", pt: "Observação",         en: "Notes",               editable: true,  w: 270 },
+  // Reason, pause and finance (2026-11-14). step: the cell opens the SAME step the lead card uses
+  // (the reason step, the pause step, the finance picker); it never edits a value in place, so a
+  // cell can not set a reason or a pause date without the step that asks.
+  { key: "lost_reason",        type: "text", pt: "Motivo da perda",   en: "Lost reason",    editable: true, w: 190, step: "reason" },
+  { key: "lost_reason_detail", type: "text", pt: "Detalhe do motivo", en: "Reason detail",  editable: true, w: 200, step: "reason" },
+  { key: "paused_until",       type: "date", pt: "Pausado até",       en: "Paused until",   editable: true, w: 140, step: "pause" },
+  { key: "finance_status",     type: "text", pt: "Status financeiro", en: "Finance status", editable: true, w: 180, step: "finance" }
 ];
 
 function gmGridCol(key) {
@@ -18456,6 +18507,10 @@ function gmGridRaw(lead, key, ctx) {
       return String(lead.data_lead || lead.created_at || "").slice(0, 7);
     case "parceiro": return lead.parceiro_name || "";
     case "servico":  return gmServicoList(lead.servico).join(", ");
+    case "paused_until": return gmGridLocalMs(lead.paused_until);
+    case "lost_reason":        return lead.lost_reason ? ctx.reasonLabel(lead) : "";
+    case "lost_reason_detail": return lead.lost_reason_detail ? ctx.reasonDetailLabel(lead) : "";
+    case "finance_status":     return lead.finance_status ? ctx.financeLabel(lead) : "";
     default:
       v = lead[key];
       return v === null || v === undefined ? "" : String(v);
@@ -18477,6 +18532,7 @@ function gmGridLabel(lead, key, ctx) {
     case "telefone":     return ctx.fmtPhone(lead.telefone);
     case "data_lead":    return ctx.fmtDateTime(lead.data_lead);
     case "data_estimate": return ctx.fmtDateTime(lead.data_estimate);
+    case "paused_until":  return ctx.fmtDay(r);
     case "data_contato":
       return lead.primeiro_contato ? ctx.fmtDateTimeUtc(lead.primeiro_contato) : ctx.fmtDateTime(lead.data_contato);
     default: return String(r);
@@ -18768,6 +18824,8 @@ function gmGridMakeEditMode(deps) {
 function gmGridBuildPayload(key, input, ctx) {
   var col = gmGridCol(key);
   if (!col || !col.editable) { return { ok: false, pt: "Este campo não pode ser editado aqui.", en: "This field cannot be edited here." }; }
+  // The reason, pause and finance columns are only ever saved by their own step, which asks the questions.
+  if (col.step) { return { ok: false, pt: "Use o passo próprio desta coluna.", en: "Use the step for this column." }; }
   var body = {}, v;
   if (key === "valor") {
     var raw = input === null || input === undefined ? "" : String(input);
@@ -18801,14 +18859,15 @@ function gmGridBuildPayload(key, input, ctx) {
 // answer decides: ok -> the server's lead row; refused -> the server's own
 // words, and the caller restores the old value. The tracked event carries the
 // column, the lead id and the word ok or refused, never the value.
-function gmGridCommitCell(deps, lead, key, input) {
+function gmGridCommitCell(deps, lead, key, input, extra) {
   var built = gmGridBuildPayload(key, input, deps.ctx);
   var ev = { column_key: key, lead_id: lead.id };
   if (!built.ok) {
     deps.track("cell_refused", Object.assign({ detail: gmGridDetail.REFUSED }, ev));
     return Promise.resolve({ ok: false, message: deps.isEn ? built.en : built.pt });
   }
-  return deps.api("leads/" + lead.id, { method: "PUT", body: built.body }).then(function(d) {
+  // extra: the answers of a step that goes with this save (the lost reason with a move into Perdido).
+  return deps.api("leads/" + lead.id, { method: "PUT", body: extra ? Object.assign({}, built.body, extra) : built.body }).then(function(d) {
     deps.track("cell_saved", Object.assign({ detail: gmGridDetail.OK }, ev));
     return { ok: true, lead: d && d.lead ? d.lead : null };
   }, function(e) {
@@ -19007,7 +19066,12 @@ function gmGridCtx() {
     fmtDateTime: function(v) { return formatDateTime(v); },
     fmtDateTimeUtc: function(v) { return formatDateTimeUTC(v); },
     fmtPhone: function(v) { return gmFmtPhone(v); },
-    looksLikePhone: function(v) { return gmLooksLikePhone(v); }
+    looksLikePhone: function(v) { return gmLooksLikePhone(v); },
+    reasonLabel: function(lead) { return gmLostReasonLabel(lead.lost_reason); },
+    reasonDetailLabel: function(lead) { return lead.lost_reason === "out_of_state" ? gmStateName(lead.lost_reason_detail) : String(lead.lost_reason_detail || ""); },
+    financeLabel: function(lead) {
+      return gmFinanceLabel(lead.finance_status) + (lead.finance_status === "other" && lead.finance_status_other ? ": " + lead.finance_status_other : "");
+    }
   };
 }
 
@@ -19085,6 +19149,8 @@ function gmGridCompute() {
   var all = (gmLeadsData && gmLeadsData.leads) || [];
   gmGrid.total = all.length;
   var rows = gmGridFilterRows(all, gmGrid.filters, ctx);
+  // "Show paused" off: paused leads leave the sheet. On (the default): they stay, greyed.
+  rows = rows.filter(function(l) { return gmLeadMatchesPaused(l); });
   var q = gmSearchNorm(gmGrid.quick);
   if (q) { rows = rows.filter(function(l) { return gmGridQuickMatch(l, q, ctx); }); }
   rows = gmGridSortRows(rows, gmGrid.sorts, ctx);
@@ -19201,6 +19267,7 @@ function gmGridShellHtml() {
     '<div class="gm-grid-btns">' +
     '<button type="button" class="gm-grid-btn" data-act="cols">' + gmGridIcon("cols") + '<span>' + escHtml(gmT("Colunas", "Columns")) + '</span></button>' +
     '<label class="gm-grid-group"><span>' + escHtml(gmT("Agrupar por", "Group by")) + '</span><select id="gmGridGroup" class="gm-grid-select">' + groupOpts + '</select></label>' +
+    '<label class="gm-show-paused"><input type="checkbox" data-act="showpaused"' + (gmShowPaused ? " checked" : "") + '><span>' + escHtml(gmT("Mostrar pausados", "Show paused")) + '</span></label>' +
     '<button type="button" class="gm-grid-btn" data-act="views">' + gmGridIcon("views") + '<span>' + escHtml(gmT("Visões salvas", "Saved views")) + '</span></button>' +
     '<button type="button" class="gm-grid-btn" id="gmGridClearFilters" data-act="clearfilters">' + escHtml(gmT("Limpar filtros", "Clear filters")) + '</button>' +
     '<button type="button" class="gm-grid-btn" data-act="reset">' + escHtml(gmT("Restaurar layout", "Reset layout")) + '</button>' +
@@ -19321,7 +19388,7 @@ function gmGridRowHtml(e, i, top) {
   }
   var sel = s.sel, r1 = 0, r2 = -1, c1 = 0, c2 = -1;
   if (sel) { r1 = Math.min(sel.r1, sel.r2); r2 = Math.max(sel.r1, sel.r2); c1 = Math.min(sel.c1, sel.c2); c2 = Math.max(sel.c1, sel.c2); }
-  var html = '<div class="gm-grid-row' + (e.r % 2 ? " gm-grid-z" : "") + '" data-r="' + e.r + '" style="top:' + top + 'px;width:' + w + 'px" role="row">' +
+  var html = '<div class="gm-grid-row' + (e.r % 2 ? " gm-grid-z" : "") + (gmLeadPausedNow(e.lead, gmTodayLocal()) ? " gm-grid-paused" : "") + '" data-r="' + e.r + '" style="top:' + top + 'px;width:' + w + 'px" role="row">' +
     '<div class="gm-grid-rn" data-act="rn" data-r="' + e.r + '" style="width:' + GM_GRID_RN_W + 'px" title="' + escHtml(gmT("Dois cliques abre o lead", "Double click opens the lead")) + '">' + (e.r + 1) + '</div>';
   cols.forEach(function(col, ci) {
     var label = gmGridLabel(e.lead, col.key, s.ctx);
@@ -19566,6 +19633,7 @@ function gmGridOnDblClick(e) {
 function gmGridOnChange(e) {
   var t = e.target;
   if (t.id === "gmGridGroup") { return; }
+  if (t.getAttribute("data-act") === "showpaused") { gmShowPausedSet(t.checked); gmGridApply(); return; }
   if (t.hasAttribute("data-fv")) { gmGridPopToggleValue(Number(t.getAttribute("data-fv")), t.checked); return; }
   if (t.hasAttribute("data-col")) { gmGridToggleCol(t.getAttribute("data-col"), t.checked); return; }
   if (t.id === "gmGridOp") { gmGridPopSetOp(t.value); return; }
@@ -20148,6 +20216,8 @@ function gmGridStartEdit(r, ci, how) {
   gmGridPaintRows();
   var cell = document.querySelector('#gmGridWrap .gm-grid-c[data-r="' + r + '"][data-ci="' + ci + '"]');
   if (!cell) { return; }
+  // Reason, pause and finance cells open the same step the lead card uses.
+  if (col.step) { gmGridStepEdit(e, col, ci, how); return; }
   var kind = gmGridEditKind(col);
   var start = gmGridEditStartValue(e.lead, col);
   s.editing = { r: r, ci: ci, fi: e.fi, key: col.key, lead: e.lead, kind: kind, start: start, el: null };
@@ -20253,6 +20323,8 @@ function gmGridFinishEdit(commit, value) {
     if (s.dirty) { s.dirty = false; gmGridRefreshNow(); }
     return;
   }
+  // A move INTO Perdido asks why first, in the same step as the lead card. A cell can not skip it.
+  if (ed.key === "estagio" && value === "perdido" && ed.lead.estagio !== "perdido") { gmGridAskReasonForStage(ed); return; }
   gmGridEdit.touch();
   s.saving = true;
   var cell = document.querySelector('#gmGridWrap .gm-grid-c[data-r="' + ed.r + '"][data-ci="' + ed.ci + '"]');
@@ -20274,6 +20346,103 @@ function gmGridFinishEdit(commit, value) {
       gmGridFlash(ed, "gm-grid-refused", res.message || gmT("Alteração recusada.", "Change refused."));
     }
     if (s.dirty && !s.editing) { s.dirty = false; gmGridScheduleRefresh(); }
+  });
+}
+// ── Reason, pause and finance cells (2026-11-14) ─────────────────────────
+// Who may open which step. The Worker checks the same rules again.
+function gmGridStepEligible(lead, key) {
+  if (key === "lost_reason" || key === "lost_reason_detail") {
+    return lead.estagio === "perdido" ? { ok: true } : { ok: false, pt: "Só um lead perdido tem motivo da perda.", en: "Only a lost lead has a lost reason." };
+  }
+  if (key === "paused_until") {
+    return (lead.estagio === "fechado" || lead.estagio === "perdido")
+      ? { ok: false, pt: "Um lead fechado ou perdido não pode ser pausado.", en: "A closed or lost lead can not be paused." } : { ok: true };
+  }
+  return { ok: true };
+}
+// What a finished step does to the sheet: the server's row goes over the old one.
+function gmGridAfterSave(ed, serverLead) {
+  gmGrid.editing = null;
+  var merged = gmGridMergeServerLead(ed.lead, serverLead);
+  if (serverLead) { gmLeadComputed(merged); }
+  ((gmLeadsData && gmLeadsData.leads) || []).forEach(function(l, i) { if (l.id === merged.id) { gmLeadsData.leads[i] = merged; } });
+  ed.lead = merged;
+  gmGridEdit.touch();
+  gmGridApply();
+  gmGridFlash(ed, "gm-grid-flash", null);
+  gmGridScheduleRefresh();
+}
+// One save for a step. A refusal rejects with the route's own words so the step stays open.
+function gmGridStepSave(ed, body) {
+  var deps = { api: gmApi, track: gmGridTrack, isEn: isEn() };
+  return deps.api("leads/" + ed.lead.id, { method: "PUT", body: body }).then(function(d) {
+    gmGridTrack("cell_saved", { column_key: ed.key, lead_id: ed.lead.id, detail: gmGridDetail.OK });
+    gmGridAfterSave(ed, d && d.lead ? d.lead : null);
+  }, function(err) {
+    gmGridTrack("cell_refused", { column_key: ed.key, lead_id: ed.lead.id, detail: gmGridDetail.REFUSED });
+    throw err;
+  });
+}
+function gmGridStepCancel(ed) {
+  gmGrid.editing = null;
+  gmGridTrack("cell_edit_cancelled", { column_key: ed.key, lead_id: ed.lead.id });
+  gmGridPaintRows();
+  if (gmGrid.dirty) { gmGrid.dirty = false; gmGridRefreshNow(); }
+}
+function gmGridStepEdit(e, col, ci, how) {
+  var s = gmGrid, lead = e.lead;
+  var ed = { r: e.r, ci: ci, fi: e.fi, key: col.key, lead: lead, kind: "step", start: "", el: null };
+  var ok = gmGridStepEligible(lead, col.key);
+  if (!ok.ok) {
+    gmGridTrack("cell_refused", { column_key: col.key, lead_id: lead.id, detail: gmGridDetail.REFUSED });
+    gmGridFlash(ed, "gm-grid-refused", gmT(ok.pt, ok.en));
+    return;
+  }
+  s.editing = ed;
+  gmGridTrack("cell_edit_started", { column_key: col.key, lead_id: lead.id, detail: gmGridDetail.how(how) });
+  var cancel = function() { gmGridStepCancel(ed); };
+  if (col.step === "reason") {
+    gmLostFlowOpen({
+      lead: lead, edit: true, allowPause: false, reason: lead.lost_reason || "",
+      detail: lead.lost_reason && lead.lost_reason !== "other" ? (lead.lost_reason_detail || "") : "",
+      onSave: function(payload) { return gmGridStepSave(ed, payload); }, onCancel: cancel
+    });
+  } else if (col.step === "pause") {
+    gmPauseFlowOpen({
+      lead: lead,
+      onPause: function(payload) { return gmGridStepSave(ed, payload); },
+      onEnd: function() { return gmGridStepSave(ed, { pause_end_now: true }); },
+      onCancel: cancel
+    });
+  } else {
+    gmFinanceOpen({
+      lead: lead,
+      onSave: function(status, text) {
+        var body = { finance_status: status };
+        if (status === "other") { body.finance_status_other = text; }
+        return gmGridStepSave(ed, body);
+      },
+      onCancel: cancel
+    });
+  }
+}
+// The stage cell set to Perdido: the move waits for the reason (or for Pause instead).
+function gmGridAskReasonForStage(ed) {
+  var s = gmGrid;
+  ed.kind = "step";
+  s.editing = ed;
+  var deps = { api: gmApi, track: gmGridTrack, ctx: s.ctx, isEn: isEn() };
+  gmLostFlowOpen({
+    lead: ed.lead, edit: false, allowPause: true,
+    onSave: function(payload) {
+      return gmGridCommitCell(deps, ed.lead, "estagio", "perdido", payload).then(function(res) {
+        if (!res.ok) { throw new Error(res.message || ""); }
+        gmGrid.editing = null;
+        gmGridAfterSave(ed, res.lead);
+      });
+    },
+    onPause: function(payload) { return gmGridStepSave(ed, payload).then(function() { gmGrid.editing = null; }); },
+    onCancel: function() { gmGridStepCancel(ed); }
   });
 }
 function gmGridFlash(ed, cls, text) {
@@ -20307,3 +20476,667 @@ function gmGridRefreshNow() {
   }).catch(function() { return null; });
 }
 // ==== LEADS GRID UI END ====
+
+// ============================================================================
+// LEAD LOST REASON, PAUSED and FINANCE STATUS (2026-11-14)
+//
+// Why: the reasons leads did not go forward were only in free text notes. A
+// lead now carries a real reason, a Paused state and a finance status, so the
+// pipeline can show why leads are lost and which leads cannot be worked today.
+// The columns are filled ONLY by a person, through the screens below. Nothing
+// here reads, changes or deletes the notes (observacao, proxima_acao, notes).
+//
+// The reasons are worded the way customers SAY them, on purpose: sellers are
+// not trained to name a root cause. A later build maps each phrase to a root
+// cause on the back end. Do not rename, merge or reorder them. The first eight
+// are the contact log's own objections (GM_OBJECTIONS, untouched), with the same
+// order and the same Portuguese. The Worker holds the same keys
+// (GM_LEAD_LOST_REASONS); scripts/test-lead-reason-lists.mjs proves they match.
+//
+// "Other" is NOT in the picker. It sits behind a second step on purpose:
+// no shortcut, no default, no remembered choice.
+//
+// Two blocks follow, each between markers so the tests load the real code:
+//   LEAD REASON LOGIC: lists and pure functions, no DOM.
+//   LEAD REASON UI: the steps (sheets, never a browser pop-up), the banner.
+// ============================================================================
+
+// ==== LEAD REASON LOGIC BEGIN ====
+var GM_LOST_REASONS = [
+  { key: "too_expensive",        pt: "Muito caro",                     en: "Too expensive" },
+  { key: "others_cheaper",       pt: "Os outros são mais baratos",     en: "The other guys are cheaper" },
+  { key: "cant_afford",          pt: "Não tem como pagar",             en: "Can't afford it" },
+  { key: "need_to_think",        pt: "Preciso pensar",                 en: "Need to think about it" },
+  { key: "need_to_talk",         pt: "Preciso falar com alguém",       en: "Need to talk to someone" },
+  { key: "getting_quotes",       pt: "Pegando outros orçamentos",      en: "Getting other quotes" },
+  { key: "already_have_someone", pt: "Já tem alguém",                  en: "Already have someone" },
+  { key: "dont_need_it",         pt: "Não precisamos",                 en: "We don't need it" },
+  { key: "no_response",          pt: "Sem resposta",                   en: "No response" },
+  { key: "out_of_state",         pt: "Fora do estado",                 en: "Out of state" },
+  { key: "out_of_scope",         pt: "Fora do escopo",                 en: "Out of scope" },
+  { key: "other",                pt: "Outro",                          en: "Other" }
+];
+
+// The 50 states and DC. The Worker validates the code against its own list.
+var GM_US_STATES = [
+  { code: "AL", en: "Alabama", pt: "Alabama" }, { code: "AK", en: "Alaska", pt: "Alasca" },
+  { code: "AZ", en: "Arizona", pt: "Arizona" }, { code: "AR", en: "Arkansas", pt: "Arkansas" },
+  { code: "CA", en: "California", pt: "Califórnia" }, { code: "CO", en: "Colorado", pt: "Colorado" },
+  { code: "CT", en: "Connecticut", pt: "Connecticut" }, { code: "DE", en: "Delaware", pt: "Delaware" },
+  { code: "DC", en: "District of Columbia", pt: "Distrito de Colúmbia" }, { code: "FL", en: "Florida", pt: "Flórida" },
+  { code: "GA", en: "Georgia", pt: "Geórgia" }, { code: "HI", en: "Hawaii", pt: "Havaí" },
+  { code: "ID", en: "Idaho", pt: "Idaho" }, { code: "IL", en: "Illinois", pt: "Illinois" },
+  { code: "IN", en: "Indiana", pt: "Indiana" }, { code: "IA", en: "Iowa", pt: "Iowa" },
+  { code: "KS", en: "Kansas", pt: "Kansas" }, { code: "KY", en: "Kentucky", pt: "Kentucky" },
+  { code: "LA", en: "Louisiana", pt: "Luisiana" }, { code: "ME", en: "Maine", pt: "Maine" },
+  { code: "MD", en: "Maryland", pt: "Maryland" }, { code: "MA", en: "Massachusetts", pt: "Massachusetts" },
+  { code: "MI", en: "Michigan", pt: "Michigan" }, { code: "MN", en: "Minnesota", pt: "Minnesota" },
+  { code: "MS", en: "Mississippi", pt: "Mississippi" }, { code: "MO", en: "Missouri", pt: "Missouri" },
+  { code: "MT", en: "Montana", pt: "Montana" }, { code: "NE", en: "Nebraska", pt: "Nebraska" },
+  { code: "NV", en: "Nevada", pt: "Nevada" }, { code: "NH", en: "New Hampshire", pt: "Nova Hampshire" },
+  { code: "NJ", en: "New Jersey", pt: "Nova Jersey" }, { code: "NM", en: "New Mexico", pt: "Novo México" },
+  { code: "NY", en: "New York", pt: "Nova York" }, { code: "NC", en: "North Carolina", pt: "Carolina do Norte" },
+  { code: "ND", en: "North Dakota", pt: "Dakota do Norte" }, { code: "OH", en: "Ohio", pt: "Ohio" },
+  { code: "OK", en: "Oklahoma", pt: "Oklahoma" }, { code: "OR", en: "Oregon", pt: "Oregon" },
+  { code: "PA", en: "Pennsylvania", pt: "Pensilvânia" }, { code: "RI", en: "Rhode Island", pt: "Rhode Island" },
+  { code: "SC", en: "South Carolina", pt: "Carolina do Sul" }, { code: "SD", en: "South Dakota", pt: "Dakota do Sul" },
+  { code: "TN", en: "Tennessee", pt: "Tennessee" }, { code: "TX", en: "Texas", pt: "Texas" },
+  { code: "UT", en: "Utah", pt: "Utah" }, { code: "VT", en: "Vermont", pt: "Vermont" },
+  { code: "VA", en: "Virginia", pt: "Virgínia" }, { code: "WA", en: "Washington", pt: "Washington" },
+  { code: "WV", en: "West Virginia", pt: "Virgínia Ocidental" }, { code: "WI", en: "Wisconsin", pt: "Wisconsin" },
+  { code: "WY", en: "Wyoming", pt: "Wyoming" }
+];
+
+var GM_FINANCE_STATUSES = [
+  { key: "not_needed",      pt: "Não precisa ou à vista",  en: "Not needed or cash" },
+  { key: "not_applied",     pt: "Não solicitado",          en: "Not applied" },
+  { key: "applied_waiting", pt: "Solicitado e aguardando", en: "Applied and waiting" },
+  { key: "approved",        pt: "Aprovado",                en: "Approved" },
+  { key: "not_approved",    pt: "Não aprovado",            en: "Not approved" },
+  { key: "other",           pt: "Outro",                   en: "Other" }
+];
+
+function gmLostReasonLabel(key) {
+  for (var i = 0; i < GM_LOST_REASONS.length; i++) {
+    if (GM_LOST_REASONS[i].key === key) { return gmT(GM_LOST_REASONS[i].pt, GM_LOST_REASONS[i].en); }
+  }
+  return key ? String(key) : "";
+}
+function gmStateName(code) {
+  for (var i = 0; i < GM_US_STATES.length; i++) {
+    if (GM_US_STATES[i].code === code) { return gmT(GM_US_STATES[i].pt, GM_US_STATES[i].en); }
+  }
+  return code ? String(code) : "";
+}
+function gmFinanceLabel(key) {
+  for (var i = 0; i < GM_FINANCE_STATUSES.length; i++) {
+    if (GM_FINANCE_STATUSES[i].key === key) { return gmT(GM_FINANCE_STATUSES[i].pt, GM_FINANCE_STATUSES[i].en); }
+  }
+  return key ? String(key) : "";
+}
+
+// A lead is paused NOW when paused_until is set and today (the client's own
+// local date, YYYY-MM-DD) is before it. Worked out on every read: nothing runs
+// on the date, the lead simply comes back. Never the UTC date.
+function gmLeadPausedNow(lead, todayLocal) {
+  var u = lead && lead.paused_until;
+  return typeof u === "string" && u !== "" && todayLocal < u;
+}
+
+// For the next build ("leads to call today"). Not used by any screen yet.
+function leadIsWorkableToday(lead, todayLocal) {
+  if (!lead) { return false; }
+  if (lead.estagio === "fechado" || lead.estagio === "perdido") { return false; }
+  if (gmLeadPausedNow(lead, todayLocal)) { return false; }
+  if (lead.finance_status === "applied_waiting") { return false; }
+  return true;
+}
+
+function gmCalP2(n) { return (n < 10 ? "0" : "") + n; }
+// Calendar arithmetic on a YYYY-MM-DD text: whole days, never a millisecond step.
+function gmCalAddDays(s, n) {
+  var dt = new Date(Date.UTC(Number(s.slice(0, 4)), Number(s.slice(5, 7)) - 1, Number(s.slice(8, 10)) + n));
+  return dt.getUTCFullYear() + "-" + gmCalP2(dt.getUTCMonth() + 1) + "-" + gmCalP2(dt.getUTCDate());
+}
+// The first day a pause may end on: tomorrow. The last: 24 months from today.
+function gmPauseMin(today) { return gmCalAddDays(today, 1); }
+function gmPauseMax(today) {
+  var y = Number(today.slice(0, 4)) + 2, m = Number(today.slice(5, 7)), d = Number(today.slice(8, 10));
+  var last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return y + "-" + gmCalP2(m) + "-" + gmCalP2(Math.min(d, last));
+}
+
+// What is wrong with the answer, or null. Same rules as the Worker, so the
+// button stays off until the server would accept it.
+function gmLostReasonProblem(reason, detail) {
+  var known = false;
+  GM_LOST_REASONS.forEach(function(r) { if (r.key === reason) { known = true; } });
+  if (!known) { return { pt: "Escolha um motivo.", en: "Choose a reason." }; }
+  var d = typeof detail === "string" ? detail : "";
+  if (reason === "out_of_state") {
+    var found = false;
+    GM_US_STATES.forEach(function(s) { if (s.code === d) { found = true; } });
+    return found ? null : { pt: "Escolha o estado.", en: "Choose the state." };
+  }
+  var t = d.trim();
+  if (reason === "out_of_scope") {
+    return (t.length >= 1 && t.length <= 80) ? null : { pt: "Diga qual era o escopo, até 80 letras.", en: "Say what the scope was, up to 80 characters." };
+  }
+  if (reason === "other") {
+    return (t.length >= 20 && t.length <= 300) ? null : { pt: "Escreva de 20 a 300 letras.", en: "Write 20 to 300 characters." };
+  }
+  return null;
+}
+function gmPauseProblem(date, why, today) {
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { return { pt: "Escolha a data.", en: "Choose the date." }; }
+  if (date < gmPauseMin(today)) { return { pt: "A data precisa ser depois de hoje.", en: "The date must be after today." }; }
+  if (date > gmPauseMax(today)) { return { pt: "A data passa de 24 meses.", en: "The date is more than 24 months ahead." }; }
+  var t = typeof why === "string" ? why.trim() : "";
+  if (t.length < 3 || t.length > 160) { return { pt: "Escreva o motivo, de 3 a 160 letras.", en: "Write the reason, 3 to 160 characters." }; }
+  return null;
+}
+function gmFinanceProblem(status, text) {
+  var known = false;
+  GM_FINANCE_STATUSES.forEach(function(s) { if (s.key === status) { known = true; } });
+  if (!known) { return { pt: "Escolha um status.", en: "Choose a status." }; }
+  if (status === "other") {
+    var t = typeof text === "string" ? text.trim() : "";
+    if (t.length < 3 || t.length > 120) { return { pt: "Escreva de 3 a 120 letras.", en: "Write 3 to 120 characters." }; }
+  }
+  return null;
+}
+// ==== LEAD REASON LOGIC END ====
+
+// ==== LEAD REASON UI BEGIN ====
+// The one open flow. step: pick | confirm | other | pause. Every answer goes
+// through a callback the caller gives (the lead card or a grid cell), and those
+// callbacks use the existing lead route, so a cell edit can never set a reason
+// or a pause without the step that asks.
+var gmLf = null;
+
+function gmLfTrack(action, colKey) {
+  try {
+    if (gmLf && typeof gmGridActive !== "undefined" && gmGridActive && typeof gmGridTrack === "function") {
+      gmGridTrack(action, { column_key: colKey || "lost_reason", lead_id: gmLf.lead.id });
+    }
+  } catch (e) { return null; }   // tracking must never break the step
+  return null;
+}
+
+function gmLfTitle(f) {
+  if (f.step === "confirm") { return gmT("Nenhum motivo se encaixa?", "None of these fit?"); }
+  if (f.step === "other") { return gmT("O que aconteceu", "What happened"); }
+  if (f.step === "pause") { return gmT("Pausar este lead", "Pause this lead"); }
+  return f.edit ? gmT("Motivo da perda", "Lost reason") : gmT("Por que este lead foi perdido?", "Why was this lead lost?");
+}
+
+// o: { lead, startStep: "pick" | "pause", edit, allowPause, reason, detail, onSave(payload), onPause(payload), onEnd(), onCancel() }
+// onSave / onPause / onEnd return a promise. A refusal keeps the step open.
+function gmFlowOpen(o) {
+  var lead = o.lead;
+  gmLf = {
+    lead: lead, step: o.startStep || "pick", edit: !!o.edit, allowPause: o.allowPause !== false,
+    reason: o.reason || "", detail: o.detail || "", other: "", pDate: "", pWhy: "", fromLost: false,
+    onSave: o.onSave, onPause: o.onPause, onEnd: o.onEnd, onCancel: o.onCancel, busy: false, sheet: null
+  };
+  gmSheetOpen(escHtml(gmLfTitle(gmLf)), '<div id="gmLfBody"></div>', "gm-lost-reason");
+  gmLf.sheet = gmSheetEl;
+  gmSheetOnUserClose = function() {
+    var f = gmLf;
+    gmLf = null;
+    if (f && f.onCancel) { f.onCancel(); }
+  };
+  gmLfRender();
+}
+function gmLostFlowOpen(o) { o.startStep = "pick"; gmFlowOpen(o); }
+function gmPauseFlowOpen(o) { o.startStep = "pause"; gmFlowOpen(o); }
+
+function gmLfFinish() {
+  var f = gmLf;
+  gmLf = null;
+  // The caller may already have drawn another sheet over this one.
+  if (f && f.sheet && gmSheetEl === f.sheet) { gmSheetOnUserClose = null; gmSheetClose(); }
+}
+
+function gmLfShowMsg(text) {
+  var el = document.getElementById("gmLfMsg");
+  if (!el) { return; }
+  el.textContent = text || "";
+  el.hidden = !text;
+}
+
+function gmLfRender() {
+  var f = gmLf;
+  if (!f) { return; }
+  var host = document.getElementById("gmLfBody");
+  if (!host) { return; }
+  var titleEl = gmSheetEl ? gmSheetEl.querySelector(".gm-sheet-title") : null;
+  if (titleEl) { titleEl.textContent = gmLfTitle(f); }
+  var h;
+  if (f.step === "confirm") { h = gmLfConfirmHtml(f); }
+  else if (f.step === "other") { h = gmLfOtherHtml(f); }
+  else if (f.step === "pause") { h = gmLfPauseHtml(f); }
+  else { h = gmLfPickHtml(f); }
+  host.innerHTML = h;
+  gmLfSync();
+}
+
+function gmLfNoteHtml(text) {
+  return '<div class="gm-lr-note" role="note"><span class="gm-lr-note-ico">' + gmIcon("clock") + '</span><span>' + escHtml(text) + '</span></div>';
+}
+
+function gmLfReasonButtons(f, selectedKey, fn) {
+  var h = '<div class="gm-lr-list" role="radiogroup" aria-label="' + escHtml(gmT("Motivos", "Reasons")) + '">';
+  GM_LOST_REASONS.forEach(function(r) {
+    if (r.key === "other") { return; }
+    var on = selectedKey === r.key;
+    h += '<button type="button" class="gm-lr-opt' + (on ? " gm-lr-on" : "") + '" role="radio" aria-checked="' + (on ? "true" : "false") + '" onclick="' + fn + '(\'' + r.key + '\')">' +
+      escHtml(gmT(r.pt, r.en)) + '</button>';
+    if (on && fn === "gmLfPick") { h += gmLfDetailHtml(f, r.key); }
+  });
+  return h + '</div>';
+}
+
+// The extra answer two reasons need, right under the chosen reason.
+function gmLfDetailHtml(f, key) {
+  var h = "";
+  if (key === "out_of_state") {
+    h += '<div class="gm-lr-detail"><label class="gm-lr-lab" for="gmLfState">' + escHtml(gmT("Em qual estado o cliente está?", "Which state is the customer in?")) + '</label>' +
+      '<select id="gmLfState" class="gm-lr-in" onchange="gmLfSetDetail(this.value)"><option value="">' + escHtml(gmT("Escolha o estado", "Choose a state")) + '</option>';
+    GM_US_STATES.forEach(function(s) {
+      h += '<option value="' + s.code + '"' + (f.detail === s.code ? " selected" : "") + '>' + escHtml(gmT(s.pt, s.en)) + '</option>';
+    });
+    h += '</select>';
+  } else if (key === "out_of_scope") {
+    var services = ((gmConfig && gmConfig.config && gmConfig.config.servicos) || []);
+    h += '<div class="gm-lr-detail"><label class="gm-lr-lab" for="gmLfScope">' + escHtml(gmT("Qual era o escopo?", "What was the scope?")) + '</label>' +
+      '<input type="text" id="gmLfScope" class="gm-lr-in" maxlength="80" autocomplete="off" list="gmLfScopeList" value="' + escHtml(f.detail) + '" oninput="gmLfSetDetail(this.value)">' +
+      '<datalist id="gmLfScopeList">';
+    services.forEach(function(sv) { h += '<option value="' + escHtml(String(sv)) + '"></option>'; });
+    h += '</datalist>';
+  } else {
+    return "";
+  }
+  return h + gmLfNoteHtml(gmT("Salvo para você encontrar esses leads por estado ou por escopo mais tarde, se o seu negócio crescer.",
+    "Saved so you can find these leads by state or by scope later if your business expands.")) + '</div>';
+}
+
+function gmLfPickHtml(f) {
+  var h = '<p class="gm-lr-who">' + escHtml(f.lead.cliente || "") + '</p>' + gmLfReasonButtons(f, f.reason, "gmLfPick");
+  h += '<button type="button" class="gm-lr-link" onclick="gmLfToConfirm()">' + escHtml(gmT("Nenhum se encaixa", "None of these fit")) + '</button>';
+  h += '<p class="gm-warn" id="gmLfMsg" hidden></p>';
+  h += '<div class="gm-lr-actions"><button type="button" class="gm-btn-primary" id="gmLfSave" onclick="gmLfSave()" disabled>' + escHtml(gmT("Salvar", "Save")) + '</button>';
+  if (f.allowPause) {
+    h += '<button type="button" class="gm-btn-secondary" onclick="gmLfToPause()">' + escHtml(gmT("Pausar em vez de perder", "Pause instead")) + '</button>';
+  }
+  return h + '</div>';
+}
+
+// The step before the free text. The reasons show again, and going back is the
+// big, filled button; saying none fit is the small one.
+function gmLfConfirmHtml(f) {
+  return '<p class="gm-lr-ask">' + escHtml(gmT("Esses motivos realmente não explicam o que aconteceu?", "Do these reasons really not fit what happened?")) + '</p>' +
+    gmLfReasonButtons(f, "", "gmLfBackWith") +
+    gmLfNoteHtml(gmT("Os motivos da lista deixam o Apex sugerir o que fazer depois. Outro não deixa.", "Reasons from the list let Apex suggest what to do next. Other cannot.")) +
+    '<div class="gm-lr-actions"><button type="button" class="gm-btn-primary" onclick="gmLfBack()">' + escHtml(gmT("Voltar", "Go back")) + '</button>' +
+    '<button type="button" class="gm-lr-small" onclick="gmLfToOther()">' + escHtml(gmT("Sim, nenhum se encaixa", "Yes, none of them fit")) + '</button></div>';
+}
+
+function gmLfOtherHtml(f) {
+  return '<label class="gm-lr-lab" for="gmLfOther">' + escHtml(gmT("O que realmente aconteceu, com suas palavras. Não cole o que o cliente disse.",
+    "What actually happened, in your own words. Do not paste what the customer said.")) + '</label>' +
+    '<textarea id="gmLfOther" class="gm-lr-in gm-lr-area" rows="5" maxlength="300" oninput="gmLfSetOther(this.value)"></textarea>' +
+    '<div class="gm-lr-count" id="gmLfCount">0 / 300</div>' +
+    gmLfNoteHtml(gmT("Os motivos da lista deixam o Apex sugerir o que fazer depois. Outro não deixa.", "Reasons from the list let Apex suggest what to do next. Other cannot.")) +
+    '<p class="gm-warn" id="gmLfMsg" hidden></p>' +
+    '<div class="gm-lr-actions"><button type="button" class="gm-btn-primary" id="gmLfSave" onclick="gmLfSave()" disabled>' + escHtml(gmT("Salvar", "Save")) + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmLfBack()">' + escHtml(gmT("Voltar", "Go back")) + '</button></div>';
+}
+
+function gmLfPauseHtml(f) {
+  var today = gmTodayLocal();
+  var paused = gmLeadPausedNow(f.lead, today);
+  var h = '<p class="gm-lr-who">' + escHtml(f.lead.cliente || "") + '</p>' +
+    '<label class="gm-lr-lab" for="gmPfDate">' + escHtml(gmT("Pausar até", "Pause until")) + '</label>' +
+    '<input type="date" id="gmPfDate" class="gm-lr-in" min="' + gmPauseMin(today) + '" max="' + gmPauseMax(today) + '" value="' + escHtml(f.pDate) + '" oninput="gmPfSet()" onchange="gmPfSet()">' +
+    '<label class="gm-lr-lab" for="gmPfWhy">' + escHtml(gmT("Por que este lead está pausado?", "Why is this lead paused?")) + '</label>' +
+    '<textarea id="gmPfWhy" class="gm-lr-in gm-lr-area" rows="3" maxlength="160" oninput="gmPfSet()">' + escHtml(f.pWhy) + '</textarea>' +
+    '<div class="gm-lr-count" id="gmPfCount">0 / 160</div>' +
+    '<p class="gm-warn" id="gmLfMsg" hidden></p>' +
+    '<div class="gm-lr-actions"><button type="button" class="gm-btn-primary" id="gmLfSave" onclick="gmPfSave()" disabled>' + escHtml(gmT("Salvar pausa", "Save pause")) + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="' + (f.fromLost ? "gmLfBack()" : "gmSheetClose()") + '">' +
+      escHtml(f.fromLost ? gmT("Voltar", "Go back") : gmT("Cancelar", "Cancel")) + '</button></div>';
+  if (paused && f.onEnd) {
+    h += '<button type="button" class="gm-lr-link" onclick="gmPfEnd()">' + escHtml(gmT("Encerrar a pausa agora", "End the pause now")) + '</button>';
+  }
+  return h;
+}
+
+// Keeps the Save button honest: on only when the Worker would accept it.
+function gmLfSync() {
+  var f = gmLf;
+  if (!f) { return; }
+  var btn = document.getElementById("gmLfSave");
+  var bad = null;
+  if (f.step === "pick") { bad = gmLostReasonProblem(f.reason, f.detail); }
+  else if (f.step === "other") { bad = gmLostReasonProblem("other", f.other); }
+  else if (f.step === "pause") { bad = gmPauseProblem(f.pDate, f.pWhy, gmTodayLocal()); }
+  if (btn) { btn.disabled = !!bad || f.busy; }
+  var c = document.getElementById("gmLfCount");
+  if (c) { c.textContent = (f.other || "").trim().length + " / 300"; }
+  var pc = document.getElementById("gmPfCount");
+  if (pc) { pc.textContent = (f.pWhy || "").trim().length + " / 160"; }
+}
+
+function gmLfPick(key) { if (!gmLf) { return; } gmLf.reason = key; gmLf.detail = ""; gmLfShowMsg(""); gmLfRender(); }
+function gmLfSetDetail(v) { if (!gmLf) { return; } gmLf.detail = v; gmLfSync(); }
+function gmLfSetOther(v) { if (!gmLf) { return; } gmLf.other = v; gmLfSync(); }
+function gmPfSet() {
+  if (!gmLf) { return; }
+  var d = document.getElementById("gmPfDate"), w = document.getElementById("gmPfWhy");
+  gmLf.pDate = d ? d.value : "";
+  gmLf.pWhy = w ? w.value : "";
+  gmLfSync();
+}
+function gmLfToConfirm() { if (!gmLf) { return; } gmLf.step = "confirm"; gmLfTrack("other_step_opened"); gmLfRender(); }
+function gmLfBack() {
+  if (!gmLf) { return; }
+  if (gmLf.step === "confirm") { gmLfTrack("other_step_go_back"); }
+  gmLf.step = "pick"; gmLf.other = ""; gmLf.fromLost = false;
+  gmLfRender();
+}
+// A reason tapped on the second look goes back to the list with it chosen.
+function gmLfBackWith(key) { if (!gmLf) { return; } gmLfTrack("other_step_go_back"); gmLf.step = "pick"; gmLf.reason = key; gmLf.detail = ""; gmLfRender(); }
+function gmLfToOther() { if (!gmLf) { return; } gmLf.step = "other"; gmLf.other = ""; gmLfRender(); }
+function gmLfToPause() { if (!gmLf) { return; } gmLf.step = "pause"; gmLf.fromLost = true; gmLfRender(); }
+
+function gmLfRun(promiseFn, trackAction, trackCol) {
+  var f = gmLf;
+  if (!f || f.busy) { return; }
+  f.busy = true;
+  gmLfShowMsg("");
+  gmLfSync();
+  var p;
+  try { p = promiseFn(); } catch (e) { p = Promise.reject(e); }
+  Promise.resolve(p).then(function() {
+    gmLfTrack(trackAction, trackCol);
+    gmLfFinish();
+  }, function(e) {
+    f.busy = false;
+    gmLfShowMsg((e && e.message) || gmT("Não foi possível salvar.", "Could not save."));
+    gmLfSync();
+  });
+}
+
+function gmLfSave() {
+  var f = gmLf;
+  if (!f) { return; }
+  var reason = f.step === "other" ? "other" : f.reason;
+  var detail = f.step === "other" ? f.other.trim() : (f.detail || "").trim();
+  if (gmLostReasonProblem(reason, f.step === "other" ? detail : f.detail)) { return; }
+  var payload = { lost_reason: reason };
+  if (reason === "out_of_state") { payload.lost_reason_detail = f.detail; }
+  else if (reason === "out_of_scope" || reason === "other") { payload.lost_reason_detail = detail; }
+  gmLfRun(function() { return f.onSave(payload); }, reason === "other" ? "other_saved" : "reason_set", "lost_reason");
+}
+function gmPfSave() {
+  var f = gmLf;
+  if (!f || gmPauseProblem(f.pDate, f.pWhy, gmTodayLocal())) { return; }
+  var payload = { paused_until: f.pDate, paused_reason: f.pWhy.trim() };
+  gmLfRun(function() { return f.onPause(payload); }, "pause_set", "paused_until");
+}
+function gmPfEnd() {
+  var f = gmLf;
+  if (!f || !f.onEnd) { return; }
+  gmLfRun(function() { return f.onEnd(); }, "pause_ended_early", "paused_until");
+}
+
+// ── Finance status picker ────────────────────────────────────────────────
+var gmFin = null;
+function gmFinanceOpen(o) {
+  gmFin = { lead: o.lead, pick: o.lead.finance_status || "", text: o.lead.finance_status_other || "", onSave: o.onSave, onCancel: o.onCancel, busy: false, sheet: null };
+  gmSheetOpen(escHtml(gmT("Status do financiamento", "Finance status")), '<div id="gmFinBody"></div>', "gm-finance-status");
+  gmFin.sheet = gmSheetEl;
+  gmSheetOnUserClose = function() { var f = gmFin; gmFin = null; if (f && f.onCancel) { f.onCancel(); } };
+  gmFinRender();
+}
+function gmFinHintHtml(key) {
+  if (key !== "not_approved") { return ""; }
+  return '<div class="gm-lr-note" role="note"><span class="gm-lr-note-ico">' + gmIcon("clock") + '</span><span>' +
+    escHtml(gmT("Se você perder este lead, o motivo provavelmente é: ", "If you lose this lead, the reason is probably: ") + gmLostReasonLabel("cant_afford") + ".") + '</span></div>';
+}
+function gmFinRender() {
+  var f = gmFin, host = document.getElementById("gmFinBody");
+  if (!f || !host) { return; }
+  var h = '<p class="gm-lr-who">' + escHtml(f.lead.cliente || "") + '</p><div class="gm-lr-list" role="radiogroup">';
+  GM_FINANCE_STATUSES.forEach(function(s) {
+    var on = f.pick === s.key;
+    h += '<button type="button" class="gm-lr-opt' + (on ? " gm-lr-on" : "") + '" role="radio" aria-checked="' + (on ? "true" : "false") + '" onclick="gmFinPick(\'' + s.key + '\')">' + escHtml(gmT(s.pt, s.en)) + '</button>';
+  });
+  h += '</div>';
+  if (f.pick === "other") {
+    h += '<label class="gm-lr-lab" for="gmFinText">' + escHtml(gmT("Descreva em poucas palavras", "Describe it in a few words")) + '</label>' +
+      '<input type="text" id="gmFinText" class="gm-lr-in" maxlength="120" autocomplete="off" value="' + escHtml(f.text) + '" oninput="gmFinSetText(this.value)">';
+  }
+  h += gmFinHintHtml(f.pick) + '<p class="gm-warn" id="gmFinMsg" hidden></p>' +
+    '<div class="gm-lr-actions"><button type="button" class="gm-btn-primary" id="gmFinSave" onclick="gmFinSave()" disabled>' + escHtml(gmT("Salvar", "Save")) + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmSheetClose()">' + escHtml(gmT("Cancelar", "Cancel")) + '</button></div>';
+  if (f.lead.finance_status) {
+    h += '<button type="button" class="gm-lr-link" onclick="gmFinClear()">' + escHtml(gmT("Limpar o status", "Clear the status")) + '</button>';
+  }
+  host.innerHTML = h;
+  gmFinSync();
+}
+function gmFinSync() {
+  var f = gmFin, btn = document.getElementById("gmFinSave");
+  if (!f || !btn) { return; }
+  btn.disabled = !!gmFinanceProblem(f.pick, f.text) || f.busy;
+}
+function gmFinPick(key) { if (!gmFin) { return; } gmFin.pick = key; gmFinRender(); }
+function gmFinSetText(v) { if (!gmFin) { return; } gmFin.text = v; gmFinSync(); }
+function gmFinRun(status, text) {
+  var f = gmFin;
+  if (!f || f.busy) { return; }
+  f.busy = true;
+  gmFinSync();
+  var p;
+  try { p = f.onSave(status, text); } catch (e) { p = Promise.reject(e); }
+  Promise.resolve(p).then(function() {
+    try {
+      if (typeof gmGridActive !== "undefined" && gmGridActive && typeof gmGridTrack === "function") { gmGridTrack("finance_set", { column_key: "finance_status", lead_id: f.lead.id }); }
+    } catch (e) { /* tracking must never break the picker */ }
+    gmFin = null;
+    if (f.sheet && gmSheetEl === f.sheet) { gmSheetOnUserClose = null; gmSheetClose(); }
+  }, function(e) {
+    f.busy = false;
+    var m = document.getElementById("gmFinMsg");
+    if (m) { m.textContent = (e && e.message) || gmT("Não foi possível salvar.", "Could not save."); m.hidden = false; }
+    gmFinSync();
+  });
+}
+function gmFinSave() {
+  var f = gmFin;
+  if (!f || gmFinanceProblem(f.pick, f.text)) { return; }
+  gmFinRun(f.pick, f.pick === "other" ? f.text.trim() : null);
+}
+function gmFinClear() { gmFinRun(null, null); }
+
+// ── On the lead card ─────────────────────────────────────────────────────
+function gmDayLabel(iso) {
+  if (!iso) { return ""; }
+  var d = String(iso).slice(0, 10);
+  return typeof formatDate === "function" ? formatDate(d) : d;
+}
+
+// The note at the TOP of the lead: shown while a pause exists and nobody has
+// cleared it. It stays after the return date until someone clears it.
+function gmPauseBannerHtml(lead) {
+  if (!lead || !lead.paused_at || lead.pause_banner_cleared_at) { return ""; }
+  var today = gmTodayLocal();
+  var now = gmLeadPausedNow(lead, today);
+  var rows = '<div class="gm-pb-row"><span class="gm-pb-k">' + escHtml(gmT("Pausado desde", "Paused since")) + '</span><span class="gm-pb-v">' + escHtml(gmDayLabel(lead.paused_at)) + '</span></div>' +
+    '<div class="gm-pb-row"><span class="gm-pb-k">' + escHtml(gmT("Motivo", "Reason")) + '</span><span class="gm-pb-v">' + escHtml(lead.paused_reason || "") + '</span></div>';
+  if (now) {
+    rows += '<div class="gm-pb-row"><span class="gm-pb-k">' + escHtml(gmT("Volta em", "Comes back on")) + '</span><span class="gm-pb-v">' + escHtml(gmDayLabel(lead.paused_until)) + '</span></div>';
+  } else {
+    rows += '<div class="gm-pb-row gm-pb-follow"><span class="gm-pb-v">' + escHtml(gmT("A pausa terminou em ", "Pause ended on ") + gmDayLabel(lead.paused_until) + ". " + gmT("Faça o acompanhamento agora.", "Follow up now.")) + '</span></div>';
+  }
+  return '<div class="gm-pb" role="status" data-tour="crm-pause-banner">' +
+    '<div class="gm-pb-head"><span class="gm-pb-ico">' + gmIcon("clock") + '</span><span class="gm-pb-title">' + escHtml(now ? gmT("Lead pausado", "Lead paused") : gmT("Pausa terminou", "Pause ended")) + '</span></div>' +
+    rows +
+    '<div class="gm-pb-actions"><button type="button" class="gm-btn-secondary" onclick="gmPauseBannerClear()">' + escHtml(gmT("Limpar este aviso", "Clear this note")) + '</button>' +
+    (now ? '<button type="button" class="gm-btn-secondary" onclick="gmPauseEndNow()">' + escHtml(gmT("Encerrar a pausa agora", "End the pause now")) + '</button>' : "") +
+    '</div></div>';
+}
+
+function gmPauseBannerClear() {
+  var lead = gmDetailLead;
+  if (!lead || !lead.id) { return; }
+  gmApi("leads/" + encodeURIComponent(lead.id) + "/pause-banner/clear", { method: "POST" }).then(function(d) {
+    var fresh = d && d.lead ? d.lead : null;
+    ((gmLeadsData && gmLeadsData.leads) || []).concat([lead]).forEach(function(l) {
+      if (l.id === lead.id && fresh) { l.pause_banner_cleared_at = fresh.pause_banner_cleared_at; l.pause_banner_cleared_by = fresh.pause_banner_cleared_by; }
+    });
+    try {
+      if (typeof gmGridActive !== "undefined" && gmGridActive && typeof gmGridTrack === "function") { gmGridTrack("banner_cleared", { column_key: "paused_until", lead_id: lead.id }); }
+    } catch (e) { /* tracking must never break the card */ }
+    gmRenderLeadSheet();
+  }).catch(function(e) { gmToast(e.message); });
+}
+
+// "End the pause now" from the banner: today becomes the return date, the note stays.
+function gmPauseEndNow() {
+  var lead = gmDetailLead;
+  if (!lead) { return; }
+  gmSaveLeadField("pause_end_now", true, function() {
+    try {
+      if (typeof gmGridActive !== "undefined" && gmGridActive && typeof gmGridTrack === "function") { gmGridTrack("pause_ended_early", { column_key: "paused_until", lead_id: lead.id }); }
+    } catch (e) { /* tracking must never break the card */ }
+    gmRenderLeadSheet();
+  });
+}
+
+// A save from the lead card that a step can wait on: the promise ends when the
+// route answers, and a refusal keeps the step open with the route's own words.
+function gmLeadSavePromise(lead, key, value, extra) {
+  return new Promise(function(resolve, reject) {
+    gmSaveLeadField(key, value, function() { resolve(); }, null, lead, extra || null, reject);
+  });
+}
+
+function gmLeadOpenLostFlow(lead, edit) {
+  gmLostFlowOpen({
+    lead: lead, edit: !!edit, allowPause: !edit,
+    reason: edit ? (lead.lost_reason || "") : "", detail: edit && lead.lost_reason !== "other" ? (lead.lost_reason_detail || "") : "",
+    onSave: function(payload) {
+      var extra = {};
+      if (payload.lost_reason_detail !== undefined) { extra.lost_reason_detail = payload.lost_reason_detail; }
+      if (edit) { return gmLeadSavePromise(lead, "lost_reason", payload.lost_reason, extra).then(function() { gmRenderLeadSheet(); }); }
+      return gmLeadSavePromise(lead, "estagio", "perdido", Object.assign({ lost_reason: payload.lost_reason }, extra)).then(function() { gmRenderLeadSheet(); });
+    },
+    onPause: function(payload) {
+      return gmLeadSavePromise(lead, "paused_until", payload.paused_until, { paused_reason: payload.paused_reason }).then(function() { gmRenderLeadSheet(); });
+    },
+    onCancel: function() { gmRenderLeadSheet(); }
+  });
+}
+
+function gmLeadOpenPause() {
+  var lead = gmDetailLead;
+  if (!lead) { return; }
+  gmPauseFlowOpen({
+    lead: lead,
+    onPause: function(payload) {
+      return gmLeadSavePromise(lead, "paused_until", payload.paused_until, { paused_reason: payload.paused_reason }).then(function() { gmRenderLeadSheet(); });
+    },
+    onEnd: function() { return gmLeadSavePromise(lead, "pause_end_now", true).then(function() { gmRenderLeadSheet(); }); },
+    onCancel: function() { gmRenderLeadSheet(); }
+  });
+}
+
+function gmLeadOpenFinance() {
+  var lead = gmDetailLead;
+  if (!lead) { return; }
+  gmFinanceOpen({
+    lead: lead,
+    onSave: function(status, text) {
+      return gmLeadSavePromise(lead, "finance_status", status, status === "other" ? { finance_status_other: text } : null).then(function() { gmRenderLeadSheet(); });
+    },
+    onCancel: function() { gmRenderLeadSheet(); }
+  });
+}
+
+function gmLeadOpenLostEdit() {
+  var lead = gmDetailLead;
+  if (lead) { gmLeadOpenLostFlow(lead, true); }
+}
+
+// The three rows on the lead card: lost reason (only for a lost lead), pause, finance.
+function gmLeadStatusSectionHtml(lead) {
+  var rows = "";
+  if (lead.estagio === "perdido") {
+    var why = lead.lost_reason ? gmLostReasonLabel(lead.lost_reason) : "";
+    var sub = "";
+    if (lead.lost_reason === "out_of_state" && lead.lost_reason_detail) { sub = gmStateName(lead.lost_reason_detail); }
+    else if (lead.lost_reason_detail) { sub = lead.lost_reason_detail; }
+    if (!lead.lost_reason && lead.lost_reason_source === "missing_old_app") {
+      sub = gmT("Não registrado: perdido em uma versão antiga do app.", "Not recorded: lost in an older version of the app.");
+    }
+    rows += gmSheetRowHtml("tag", gmT("Motivo da perda", "Lost reason"), why ? escHtml(why) : "", "gmLeadOpenLostEdit()", null, sub ? escHtml(sub) : "");
+  }
+  if (lead.estagio !== "perdido" && lead.estagio !== "fechado") {
+    var now = gmLeadPausedNow(lead, gmTodayLocal());
+    rows += gmSheetRowHtml("clock", gmT("Pausa", "Pause"),
+      now ? escHtml(gmT("Pausado até ", "Paused until ") + gmDayLabel(lead.paused_until)) : escHtml(gmT("Não pausado", "Not paused")),
+      "gmLeadOpenPause()", null, now && lead.paused_reason ? escHtml(lead.paused_reason) : "");
+  }
+  var fin = lead.finance_status ? gmFinanceLabel(lead.finance_status) + (lead.finance_status === "other" && lead.finance_status_other ? ": " + lead.finance_status_other : "") : "";
+  var finSub = "";
+  if (lead.finance_status === "not_approved" && lead.estagio !== "perdido") {
+    finSub = gmT("Se você perder este lead, o motivo provavelmente é: ", "If you lose this lead, the reason is probably: ") + gmLostReasonLabel("cant_afford") + ".";
+  }
+  rows += gmSheetRowHtml("dollar", gmT("Status do financiamento", "Finance status"), fin ? escHtml(fin) : "", "gmLeadOpenFinance()", null, finSub ? escHtml(finSub) : "");
+  return gmSheetSection(gmT("Situação do lead", "Lead status"), rows);
+}
+
+// ── Pipeline lists: the "Show paused" switch and the flags on a row ──────
+var gmShowPaused = true;
+var gmShowPausedFor = null;
+function gmShowPausedKey() { return "apex_gm_show_paused_" + clientId; }
+function gmShowPausedInit() {
+  if (gmShowPausedFor === clientId) { return; }
+  gmShowPausedFor = clientId;
+  var saved = null;
+  try { saved = window.localStorage.getItem(gmShowPausedKey()); } catch (e) { saved = null; }   // storage blocked: the default (shown) is used
+  gmShowPaused = saved !== "0";
+}
+function gmShowPausedSet(on) {
+  gmShowPaused = !!on;
+  try { window.localStorage.setItem(gmShowPausedKey(), gmShowPaused ? "1" : "0"); } catch (e) { return null; }   // storage blocked: it works for this visit only
+  return null;
+}
+function gmLeadMatchesPaused(lead) {
+  gmShowPausedInit();
+  return gmShowPaused || !gmLeadPausedNow(lead, gmTodayLocal());
+}
+function gmShowPausedToggle() {
+  gmShowPausedSet(!gmShowPaused);
+  gmRenderCrm();
+}
+function gmShowPausedSwitchHtml() {
+  gmShowPausedInit();
+  return '<label class="gm-show-paused"><input type="checkbox" ' + (gmShowPaused ? "checked " : "") + 'onchange="gmShowPausedToggle()"><span>' + escHtml(gmT("Mostrar pausados", "Show paused")) + '</span></label>';
+}
+
+// Small pills under the stage pill on a stacked or rail row.
+function gmLeadFlagsHtml(lead) {
+  var h = "";
+  if (gmLeadPausedNow(lead, gmTodayLocal())) {
+    h += '<span class="gm-pill gm-pill-paused">' + escHtml(gmT("Pausado até ", "Paused until ") + gmDayLabel(lead.paused_until)) + '</span>';
+  }
+  if (lead.finance_status === "applied_waiting") {
+    h += '<span class="gm-pill gm-pill-paused">' + escHtml(gmT("Aguardando financiamento", "Waiting on finance")) + '</span>';
+  }
+  return h ? '<div class="gm-lead-flags">' + h + '</div>' : "";
+}
+// ==== LEAD REASON UI END ====

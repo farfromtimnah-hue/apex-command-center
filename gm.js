@@ -19545,10 +19545,17 @@ function gmGridOnClick(e) {
     if (cell.classList.contains("gm-grid-rn")) { gmGridSelectRow(r); }
     else { gmGridSelectCell(r, Number(cell.getAttribute("data-ci")), e.shiftKey); }
     document.getElementById("gmGridScroll").focus({ preventScroll: true });
+    // The click above redraws the rows, so the second click of a double click lands on a NEW element and
+    // the browser sends no dblclick event (seen live, 2026-11-14). The click count is the reliable signal.
+    if (e.detail === 2) { gmGridOnDblClick(e); }
   }
 }
 
+var gmGridDblAt = 0;   // when a double click was last handled, so the click path and the dblclick event never both open it
 function gmGridOnDblClick(e) {
+  var now = Date.now();
+  if (now - gmGridDblAt < 600) { return; }
+  gmGridDblAt = now;
   var t = e.target;
   var rn = t.closest ? t.closest(".gm-grid-rn[data-r]") : null;
   if (rn && !rn.closest(".gm-grid-hrow")) { gmGridOpenLead(Number(rn.getAttribute("data-r")), "mouse"); return; }

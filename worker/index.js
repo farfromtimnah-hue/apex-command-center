@@ -42500,8 +42500,18 @@ async function handlePostGmAbcOrder(id, request, env) {
 async function handleGetGmAbcDiagnose(id, request, env) {
     var secrets = [];
     try {
-        var a = await abcOwnerStart(request, env, id);
-        if (a.err) { return a.err; }
+        // Platform staff may read this one (it only reads); a business owner reads their own.
+        var du = await authenticate(request, env);
+        var staff = !!du && (du.role === "alice" || du.role === "rafa" || du.role === "developer");
+        var a = null;
+        if (staff) {
+            var dcfg = abcSettings(env);
+            if (!dcfg.ready || !abcClientAllowed(dcfg, id) || !(await abcTablesReady(env))) { return abcNotAvailable(); }
+            a = { user: du, cfg: dcfg };
+        } else {
+            a = await abcOwnerStart(request, env, id);
+            if (a.err) { return a.err; }
+        }
         var token = await abcAccessToken(env, a.cfg, id);
         secrets = [token, a.cfg.client_secret];
         var out = { mode: a.cfg.mode, webhooks: { status: 0, list: [] }, orders: [] };

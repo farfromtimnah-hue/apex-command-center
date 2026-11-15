@@ -16639,7 +16639,7 @@ function clientRequestAllowed(path, method, clientId) {
                 // Thumbtack leads (2026-10-27): the owner's connection and phone numbers (owner only: the handler refuses a seller).
                 if (gmRest === "thumbtack/status" || gmRest === "thumbtack/phones") { return true; }
                 // ABC Supply (2026-11-04): the owner's connection, accounts and orders list (owner only: the handler refuses a seller).
-                if (gmRest === "abc/status" || gmRest === "abc/accounts" || gmRest === "abc/orders" || gmRest === "abc/items") { return true; }
+                if (gmRest === "abc/status" || gmRest === "abc/accounts" || gmRest === "abc/orders" || gmRest === "abc/items" || gmRest === "abc/diagnose") { return true; }
                 // Extra material standard, ABC order drafts and saved delivery locations (2026-11-07), owner only (the handlers refuse a seller).
                 if (gmRest === "material-settings" || gmRest === "abc/drafts" || gmRest === "abc/locations" || /^abc\/drafts\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 // Hero follow-up (B3): the client's private hero collections
@@ -42557,6 +42557,53 @@ async function handleGetGmAbcDiagnose(id, request, env) {
                 try { await abcFetchPrices(a.cfg, token, conn1, nums, secrets); out.word.price.whole = { http: 200, ms: Date.now() - t2 }; }
                 catch (e7) { out.word.price.whole = { http: e7 && e7.abcStatus !== undefined ? e7.abcStatus : 0, ms: Date.now() - t2 }; }
             }
+        }
+        var pw = String(new URL(request.url).searchParams.get("pw") || "").trim();
+        if (/^[A-Za-z0-9 ]{3,30}$/.test(pw) && (!staff || id === ABC.test_client)) {
+            var conn2 = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(id).first();
+            out.pw = { q: pw, items: [] };
+            var sr2 = await abcApi(a.cfg, token, "POST", "/api/product/v1/search/items", {
+                filters: [{ key: "itemDescription", condition: "contains", values: [pw], joinCondition: "and" }, { key: "branchNumber", condition: "equals", values: [conn2.branch_number], joinCondition: null }],
+                pagination: { itemsPerPage: ABC.items_max, pageNumber: 1 }
+            }, secrets);
+            var list2 = (sr2.items || []).slice(0, 40);
+            out.pw.search_keys = list2[0] ? Object.keys(list2[0]).slice(0, 30) : [];
+            var rows2 = await Promise.all(list2.map(function(it) {
+                var sh = abcPlShape(it) || {};
+                var t3 = Date.now();
+                var base = { n: it.itemNumber, d: String(it.itemDescription || "").slice(0, 45), status: it.status || null, dim: !!sh.dimensional, inactive: !!sh.inactive };
+                return abcApi(a.cfg, token, "POST", "/api/pricing/v2/prices", {
+                    requestId: crypto.randomUUID(), shipToNumber: conn2.ship_to_number, branchNumber: conn2.branch_number, purpose: "estimating",
+                    lines: [{ id: "1", itemNumber: it.itemNumber, quantity: 1 }]
+                }, secrets).then(function(res) {
+                    var l = res && res.lines && res.lines[0];
+                    base.http = 200; base.ms = Date.now() - t3; base.line = l ? { code: l.status && l.status.code, msg: l.status && String(l.status.message || "").slice(0, 80), price: l.unitPrice, uom: l.uom } : null;
+                    return base;
+                }, function(e8) { base.http = e8 && e8.abcStatus !== undefined ? e8.abcStatus : 0; base.ms = Date.now() - t3; return base; });
+            }));
+            out.pw.items = rows2;
+        }
+        var pv = String(new URL(request.url).searchParams.get("pv") || "").trim();
+        if (/^[A-Za-z0-9]{3,20}$/.test(pv) && (!staff || id === ABC.test_client)) {
+            var conn3 = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(id).first();
+            var trials = [
+                { label: "as Apex sends: estimating, no uom, branch " + conn3.branch_number, purpose: "estimating", branch: conn3.branch_number },
+                { label: "purpose ordering", purpose: "ordering", branch: conn3.branch_number },
+                { label: "purpose quoting", purpose: "quoting", branch: conn3.branch_number },
+                { label: "uom BD", purpose: "estimating", branch: conn3.branch_number, uom: "BD" },
+                { label: "quantity 10", purpose: "estimating", branch: conn3.branch_number, qty: 10 },
+                { label: "branch 30 (stocks it)", purpose: "estimating", branch: "30" },
+                { label: "branch 33 (stocks it)", purpose: "estimating", branch: "33" }
+            ];
+            out.pv = { item: pv, ship_to: conn3.ship_to_number, trials: await Promise.all(trials.map(function(tr) {
+                var line = { id: "1", itemNumber: pv, quantity: tr.qty || 1 };
+                if (tr.uom) { line.uom = tr.uom; }
+                var t4 = Date.now();
+                return abcApi(a.cfg, token, "POST", "/api/pricing/v2/prices", { requestId: crypto.randomUUID(), shipToNumber: conn3.ship_to_number, branchNumber: tr.branch, purpose: tr.purpose, lines: [line] }, secrets).then(function(res) {
+                    var l = res && res.lines && res.lines[0];
+                    return { t: tr.label, http: 200, ms: Date.now() - t4, code: l && l.status && l.status.code, msg: l && l.status && String(l.status.message || "").slice(0, 70), price: l && l.unitPrice, uom: l && l.uom };
+                }, function(e9) { return { t: tr.label, http: e9 && e9.abcStatus !== undefined ? e9.abcStatus : 0, ms: Date.now() - t4 }; });
+            })) };
         }
         var qItem = String(new URL(request.url).searchParams.get("item") || "").trim();
         if (/^[A-Za-z0-9]{3,20}$/.test(qItem)) {

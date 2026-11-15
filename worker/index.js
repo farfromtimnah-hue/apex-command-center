@@ -42542,10 +42542,11 @@ async function handleGetGmAbcDiagnose(id, request, env) {
             for (var v = 0; v < variants.length; v++) {
                 var tr = { label: variants[v].label, http: 0, total: null, first: null };
                 try {
-                    var sr = await abcApi(a.cfg, token, "POST", "/api/product/v1/search/items", { filters: variants[v].filters, pagination: { itemsPerPage: 5, pageNumber: 1 } }, secrets);
+                    var sr = await abcApi(a.cfg, token, "POST", "/api/product/v1/search/items", { filters: variants[v].filters, embed: ["branches"], pagination: { itemsPerPage: 5, pageNumber: 1 } }, secrets);
                     tr.http = 200;
                     tr.total = sr && sr.pagination && typeof sr.pagination.totalItems === "number" ? sr.pagination.totalItems : null;
                     var f0 = sr && Array.isArray(sr.items) ? sr.items[0] : null;
+                    if (f0 && Array.isArray(f0.branches)) { tr.branches = f0.branches.slice(0, 40).map(function(b) { return b && b.number ? String(b.number) : null; }); }
                     tr.first = f0 ? { itemNumber: f0.itemNumber || null, description: String(f0.itemDescription || "").slice(0, 80), status: f0.status || null, hasDimensions: !!(f0.dimensions || f0.length || f0.variations) } : null;
                 } catch (e3) { tr.http = e3 && e3.abcStatus !== undefined ? e3.abcStatus : 0; tr.note = metaScrub(String(e3 && e3.message || ""), secrets).slice(0, 200); }
                 out.item.tries.push(tr);

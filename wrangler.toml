@@ -92,8 +92,13 @@ FIREBASE_PROJECT_ID          = "apex-command-center-4b038"
 # empty and REMINDER_TEXTS_ENABLED empty, no reminder text can ever send
 # (see reminderTextsConfigured in worker/index.js).
 TWILIO_FROM_NUMBER           = ""
-TWILIO_MESSAGING_SERVICE_SID = ""
-REMINDER_TEXTS_ENABLED       = ""
+TWILIO_MESSAGING_SERVICE_SID = "MGc14bc35fd5618ff4e8367767feb67a73"
+REMINDER_TEXTS_ENABLED       = "1"
+# Meeting texts LIVE since 2026-11-15 (Nicole: "turn it on since it's tested end to end").
+# Admin meetings text only when the staff "Send text reminder" box is ticked; booking-link
+# meetings text only when the customer ticked the consent box.
+REMINDER_TEXTS_ADMIN_MEETINGS = "1"
+REMINDER_TEXTS_BOOKING_LINK   = "1"
 # Thumbtack leads (2026-10-27): the credentials are Worker SECRETS
 # (`wrangler secret put`), never set here. Staging: THUMBTACK_STAGING_CLIENT_ID
 # and THUMBTACK_STAGING_CLIENT_SECRET (already set by Nicole). Production:

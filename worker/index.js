@@ -42493,6 +42493,53 @@ async function handlePostGmAbcOrder(id, request, env) {
     }
 }
 
+// GET /api/clients/:id/gm/abc/diagnose   (owner only, read only)
+// Asks ABC what it knows: the webhooks it holds for this application and, for the
+// latest orders, what ABC itself reports. Answers codes, ids, statuses and the
+// registered address with its token hidden. Never a secret or a token.
+async function handleGetGmAbcDiagnose(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcOwnerStart(request, env, id);
+        if (a.err) { return a.err; }
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var out = { mode: a.cfg.mode, webhooks: { status: 0, list: [] }, orders: [] };
+        try {
+            var wl = await abcApi(a.cfg, token, "GET", "/api/notification/v2/webhooks", null, secrets);
+            var arr = Array.isArray(wl) ? wl : (Array.isArray(wl && wl.webhooks) ? wl.webhooks : []);
+            out.webhooks.status = 200;
+            out.webhooks.list = arr.slice(0, 10).map(function(w) {
+                return {
+                    id: w && w.id ? String(w.id) : null, name: w && w.name ? String(w.name) : null, type: w && w.type ? String(w.type) : null,
+                    events: w && (w.events || w.event) ? w.events || w.event : null, status: w && w.status ? String(w.status) : null,
+                    active_since: w && w.activeSince ? String(w.activeSince) : null,
+                    url: w && w.url ? String(w.url).replace(/\/webhook\/[a-f0-9]{8}[a-f0-9]*/i, "/webhook/(hidden)") : null
+                };
+            });
+        } catch (e1) { out.webhooks.status = e1 && e1.abcStatus !== undefined ? e1.abcStatus : 0; }
+        var rows = (await env.DB.prepare(
+            "SELECT order_ref, abc_order_id, status, last_event_at FROM gm_abc_orders WHERE client_id = ? AND abc_order_id IS NOT NULL ORDER BY created_at DESC, rowid DESC LIMIT 6"
+        ).bind(id).all()).results || [];
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            var one = { order_ref: row.order_ref, confirmation: row.abc_order_id, apex_status: row.status, last_event_at: row.last_event_at || null, abc_http: 0, abc_status: null, shipments: null };
+            try {
+                var go = await abcApi(a.cfg, token, "GET", "/api/order/v2/orders?confirmationNumber=" + encodeURIComponent(String(row.abc_order_id)), null, secrets);
+                one.abc_http = 200;
+                var so = (go && go.salesOrder) || (go && go.orders && go.orders[0] && go.orders[0].salesOrder) || null;
+                one.abc_status = so && so.status ? String(so.status) : null;
+                one.shipments = Array.isArray(go && go.shipments) ? go.shipments.length : null;
+                if (!so) { one.keys = Object.keys(go || {}).slice(0, 12); }
+            } catch (e2) { one.abc_http = e2 && e2.abcStatus !== undefined ? e2.abcStatus : 0; one.note = metaScrub(String(e2 && e2.message || ""), secrets).slice(0, 200); }
+            out.orders.push(one);
+        }
+        return jsonOk(out);
+    } catch (e) {
+        return abcServerError("diagnose", e, secrets);
+    }
+}
+
 // GET /api/clients/:id/gm/abc/orders   (owner only)
 async function handleGetGmAbcOrders(id, request, env) {
     try {
@@ -63912,6 +63959,7 @@ async function handleFetch(request, env, ctx) {
                     if (segs[5] === "price" && method === "POST") { return handlePostGmAbcPrice(cid, request, env); }
                     if (segs[5] === "order" && method === "POST") { return handlePostGmAbcOrder(cid, request, env); }
                     if (segs[5] === "orders" && method === "GET") { return handleGetGmAbcOrders(cid, request, env); }
+                    if (segs[5] === "diagnose" && method === "GET") { return handleGetGmAbcDiagnose(cid, request, env); }
                     if (segs[5] === "items" && method === "GET") { return handleGetGmAbcItems(cid, request, env); }
                     if (segs[5] === "add-items" && method === "POST") { return handlePostGmAbcAddItems(cid, request, env); }
                     if (segs[5] === "refresh-costs" && method === "POST") { return handlePostGmAbcRefreshCosts(cid, request, env); }

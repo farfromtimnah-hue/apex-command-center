@@ -42928,10 +42928,13 @@ async function abcFetchPrices(cfg, token, conn, itemNumbers, secrets) {
             return priceLines(part).then(function(res) { return { list: part, res: res }; }, function(e) { return { list: part, err: e }; });
         }));
         var singles = [];
+        // When every small batch is refused, ABC's pricing is failing for the whole set: asking item by
+        // item would only make the person wait, so all of them show "no price" at once.
+        var allRefused = results.length > 0 && results.every(function(r) { return !!r.err; });
         results.forEach(function(r) {
             if (!r.err) { keep(r.list, r.res); return; }
             if (!refused(r.err)) { throw r.err; }
-            if (r.list.length > 1 && retry.left > 0) { retry.left--; r.list.forEach(function(n) { singles.push(n); }); }
+            if (!allRefused && r.list.length > 1 && retry.left > 0) { retry.left--; r.list.forEach(function(n) { singles.push(n); }); }
             else { r.list.forEach(function(n) { out[n] = { none: true }; }); }
         });
         await Promise.all(singles.map(function(n) {

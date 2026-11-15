@@ -42895,41 +42895,53 @@ async function abcPlItemInfo(cfg, token, itemNumber, secrets) {
 // price (a line status other than OK, a missing unit, or $0.00).
 async function abcFetchPrices(cfg, token, conn, itemNumbers, secrets) {
     var out = {};
-    // ABC's Price Items answers HTTP 500 for a whole batch when it cannot price ONE item in it
-    // (seen 2026-11-15 in the Sandbox on a 40 item "shingle" search). On a 500 or a 400 the batch
-    // is split in halves and each half asked again, so one item ABC cannot price shows "no price"
-    // and the rest keep their prices. At most 14 extra calls per request; any other failure
-    // (sign-in, rate limit, ABC unreachable) is thrown as before.
-    var extra = { left: 14 };
-    async function priceChunk(chunk) {
-        var res = null;
-        try {
-            res = await abcApi(cfg, token, "POST", "/api/pricing/v2/prices", {
-                requestId: crypto.randomUUID(), shipToNumber: conn.ship_to_number, branchNumber: conn.branch_number, purpose: "estimating",
-                lines: chunk.map(function(n, i) { return { id: String(i + 1), itemNumber: n, quantity: 1 }; })
-            }, secrets);
-        } catch (e) {
-            var splittable = e && (e.abcStatus === 500 || e.abcStatus === 400);
-            if (!splittable) { throw e; }
-            if (chunk.length <= 1 || extra.left <= 0) { chunk.forEach(function(n) { out[n] = { none: true }; }); return; }
-            extra.left--;
-            var half = Math.ceil(chunk.length / 2);
-            await priceChunk(chunk.slice(0, half));
-            await priceChunk(chunk.slice(half));
-            return;
-        }
-        chunk.forEach(function(n) { out[n] = { none: true }; });
+    // ABC's Price Items answers HTTP 500 (after about 12 seconds) for a whole batch when it cannot
+    // price ONE item in it (seen 2026-11-15 in the Sandbox on a 40 item "shingle" search). Items go in
+    // batches of 50 as before; a batch ABC refuses with 500 or 400 is asked again in batches of 10 at the same time,
+    // then a refused small batch one item at a time, also at the same time. An item ABC still refuses shows "no price".
+    // Total wait is about two ABC answers, not a queue. At most 2 refused batches are retried per
+    // request (the rest show "no price"); any other failure (sign-in, rate limit, unreachable) is thrown.
+    var SMALL = 10;
+    var retry = { left: 2 };
+    function priceLines(list) {
+        return abcApi(cfg, token, "POST", "/api/pricing/v2/prices", {
+            requestId: crypto.randomUUID(), shipToNumber: conn.ship_to_number, branchNumber: conn.branch_number, purpose: "estimating",
+            lines: list.map(function(n, i) { return { id: String(i + 1), itemNumber: n, quantity: 1 }; })
+        }, secrets);
+    }
+    function keep(list, res) {
+        list.forEach(function(n) { out[n] = { none: true }; });
         ((res && res.lines) || []).forEach(function(l) {
             var i = Number(l && l.id) - 1;
-            if (!(i >= 0 && i < chunk.length) || l.itemNumber !== chunk[i]) { return; }
+            if (!(i >= 0 && i < list.length) || l.itemNumber !== list[i]) { return; }
             var good = l.status && typeof l.status.code === "string" && l.status.code.toUpperCase() === "OK";
             if (!good || typeof l.unitPrice !== "number" || !isFinite(l.unitPrice) || l.unitPrice <= 0) { return; }
             if (typeof l.uom !== "string" || !/^[A-Za-z0-9]{1,6}$/.test(l.uom)) { return; }
-            out[chunk[i]] = { uom: l.uom, price: l.unitPrice };
+            out[list[i]] = { uom: l.uom, price: l.unitPrice };
         });
     }
+    function refused(e) { return !!e && (e.abcStatus === 500 || e.abcStatus === 400); }
+    async function small(list) {
+        var parts = [];
+        for (var q = 0; q < list.length; q += SMALL) { parts.push(list.slice(q, q + SMALL)); }
+        var results = await Promise.all(parts.map(function(part) {
+            return priceLines(part).then(function(res) { return { list: part, res: res }; }, function(e) { return { list: part, err: e }; });
+        }));
+        var singles = [];
+        results.forEach(function(r) {
+            if (!r.err) { keep(r.list, r.res); return; }
+            if (!refused(r.err)) { throw r.err; }
+            if (r.list.length > 1 && retry.left > 0) { retry.left--; r.list.forEach(function(n) { singles.push(n); }); }
+            else { r.list.forEach(function(n) { out[n] = { none: true }; }); }
+        });
+        await Promise.all(singles.map(function(n) {
+            return priceLines([n]).then(function(res) { keep([n], res); }, function(e) { if (!refused(e)) { throw e; } out[n] = { none: true }; });
+        }));
+    }
     for (var s = 0; s < itemNumbers.length; s += ABC.price_batch) {
-        await priceChunk(itemNumbers.slice(s, s + ABC.price_batch));
+        var chunk = itemNumbers.slice(s, s + ABC.price_batch);
+        try { keep(chunk, await priceLines(chunk)); }
+        catch (e) { if (!refused(e)) { throw e; } await small(chunk); }
     }
     return out;
 }

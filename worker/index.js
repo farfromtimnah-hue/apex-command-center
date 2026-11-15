@@ -42540,7 +42540,7 @@ async function handleGetGmAbcDiagnose(id, request, env) {
                 var so = (go && go.salesOrder) || (go && go.orders && go.orders[0] && go.orders[0].salesOrder) || null;
                 one.abc_status = so && so.status ? String(so.status) : null;
                 one.shipments = Array.isArray(go && go.shipments) ? go.shipments.length : null;
-                if (!so) { one.keys = Object.keys(go || {}).slice(0, 12); }
+                if (!so) { one.keys = Object.keys(go || {}).slice(0, 12); if (go && go.errorMessage) { one.abc_message = metaScrub(String(go.errorMessage), secrets).slice(0, 300); } }
             } catch (e2) { one.abc_http = e2 && e2.abcStatus !== undefined ? e2.abcStatus : 0; one.note = metaScrub(String(e2 && e2.message || ""), secrets).slice(0, 200); }
             out.orders.push(one);
         }

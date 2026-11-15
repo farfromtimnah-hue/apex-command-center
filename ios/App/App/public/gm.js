@@ -7224,6 +7224,8 @@ function gmMatDraftsLoad(cb) {
   gmApi("abc/drafts").then(function(d) {
     gmMatDraftsByContract = {}; gmMatWaiting = d.waiting || 0;
     (d.drafts || []).forEach(function(x) { gmMatDraftsByContract[x.contract_id] = x; });
+    // The Home card counts these, so it is drawn again whenever they are read (found 2026-11-15: it stayed after an order was sent).
+    if (typeof gmAttentionRecompute === "function") { gmAttentionRecompute(); }
     if (cb) { cb(); }
   }).catch(function(e) { gmMatDraftsByContract = {}; gmMatWaiting = 0; if (e.status !== 503 && e.status !== 409) { console.error("materials orders: " + e.message); } if (cb) { cb(); } });
 }
@@ -7629,7 +7631,7 @@ function gmMatSend() {
   m.rv.sending = true; m.rv.err = ""; m.rv.refusal = ""; gmMatDraftRender();
   gmApi("abc/drafts/" + encodeURIComponent(m.id) + "/send", { method: "POST", body: { prices: prices } }).then(function(r) {
     m.rv.sending = false; m.result = r;
-    return gmApi("abc/drafts/" + encodeURIComponent(m.id)).then(function(d) { m.data = d; m.view = "done"; gmMatDraftRender(); });
+    return gmApi("abc/drafts/" + encodeURIComponent(m.id)).then(function(d) { m.data = d; m.view = "done"; gmMatDraftRender(); gmMatDraftsLoad(); });
   }).catch(function(e) {
     m.rv.sending = false;
     var dt = e.data || {};

@@ -32394,12 +32394,12 @@
         "owner"
       ],
       "title": {
-        "en": "ABC Supply: add items and costs to your Price list",
-        "pt": "ABC Supply: adicione itens e custos à sua tabela de preços"
+        "en": "Coming soon: ABC Supply: add items and costs to your Price list",
+        "pt": "Em breve: ABC Supply: adicione itens e custos à sua tabela de preços"
       },
       "summary": {
-        "en": "Search ABC items, add them with your own ABC cost, refresh the costs, and link an item you already have.",
-        "pt": "Busque itens da ABC, adicione com o seu custo da ABC, atualize os custos e vincule um item que você já tem."
+        "en": "Coming soon. Search ABC items, add them with your own ABC cost, refresh the costs, and link an item you already have.",
+        "pt": "Em breve. Busque itens da ABC, adicione com o seu custo da ABC, atualize os custos e vincule um item que você já tem."
       },
       "keywords": {
         "en": [
@@ -32609,12 +32609,12 @@
         "owner"
       ],
       "title": {
-        "en": "ABC Supply: send several material orders at once (batch order)",
-        "pt": "ABC Supply: envie vários pedidos de material de uma vez (pedido em lote)"
+        "en": "Coming soon: ABC Supply: send several material orders at once (batch order)",
+        "pt": "Em breve: ABC Supply: envie vários pedidos de material de uma vez (pedido em lote)"
       },
       "summary": {
-        "en": "Pick two or more order drafts, choose one delivery question once, then send separate orders or one combined order.",
-        "pt": "Escolha dois ou mais rascunhos de pedido, responda uma vez à pergunta de entrega e envie pedidos separados ou um pedido combinado."
+        "en": "Coming soon. Pick two or more order drafts, choose one delivery question once, then send separate orders or one combined order.",
+        "pt": "Em breve. Escolha dois ou mais rascunhos de pedido, responda uma vez à pergunta de entrega e envie pedidos separados ou um pedido combinado."
       },
       "keywords": {
         "en": [
@@ -32775,12 +32775,12 @@
         "owner"
       ],
       "title": {
-        "en": "ABC Supply: extra material and measured material",
-        "pt": "ABC Supply: material extra e material medido"
+        "en": "Coming soon: ABC Supply: extra material and measured material",
+        "pt": "Em breve: ABC Supply: material extra e material medido"
       },
       "summary": {
-        "en": "Set an extra percent for waste, make it your standard, and tell Apex how an item is measured and sold so an order has the right quantity.",
-        "pt": "Defina uma porcentagem extra para desperdício, torne-a o seu padrão e diga à Apex como um item é medido e vendido para o pedido sair com a quantidade certa."
+        "en": "Coming soon. Set an extra percent for waste, make it your standard, and tell Apex how an item is measured and sold so an order has the right quantity.",
+        "pt": "Em breve. Defina uma porcentagem extra para desperdício, torne-a o seu padrão e diga à Apex como um item é medido e vendido para o pedido sair com a quantidade certa."
       },
       "keywords": {
         "en": [
@@ -32943,12 +32943,12 @@
         "owner"
       ],
       "title": {
-        "en": "ABC Supply: order materials from a signed contract",
-        "pt": "ABC Supply: peça materiais a partir de um contrato assinado"
+        "en": "Coming soon: ABC Supply: order materials from a signed contract",
+        "pt": "Em breve: ABC Supply: peça materiais a partir de um contrato assinado"
       },
       "summary": {
-        "en": "Open a signed contract, review the order Apex builds from it, choose delivery, send it to ABC and follow its status.",
-        "pt": "Abra um contrato assinado, revise o pedido que a Apex monta a partir dele, escolha a entrega, envie à ABC e acompanhe a situação."
+        "en": "Coming soon. Open a signed contract, review the order Apex builds from it, choose delivery, send it to ABC and follow its status.",
+        "pt": "Em breve. Abra um contrato assinado, revise o pedido que a Apex monta a partir dele, escolha a entrega, envie à ABC e acompanhe a situação."
       },
       "keywords": {
         "en": [
@@ -33206,12 +33206,12 @@
         "owner"
       ],
       "title": {
-        "en": "ABC Supply: connect your account",
-        "pt": "ABC Supply: conecte a sua conta"
+        "en": "Coming soon: ABC Supply: connect your account",
+        "pt": "Em breve: ABC Supply: conecte a sua conta"
       },
       "summary": {
-        "en": "Connect your own ABC Supply account, choose the account and branch Apex uses, change it later or disconnect.",
-        "pt": "Conecte a sua conta da ABC Supply, escolha a conta e a filial que a Apex usa, troque depois ou desconecte."
+        "en": "Coming soon. Connect your own ABC Supply account, choose the account and branch Apex uses, change it later or disconnect.",
+        "pt": "Em breve. Conecte a sua conta da ABC Supply, escolha a conta e a filial que a Apex usa, troque depois ou desconecte."
       },
       "keywords": {
         "en": [

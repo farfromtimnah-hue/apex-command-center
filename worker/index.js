@@ -42528,6 +42528,41 @@ async function handleGetGmAbcDiagnose(id, request, env) {
                 };
             });
         } catch (e1) { out.webhooks.status = e1 && e1.abcStatus !== undefined ? e1.abcStatus : 0; }
+        var qItem = String(new URL(request.url).searchParams.get("item") || "").trim();
+        if (/^[A-Za-z0-9]{3,20}$/.test(qItem)) {
+            var conn0 = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(id).first();
+            out.item = { item: qItem, tries: [] };
+            var variants = [
+                { label: "equals itemNumber, no branch", filters: [{ key: "itemNumber", condition: "equals", values: [qItem], joinCondition: null }] },
+                { label: "contains itemNumber, no branch", filters: [{ key: "itemNumber", condition: "contains", values: [qItem], joinCondition: null }] }
+            ];
+            if (conn0 && conn0.branch_number) {
+                variants.push({ label: "equals itemNumber and branch " + conn0.branch_number, filters: [{ key: "itemNumber", condition: "equals", values: [qItem], joinCondition: "and" }, { key: "branchNumber", condition: "equals", values: [conn0.branch_number], joinCondition: null }] });
+            }
+            for (var v = 0; v < variants.length; v++) {
+                var tr = { label: variants[v].label, http: 0, total: null, first: null };
+                try {
+                    var sr = await abcApi(a.cfg, token, "POST", "/api/product/v1/search/items", { filters: variants[v].filters, pagination: { itemsPerPage: 5, pageNumber: 1 } }, secrets);
+                    tr.http = 200;
+                    tr.total = sr && sr.pagination && typeof sr.pagination.totalItems === "number" ? sr.pagination.totalItems : null;
+                    var f0 = sr && Array.isArray(sr.items) ? sr.items[0] : null;
+                    tr.first = f0 ? { itemNumber: f0.itemNumber || null, description: String(f0.itemDescription || "").slice(0, 80), status: f0.status || null, hasDimensions: !!(f0.dimensions || f0.length || f0.variations) } : null;
+                } catch (e3) { tr.http = e3 && e3.abcStatus !== undefined ? e3.abcStatus : 0; tr.note = metaScrub(String(e3 && e3.message || ""), secrets).slice(0, 200); }
+                out.item.tries.push(tr);
+            }
+            if (conn0 && conn0.ship_to_number && conn0.branch_number) {
+                var pr = { http: 0, status: null };
+                try {
+                    var pp = await abcApi(a.cfg, token, "POST", "/api/pricing/v2/prices", { requestId: crypto.randomUUID(), shipToNumber: conn0.ship_to_number, branchNumber: conn0.branch_number, purpose: "estimating", lines: [{ id: "1", itemNumber: qItem, quantity: 1 }] }, secrets);
+                    pr.http = 200;
+                    var pl = pp && Array.isArray(pp.lines) ? pp.lines[0] : null;
+                    pr.status = pl && pl.status ? { code: pl.status.code || null, message: String(pl.status.message || "").slice(0, 120) } : null;
+                    pr.unit_price = pl && typeof pl.unitPrice === "number" ? pl.unitPrice : null;
+                    pr.uom = pl && pl.uom ? String(pl.uom) : null;
+                } catch (e4) { pr.http = e4 && e4.abcStatus !== undefined ? e4.abcStatus : 0; pr.note = metaScrub(String(e4 && e4.message || ""), secrets).slice(0, 200); }
+                out.item.price = pr;
+            }
+        }
         var rows = (await env.DB.prepare(
             "SELECT order_ref, abc_order_id, status, last_event_at FROM gm_abc_orders WHERE client_id = ? AND abc_order_id IS NOT NULL ORDER BY created_at DESC, rowid DESC LIMIT 6"
         ).bind(id).all()).results || [];

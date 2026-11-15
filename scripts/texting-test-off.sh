@@ -1,5 +1,5 @@
 #!/bin/bash
-# TEST MODE OFF: plain deploy of the committed config (every text switch empty) and the test client back to closed.
+# NOTE: since 2026-11-15 the committed wrangler.toml has texts ON, so this redeploys the LIVE config and closes the test client. To switch texts OFF, set the four reminder vars empty in wrangler.toml, commit, then run this.
 export CLOUDFLARE_ACCOUNT_ID=b52dcd8983e33e42355f98649193e20c
 cd "$(dirname "$0")/.." || exit 1
 git status --short | grep -v '^??' && { echo "Uncommitted changes: stop and look."; exit 1; }

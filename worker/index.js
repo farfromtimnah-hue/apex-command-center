@@ -42975,9 +42975,10 @@ async function abcFetchPrices(cfg, token, conn, itemNumbers, secrets) {
             return priceLines(part).then(function(res) { return { list: part, res: res }; }, function(e) { return { list: part, err: e }; });
         }));
         var singles = [];
-        // When every small batch is refused, ABC's pricing is failing for the whole set: asking item by
-        // item would only make the person wait, so all of them show "no price" at once.
-        var allRefused = results.length > 0 && results.every(function(r) { return !!r.err; });
+        // When three or more small batches are all refused, ABC's pricing is failing for the whole set: asking item by
+        // item would only make the person wait, so all of them show "no price" at once. With fewer, ask item by item
+        // (found 2026-11-15: a refused batch of 3 hid one item that prices fine).
+        var allRefused = results.length >= 3 && results.every(function(r) { return !!r.err; });
         results.forEach(function(r) {
             if (!r.err) { keep(r.list, r.res); return; }
             if (!refused(r.err)) { throw r.err; }

@@ -42528,6 +42528,36 @@ async function handleGetGmAbcDiagnose(id, request, env) {
                 };
             });
         } catch (e1) { out.webhooks.status = e1 && e1.abcStatus !== undefined ? e1.abcStatus : 0; }
+        var qWord = String(new URL(request.url).searchParams.get("q") || "").trim();
+        if (/^[A-Za-z0-9 ]{3,30}$/.test(qWord)) {
+            var conn1 = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(id).first();
+            out.word = { q: qWord, search: { http: 0 }, price: null };
+            var t0 = Date.now();
+            var nums = [];
+            try {
+                var sr1 = await abcApi(a.cfg, token, "POST", "/api/product/v1/search/items", {
+                    filters: [{ key: "itemDescription", condition: "contains", values: [qWord], joinCondition: "and" }, { key: "branchNumber", condition: "equals", values: [conn1.branch_number], joinCondition: null }],
+                    pagination: { itemsPerPage: ABC.items_max, pageNumber: 1 }
+                }, secrets);
+                out.word.search = { http: 200, ms: Date.now() - t0, total: sr1 && sr1.pagination ? sr1.pagination.totalItems : null, returned: (sr1.items || []).length };
+                (sr1.items || []).forEach(function(it) { var sh = abcPlShape(it); if (sh && !sh.inactive && !sh.dimensional && it.itemNumber) { nums.push(it.itemNumber); } });
+            } catch (e5) { out.word.search = { http: e5 && e5.abcStatus !== undefined ? e5.abcStatus : 0, ms: Date.now() - t0, note: metaScrub(String(e5 && e5.message || ""), secrets).slice(0, 200) }; }
+            if (nums.length && !staff) {
+                out.word.price = { items: nums.length, chunks: [] };
+                var chunk = 10;
+                for (var c = 0; c < nums.length; c += chunk) {
+                    var part = nums.slice(c, c + chunk);
+                    var t1 = Date.now();
+                    try {
+                        await abcFetchPrices(a.cfg, token, conn1, part, secrets);
+                        out.word.price.chunks.push({ from: c, size: part.length, http: 200, ms: Date.now() - t1 });
+                    } catch (e6) { out.word.price.chunks.push({ from: c, size: part.length, http: e6 && e6.abcStatus !== undefined ? e6.abcStatus : 0, ms: Date.now() - t1, note: metaScrub(String(e6 && e6.message || ""), secrets).slice(0, 160), items: part }); }
+                }
+                var t2 = Date.now();
+                try { await abcFetchPrices(a.cfg, token, conn1, nums, secrets); out.word.price.whole = { http: 200, ms: Date.now() - t2 }; }
+                catch (e7) { out.word.price.whole = { http: e7 && e7.abcStatus !== undefined ? e7.abcStatus : 0, ms: Date.now() - t2 }; }
+            }
+        }
         var qItem = String(new URL(request.url).searchParams.get("item") || "").trim();
         if (/^[A-Za-z0-9]{3,20}$/.test(qItem)) {
             var conn0 = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(id).first();
@@ -42551,7 +42581,7 @@ async function handleGetGmAbcDiagnose(id, request, env) {
                 } catch (e3) { tr.http = e3 && e3.abcStatus !== undefined ? e3.abcStatus : 0; tr.note = metaScrub(String(e3 && e3.message || ""), secrets).slice(0, 200); }
                 out.item.tries.push(tr);
             }
-            if (conn0 && conn0.ship_to_number && conn0.branch_number) {
+            if (conn0 && conn0.ship_to_number && conn0.branch_number && !staff) {
                 var pr = { http: 0, status: null };
                 try {
                     var pp = await abcApi(a.cfg, token, "POST", "/api/pricing/v2/prices", { requestId: crypto.randomUUID(), shipToNumber: conn0.ship_to_number, branchNumber: conn0.branch_number, purpose: "estimating", lines: [{ id: "1", itemNumber: qItem, quantity: 1 }] }, secrets);
@@ -42865,12 +42895,29 @@ async function abcPlItemInfo(cfg, token, itemNumber, secrets) {
 // price (a line status other than OK, a missing unit, or $0.00).
 async function abcFetchPrices(cfg, token, conn, itemNumbers, secrets) {
     var out = {};
-    for (var s = 0; s < itemNumbers.length; s += ABC.price_batch) {
-        var chunk = itemNumbers.slice(s, s + ABC.price_batch);
-        var res = await abcApi(cfg, token, "POST", "/api/pricing/v2/prices", {
-            requestId: crypto.randomUUID(), shipToNumber: conn.ship_to_number, branchNumber: conn.branch_number, purpose: "estimating",
-            lines: chunk.map(function(n, i) { return { id: String(i + 1), itemNumber: n, quantity: 1 }; })
-        }, secrets);
+    // ABC's Price Items answers HTTP 500 for a whole batch when it cannot price ONE item in it
+    // (seen 2026-11-15 in the Sandbox on a 40 item "shingle" search). On a 500 or a 400 the batch
+    // is split in halves and each half asked again, so one item ABC cannot price shows "no price"
+    // and the rest keep their prices. At most 14 extra calls per request; any other failure
+    // (sign-in, rate limit, ABC unreachable) is thrown as before.
+    var extra = { left: 14 };
+    async function priceChunk(chunk) {
+        var res = null;
+        try {
+            res = await abcApi(cfg, token, "POST", "/api/pricing/v2/prices", {
+                requestId: crypto.randomUUID(), shipToNumber: conn.ship_to_number, branchNumber: conn.branch_number, purpose: "estimating",
+                lines: chunk.map(function(n, i) { return { id: String(i + 1), itemNumber: n, quantity: 1 }; })
+            }, secrets);
+        } catch (e) {
+            var splittable = e && (e.abcStatus === 500 || e.abcStatus === 400);
+            if (!splittable) { throw e; }
+            if (chunk.length <= 1 || extra.left <= 0) { chunk.forEach(function(n) { out[n] = { none: true }; }); return; }
+            extra.left--;
+            var half = Math.ceil(chunk.length / 2);
+            await priceChunk(chunk.slice(0, half));
+            await priceChunk(chunk.slice(half));
+            return;
+        }
         chunk.forEach(function(n) { out[n] = { none: true }; });
         ((res && res.lines) || []).forEach(function(l) {
             var i = Number(l && l.id) - 1;
@@ -42880,6 +42927,9 @@ async function abcFetchPrices(cfg, token, conn, itemNumbers, secrets) {
             if (typeof l.uom !== "string" || !/^[A-Za-z0-9]{1,6}$/.test(l.uom)) { return; }
             out[chunk[i]] = { uom: l.uom, price: l.unitPrice };
         });
+    }
+    for (var s = 0; s < itemNumbers.length; s += ABC.price_batch) {
+        await priceChunk(itemNumbers.slice(s, s + ABC.price_batch));
     }
     return out;
 }
@@ -42941,13 +42991,16 @@ async function handleGetGmAbcItems(id, request, env) {
         var searches = [{ key: "itemDescription", value: q }];
         if (/^[A-Za-z0-9]+$/.test(q)) { searches.push({ key: "itemNumber", value: q }); }
         for (var s = 0; s < searches.length; s++) {
-            var res = await abcApi(a.cfg, token, "POST", "/api/product/v1/search/items", {
-                filters: [
-                    { key: searches[s].key, condition: "contains", values: [searches[s].value], joinCondition: "and" },
-                    { key: "branchNumber", condition: "equals", values: [a.conn.branch_number], joinCondition: null }
-                ],
-                pagination: { itemsPerPage: ABC.items_max, pageNumber: 1 }
-            }, secrets);
+            var res = null;
+            try {
+                res = await abcApi(a.cfg, token, "POST", "/api/product/v1/search/items", {
+                    filters: [
+                        { key: searches[s].key, condition: "contains", values: [searches[s].value], joinCondition: "and" },
+                        { key: "branchNumber", condition: "equals", values: [a.conn.branch_number], joinCondition: null }
+                    ],
+                    pagination: { itemsPerPage: ABC.items_max, pageNumber: 1 }
+                }, secrets);
+            } catch (eS) { if (eS) { eS.message = "search by " + searches[s].key + ": " + eS.message; } throw eS; }
             ((res && res.items) || []).forEach(function(it) {
                 var n = it && typeof it.itemNumber === "string" ? it.itemNumber : "";
                 if (!ABC_ITEM_RE.test(n) || byNumber[n]) { return; }
@@ -42964,7 +43017,11 @@ async function handleGetGmAbcItems(id, request, env) {
             if (byNumber[n].dimensional) { skippedDim++; return; }
             if (numbers.length < ABC.items_max) { numbers.push(n); }
         });
-        var prices = numbers.length ? await abcFetchPrices(a.cfg, token, a.conn, numbers, secrets) : {};
+        var prices = {};
+        if (numbers.length) {
+            try { prices = await abcFetchPrices(a.cfg, token, a.conn, numbers, secrets); }
+            catch (eP) { if (eP) { eP.message = "pricing " + numbers.length + " items: " + eP.message; } throw eP; }
+        }
         var items = numbers.map(function(n) {
             var sh = byNumber[n];
             var p = prices[n] && !prices[n].none ? prices[n] : null;

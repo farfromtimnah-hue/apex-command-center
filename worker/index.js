@@ -74266,6 +74266,23 @@ async function helpComingSoonList(env) {
     return rows;
 }
 
+// The coming soon rows for ONE person. ABC Supply stops being "coming soon" for a business
+// where it is switched on (today only the Sandbox test business): there Aprenda answers from
+// the ABC guides instead. Everyone else still gets the saved text. Never throws.
+async function helpComingSoonForUser(env, user) {
+    var rows = await helpComingSoonList(env);
+    try {
+        var cid = user && user.client_id ? String(user.client_id) : "";
+        if (cid) {
+            var cfg = abcSettings(env);
+            if (cfg.ready && abcClientAllowed(cfg, cid)) {
+                rows = rows.filter(function(r) { return !r || r.id !== "abc-supply"; });
+            }
+        }
+    } catch (e) { /* keep the saved list */ }
+    return rows;
+}
+
 // The first row whose alias appears in the question as a whole word or phrase,
 // or null. An alias never matches inside another word.
 function helpComingSoonMatch(rows, question) {
@@ -74417,7 +74434,7 @@ async function handlePostHelpAsk(request, env) {
         // A feature Apex is building but has not released: answered here, before any
         // model call, from the saved list. Nothing is counted against the Claude budget
         // and nothing is written. The reply is always the row's own text.
-        var soon = await helpComingSoonList(env);
+        var soon = await helpComingSoonForUser(env, user);
         var soonHit = helpComingSoonMatch(soon, question);
         if (soonHit) {
             return jsonOk({ found: false, kind: "coming_soon", guide_ids: [], best: null, reply: helpComingSoonText(soonHit, language), coming_soon_id: soonHit.id, logged: false, audience: audience, other_side: [] });
@@ -74676,7 +74693,7 @@ async function handlePostHelpSuggest(request, env) {
         // First turn only: a feature Apex is already building is not a suggestion. No
         // question, no model call, no ticket; the person gets the saved text instead.
         if (transcript.length === 1) {
-            var soonRows = await helpComingSoonList(env);
+            var soonRows = await helpComingSoonForUser(env, user);
             var soonRow = helpComingSoonMatch(soonRows, transcript[0].text);
             if (soonRow) {
                 return jsonOk({ done: true, logged: false, coming_soon: true, coming_soon_id: soonRow.id, reply: helpComingSoonText(soonRow, language) });

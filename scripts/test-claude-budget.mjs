@@ -164,6 +164,7 @@ function mkHandlers(env, user) {
     helpClampResult: (r) => r,
     helpSystemText: () => "sys",
     helpComingSoonList: async () => [],
+    helpComingSoonForUser: async () => [],
     helpComingSoonMatch: () => null,
     helpComingSoonText: () => "",
     publicReadRateLimited: () => false,

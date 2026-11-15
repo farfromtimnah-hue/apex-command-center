@@ -224,7 +224,7 @@ const workerSrc = read("worker/index.js");
 const WORKER_FNS = ["handlePostHelpAsk", "validateHelpReply", "helpBuildIndex", "helpBuildOtherList", "helpGuideAudience", "supportStaffAuthed", "helpSystemText", "helpPageKey", "publicReadRateLimited",
   "supportFeatureGuideFor", "supportPageIsPortal", "supportRateLimited", "supportIncrementDailyCount",
   "handlePostHelpSuggest", "validateSuggestTurn", "helpCleanTranscript", "helpSuggestSystem", "suggestReadiness", "helpSuggestSummary", "helpSpecFromModel", "helpPlainText",
-  "helpViewerRole", "helpViewerRoleToken", "helpGuideVisibleTo", "helpFilterGuides", "helpIndexFor", "helpClampResult", "helpSoonNormalize", "helpComingSoonClean", "helpComingSoonList", "helpComingSoonMatch", "helpComingSoonText"];
+  "helpViewerRole", "helpViewerRoleToken", "helpGuideVisibleTo", "helpFilterGuides", "helpIndexFor", "helpClampResult", "helpSoonNormalize", "helpComingSoonClean", "helpComingSoonList", "helpComingSoonForUser", "helpComingSoonMatch", "helpComingSoonText"];
 const WORKER_VARS = ["HELP_ADMIN_TOKENS", "HELP_ROLE_SET", "HELP_DEFAULT_WHO", "HELP_ROLE_INDEXES", "HELP_AI_MODEL", "HELP_INDEXES", "HELP_OTHERS", "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "HELP_SUGGEST_MAX_QUESTIONS", "HELP_SUGGEST_MAX_ITEMS",
   "SUPPORT_FEATURE_GUIDE_STAFF_PT", "SUPPORT_FEATURE_GUIDE_STAFF_EN", "SUPPORT_FEATURE_GUIDE_PORTAL_PT", "SUPPORT_FEATURE_GUIDE_PORTAL_EN", "HELP_COMING_SOON_FALLBACK", "HELP_COMING_SOON_CACHE", "HELP_COMING_SOON_TTL_MS", "HELP_COMING_SOON_FAIL_TTL_MS"];
 const STAFF = { role: "alice", email: "a@x.test", display_name: "A" };
@@ -277,6 +277,8 @@ function mkWorker(o) {
     jsonErr: (m, s) => ({ status: s || 400, error: m }),
     CLAUDE_API_URL: "https://api.anthropic.com/v1/messages",
     gmEasternToday: () => "2026-10-25",
+    abcSettings: o.abcSettings || (() => ({ ready: false })),
+    abcClientAllowed: o.abcAllowed || (() => false),
     HELP_GUIDES_V1: o.guides || FIXTURE,
     fetch: async (url, init) => { calls.push({ url, init }); return o.fetchImpl ? o.fetchImpl(url, init) : claudeOk({ guide_ids: ["estimate"], best: { guide: "estimate", section: "send" }, reply: "Veja o guia de orçamento." }); },
     console: { error: (...a) => errors.push(a.join(" ")), log: (...a) => logs.push(a.join(" ")), warn: () => {} }
@@ -2131,6 +2133,19 @@ const configSrc = read("help-config.js");
 
     // (h) helpComingSoonList
     const row = (id, over) => Object.assign({ id, name_en: id + " name", name_pt: id + " nome", aliases: id + " thing, other " + id, description_en: "A feature called " + id + ".", text_en: "Text en " + id, text_pt: "Texto pt " + id, active: 1 }, over || {});
+    // (i) ABC Supply is not "coming soon" for a business where it is switched on
+    { const rows3 = [row("abc-supply"), row("srs")];
+      const on = mkWorker({ abcSettings: () => ({ ready: true }), abcAllowed: (cfg, id) => id === "c1" }); const e1 = mkEnv({ soonRows: rows3 });
+      const lOn = await on.w.helpComingSoonForUser(e1.env, { client_id: "c1" });
+      ok(lOn.length === 1 && lOn[0].id === "srs", "(soon i) a business with ABC switched on does not get the ABC coming soon row (the others stay)");
+      const e2 = mkEnv({ soonRows: rows3 });
+      const lOther = await on.w.helpComingSoonForUser(e2.env, { client_id: "c2" });
+      ok(lOther.length === 2 && lOther[0].id === "abc-supply", "(soon i) another business still gets the ABC coming soon row");
+      const e3 = mkEnv({ soonRows: rows3 }); const lStaff = await on.w.helpComingSoonForUser(e3.env, { role: "alice" });
+      ok(lStaff.length === 2, "(soon i) a person without a business keeps every row");
+      const off = mkWorker({}); const e4 = mkEnv({ soonRows: rows3 }); const lOff = await off.w.helpComingSoonForUser(e4.env, { client_id: "c1" });
+      ok(lOff.length === 2, "(soon i) with ABC not ready for anyone, every row stays"); }
+
     { const clock = { t: 1000000 }; let table = [row("one"), row("two")];
       const m = mkWorker({ clock }); const e = mkEnv({ soonRows: () => table });
       let l1 = await m.w.helpComingSoonList(e.env);

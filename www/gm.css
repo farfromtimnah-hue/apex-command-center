@@ -1510,3 +1510,33 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
   .gm-pb-row { flex-direction: column; gap: 2px; }
   .gm-pb-k { flex-basis: auto; }
 }
+
+
+/* ABC branches, delivery date or TBD, saved people, pinned bar (2026-11-16). Same dark surfaces and one gold accent as the rest. */
+.gm-br-tabs { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.gm-br-tabs .gm-seg-btn:disabled { opacity: .45; cursor: not-allowed; }
+.gm-br-why { margin: 2px 0 8px; }
+.gm-br-other { display: flex; gap: 10px; justify-content: space-between; font-size: 13px; padding: 2px 0 2px 12px; }
+.gm-br-other span:last-child { text-align: right; }
+.gm-br-cards { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 8px 0; }
+@media (min-width: 720px) { .gm-br-cards { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); } }
+.gm-br-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--card); min-width: 0; }
+.gm-br-card-rec { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.gm-br-card-head { display: flex; gap: 8px; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.gm-br-line { display: flex; gap: 10px; justify-content: space-between; font-size: 14px; padding: 3px 0; }
+.gm-br-line span:last-child { text-align: right; overflow-wrap: anywhere; }
+.gm-br-line-no span:last-child { color: var(--red, #b04040); font-weight: 600; }
+.gm-br-quick { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 6px; }
+.gm-br-quick .gm-btn-secondary { width: auto; margin: 0; padding: 8px 12px; }
+.gm-br-confirm { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+.gm-br-photo { width: 84px; height: 84px; object-fit: contain; border-radius: 12px; border: 1px solid var(--border); background: #fff; flex: 0 0 auto; }
+.gm-link-btn { background: none; border: 0; padding: 4px 6px; color: var(--muted); text-decoration: underline; font: inherit; font-size: 13px; cursor: pointer; }
+.gm-link-btn:hover, .gm-link-btn:focus-visible { color: var(--gold); }
+/* The bar that stays in view: Still needed, then Review and send (or Send order to ABC). Opaque, safe area aware on iPhone. */
+.gm-bar { position: sticky; bottom: 0; z-index: 5; background: var(--card); border-top: 1px solid var(--border); margin: 12px -2px 0; padding: 10px 2px calc(10px + env(safe-area-inset-bottom, 0px)); }
+.gm-bar .gm-btn-primary { margin: 0; }
+.gm-bar-need { font-size: 14px; margin: 0 0 8px; line-height: 1.5; }
+.gm-bar-ok { margin: 0 0 8px; font-weight: 700; color: var(--green, #3f7d4e); }
+.gm-bar-link { background: none; border: 0; padding: 2px 4px; font: inherit; color: var(--gold); text-decoration: underline; cursor: pointer; }
+.gm-bar-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.gm-send-abc { display: block; width: 100%; margin: 8px 0; }

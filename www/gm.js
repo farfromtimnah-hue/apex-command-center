@@ -1354,7 +1354,9 @@ function gmAbcCardHtml() {
     h += '<p class="gm-warn" style="margin:0 0 8px;">' + escHtml(gmT("A ABC Supply precisa ser reconectada", "ABC Supply needs to be reconnected")) + '</p>' +
       '<p style="margin:0 0 12px;"><button type="button" class="gm-btn-primary"' + help + ' onclick="gmAbcConnect(this)">' + escHtml(gmT("Reconectar", "Reconnect")) + '</button></p>';
   }
-  if (st.ship_to && st.branch) {
+  if (st.pairs && st.pairs.length) {
+    h += gmBrCardPairsHtml(st);
+  } else if (st.ship_to && st.branch) {
     h += '<p style="margin:4px 0;"><strong>' + escHtml(gmT("Conta: ", "Account: ") + st.ship_to) + '</strong></p>' +
       '<p class="muted" style="margin:0 0 6px;">' + escHtml(gmT("Filial: ", "Branch: ") + st.branch) + '</p>';
   } else if (!st.needs_reconnect) {
@@ -1369,8 +1371,10 @@ function gmAbcCardHtml() {
 // The simplest possible list: one button per account and branch.
 function gmAbcPickerHtml(st, help) {
   if (!gmAbcAccounts) {
-    return '<p style="margin:0 0 12px;"><button type="button" class="gm-btn-secondary"' + help + ' onclick="gmAbcAccountsLoad(this)">' +
-      escHtml(st.ship_to ? gmT("Trocar conta ou filial", "Change account or branch") : gmT("Escolher conta e filial", "Choose account and branch")) + '</button></p>';
+    // Branches (2026-11-16): a quiet link adds another account or branch instead of replacing the one in use.
+    var addLink = st.branches_ready && st.ship_to ? ' <button type="button" class="gm-link-btn"' + help + ' onclick="gmBrAddAnother(this)">' + escHtml(gmT("Adicionar outra filial", "Add another branch")) + '</button>' : "";
+    return '<p style="margin:0 0 12px;"><button type="button" class="gm-btn-secondary"' + help + ' onclick="gmAbcAdding = false; gmAbcAccountsLoad(this)">' +
+      escHtml(st.ship_to ? gmT("Trocar conta ou filial", "Change account or branch") : gmT("Escolher conta e filial", "Choose account and branch")) + '</button>' + addLink + '</p>';
   }
   var list = gmAbcAccounts.accounts || [];
   if (!list.length) {
@@ -1401,9 +1405,10 @@ function gmAbcPick(i, j, btn) {
   if (!a || !b) { return; }
   gmAbcBusy = true;
   if (btn) { btn.disabled = true; }
-  gmApi("abc/account", { method: "POST", body: { ship_to: a.ship_to, branch: b.number } }).then(function() {
-    gmAbcBusy = false; gmAbcAccounts = null;
-    gmToast(gmT("Conta da ABC salva.", "ABC account saved."));
+  var adding = gmAbcAdding && gmAbcStatus && gmAbcStatus.branches_ready;
+  gmApi(adding ? "abc/branches" : "abc/account", { method: "POST", body: { ship_to: a.ship_to, branch: b.number } }).then(function() {
+    gmAbcBusy = false; gmAbcAccounts = null; gmAbcAdding = false;
+    gmToast(adding ? gmT("Conta e filial adicionadas.", "Account and branch added.") : gmT("Conta da ABC salva.", "ABC account saved."));
     gmAbcLoad(true);
   }).catch(function(e) { gmAbcBusy = false; if (btn) { btn.disabled = false; } gmToast(e.message); console.error("abc account: " + e.message); });
 }
@@ -5963,11 +5968,13 @@ function gmRenderPricing() {
       '<button type="button" role="tab" class="gm-stage-chip' + (!gmPricingNeedsOnly ? " gm-chip-active" : "") + '" aria-selected="' + (!gmPricingNeedsOnly ? "true" : "false") + '" onclick="gmPricingNeedsOnly = false; gmRenderPricing();">' + gmT("Todos", "All") + ' <span class="gm-chip-count">' + items.length + '</span></button>' +
       '<button type="button" role="tab" class="gm-stage-chip' + (gmPricingNeedsOnly ? " gm-chip-active" : "") + '" aria-selected="' + (gmPricingNeedsOnly ? "true" : "false") + '" onclick="gmPricingNeedsOnly = true; gmRenderPricing();">' + gmT("Faltam dados", "Needs info") + ' <span class="gm-chip-count">' + needsCount + '</span></button></div>';
   }
+  if (!ro) { html += gmBrPlTabsHtml(); }
   if (!items.length) {
     html += '<p class="muted">' + gmT("Nenhum item ainda.", "No items yet.") + '</p>';
   } else {
     items.forEach(function(it, i) {
       if (gmPricingNeedsOnly && !it.needs_info) { return; }
+      if (!ro && gmBrPlSkip(it)) { return; }
       var lines = it.cost_breakdown || [];
       var lineSummary = lines.map(function(l) {
         return (l.label || "") + " " + (l.amount === null || l.amount === undefined ? "" : gmMoney(Math.round(l.amount * 100)));
@@ -5984,6 +5991,7 @@ function gmRenderPricing() {
           .filter(function(x) { return !!x; }).map(escHtml).join(" · ") + '</div>' +
         (lineSummary && !ro ? '<div class="gm-lead-sub">' + escHtml(lineSummary) + '</div>' : "") +
         (!ro && it.abc_item_number && gmAbcLiveLabelHtml(it) ? '<div class="gm-lead-sub">' + gmAbcLiveLabelHtml(it) + '</div>' : "") +
+        (!ro ? gmBrPlLinesHtml(it) : "") +
         '</span>' +
         (ro ? '<span class="gm-lead-side">' +
                 (it.price !== null && it.price !== undefined ? gmMoney(Math.round(it.price * 100)) : '<span class="muted">—</span>') +
@@ -6112,7 +6120,7 @@ function gmRenderPricingSheet() {
     '</div>';
 
   body += gmMatItemSectionHtml(d);
-  body += gmAbcPlItemSectionHtml(d);
+  body += gmAbcPlItemSectionHtml(d) + gmBrItemSectionHtml(d);
 
   body += '<button type="button" class="gm-btn-primary" onclick="gmPricingSave()">' +
     gmT("Salvar", "Save") + '</button>';
@@ -6367,7 +6375,8 @@ function gmAbcPlRefresh(btn) {
 
 // ── Add from ABC Supply: the search sheet ──
 function gmAbcPlOpen() {
-  gmAbcPlFind = { q: "", loading: false, items: null, skipped: 0, picked: {}, unit: {}, conv: {}, extra: {}, qty: {}, result: null, error: "" };
+  gmAbcPlFind = { q: "", loading: false, items: null, skipped: 0, picked: {}, unit: {}, conv: {}, extra: {}, qty: {}, result: null, error: "", pair: null, meta: null, others: null };
+  var dp = gmBrDefault(); if (dp && gmBrMulti()) { gmAbcPlFind.pair = { ship_to: dp.ship_to, branch: dp.branch }; }
   gmAbcPlRenderSheet();
 }
 // The extra material number shown for a ticked item: what the owner typed, else the business standard for a measured unit, else empty.
@@ -6400,7 +6409,7 @@ function gmAbcPlRenderSheet() {
       'oninput="gmAbcPlFind.q = this.value" onkeydown="if (event.key === \'Enter\') { gmAbcPlSearch(null); }">' +
     '<button type="button" class="gm-btn-primary"' + GM_ABC_PL_HELP + (f.loading ? " disabled" : "") + ' onclick="gmAbcPlSearch(this)">' + escHtml(gmT("Buscar", "Search")) + '</button>' +
     '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("Os custos mostrados são os da sua própria conta da ABC.", "The costs shown are those of your own ABC account.")) + '</p>' +
-    '</div>';
+    gmBrSheetTopHtml(f) + '</div>';
   if (f.error) { body += '<p class="gm-warn" style="margin:0 0 10px;">' + escHtml(f.error) + '</p>'; }
   if (f.loading) { body += '<p class="muted">' + escHtml(gmT("Buscando...", "Searching...")) + '</p>'; }
   if (f.items && !f.items.length && !f.loading) {
@@ -6409,6 +6418,7 @@ function gmAbcPlRenderSheet() {
   if (f.skipped) {
     body += '<p class="muted">' + escHtml(f.skipped + gmT(" itens com comprimento variável não aparecem.", " items sold by length are not shown.")) + '</p>';
   }
+  body += gmBrSheetCountsHtml(f);
   var pickedCount = 0;
   (f.items || []).forEach(function(it, i) {
     var on = !!f.picked[i];
@@ -6417,8 +6427,9 @@ function gmAbcPlRenderSheet() {
       '<label style="display:block;"><input type="checkbox"' + (on ? " checked" : "") + (it.has_price ? "" : " disabled") + ' onchange="gmAbcPlPick(' + i + ', this.checked)"> ' +
       '<strong>' + escHtml(it.description) + '</strong></label>' +
       '<div class="muted">' + escHtml([it.item_number, it.category,
-        it.has_price ? gmT("Seu custo ", "Your cost ") + gmMoney(Math.round(it.cost * 100)) + gmT(" por ", " per ") + (it.unit_name || it.unit_code || "") : gmT("A ABC não devolveu preço", "ABC returned no price")]
-        .filter(function(x) { return !!x; }).join(" · ")) + '</div>';
+        it.has_price ? gmT("Seu custo ", "Your cost ") + gmMoney(Math.round(it.cost * 100)) + gmT(" por ", " per ") + (it.unit_name || it.unit_code || "") : gmT("A ABC não devolveu preço", "ABC returned no price"),
+        it.dimensional ? gmT("Vendido em comprimentos", "Sold in lengths") : null]
+        .filter(function(x) { return !!x; }).join(" · ")) + '</div>' + (it.others || []).map(gmBrOtherLine).join("");
     if (on && f.draftId) {
       body += '<label class="gm-field-label" for="gmAbcPlQty' + i + '">' + escHtml(gmT("Quantidade (", "Quantity (") + (it.unit_name || it.unit_code || "") + ')') + '</label>' +
         '<input type="text" inputmode="decimal" id="gmAbcPlQty' + i + '" class="gm-input" maxlength="9" value="' + escHtml(f.qty[i] || "") + '" oninput="gmAbcPlFind.qty[' + i + '] = this.value">';
@@ -6442,6 +6453,7 @@ function gmAbcPlRenderSheet() {
     body += '<button type="button" class="gm-btn-primary"' + GM_ABC_PL_HELP + (pickedCount && !gmAbcPlBusy ? "" : " disabled") + ' onclick="' + (f.draftId ? "gmMatLineAddGo(this)" : "gmAbcPlAdd(this)") + '">' +
       escHtml(f.draftId ? gmT("Adicionar ao pedido", "Add to the order") : gmT("Adicionar itens selecionados", "Add selected items")) + '</button>';
   }
+  body += gmBrCantFindHtml(f);
   if (f.result) {
     body += '<p style="margin:10px 0 4px;">' + escHtml(f.result.created.length + gmT(" itens adicionados. O preço de venda fica em branco para você preencher.", " items added. The sale price stays empty for you to fill in.")) + '</p>';
     f.result.skipped.forEach(function(s) { body += '<p class="muted" style="margin:2px 0;">' + escHtml(s.item_number + ": " + gmAbcPlReasonText(s.reason)) + '</p>'; });
@@ -6458,8 +6470,9 @@ function gmAbcPlSearch(btn) {
   if (q.length < 3) { f.error = gmT("Digite pelo menos 3 letras para buscar.", "Type at least 3 characters to search."); gmAbcPlRenderSheet(); return; }
   f.loading = true; f.error = ""; f.result = null; f.picked = {}; f.unit = {}; f.conv = {}; f.extra = {}; f.qty = {};
   gmAbcPlRenderSheet();
-  gmApi("abc/items?q=" + encodeURIComponent(q)).then(function(d) {
+  gmApi("abc/items?q=" + encodeURIComponent(q) + gmBrSearchQs(f)).then(function(d) {
     f.loading = false; f.items = d.items || []; f.skipped = d.skipped_dimensional || 0;
+    f.meta = d.total_items !== undefined ? { total: d.total_items, shown: d.shown, more: !!d.more_available, hidden: d.hidden_not_carried || 0, checked: d.availability_checked } : null;
     gmAbcPlRenderSheet();
   }).catch(function(e) {
     f.loading = false; f.items = null; f.error = e.message;
@@ -6496,9 +6509,13 @@ function gmAbcPlAdd(btn) {
   if (!list.length) { return; }
   gmAbcPlBusy = true; f.error = "";
   if (btn) { btn.disabled = true; }
-  gmApi("abc/add-items", { method: "POST", body: { items: list } }).then(function(d) {
+  var addBody = { items: list };
+  if (gmBrMulti()) { var ap = gmBrPairOfFind(f); if (ap) { addBody.ship_to = ap.ship_to; addBody.branch = ap.branch; } }
+  gmApi("abc/add-items", { method: "POST", body: addBody }).then(function(d) {
     gmAbcPlBusy = false; f.result = d; f.picked = {}; f.unit = {}; f.conv = {}; f.extra = {}; f.qty = {};
     gmAbcPlRenderSheet();
+    // 3.10: the item confirm card first (ABC's photo, description and the size when ABC's words make it clear).
+    if (gmBrReady() && (d.created || []).length) { gmApi("pricing").then(function(all) { gmPricingData = all; gmRenderPricing(); gmBrConfirmQueue(d.created); }).catch(function(e) { console.error(e); gmLoadPricing(); }); return; }
     // A measured item that was added starts the setup wizard (skippable). With none, a typed number may ask for a standard.
     gmApi("pricing").then(function(all) {
       gmPricingData = all; gmRenderPricing();
@@ -6698,6 +6715,7 @@ function gmAbcLiveRefresh(ids, done) {
 // The Price list: every visible ABC linked row, once per open.
 function gmAbcLiveKick() {
   if (gmCurrentTab !== "gmpricing" || !gmPricingData || gmIsSeller()) { return; }
+  gmBrPlCarryKick(gmPricingData.items || []);
   var ids = [];
   (gmPricingData.items || []).forEach(function(it) { if (it.abc_item_number && !(gmPricingNeedsOnly && !it.needs_info)) { ids.push(it.id); } });
   if (!ids.length) { return; }
@@ -6707,6 +6725,8 @@ function gmAbcLiveKick() {
 }
 // An open item sheet follows the refreshed cost (only the ABC Supply line and the ABC fields; the other lines are the owner's edits).
 function gmAbcLiveSheet(id) {
+  var rowNow = gmPricingRowById(id);
+  if (rowNow && rowNow.abc_item_number) { gmBrItemKick(rowNow.abc_item_number); }
   gmAbcLiveRefresh([id], function(res) {
     var r = res[id], d = gmPricingDraft;
     if (!r || !r.item || !d || d.id !== id) { return; }
@@ -7180,7 +7200,13 @@ var GM_MAT_MISSING = {
   job_name: ["o nome do trabalho", "the job name"], delivery_service: ["o tipo de entrega", "the delivery type"], delivery_place: ["o local de entrega", "the delivery place"],
   address: ["o endereço completo", "the full address"], contact_name: ["o nome do contato", "the contact name"], contact_email: ["o e-mail do contato", "the contact email"],
   contact_phone: ["o telefone do contato", "the contact phone"], order_ref: ["o número do pedido de compra", "the purchase order number"], lines: ["pelo menos uma linha", "at least one line"],
-  quantity: ["a quantidade de cada linha", "a quantity on every line"]
+  quantity: ["a quantidade de cada linha", "a quantity on every line"],
+  delivery_date: ["uma data de entrega ou A definir", "a delivery date, or TBD"],
+  delivery_contact_name: ["o nome da pessoa na obra", "the on-site person's name"],
+  delivery_contact_phone: ["o telefone da pessoa na obra", "the on-site person's phone"],
+  item_description: ["atualizar este item pela ABC primeiro", "Refresh this item from ABC first"],
+  item_length: ["escolher o comprimento ainda não é possível, pergunte à filial", "Choose a length is not supported yet, ask the branch"],
+  person_name: ["o nome de uma pessoa, não da empresa", "a person's name, not the business name"]
 };
 function gmMatMissingText(list) { return (list || []).map(function(k) { var m = GM_MAT_MISSING[k]; return m ? gmT(m[0], m[1]) : k; }).join(", "); }
 function gmMatServiceName(code) { var s = null; GM_MAT_SERVICES.forEach(function(x) { if (x[0] === code) { s = x; } }); return s ? gmT(s[2], s[1]) : ""; }
@@ -7218,12 +7244,16 @@ function gmMatStatusPill(d) {
 }
 // Drafts by contract, for the badge on a signed contract.
 var gmMatDraftsByContract = {};
+var gmMatDraftsAll = {};    // contract id -> every draft still waiting to be sent (one per ABC account and branch)
 var gmMatWaiting = 0;
 function gmMatDraftsLoad(cb) {
   if (gmIsSeller()) { if (cb) { cb(); } return; }
   gmApi("abc/drafts").then(function(d) {
-    gmMatDraftsByContract = {}; gmMatWaiting = d.waiting || 0;
-    (d.drafts || []).forEach(function(x) { gmMatDraftsByContract[x.contract_id] = x; });
+    gmMatDraftsByContract = {}; gmMatDraftsAll = {}; gmMatWaiting = d.waiting || 0;
+    (d.drafts || []).forEach(function(x) {
+      gmMatDraftsByContract[x.contract_id] = x;
+      if (x.status === "draft") { (gmMatDraftsAll[x.contract_id] = gmMatDraftsAll[x.contract_id] || []).push(x); }
+    });
     // The Home card counts these, so it is drawn again whenever they are read (found 2026-11-15: it stayed after an order was sent).
     if (typeof gmAttentionRecompute === "function") { gmAttentionRecompute(); }
     if (cb) { cb(); }
@@ -7240,8 +7270,9 @@ function gmMatOrdersCardHtml() {
 
 // ── The list ──
 var gmMatOrd = null;
-function gmMatOrdersOpen() {
+function gmMatOrdersOpen(tick) {
   gmMatOrd = { list: null, loading: true, err: "", picked: {} };
+  (Array.isArray(tick) ? tick : []).forEach(function(id) { gmMatOrd.picked[id] = true; });
   gmMatOrdersRender();
   gmApi("abc/drafts").then(function(d) { gmMatOrd.list = d.drafts || []; gmMatOrd.loading = false; gmMatOrdersRender(); })
     .catch(function(e) { gmMatOrd.loading = false; gmMatOrd.err = e.message; gmMatOrdersRender(); console.error("materials orders: " + e.message); });
@@ -7276,17 +7307,36 @@ function gmMatDraftOpen(id) {
   gmApi("abc/drafts/" + encodeURIComponent(id)).then(function(d) {
     var m = gmMatDraft; if (!m || m.id !== id) { return; }
     m.data = d; m.loading = false; m.form = gmMatDraftForm(d);
+    m.ready = Array.isArray(d.pairs); m.multi = m.ready && d.pairs.length > 1;
     m.locMode = d.draft.delivery_to === "job" ? "job" : (d.draft.delivery_to === "saved" ? "saved" : "");
     m.view = d.draft.status === "draft" ? "edit" : "done";
+    gmBrBarWire();
     gmMatDraftRender();
-    if (d.draft.status === "draft") { gmMatDraftPrices(); gmMatDraftLiveRows(); }
+    if (d.draft.status === "draft") {
+      // ABC's own item descriptions (F6): asked for when the owner opens the order, then the order is read again.
+      if (m.ready && (d.draft.missing || []).some(function(k) { return k === "item_description"; })) {
+        gmApi("abc/drafts/" + encodeURIComponent(id) + "/refresh-descriptions", { method: "POST", body: {} }).then(function() { return gmApi("abc/drafts/" + encodeURIComponent(id)); })
+          .then(function(d2) { if (gmMatDraft === m) { m.data.draft.missing = d2.draft.missing; d2.lines.forEach(function(l2) { m.data.lines.forEach(function(l) { if (l.id === l2.id) { l.abc_description = l2.abc_description; l.abc_dimensional = l2.abc_dimensional; } }); }); gmMatDraftRender(); } })
+          .catch(function(e) { console.error("abc descriptions: " + e.message); });
+      }
+      gmMatDraftPrices(); gmMatDraftLiveRows();
+      // With several branches, compare them by themselves once while no branch is chosen yet.
+      if (m.multi && !d.draft.ship_to_number) { gmBrCmpLoad(m); }
+    }
   }).catch(function(e) { var m = gmMatDraft; if (!m) { return; } m.loading = false; m.err = e.message; gmMatDraftRender(); console.error("draft: " + e.message); });
 }
 function gmMatDraftForm(d) {
   var dr = d.draft, ja = dr.delivery_to === "job" && dr.ship_line1 ? { line1: dr.ship_line1, city: dr.ship_city, state: dr.ship_state, postal: dr.ship_postal } : d.job_address;
   var q = {}; d.lines.forEach(function(l) { q[l.id] = { qty: l.quantity === null || l.quantity === undefined ? "" : String(l.quantity), removed: !!l.removed }; });
-  return { job_name: dr.job_name, service: dr.delivery_service, date: gmMatUsDate(dr.delivery_date), contact_name: dr.contact_name, contact_email: dr.contact_email, contact_phone: dr.contact_phone,
+  var form = { job_name: dr.job_name, service: dr.delivery_service, date: gmMatUsDate(dr.delivery_date), contact_name: dr.contact_name, contact_email: dr.contact_email, contact_phone: dr.contact_phone,
     order_ref: dr.order_ref, ja: { line1: ja.line1 || "", city: ja.city || "", state: ja.state || "", postal: ja.postal || "" }, locId: dr.location_id || "", nl: { name: "", line1: "", city: "", state: "", postal: "" }, lines: q };
+  if (Array.isArray(d.pairs)) {
+    // Date or TBD is never preselected; the on-site person is never prefilled. The submitter starts as the owner's own name (never the business).
+    var dl = gmBrNewDl(dr, d.access_notes, d.suggested_contact_name);
+    Object.keys(dl).forEach(function(k) { form[k] = dl[k]; });
+    if (!form.contact_name && d.suggested_contact_name) { form.contact_name = d.suggested_contact_name; }
+  }
+  return form;
 }
 function gmMatDraftLiveRows() {
   var m = gmMatDraft; if (!m || !m.data) { return; }
@@ -7332,14 +7382,15 @@ function gmMatDraftRender() {
   var title = escHtml(gmT("Pedido de material", "Materials order"));
   if (m.loading) { gmSheetOpen(title, '<p class="muted">' + escHtml(gmT("Carregando…", "Loading…")) + '</p>', null, "pricing-item-and-import#item"); return; }
   if (!m.data) { gmSheetOpen(title, gmMatCalloutHtml(gmT("Não foi possível abrir", "Could not open"), [[gmT("Motivo", "Reason"), m.err]]) + '<button type="button" class="gm-btn-secondary" onclick="gmMatOrdersOpen()">' + escHtml(gmT("Voltar à lista", "Back to the list")) + '</button>', null, "pricing-item-and-import#item"); return; }
-  var h = m.view === "review" ? gmMatReviewHtml(m) : (m.view === "done" ? gmMatDoneHtml(m) : gmMatEditHtml(m));
+  var h = m.view === "review" ? gmMatReviewHtml(m) : (m.view === "done" ? gmMatDoneHtml(m) : (m.view === "conflict" && m.cf ? gmBrConflictHtml(m) : gmMatEditHtml(m)));
   gmSheetOpen(escHtml((m.data.draft.job_name || title) + (m.data.draft.contract_number ? " · " + m.data.draft.contract_number : "")), h, null, "pricing-item-and-import#item");
 }
 function gmMatEditHtml(m) {
   var d = m.data, f = m.form, h = "";
   if (m.err) { h += gmMatCalloutHtml(gmT("Confira antes de continuar", "Check before you go on"), [[gmT("O que houve", "What happened"), m.err]]); }
+  h += gmBrBranchSectionHtml(m);
   // Lines.
-  h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("Linhas do pedido", "Order lines")) + '</div>' +
+  h += '<div class="gm-sheet-section" id="gmMatLinesBox"><div class="gm-field-label">' + escHtml(gmT("Linhas do pedido", "Order lines")) + '</div>' +
     '<p class="muted gm-abc-live" id="gmMatPriceNote" style="margin:0 0 6px;">' + escHtml(gmMatPriceNoteText(m)) + '</p>';
   var total = 0, allPriced = true, any = false;
   d.lines.forEach(function(l, i) {
@@ -7369,7 +7420,7 @@ function gmMatEditHtml(m) {
   // Delivery.
   h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("Entrega", "Delivery")) + '</div>' +
     gmMatServiceSelect("gmMatSvc", f.service, "gmMatDraft.form.service = this.value") +
-    '<div class="gm-field-label" style="margin-top:10px;">' + escHtml(gmT("Para onde vai", "Where it goes")) + '</div>' +
+    '<div class="gm-field-label" id="gmMatLocBox" style="margin-top:10px;">' + escHtml(gmT("Para onde vai", "Where it goes")) + '</div>' +
     '<div class="gm-seg"><button type="button" class="gm-seg-btn' + (m.locMode === "job" ? " gm-seg-on" : "") + '" onclick="gmMatLocMode(\'job\')"><strong>' + escHtml(gmT("Endereço da obra", "Job address")) + '</strong></button>' +
     '<button type="button" class="gm-seg-btn' + (m.locMode === "saved" ? " gm-seg-on" : "") + '" onclick="gmMatLocMode(\'saved\')"><strong>' + escHtml(gmT("Local salvo", "Saved location")) + '</strong></button>' +
     '<button type="button" class="gm-seg-btn' + (m.locMode === "new" ? " gm-seg-on" : "") + '" onclick="gmMatLocMode(\'new\')"><strong>' + escHtml(gmT("Novo local", "New location")) + '</strong></button></div>';
@@ -7382,20 +7433,25 @@ function gmMatEditHtml(m) {
       '<button type="button" class="gm-btn-secondary" onclick="gmMatUseBusinessAddress(\'nl\')">' + escHtml(gmT("Usar o endereço da minha empresa", "Use my business address")) + '</button>' +
       '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("O novo local é salvo ao ser usado e aparece na lista da próxima vez.", "The new location is saved when it is used and appears in the list next time.")) + '</p>';
   }
-  h += gmMatField("gmMatDate", gmT("Data de entrega (opcional)", "Delivery date (optional)"), f.date, "gmMatDraft.form.date = this.value", { placeholder: "MM/DD/YYYY", max: 10, inputmode: "numeric",
-    hint: gmT("Em branco: a filial da ABC escolhe a data.", "Left blank, the ABC branch decides the date.") }) + '</div>';
+  if (m.ready) {
+    // F5: a date or an explicit TBD, never chosen for the owner. Then the on-site person and the instructions.
+    h += '<div style="margin-top:10px;">' + gmBrDeliveryHtml(f, "draft", "gmMat") + '</div></div>';
+  } else {
+    h += gmMatField("gmMatDate", gmT("Data de entrega (opcional)", "Delivery date (optional)"), f.date, "gmMatDraft.form.date = this.value", { placeholder: "MM/DD/YYYY", max: 10, inputmode: "numeric",
+      hint: gmT("Em branco: a filial da ABC escolhe a data.", "Left blank, the ABC branch decides the date.") }) + '</div>';
+  }
   // Contact, job, purchase order.
-  h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("Contato e pedido", "Contact and order")) + '</div>' +
-    gmMatField("gmMatCName", gmT("Nome do contato", "Contact name"), f.contact_name, "gmMatDraft.form.contact_name = this.value", { max: 60 }) +
-    gmMatField("gmMatCEmail", gmT("E-mail do contato", "Contact email"), f.contact_email, "gmMatDraft.form.contact_email = this.value", { max: 254, type: "email" }) +
-    gmMatField("gmMatCPhone", gmT("Telefone do contato", "Contact phone"), f.contact_phone, "gmMatDraft.form.contact_phone = this.value", { max: 30, inputmode: "tel" }) +
+  h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(m.ready ? gmT("Seu contato para a ABC", "Your contact for ABC") : gmT("Contato e pedido", "Contact and order")) + '</div>' +
+    gmMatField("gmMatCName", m.ready ? gmT("Seu nome", "Your name") : gmT("Nome do contato", "Contact name"), f.contact_name, "gmMatDraft.form.contact_name = this.value", { max: 60, hint: m.ready ? gmT("O nome de uma pessoa, não o da empresa.", "A person's name, not the business name.") : "" }) +
+    gmMatField("gmMatCEmail", m.ready ? gmT("Seu e-mail", "Your email") : gmT("E-mail do contato", "Contact email"), f.contact_email, "gmMatDraft.form.contact_email = this.value", { max: 254, type: "email" }) +
+    gmMatField("gmMatCPhone", m.ready ? gmT("Seu telefone", "Your phone") : gmT("Telefone do contato", "Contact phone"), f.contact_phone, "gmMatDraft.form.contact_phone = this.value", { max: 30, inputmode: "tel" }) +
     gmMatField("gmMatJob", gmT("Nome do trabalho", "Job name"), f.job_name, "gmMatDraft.form.job_name = this.value", { max: 80 }) +
     gmMatField("gmMatPo", gmT("Número do pedido de compra", "Purchase order number"), f.order_ref, "gmMatDraft.form.order_ref = this.value", { max: 16, hint: gmT("Até 16 letras, números ou hifens. Único na sua empresa.", "Up to 16 letters, numbers or hyphens. Unique in your business.") }) + '</div>';
-  h += '<button type="button" class="gm-btn-primary"' + (m.busy ? " disabled" : "") + ' onclick="gmMatReviewOpen()">' + escHtml(gmT("Revisar e enviar", "Review and send")) + '</button>' +
-    '<button type="button" class="gm-btn-secondary"' + (m.busy ? " disabled" : "") + ' onclick="gmMatDraftSaveBtn()">' + escHtml(gmT("Salvar para depois", "Save for later")) + '</button>' +
+  var secondary = '<button type="button" class="gm-btn-secondary"' + (m.busy ? " disabled" : "") + ' onclick="gmMatDraftSaveBtn()">' + escHtml(gmT("Salvar para depois", "Save for later")) + '</button>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmMatDiscardAsk()">' + escHtml(gmT("Descartar este pedido", "Discard this order")) + '</button>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmMatOrdersOpen()">' + escHtml(gmT("Voltar à lista", "Back to the list")) + '</button>';
-  return h;
+  if (m.ready) { return h + secondary + gmBrBarHtml(m); }   // 4(c): Review and send is pinned at the bottom with what is still needed
+  return h + '<button type="button" class="gm-btn-primary"' + (m.busy ? " disabled" : "") + ' onclick="gmMatReviewOpen()">' + escHtml(gmT("Revisar e enviar", "Review and send")) + '</button>' + secondary;
 }
 function gmMatAddrFields(key, a, withName) {
   var p = "gmMatDraft.form." + key;
@@ -7452,9 +7508,15 @@ function gmMatDraftBody() {
     contact_phone: String(f.contact_phone || "").trim(), order_ref: String(f.order_ref || "").trim() };
   if (!body.job_name) { return bad("Informe o nome do trabalho.", "Enter the job name."); }
   if (!/^[A-Za-z0-9-]{1,16}$/.test(body.order_ref)) { return bad("O número do pedido de compra tem até 16 letras, números ou hifens.", "The purchase order number has up to 16 letters, numbers or hyphens."); }
-  var iso = gmMatIsoDate(f.date);
-  if (iso === null) { return bad("Escreva a data como MM/DD/AAAA ou deixe em branco.", "Write the date as MM/DD/YYYY or leave it blank."); }
-  body.delivery_date = iso;
+  if (m.ready) {
+    var dl = gmBrDlBody(f);
+    if (dl.err) { m.err = dl.err; return null; }
+    Object.keys(dl).forEach(function(k) { body[k] = dl[k]; });
+  } else {
+    var iso = gmMatIsoDate(f.date);
+    if (iso === null) { return bad("Escreva a data como MM/DD/AAAA ou deixe em branco.", "Write the date as MM/DD/YYYY or leave it blank."); }
+    body.delivery_date = iso;
+  }
   var lines = [];
   for (var i = 0; i < d.lines.length; i++) {
     var l = d.lines[i], lf = f.lines[l.id]; if (!lf) { continue; }
@@ -7607,8 +7669,11 @@ function gmMatReviewHtml(m) {
   h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("Resumo do pedido", "Order summary")) + '</div>' +
     gmMatSumRow(gmT("Entrega", "Delivery"), gmMatServiceName(dr.delivery_service)) +
     gmMatSumRow(gmT("Para", "To"), gmMatShipText(d)) +
-    gmMatSumRow(gmT("Data", "Date"), dr.delivery_date ? gmMatUsDate(dr.delivery_date) : gmT("A filial da ABC escolhe a data", "The ABC branch decides the date")) +
-    gmMatSumRow(gmT("Contato", "Contact"), [dr.contact_name, dr.contact_email, dr.contact_phone].filter(Boolean).join(" · ")) +
+    (m.multi ? gmMatSumRow(gmT("Filial", "Branch"), gmBrPairNameIn(m, gmBrDraftPair(m))) : "") +
+    gmMatSumRow(gmT("Data", "Date"), dr.delivery_date_tbd ? gmT("A definir: a filial segura o pedido", "TBD: the branch holds the order") : (dr.delivery_date ? gmMatUsDate(dr.delivery_date) : gmT("A filial da ABC escolhe a data", "The ABC branch decides the date"))) +
+    gmMatSumRow(m.ready ? gmT("Seu contato", "Your contact") : gmT("Contato", "Contact"), [dr.contact_name, dr.contact_email, dr.contact_phone].filter(Boolean).join(" · ")) +
+    (m.ready ? gmMatSumRow(gmT("Pessoa na obra", "On site"), [dr.delivery_contact_name, dr.delivery_contact_phone].filter(Boolean).join(" · ")) +
+      (dr.delivery_instructions ? gmMatSumRow(gmT("Instruções", "Instructions"), dr.delivery_instructions) : "") : "") +
     gmMatSumRow(gmT("Pedido de compra", "Purchase order"), dr.order_ref) + '</div>';
   var total = 0, all = true;
   h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("Linhas e preços finais", "Lines and final prices")) + '</div>';
@@ -7620,9 +7685,9 @@ function gmMatReviewHtml(m) {
   });
   h += '<div class="gm-mat-sum"><span>' + escHtml(gmT("Total", "Total")) + '</span><strong>' + (all ? escHtml(gmMatOrderMoney(total)) : gmT("n/d", "n/a")) + '</strong></div></div>';
   var can = m.prices === "ok" && all && rv.ack && !rv.sending;
-  h += '<button type="button" class="gm-btn-primary"' + (can ? "" : " disabled") + ' onclick="gmMatSend()">' + escHtml(rv.sending ? gmT("Enviando…", "Sending…") : gmT("Enviar pedido à ABC", "Send order to ABC")) + '</button>' +
-    '<button type="button" class="gm-btn-secondary"' + (rv.sending ? " disabled" : "") + ' onclick="gmMatDraft.view = \'edit\'; gmMatDraft.rv = null; gmMatDraftRender()">' + escHtml(gmT("Voltar e editar", "Back to edit")) + '</button>';
-  return h;
+  var sendBtn = '<button type="button" class="gm-btn-primary"' + (can ? "" : " disabled") + ' onclick="gmMatSend()">' + escHtml(rv.sending ? gmT("Enviando…", "Sending…") : gmT("Enviar pedido à ABC", "Send order to ABC")) + '</button>';
+  var backBtn = '<button type="button" class="gm-btn-secondary"' + (rv.sending ? " disabled" : "") + ' onclick="gmMatDraft.view = \'edit\'; gmMatDraft.rv = null; gmMatDraftRender()">' + escHtml(gmT("Voltar e editar", "Back to edit")) + '</button>';
+  return h + (m.ready ? backBtn + '<div class="gm-bar">' + sendBtn + '</div>' : sendBtn + backBtn);
 }
 function gmMatSumRow(k, v) { return '<div class="gm-callout-row" style="padding:3px 0;"><span class="gm-callout-k">' + escHtml(k) + '</span><span>' + escHtml(v || "") + '</span></div>'; }
 function gmMatSend() {
@@ -7651,6 +7716,7 @@ function gmMatDoneHtml(m) {
   if (dr.status === "discarded") { return '<p class="muted">' + escHtml(gmT("Este pedido foi descartado.", "This order was discarded.")) + '</p><button type="button" class="gm-btn-secondary" onclick="gmMatOrdersOpen()">' + escHtml(gmT("Voltar à lista", "Back to the list")) + '</button>'; }
   var rows = [[gmT("Situação", "Status"), dr.status === "combined" ? gmT("Combinado no pedido ", "Combined into order ") + dr.combined_into : (dr.order_status ? String(dr.order_status).replace(/^./, function(c) { return c.toUpperCase(); }) : gmT("Enviado", "Sent"))],
     [gmT("Confirmação da ABC", "ABC confirmation"), dr.abc_confirmation || gmT("ainda sem confirmação", "no confirmation yet")], [gmT("Pedido de compra", "Purchase order"), dr.combined_into || dr.order_ref]];
+  if (m.multi) { rows.push([gmT("Filial", "Branch"), gmBrPairNameIn(m, gmBrDraftPair(m))]); }
   h += '<div class="gm-callout gm-callout-ok" role="note"><span class="gm-callout-icon">' + GM_MAT_ICON + '</span><div class="gm-callout-body"><div class="gm-callout-title">' + escHtml(gmT("Pedido enviado à ABC", "Order sent to ABC")) + '</div>' +
     rows.map(function(r) { return '<div class="gm-callout-row"><span class="gm-callout-k">' + escHtml(r[0]) + '</span><span>' + escHtml(r[1]) + '</span></div>'; }).join("") + '</div></div>';
   h += '<p class="muted">' + escHtml(gmT("A situação acompanha o que a ABC envia. Este pedido não pode ser editado nem enviado de novo.", "The status follows what ABC sends. This order cannot be edited or sent again.")) + '</p>';
@@ -7661,10 +7727,16 @@ function gmMatDoneHtml(m) {
 }
 
 // ── Contract screen: the badge and the way in ──
-function gmMatContractBadgeHtml(c) {
-  var d = c && c.id ? gmMatDraftsByContract[c.id] : null;
-  if (!d || gmIsSeller()) { return ""; }
-  return d.status === "draft" ? ' <span class="gm-pill gm-gold">● ' + escHtml(gmT("Pedido de material pronto", "Materials order ready")) + '</span>' : "";
+// 4(a): a ready order is a visible gold button, no longer a small pill. With two orders (two branches) it says so and
+// opens the Materials orders list with both ticked for Batch order.
+function gmMatContractBadgeHtml(c) { return ""; }
+function gmMatContractSendBtnHtml(c) {
+  if (gmIsSeller() || !c || !c.id) { return ""; }
+  var list = gmMatDraftsAll[c.id] || [];
+  if (!list.length) { return ""; }
+  var label = list.length > 1 ? gmT("Enviar pedidos de material (" + list.length + ")", "Send materials orders (" + list.length + ")") : gmT("Enviar pedido de material para a ABC", "Send materials order to ABC");
+  var go = list.length > 1 ? "gmMatOrdersOpen([" + list.map(function(x) { return "'" + escHtml(x.id) + "'"; }).join(",") + "])" : "gmMatDraftOpen('" + escHtml(list[0].id) + "')";
+  return '<button type="button" class="btn-gold gm-add-btn gm-send-abc" onclick="' + go + '">' + escHtml(label) + '</button>';
 }
 function gmMatContractSheetRow(c) {
   if (gmIsSeller() || !c || c.status !== "completed") { return ""; }
@@ -7674,7 +7746,8 @@ function gmMatContractSheetRow(c) {
 }
 function gmMatEnsure(contractId) {
   gmApi("abc/drafts/ensure", { method: "POST", body: { contract_id: contractId } }).then(function(r) {
-    if (r.draft) { gmMatDraftsLoad(function() { gmMatDraftOpen(r.draft.id); }); }
+    if (r.drafts && r.drafts.length > 1) { gmMatDraftsLoad(function() { gmMatOrdersOpen(r.drafts.map(function(x) { return x.id; })); }); }
+    else if (r.draft) { gmMatDraftsLoad(function() { gmMatDraftOpen(r.draft.id); }); }
     else { gmToast(gmT("Este contrato não tem itens da ABC para pedir.", "This contract has no ABC items to order.")); }
   }).catch(function(e) { gmToast(e.message); console.error("materials ensure: " + e.message); });
 }
@@ -7697,7 +7770,15 @@ function gmMatBatchOpen() {
     var b = gmMatBatch; if (!b) { return; }
     all.forEach(function(d) { b.det[d.draft.id] = d; b.pos[d.draft.id] = d.draft.order_ref; });
     b.locs = all[0].locations || []; b.loading = false;
-    var biz = all[0].business || {}; b.contact = { name: biz.name || "", email: biz.email || "", phone: biz.phone || "" };
+    var biz = all[0].business || {};
+    b.ready = all.every(function(d) { return Array.isArray(d.pairs); });
+    // F4: the contact name starts as the owner's own personal name (or empty), never the business name.
+    b.contact = { name: b.ready ? (all[0].suggested_contact_name || "") : (biz.name || ""), email: biz.email || "", phone: biz.phone || "" };
+    if (b.ready) {
+      b.dl = gmBrNewDl(null, all[0].access_notes);
+      var keyOf = function(d) { var df = (d.pairs || []).filter(function(p) { return p.is_default; })[0] || (d.pairs || [])[0] || {}; return (d.draft.ship_to_number || df.ship_to) + "|" + (d.draft.branch_number || df.branch); };
+      b.pairsDiffer = all.some(function(d) { return keyOf(d) !== keyOf(all[0]); });
+    }
     b.comboRef = all[0].draft.order_ref;
     gmMatBatchRender();
   }).catch(function(e) { var b = gmMatBatch; if (!b) { return; } b.loading = false; b.err = e.message; gmMatBatchRender(); console.error("batch: " + e.message); });
@@ -7739,6 +7820,19 @@ function gmMatBatchAHtml(b) {
       '<div class="gm-lead-sub" style="white-space:normal;">' + escHtml(needsDelivery ? gmT("Falta a entrega.", "Delivery is missing.") : gmMatServiceName(dr.delivery_service) + " · " + gmMatShipText(d)) + '</div>';
     var other = miss.filter(function(k) { return ["delivery_service", "delivery_place", "address"].indexOf(k) === -1; });
     if (other.length) { h += '<div class="gm-warn" style="font-weight:600;font-size:13px;">' + escHtml(gmT("Também falta: ", "Also needed: ") + gmMatMissingText(other)) + '</div>'; }
+    // A date or TBD, the on-site person, the branch: fixed here, without leaving the batch.
+    if (b.ready && (miss.indexOf("delivery_date") !== -1 || miss.indexOf("delivery_contact_name") !== -1 || miss.indexOf("delivery_contact_phone") !== -1 || miss.indexOf("contact_name") !== -1)) {
+      if (!e.dl) { e.dl = gmBrNewDl(dr, d.access_notes); e.cn = dr.contact_name || d.suggested_contact_name || ""; }
+      if (miss.indexOf("contact_name") !== -1) { h += gmMatField("gmMatBAcn_" + escHtml(id), gmT("Seu nome", "Your name"), e.cn, "gmMatBatch.edit['" + escHtml(id) + "'].cn = this.value", { max: 60 }); }
+      h += gmBrDeliveryHtml(e.dl, "bedit:" + id, "gmMatBA" + id.replace(/[^A-Za-z0-9]/g, ""));
+      h += '<button type="button" class="gm-btn-secondary" onclick="gmMatBatchASave(\'' + escHtml(id) + '\')">' + escHtml(gmT("Salvar entrega", "Save delivery")) + '</button>';
+    }
+    if (b.ready && (d.pairs || []).length > 1) {
+      var curKey = (dr.ship_to_number || "") + "|" + (dr.branch_number || "");
+      h += '<label class="gm-field-label" for="gmMatBAb_' + escHtml(id) + '">' + escHtml(gmT("Filial deste pedido", "Branch for this order")) + '</label><select id="gmMatBAb_' + escHtml(id) + '" class="gm-input" onchange="gmMatBatchABranch(\'' + escHtml(id) + '\', this.value)">' +
+        (dr.ship_to_number ? "" : '<option value="" selected>' + escHtml(gmT("Escolha…", "Choose…")) + '</option>') +
+        d.pairs.map(function(p) { return '<option value="' + escHtml(gmBrKey(p)) + '"' + (gmBrKey(p) === curKey ? " selected" : "") + '>' + escHtml(gmBrName(p)) + '</option>'; }).join("") + '</select>';
+    }
     if (needsDelivery) {
       h += gmMatServiceSelect("gmMatBA_" + escHtml(id), e.service, "gmMatBatch.edit['" + escHtml(id) + "'].service = this.value") +
         '<label class="gm-field-label" for="gmMatBP_' + escHtml(id) + '">' + escHtml(gmT("Para onde vai", "Where it goes")) + '</label><select id="gmMatBP_' + escHtml(id) + '" class="gm-input" onchange="gmMatBatch.edit[\'' + escHtml(id) + '\'].place = this.value">' +
@@ -7754,10 +7848,22 @@ function gmMatBatchAHtml(b) {
     '<button type="button" class="gm-btn-secondary" onclick="gmMatBatch.step = \'choice\'; gmMatBatchRender()">' + escHtml(gmT("Voltar", "Back")) + '</button>';
   return h;
 }
+function gmMatBatchABranch(id, key) {
+  var b = gmMatBatch, p = key.split("|"); if (!b || p.length !== 2) { return; }
+  gmApi("abc/drafts/" + encodeURIComponent(id), { method: "PUT", body: { ship_to: p[0], branch: p[1] } }).then(function() { return gmApi("abc/drafts/" + encodeURIComponent(id)); })
+    .then(function(d) { b.det[id] = d; gmMatBatchRender(); }).catch(function(er) { b.err = er.message; gmMatBatchRender(); console.error("batch branch: " + er.message); });
+}
 function gmMatBatchASave(id) {
   var b = gmMatBatch, e = b.edit[id]; if (!e) { return; }
-  var body = { delivery_service: e.service || "" };
+  var body = {};
+  if (e.service !== undefined && (b.det[id].draft.missing || []).some(function(k) { return k === "delivery_service" || k === "delivery_place" || k === "address"; })) { body.delivery_service = e.service || ""; }
   if (e.place === "job") { body.delivery_to = "job"; } else if (e.place) { body.delivery_to = "saved"; body.location_id = e.place; }
+  if (b.ready && e.dl) {
+    var dlb = gmBrDlBody(e.dl);
+    if (dlb.err) { b.err = dlb.err; gmMatBatchRender(); return; }
+    Object.keys(dlb).forEach(function(k) { body[k] = dlb[k]; });
+    if (e.cn !== undefined && String(e.cn).trim()) { body.contact_name = String(e.cn).trim(); }
+  }
   b.err = "";
   gmApi("abc/drafts/" + encodeURIComponent(id), { method: "PUT", body: body }).then(function() { return gmApi("abc/drafts/" + encodeURIComponent(id)); })
     .then(function(d) { b.det[id] = d; delete b.edit[id]; gmMatBatchRender(); })
@@ -7791,13 +7897,14 @@ function gmMatBatchBHtml(b) {
   var chosen = b.locMode === "picked" || b.locMode === "new";
   if (chosen) {
     h += '<div class="gm-sheet-section">' + gmMatServiceSelect("gmMatBSvc", b.service, "gmMatBatch.service = this.value") +
-      gmMatField("gmMatBDate", gmT("Data de entrega (opcional)", "Delivery date (optional)"), b.date, "gmMatBatch.date = this.value", { placeholder: "MM/DD/YYYY", max: 10, inputmode: "numeric", hint: gmT("Em branco: a filial da ABC escolhe a data.", "Left blank, the ABC branch decides the date.") }) +
+      (b.ready ? gmBrDeliveryHtml(b.dl, "batch", "gmMatB") :
+        gmMatField("gmMatBDate", gmT("Data de entrega (opcional)", "Delivery date (optional)"), b.date, "gmMatBatch.date = this.value", { placeholder: "MM/DD/YYYY", max: 10, inputmode: "numeric", hint: gmT("Em branco: a filial da ABC escolhe a data.", "Left blank, the ABC branch decides the date.") })) +
       gmMatField("gmMatBCn", gmT("Nome do contato", "Contact name"), b.contact.name, "gmMatBatch.contact.name = this.value", { max: 60 }) +
       gmMatField("gmMatBCe", gmT("E-mail do contato", "Contact email"), b.contact.email, "gmMatBatch.contact.email = this.value", { max: 254, type: "email" }) +
       gmMatField("gmMatBCp", gmT("Telefone do contato", "Contact phone"), b.contact.phone, "gmMatBatch.contact.phone = this.value", { max: 30, inputmode: "tel" }) + '</div>' +
       '<div class="gm-field-label">' + escHtml(gmT("Como enviar?", "How should they go?")) + '</div><div class="gm-seg">' +
       '<button type="button" class="gm-seg-btn" onclick="gmMatBatchPricesGo(\'sep\')"><strong>' + escHtml(gmT("Pedidos separados", "Separate orders")) + '</strong><span class="muted">' + escHtml(gmT("Um por trabalho, cada um com seu número de compra", "One per job, each with its own purchase order")) + '</span></button>' +
-      '<button type="button" class="gm-seg-btn"' + (b.ids.length < 2 ? " disabled" : "") + ' onclick="gmMatBatchPricesGo(\'combo\')"><strong>' + escHtml(gmT("Um pedido combinado", "One combined order")) + '</strong><span class="muted">' + escHtml(gmT("Linhas somadas por item da ABC, um número de compra", "Lines merged by ABC item, one purchase order")) + '</span></button></div>';
+      '<button type="button" class="gm-seg-btn"' + (b.ids.length < 2 || b.pairsDiffer ? " disabled" : "") + ' onclick="gmMatBatchPricesGo(\'combo\')"><strong>' + escHtml(gmT("Um pedido combinado", "One combined order")) + '</strong><span class="muted">' + escHtml(b.pairsDiffer ? gmT("Estes pedidos usam contas ou filiais da ABC diferentes, e um pedido da ABC tem uma conta e uma filial.", "These orders use different ABC accounts or branches, and one ABC order has one account and one branch.") : gmT("Linhas somadas por item da ABC, um número de compra", "Lines merged by ABC item, one purchase order")) + '</span></button></div>';
   }
   return h + '<button type="button" class="gm-btn-secondary" onclick="gmMatBatch.step = \'choice\'; gmMatBatch.locMode = \'\'; gmMatBatchRender()">' + escHtml(gmT("Voltar", "Back")) + '</button>';
 }
@@ -7821,8 +7928,16 @@ function gmMatBatchPricesGo(mode) {
   if (mode === "A") { go(); return; }
   // B: check the shared fields, then save the place and the delivery on every draft.
   var iso = gmMatIsoDate(b.date);
+  var dlBody = null;
   if (!b.service) { b.err = gmT("Escolha o tipo de entrega.", "Choose the delivery type."); gmMatBatchRender(); return; }
-  if (iso === null) { b.err = gmT("Escreva a data como MM/DD/AAAA ou deixe em branco.", "Write the date as MM/DD/YYYY or leave it blank."); gmMatBatchRender(); return; }
+  if (b.ready) {
+    // F5: a date or an explicit TBD (never chosen for the owner), and the on-site person.
+    dlBody = gmBrDlBody(b.dl); iso = "";
+    if (dlBody.err) { b.err = dlBody.err; gmMatBatchRender(); return; }
+    if (!b.dl.dateMode) { b.err = gmT("Escolha uma data de entrega ou A definir.", "Pick a delivery date or TBD."); gmMatBatchRender(); return; }
+    if (!dlBody.delivery_contact_name || !dlBody.delivery_contact_phone) { b.err = gmT("Escolha ou adicione a pessoa que vai estar na obra.", "Pick or add the person who will be on site."); gmMatBatchRender(); return; }
+  }
+  if (!b.ready && iso === null) { b.err = gmT("Escreva a data como MM/DD/AAAA ou deixe em branco.", "Write the date as MM/DD/YYYY or leave it blank."); gmMatBatchRender(); return; }
   if (!b.contact.name.trim() || !b.contact.email.trim() || !b.contact.phone.trim()) { b.err = gmT("Informe nome, e-mail e telefone do contato.", "Enter the contact name, email and phone."); gmMatBatchRender(); return; }
   var resolveLoc;
   if (b.locMode === "picked") { resolveLoc = Promise.resolve(b.locId); }
@@ -7836,7 +7951,7 @@ function gmMatBatchPricesGo(mode) {
     // The place, the type, the date and the contact go onto every draft; the purchase orders stay as they are.
     return b.ids.reduce(function(p, id) {
       return p.then(function() {
-        return gmApi("abc/drafts/" + encodeURIComponent(id), { method: "PUT", body: { delivery_service: b.service, delivery_date: iso, contact_name: b.contact.name.trim(), contact_email: b.contact.email.trim(), contact_phone: b.contact.phone.trim(), delivery_to: "saved", location_id: locId } });
+        return gmApi("abc/drafts/" + encodeURIComponent(id), { method: "PUT", body: Object.assign({ delivery_service: b.service, delivery_date: iso, contact_name: b.contact.name.trim(), contact_email: b.contact.email.trim(), contact_phone: b.contact.phone.trim(), delivery_to: "saved", location_id: locId }, dlBody || {}) });
       });
     }, Promise.resolve());
   }).then(function() { b.busy = false; go(); }).catch(function(e) { b.busy = false; b.err = e.message; gmMatBatchRender(); console.error("batch place: " + e.message); });
@@ -7891,8 +8006,10 @@ function gmMatBatchSend() {
     var prices = {};
     b.ids.forEach(function(id) { (b.det[id].lines || []).forEach(function(l) { var x = (b.pr[id] || []).filter(function(p) { return p.id === l.id; })[0]; if (x && x.price !== null && prices[l.item_number] === undefined) { prices[l.item_number] = x.price; } }); });
     var loc = null; b.locs.forEach(function(L) { if (L.id === b.locId) { loc = L; } });
-    gmApi("abc/drafts/combine", { method: "POST", body: { draft_ids: b.ids, mode: "combined", delivery_service: b.service, delivery_date: gmMatIsoDate(b.date) || "", location: { id: b.locId },
-      contact: { name: b.contact.name.trim(), email: b.contact.email.trim(), phone: b.contact.phone.trim() }, order_ref: String(b.comboRef || "").trim(), prices: prices } }).then(function(r) {
+    var dlc = b.ready ? gmBrDlBody(b.dl) : {};
+    gmApi("abc/drafts/combine", { method: "POST", body: Object.assign({ draft_ids: b.ids, mode: "combined", delivery_service: b.service, delivery_date: b.ready ? (dlc.delivery_date || "") : (gmMatIsoDate(b.date) || ""), location: { id: b.locId },
+      contact: { name: b.contact.name.trim(), email: b.contact.email.trim(), phone: b.contact.phone.trim() }, order_ref: String(b.comboRef || "").trim(), prices: prices },
+      b.ready ? { delivery_date_tbd: dlc.delivery_date_tbd, delivery_contact: { name: dlc.delivery_contact_name, phone: dlc.delivery_contact_phone, email: dlc.delivery_contact_email }, delivery_instructions: dlc.delivery_instructions } : {}) }).then(function(r) {
       b.ids.forEach(function(id) { results.push({ name: gmMatBatchName(id), ok: true, text: gmT("Combinado no pedido ", "Combined into order ") + r.order_ref + gmT(". Confirmação ", ". Confirmation ") + r.confirmation_number }); });
       finish();
     }).catch(function(e) {
@@ -7913,6 +8030,810 @@ function gmMatBatchSend() {
   })();
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ABC branches, delivery date or TBD, saved on-site people, quick buttons, item confirm card (2026-11-16).
+// Everything here shows only for a business where ABC is on AND the Worker has the new routes (abc/status carries
+// branches_ready). A business with ONE account and branch sees none of the branch tabs. A 404 or "Not available yet"
+// from a new route simply leaves the new section out. Every ABC call starts from an owner action on screen.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+var gmBr = { carry: null, carryAt: 0, carryLoading: false, itemAt: {}, itemRes: {}, contacts: null, contactsLoading: false, newp: { name: "", phone: "", email: "" }, newpOpen: false, newpErr: "", cmp: null, cf: null, tab: "" };
+
+function gmBrStatus() { return gmAbcPlStatus || gmAbcStatus || {}; }
+function gmBrPairs() { return (gmBrStatus().pairs || []).slice(); }
+function gmBrReady() { var s = gmBrStatus(); return !gmIsSeller() && !!(s.available && s.connected && s.branches_ready); }
+function gmBrMulti() { return gmBrReady() && gmBrPairs().length > 1; }
+function gmBrKey(p) { return String(p.ship_to) + "|" + String(p.branch); }
+function gmBrFind(shipTo, branch) { var hit = null; gmBrPairs().forEach(function(p) { if (!hit && p.ship_to === shipTo && p.branch === branch) { hit = p; } }); return hit; }
+function gmBrDefault() { var l = gmBrPairs(); return l.filter(function(p) { return p.is_default; })[0] || l[0] || null; }
+function gmBrShort(p) { return p ? (p.branch_name || p.branch) : ""; }
+function gmBrName(p) { return p ? ((p.ship_to_name || p.ship_to) + " · " + (p.branch_name || p.branch)) : ""; }
+function gmBrMoney(n) { return n === null || n === undefined ? "" : gmMoney(Math.round(Number(n) * 100)); }
+function gmBrEnsure(cb) {
+  if (gmAbcPlStatus || gmAbcStatus) { cb(); return; }
+  gmApi("abc/status").then(function(d) { gmAbcPlStatus = d || { available: false, connected: false }; cb(); }).catch(function(e) { console.error("abc status: " + e.message); cb(); });
+}
+function gmBrGoto(id) {
+  var el = document.getElementById(id); if (!el) { return; }
+  try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) { try { el.scrollIntoView(); } catch (e2) { /* no scrolling here */ } }
+  if (typeof el.focus === "function") { try { el.focus({ preventScroll: true }); } catch (e3) { /* not focusable */ } }
+}
+// A row of tabs, one per pair. A grayed out tab says why in words (the reason is shown under the row).
+function gmBrTabsHtml(activeKey, fn, disabledAll, reason) {
+  var h = '<div class="gm-seg gm-br-tabs" role="tablist">';
+  gmBrPairs().forEach(function(p, i) {
+    var on = gmBrKey(p) === activeKey;
+    h += '<button type="button" role="tab" aria-selected="' + (on ? "true" : "false") + '" class="gm-seg-btn' + (on ? " gm-seg-on" : "") + '"' + (disabledAll && !on ? " disabled" : "") + ' onclick="' + fn + '(' + i + ')">' +
+      '<strong>' + escHtml(p.ship_to_name || p.ship_to) + '</strong><span class="muted">' + escHtml(p.branch_name || p.branch) + '</span></button>';
+  });
+  return h + '</div>' + (disabledAll && reason ? '<p class="muted gm-br-why">' + escHtml(reason) + '</p>' : "");
+}
+// Price or the plain words, for one other branch under a search result.
+function gmBrOtherLine(o) {
+  var name = o.ship_to_name || o.branch_name ? gmBrName({ ship_to: o.ship_to, branch: o.branch, ship_to_name: o.ship_to_name, branch_name: o.branch_name }) : o.ship_to + " · " + o.branch;
+  var txt = o.carried === false ? gmT("Não disponível nesta filial", "Not available at this branch")
+    : (o.carried === null ? gmT("Não deu para conferir", "Could not check")
+    : (o.price !== null && o.price !== undefined ? gmBrMoney(o.price) + (o.uom ? gmT(" por ", " per ") + o.uom : "") : gmT("A ABC não devolveu preço", "ABC returned no price")));
+  return '<div class="gm-br-other"><span class="muted">' + escHtml(name) + '</span><span>' + escHtml(txt) + '</span></div>';
+}
+
+// ── 3.1 The ABC card: every account and branch ──
+function gmBrCardPairsHtml(st) {
+  var pairs = st.pairs || [];
+  if (!pairs.length) { return ""; }
+  var many = pairs.length > 1, h = "";
+  pairs.forEach(function(p, i) {
+    h += '<div class="gm-mat-loc' + (many && p.is_default ? " gm-mat-loc-on" : "") + '"><div>' +
+      '<div><strong>' + escHtml(p.ship_to_name || p.ship_to) + '</strong> <span class="muted">' + escHtml(p.ship_to) + '</span></div>' +
+      '<div class="gm-lead-sub">' + escHtml(gmT("Filial: ", "Branch: ") + (p.branch_name ? p.branch_name + " · " : "") + p.branch) + '</div>' +
+      (many && p.is_default ? '<span class="gm-pill gm-gold">' + escHtml(gmT("Padrão", "Default")) + '</span>' : "") + '</div>' +
+      (many && !p.is_default ? '<div class="gm-mat-loc-actions"><button type="button" class="gm-btn-secondary" onclick="gmBrMakeDefault(' + i + ')">' + escHtml(gmT("Tornar padrão", "Make default")) + '</button>' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmBrRemoveAsk(' + i + ')">' + escHtml(gmT("Remover", "Remove")) + '</button></div>' : "") + '</div>';
+  });
+  return h;
+}
+function gmBrMakeDefault(i) {
+  var p = ((gmAbcStatus || {}).pairs || [])[i]; if (!p || gmAbcBusy) { return; }
+  gmAbcBusy = true;
+  gmApi("abc/branches/default", { method: "POST", body: { ship_to: p.ship_to, branch: p.branch } }).then(function() { gmAbcBusy = false; gmAbcLoad(true); })
+    .catch(function(e) { gmAbcBusy = false; gmToast(e.message); console.error("abc default: " + e.message); });
+}
+function gmBrRemoveAsk(i) {
+  var p = ((gmAbcStatus || {}).pairs || [])[i]; if (!p) { return; }
+  gmAsk({
+    message: gmT("Remover esta conta e filial da lista?\n\n" + gmBrName(p) + "\n\nPedidos já enviados continuam na lista.", "Remove this account and branch from your list?\n\n" + gmBrName(p) + "\n\nOrders already sent stay in the list."),
+    yes: gmT("Sim, remover", "Yes, remove"), keep: gmT("Manter", "Keep it"),
+    onYes: function() {
+      gmApi("abc/branches/remove", { method: "POST", body: { ship_to: p.ship_to, branch: p.branch } }).then(function() { gmAbcLoad(true); })
+        .catch(function(e) { gmToast(e.message); console.error("abc remove branch: " + e.message); });
+    }
+  });
+}
+var gmAbcAdding = false;   // the picker below is adding another account and branch, not replacing the one in use
+function gmBrAddAnother(btn) { gmAbcAdding = true; gmAbcAccountsLoad(btn); }
+
+// ── 3.2 Add from ABC Supply: tabs, counts, other branches ──
+function gmBrPairOfFind(f) { var d = gmBrDefault(); return f.pair || (d ? { ship_to: d.ship_to, branch: d.branch } : null); }
+function gmBrSheetTopHtml(f) {
+  if (!gmBrReady()) { return ""; }
+  var pairs = gmBrPairs();
+  if (pairs.length > 1) {
+    var cur = gmBrPairOfFind(f);
+    return gmBrTabsHtml(cur ? gmBrKey(cur) : "", "gmBrSheetTab", !!f.draftId, gmT("Este pedido é feito em " + gmBrShort(gmBrFind(cur && cur.ship_to, cur && cur.branch)) + ".", "This order is placed at " + gmBrShort(gmBrFind(cur && cur.ship_to, cur && cur.branch)) + "."));
+  }
+  if (pairs.length === 1) {
+    return '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("Mostrando itens da filial ", "Showing items carried at branch ") + (pairs[0].branch_name ? pairs[0].branch_name + " (" + pairs[0].branch + ")" : pairs[0].branch)) + '</p>';
+  }
+  return "";
+}
+function gmBrSheetTab(i) {
+  var f = gmAbcPlFind, p = gmBrPairs()[i]; if (!f || !p || f.loading) { return; }
+  f.pair = { ship_to: p.ship_to, branch: p.branch }; f.others = null;
+  if (String(f.q || "").trim().length >= 3) { gmAbcPlSearch(null); } else { f.items = null; gmAbcPlRenderSheet(); }
+}
+function gmBrSearchQs(f) {
+  if (!gmBrReady()) { return ""; }
+  var qs = "";
+  if (gmBrMulti()) { var p = gmBrPairOfFind(f); if (p) { qs += "&ship_to=" + encodeURIComponent(p.ship_to) + "&branch=" + encodeURIComponent(p.branch); } qs += "&other_branches=1"; }
+  return qs;
+}
+function gmBrSheetCountsHtml(f) {
+  var m = f.meta; if (!m || f.loading) { return ""; }
+  var h = '<p class="muted" style="margin:6px 0;">' + escHtml(m.shown + gmT(" de ", " of ") + m.total + gmT(" mostrados", " shown") + (m.more ? gmT(". Digite mais letras para afinar.", ". Type more letters to narrow it.") : ".")) + '</p>';
+  if (m.hidden > 0) { h += '<p class="muted" style="margin:2px 0 6px;">' + escHtml(m.hidden + gmT(" itens não são vendidos nesta filial e estão ocultos.", " items not carried at this branch are hidden.")) + '</p>'; }
+  if (m.checked === false) { h += '<p class="muted" style="margin:2px 0 6px;">' + escHtml(gmT("Não deu para conferir quais itens esta filial vende.", "We could not check which items this branch carries.")) + '</p>'; }
+  return h;
+}
+// The "Can't find it?" button and the groups it brings back.
+function gmBrCantFindHtml(f) {
+  if (!gmBrMulti() || f.draftId) { return ""; }
+  var h = '<button type="button" class="gm-btn-secondary"' + (f.otherLoading || String(f.q || "").trim().length < 3 ? " disabled" : "") + ' onclick="gmBrSearchOthers()">' + escHtml(gmT("Não achou? Buscar nas minhas outras filiais", "Can't find it? Search my other branches")) + '</button>';
+  if (f.otherLoading) { h += '<p class="muted">' + escHtml(gmT("Buscando nas outras filiais...", "Searching your other branches...")) + '</p>'; }
+  if (f.otherErr) { h += '<p class="gm-warn">' + escHtml(f.otherErr) + '</p>'; }
+  (f.others || []).forEach(function(g, gi) {
+    h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmBrName(g)) + '</div>';
+    if (g.failed) { h += '<p class="muted">' + escHtml(gmT("Não deu para buscar nesta filial.", "We could not search this branch.")) + '</p>'; }
+    else if (!g.items.length) { h += '<p class="muted">' + escHtml(gmT("Nada encontrado nesta filial.", "Nothing found at this branch.")) + '</p>'; }
+    g.items.forEach(function(it, ii) {
+      h += '<div class="gm-mat-line"><div><strong>' + escHtml(it.description) + '</strong></div><div class="gm-lead-sub">' + escHtml([it.item_number, it.has_price ? gmBrMoney(it.cost) + gmT(" por ", " per ") + (it.unit_name || it.unit_code || "") : gmT("A ABC não devolveu preço", "ABC returned no price"), it.dimensional ? gmT("Vendido em comprimentos", "Sold in lengths") : ""].filter(Boolean).join(" · ")) + '</div>' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmBrPickOther(' + gi + ',' + ii + ')">' + escHtml(gmT("Usar da filial ", "Use from ") + gmBrShort(g)) + '</button></div>';
+    });
+    h += '</div>';
+  });
+  return h;
+}
+function gmBrSearchOthers() {
+  var f = gmAbcPlFind; if (!f || f.otherLoading) { return; }
+  var p = gmBrPairOfFind(f), q = String(f.q || "").trim(); if (!p || q.length < 3) { return; }
+  f.otherLoading = true; f.otherErr = ""; gmAbcPlRenderSheet();
+  gmApi("abc/search-other-branches", { method: "POST", body: { q: q, ship_to: p.ship_to, branch: p.branch } }).then(function(d) {
+    f.otherLoading = false; f.others = d.groups || []; gmAbcPlRenderSheet();
+  }).catch(function(e) { f.otherLoading = false; f.otherErr = e.message; gmAbcPlRenderSheet(); console.error("abc other branches: " + e.message); });
+}
+// An item found at another branch while using the Add from ABC dialog: that branch becomes the tab and the item is searched there.
+function gmBrPickOther(gi, ii) {
+  var f = gmAbcPlFind; if (!f || !f.others || !f.others[gi]) { return; }
+  var g = f.others[gi];
+  f.pair = { ship_to: g.ship_to, branch: g.branch }; f.items = g.items; f.meta = { total: g.total_items || g.items.length, shown: g.items.length, more: false, hidden: g.hidden_not_carried || 0, checked: g.availability_checked };
+  f.picked = {}; f.picked[ii] = true; f.others = null; gmAbcPlRenderSheet();
+}
+
+// ── 3.10 The item confirm card ──
+var gmBrConfirm = null;   // { rows: [price list rows to confirm], row, loading, item, err, busy }
+function gmBrConfirmQueue(rows) {
+  if (!gmBrReady()) { return false; }
+  var list = (rows || []).filter(function(r) { return !!r.abc_item_number; });
+  if (!list.length) { return false; }
+  gmBrConfirm = { rows: list.slice(1), row: list[0], loading: true, item: null, err: "", busy: false };
+  gmBrConfirmLoad();
+  return true;
+}
+function gmBrConfirmLoad() {
+  var c = gmBrConfirm; if (!c) { return; }
+  c.loading = true; c.item = null; c.err = ""; gmBrConfirmRender();
+  gmApi("abc/item?item_number=" + encodeURIComponent(c.row.abc_item_number)).then(function(d) {
+    if (gmBrConfirm !== c) { return; }
+    c.loading = false; c.item = d.item || null; gmBrConfirmRender();
+  }).catch(function(e) { if (gmBrConfirm !== c) { return; } c.loading = false; c.err = e.message; gmBrConfirmRender(); console.error("abc item: " + e.message); });
+}
+function gmBrHintWords(h) {
+  if (!h || (h.per_unit_sqft === null && h.per_unit_linear_ft === null)) { return ""; }
+  var unit = h.unit_name ? h.unit_name.toLowerCase() : gmT("unidade", "unit");
+  return h.per_unit_sqft !== null
+    ? gmT("Cada " + unit + " cobre cerca de " + h.per_unit_sqft + " pés quadrados.", "Each " + unit + " covers about " + h.per_unit_sqft + " square feet.")
+    : gmT("Cada " + unit + " tem cerca de " + h.per_unit_linear_ft + " pés lineares.", "Each " + unit + " is about " + h.per_unit_linear_ft + " linear feet.");
+}
+function gmBrConfirmRender() {
+  var c = gmBrConfirm; if (!c) { return; }
+  var h = "";
+  if (c.loading) { h = '<p class="muted">' + escHtml(gmT("Buscando os dados do item na ABC...", "Getting the item from ABC...")) + '</p>'; }
+  else {
+    var it = c.item;
+    h += '<div class="gm-br-confirm">';
+    if (it && it.image_href) { h += '<img class="gm-br-photo" src="' + escHtml(it.image_href) + '" alt="' + escHtml(gmT("Foto do item na ABC", "ABC photo of the item")) + '" loading="lazy" referrerpolicy="no-referrer">'; }
+    h += '<div><div class="gm-callout-title">' + escHtml((it && it.description) || c.row.item) + '</div>' +
+      '<div class="gm-lead-sub">' + escHtml([it && it.brand_line, it && it.color, c.row.abc_item_number].filter(Boolean).join(" · ")) + '</div></div></div>';
+    var words = it ? gmBrHintWords(it.hint) : "";
+    if (c.err) { h += '<p class="gm-warn">' + escHtml(c.err) + '</p>'; }
+    if (words) {
+      h += gmMatCalloutHtml(gmT("Confira o tamanho", "Check the size"), [[gmT("Pela descrição da ABC", "From ABC's description"), words]]) +
+        '<button type="button" class="gm-btn-primary"' + (c.busy ? " disabled" : "") + ' onclick="gmBrConfirmYes()">' + escHtml(gmT("Sim, está certo", "Yes, that is right")) + '</button>' +
+        '<button type="button" class="gm-btn-secondary"' + (c.busy ? " disabled" : "") + ' onclick="gmBrConfirmNo()">' + escHtml(gmT("Não, vou digitar", "No, I will type it")) + '</button>';
+    } else {
+      h += gmMatCalloutHtml(gmT("Não deu para ler o tamanho", "We could not read the size"), [[gmT("Motivo", "Why"), gmT("A descrição da ABC não diz quanto cada unidade cobre.", "ABC's description does not say what each unit covers.")]]) +
+        '<a class="gm-btn-secondary" href="' + escHtml(gmBrLookupUrl(c)) + '" target="_blank" rel="noopener noreferrer">' + escHtml(gmT("Pesquisar na internet", "Look it up")) + '</a>' +
+        '<button type="button" class="gm-btn-primary" onclick="gmBrConfirmNo()">' + escHtml(gmT("Digitar o tamanho", "Type the size")) + '</button>';
+    }
+    h += '<button type="button" class="gm-btn-secondary" onclick="gmBrConfirmSkip()">' + escHtml(gmT("Pular por agora", "Skip for now")) + '</button>';
+  }
+  gmSheetOpen(escHtml(gmT("Confirmar o item", "Confirm the item")), h, null, "pricing-item-and-import#item");
+}
+// A web search in a new tab. ABC has no public page for each item, so there is no link to abcsupply.com.
+function gmBrLookupUrl(c) {
+  var it = c.item || {};
+  var q = [it.brand_line || it.supplier_name || "", it.description || c.row.item || "", c.row.abc_item_number || ""].filter(Boolean).join(" ");
+  return "https://www.google.com/search?q=" + encodeURIComponent(q);
+}
+function gmBrConfirmNext() {
+  var c = gmBrConfirm; if (!c) { return; }
+  if (c.rows.length) { c.row = c.rows.shift(); gmBrConfirmLoad(); return; }
+  gmBrConfirm = null; gmSheetClose(); gmLoadPricing();
+}
+function gmBrConfirmSkip() { gmBrConfirmNext(); }
+function gmBrConfirmNo() {
+  var c = gmBrConfirm; if (!c) { return; }
+  var row = gmPricingRowById(c.row.id) || c.row;
+  gmBrConfirm = null;
+  gmMatWizQueueIds = c.rows.map(function(r) { return r.id; });
+  gmMatWizStart(row);
+}
+// Yes: the size goes into the item's own measured material columns, the way the wizard writes it, with the business standard extra.
+function gmBrConfirmYes() {
+  var c = gmBrConfirm; if (!c || c.busy || !c.item || !c.item.hint) { return; }
+  var h = c.item.hint, area = h.per_unit_sqft !== null, cov = area ? h.per_unit_sqft : h.per_unit_linear_ft;
+  if (!(cov > 0)) { return; }
+  var row = gmPricingRowById(c.row.id) || c.row;
+  c.busy = true; c.err = ""; gmBrConfirmRender();
+  var fail = function(e) { c.busy = false; c.err = e.message; gmBrConfirmRender(); console.error("confirm size: " + e.message); };
+  gmApi("pricing/" + row.id, { method: "PUT", body: { measure_kind: area ? "area" : "length" } }).then(function() {
+    return gmApi("pricing/" + row.id + "/abc-link", { method: "POST", body: { item_number: row.abc_item_number, units_per_apex_unit: GM_MEASURE.abcFactorFromCoverage(cov) } });
+  }).then(function() {
+    var f = { sold_unit: row.abc_unit || null, coverage_per_sold_unit: cov };
+    if (gmMatStd !== null && gmMatStd !== undefined) { f.order_extra_percent = gmMatStd; f.order_extra_source = "standard"; }
+    return gmApi("pricing/" + row.id, { method: "PUT", body: f });
+  }).then(function() { c.busy = false; gmBrConfirmNext(); }).catch(fail);
+}
+
+// ── 3.3 The Price list: tabs, where each item is carried, where it was added from ──
+// One call (branch-prices) when the Price list opens, at most 50 visible linked items, at most once per 60 seconds.
+function gmBrPlCarryKick(items) {
+  if (!gmBrReady() || gmBr.carryLoading || Date.now() - gmBr.carryAt < 60000) { return; }
+  var nums = [];
+  (items || []).forEach(function(it) { if (it.abc_item_number && nums.length < 50 && nums.indexOf(it.abc_item_number) === -1) { nums.push(it.abc_item_number); } });
+  if (!nums.length) { return; }
+  gmBr.carryLoading = true; gmBr.carryAt = Date.now();
+  gmApi("abc/branch-prices", { method: "POST", body: { item_numbers: nums } }).then(function(d) {
+    gmBr.carryLoading = false; gmBr.carry = {};
+    (d.pairs || []).forEach(function(p) { Object.keys(p.items || {}).forEach(function(n) { (gmBr.carry[n] = gmBr.carry[n] || {})[gmBrKey(p)] = p.items[n]; }); });
+    if (gmCurrentTab === "gmpricing") { gmRenderPricing(); }
+    if (typeof gmEstWiz !== "undefined" && gmEstWiz && gmBrMulti()) { gmEstWizRender(); }
+  }).catch(function(e) { gmBr.carryLoading = false; console.error("abc branch carry: " + e.message); });
+}
+function gmBrPlActive() { var d = gmBrDefault(); return gmBr.tab || (d ? gmBrKey(d) : ""); }
+function gmBrPlTabsHtml() {
+  if (!gmBrMulti()) { return ""; }
+  return '<div class="gm-sheet-section">' + gmBrTabsHtml(gmBrPlActive(), "gmBrPlTab", false, "") + '</div>';
+}
+function gmBrPlTab(i) { var p = gmBrPairs()[i]; if (p) { gmBr.tab = gmBrKey(p); gmRenderPricing(); } }
+// Hidden on the active tab: an ABC linked item known to be NOT carried there. Items not from ABC belong to every tab.
+function gmBrPlSkip(it) {
+  if (!gmBrMulti() || !it.abc_item_number || !gmBr.carry) { return false; }
+  var c = (gmBr.carry[it.abc_item_number] || {})[gmBrPlActive()];
+  return !!c && c.carried === false;
+}
+function gmBrPlLinesHtml(it) {
+  if (!gmBrReady() || !it.abc_item_number || gmIsSeller()) { return ""; }
+  var pairs = gmBrPairs(), h = "";
+  var from = it.abc_ship_to && it.abc_branch ? gmBrFind(it.abc_ship_to, it.abc_branch) : null;
+  if (it.abc_branch) {
+    h += '<div class="gm-lead-sub">' + escHtml(gmT("Adicionado da filial ", "Added from ") + (from ? gmBrShort(from) : it.abc_branch)) +
+      (gmBrMulti() && (it.abc_ship_to + "|" + it.abc_branch) !== gmBrPlActive() ? ' <span class="gm-pill gm-muted">' + escHtml(gmT("De outra filial", "From a different branch")) + '</span>' : "") + '</div>';
+  }
+  var c = gmBr.carry && gmBr.carry[it.abc_item_number];
+  if (c) {
+    var at = pairs.filter(function(p) { return c[gmBrKey(p)] && c[gmBrKey(p)].carried === true; });
+    var dflt = gmBrDefault();
+    if (pairs.length > 1 && at.length) { h += '<div class="gm-lead-sub">' + escHtml(gmT("Disponível em: ", "Available at: ") + at.map(gmBrShort).join(", ")) + '</div>'; }
+    else if (!at.length && dflt && c[gmBrKey(dflt)] && c[gmBrKey(dflt)].carried === false) { h += '<div class="gm-lead-sub"><span class="gm-pill gm-red">' + escHtml(gmT("Não vendido em ", "Not carried at ") + gmBrShort(dflt)) + '</span></div>'; }
+    else if (pairs.length === 1 && dflt && c[gmBrKey(dflt)] && c[gmBrKey(dflt)].carried === false) { h += '<div class="gm-lead-sub"><span class="gm-pill gm-red">' + escHtml(gmT("Não vendido em ", "Not carried at ") + gmBrShort(dflt)) + '</span></div>'; }
+    var here = c[gmBrPlActive()];
+    if (here && here.carried === true && here.price === null) { h += '<div class="gm-lead-sub"><span class="gm-pill gm-gold">' + escHtml(gmT("Preço manual", "Manual price")) + '</span> ' + escHtml(gmT("A ABC ainda não tem preço deste item nesta filial.", "ABC has no price for this item at this branch yet.")) + '</div>'; }
+  }
+  return h;
+}
+// The item sheet: one quiet row per account and branch, fetched when the sheet opens (at most once per 60 seconds per item).
+function gmBrItemSectionHtml(d) {
+  if (!gmBrMulti() || !d || !d.abc_item_number) { return ""; }
+  return '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("Minhas filiais da ABC", "My ABC branches")) + '</div><div id="gmBrItemBranches">' + gmBrItemRowsHtml(d.abc_item_number) + '</div></div>';
+}
+function gmBrItemRowsHtml(n) {
+  var r = gmBr.itemRes[n];
+  if (!r) { return '<p class="muted">' + escHtml(gmT("Buscando...", "Loading...")) + '</p>'; }
+  if (r.err) { return '<p class="muted">' + escHtml(gmT("Não deu para conferir as filiais agora.", "We could not check your branches right now.")) + '</p>'; }
+  return r.pairs.map(function(p) { var x = (p.items || {})[n] || { carried: null, price: null, uom: null }; return gmBrOtherLine({ ship_to: p.ship_to, branch: p.branch, ship_to_name: p.ship_to_name, branch_name: p.branch_name, carried: x.carried, price: x.price, uom: x.uom }); }).join("");
+}
+function gmBrItemKick(n) {
+  if (!gmBrMulti() || !n) { return; }
+  var paint = function() { var el = document.getElementById("gmBrItemBranches"); if (el) { el.innerHTML = gmBrItemRowsHtml(n); } };
+  if (Date.now() - (gmBr.itemAt[n] || 0) < 60000) { paint(); return; }
+  gmBr.itemAt[n] = Date.now(); delete gmBr.itemRes[n]; paint();
+  gmApi("abc/branch-prices", { method: "POST", body: { item_numbers: [n] } }).then(function(d) { gmBr.itemRes[n] = { pairs: d.pairs || [] }; paint(); })
+    .catch(function(e) { gmBr.itemRes[n] = { err: true }; paint(); console.error("abc item branches: " + e.message); });
+}
+
+// ── Delivery: a date OR an explicit TBD, the on-site person, instructions with quick buttons (shared by the draft and the batch) ──
+// A target names the object that holds the fields: "draft" (the open draft's form), "batch" (the batch's one form) or "bedit:ID" (one draft in batch A).
+function gmBrTargetObj(t) {
+  if (t === "draft") { return gmMatDraft && gmMatDraft.form; }
+  if (t === "batch") { return gmMatBatch && gmMatBatch.dl; }
+  var m = /^bedit:([A-Za-z0-9-]+)$/.exec(t);
+  return m && gmMatBatch && gmMatBatch.edit[m[1]] ? gmMatBatch.edit[m[1]].dl : null;
+}
+function gmBrRepaint(t) { if (t === "draft") { gmMatDraftRender(); } else { gmMatBatchRender(); } }
+function gmBrSet(t, key, v) { var o = gmBrTargetObj(t); if (o) { o[key] = v; } }
+function gmBrSetR(t, key, v) { var o = gmBrTargetObj(t); if (o) { o[key] = v; gmBrRepaint(t); } }
+function gmBrNewDl(dr, access, suggested) {
+  return { dateMode: dr && dr.delivery_date_tbd ? "tbd" : (dr && dr.delivery_date ? "date" : ""), date: dr ? gmMatUsDate(dr.delivery_date) : "", dcName: (dr && dr.delivery_contact_name) || "", dcPhone: (dr && dr.delivery_contact_phone) || "",
+    dcEmail: (dr && dr.delivery_contact_email) || "", instr: (dr && dr.delivery_instructions) || "", access: access || "", instrMsg: "" };
+}
+function gmBrTodayIso() { var d = new Date(); var p = function(n) { return ("0" + n).slice(-2); }; return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }
+// The fields of one delivery section as the Worker takes them, or { err }.
+function gmBrDlBody(o) {
+  var body = {};
+  if (o.dateMode === "tbd") { body.delivery_date_tbd = 1; body.delivery_date = ""; }
+  else if (o.dateMode === "date") {
+    var iso = gmMatIsoDate(o.date);
+    if (!iso) { return { err: gmT("Escreva a data como MM/DD/AAAA.", "Write the date as MM/DD/YYYY.") }; }
+    body.delivery_date = iso; body.delivery_date_tbd = 0;
+  } else { body.delivery_date = ""; body.delivery_date_tbd = 0; }
+  var ph = String(o.dcPhone || "").replace(/\D/g, "").replace(/^1(\d{10})$/, "$1");
+  if (ph && ph.length !== 10) { return { err: gmT("O telefone da pessoa na obra precisa de 10 números.", "The on-site phone needs 10 digits.") }; }
+  body.delivery_contact_name = String(o.dcName || "").trim(); body.delivery_contact_phone = ph; body.delivery_contact_email = String(o.dcEmail || "").trim();
+  var ins = String(o.instr || "").replace(/[\r\n\t]+/g, " ").trim();
+  if (ins.length > 255) { return { err: gmT("As instruções têm no máximo 255 letras.", "Instructions have at most 255 characters.") }; }
+  body.delivery_instructions = ins;
+  return body;
+}
+function gmBrDateHtml(o, t, idp) {
+  var on = function(m) { return o.dateMode === m ? " gm-seg-on" : ""; };
+  var h = '<div class="gm-field-label" id="' + idp + 'DateBox">' + escHtml(gmT("Quando entregar", "When to deliver")) + '</div>' +
+    '<div class="gm-seg"><button type="button" class="gm-seg-btn' + on("date") + '" aria-pressed="' + (o.dateMode === "date") + '" onclick="gmBrSetR(\'' + t + '\', \'dateMode\', \'date\')"><strong>' + escHtml(gmT("Escolher uma data de entrega", "Pick a delivery date")) + '</strong></button>' +
+    '<button type="button" class="gm-seg-btn' + on("tbd") + '" aria-pressed="' + (o.dateMode === "tbd") + '" onclick="gmBrSetR(\'' + t + '\', \'dateMode\', \'tbd\')"><strong>' + escHtml(gmT("A definir, deixar o pedido em espera", "TBD, put the order on hold")) + '</strong></button></div>';
+  if (o.dateMode === "date") {
+    h += gmMatField(idp + "Date", gmT("Data de entrega", "Delivery date"), o.date, "gmBrSet('" + t + "', 'date', this.value)", { placeholder: "MM/DD/YYYY", max: 10, inputmode: "numeric" }) +
+      '<label class="gm-field-label" for="' + idp + 'Pick">' + escHtml(gmT("Ou escolha no calendário", "Or pick from the calendar")) + '</label>' +
+      '<input type="date" id="' + idp + 'Pick" class="gm-input" min="' + gmBrTodayIso() + '" onchange="gmBrSetR(\'' + t + '\', \'date\', gmMatUsDate(this.value))">';
+  } else if (o.dateMode === "tbd") {
+    h += '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("A filial vai segurar o pedido até você dar uma data.", "The branch will hold the order until you give it a date.")) + '</p>';
+  }
+  return h + '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("A filial da ABC precisa de uma data, ou de A definir se o pedido deve esperar.", "The ABC branch needs a date, or TBD if the order should wait.")) + '</p>';
+}
+function gmBrContactsLoad() {
+  if (gmBr.contacts !== null || gmBr.contactsLoading) { return; }
+  gmBr.contactsLoading = true;
+  gmApi("abc/delivery-contacts").then(function(d) { gmBr.contactsLoading = false; gmBr.contacts = d.contacts || []; gmBrRepaintOpen(); })
+    .catch(function(e) { gmBr.contactsLoading = false; gmBr.contacts = []; console.error("abc contacts: " + e.message); gmBrRepaintOpen(); });
+}
+function gmBrRepaintOpen() { if (gmMatBatch && gmMatBatch.step && gmMatBatch.step !== "results") { gmMatBatchRender(); } else if (gmMatDraft && gmMatDraft.view === "edit") { gmMatDraftRender(); } }
+function gmBrPeopleHtml(o, t, idp) {
+  gmBrContactsLoad();
+  var list = gmBr.contacts || [];
+  var h = '<div class="gm-field-label" id="' + idp + 'DcBox" style="margin-top:10px;">' + escHtml(gmT("Quem vai estar na obra na entrega?", "Who will be at the job when it is delivered?")) + '</div>' +
+    '<p class="muted" style="margin:0 0 6px;">' + escHtml(gmT("A filial pode ligar para esta pessoa.", "The branch may call this person.")) + '</p>';
+  list.forEach(function(p, i) {
+    var on = o.dcName === p.name && String(o.dcPhone || "").replace(/\D/g, "") === p.phone;
+    h += '<div class="gm-mat-loc' + (on ? " gm-mat-loc-on" : "") + '"><div><strong>' + escHtml(p.name) + '</strong><div class="gm-lead-sub">' + escHtml(p.phone + (p.email ? " · " + p.email : "")) + '</div></div>' +
+      '<div class="gm-mat-loc-actions"><button type="button" class="gm-btn-secondary" aria-pressed="' + on + '" onclick="gmBrPickPerson(\'' + t + '\',' + i + ')">' + escHtml(on ? gmT("Escolhida", "Chosen") : gmT("Usar", "Use")) + '</button>' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmBrPersonRemoveAsk(' + i + ')">' + escHtml(gmT("Remover", "Remove")) + '</button></div></div>';
+  });
+  var open = gmBr.newpOpen || !list.length;
+  if (open) {
+    h += '<div class="gm-sheet-section" id="' + idp + 'DcForm">' +
+      gmMatField(idp + "DcName", gmT("Nome da pessoa", "Name"), gmBr.newp.name, "gmBr.newp.name = this.value", { max: 60 }) +
+      gmMatField(idp + "DcPhone", gmT("Telefone", "Phone"), gmBr.newp.phone, "gmBr.newp.phone = this.value", { max: 30, inputmode: "tel" }) +
+      gmMatField(idp + "DcEmail", gmT("E-mail (opcional)", "Email (optional)"), gmBr.newp.email, "gmBr.newp.email = this.value", { max: 254, type: "email" }) +
+      (gmBr.newpErr ? '<p class="gm-warn">' + escHtml(gmBr.newpErr) + '</p>' : "") +
+      '<button type="button" class="gm-btn-secondary" onclick="gmBrPersonAdd(\'' + t + '\')">' + escHtml(gmT("Salvar e usar esta pessoa", "Save and use this person")) + '</button></div>';
+  } else {
+    h += '<button type="button" class="gm-btn-secondary" onclick="gmBr.newpOpen = true; gmBrRepaint(\'' + t + '\')">' + escHtml(gmT("Adicionar outra pessoa", "Add another person")) + '</button>';
+  }
+  return h;
+}
+function gmBrPickPerson(t, i) {
+  var p = (gmBr.contacts || [])[i], o = gmBrTargetObj(t); if (!p || !o) { return; }
+  o.dcName = p.name; o.dcPhone = p.phone; o.dcEmail = p.email || ""; gmBrRepaint(t);
+}
+function gmBrPersonAdd(t) {
+  var n = gmBr.newp, o = gmBrTargetObj(t); if (!o) { return; }
+  gmBr.newpErr = "";
+  gmApi("abc/delivery-contacts", { method: "POST", body: { name: String(n.name || "").trim(), phone: String(n.phone || "").trim(), email: String(n.email || "").trim() } }).then(function(d) {
+    var c = d.contact; gmBr.contacts = (gmBr.contacts || []).filter(function(x) { return x.id !== c.id; }); gmBr.contacts.unshift(c);
+    o.dcName = c.name; o.dcPhone = c.phone; o.dcEmail = c.email || ""; gmBr.newp = { name: "", phone: "", email: "" }; gmBr.newpOpen = false; gmBrRepaint(t);
+  }).catch(function(e) { gmBr.newpErr = gmT("Confira o nome (uma pessoa, não a empresa) e o telefone com 10 números.", "Check the name (a person, not the business) and a 10 digit phone."); gmBrRepaint(t); console.error("abc add person: " + e.message); });
+}
+function gmBrPersonRemoveAsk(i) {
+  var p = (gmBr.contacts || [])[i]; if (!p) { return; }
+  gmAsk({
+    message: gmT("Remover " + p.name + " da lista?\n\nPedidos que já usam esta pessoa não mudam.", "Remove " + p.name + " from the list?\n\nOrders that already use this person do not change."),
+    yes: gmT("Sim, remover", "Yes, remove"), keep: gmT("Manter", "Keep it"),
+    onYes: function() {
+      gmApi("abc/delivery-contacts/remove", { method: "POST", body: { id: p.id } }).then(function() { gmBr.contacts = (gmBr.contacts || []).filter(function(x) { return x.id !== p.id; }); gmBrRepaintOpen(); })
+        .catch(function(e) { gmToast(e.message); console.error("abc remove person: " + e.message); });
+    }
+  });
+}
+// Appends a phrase to the instructions, joined with a period and a space, never past 255 characters. null when it does not fit.
+function gmBrAppend(cur, add) {
+  var c = String(cur || "").trim(), a = String(add || "").trim();
+  if (!a) { return c; }
+  var out = c ? (/[.!?]$/.test(c) ? c + " " : c + ". ") + a : a;
+  return out.length <= 255 ? out : null;
+}
+function gmBrQuick(t, which) {
+  var o = gmBrTargetObj(t); if (!o) { return; }
+  var add = which === "gate" ? o.access : (which === "call" ? gmT("Ligar antes de entregar", "Call before delivery") : gmT("Deixar na garagem", "Leave at the garage"));
+  var next = gmBrAppend(o.instr, add);
+  if (next === null) { o.instrMsg = gmT("Não cabe: passaria de 255 letras.", "That would pass 255 characters."); } else { o.instr = next; o.instrMsg = ""; }
+  gmBrRepaint(t);
+}
+function gmBrInstrHtml(o, t, idp) {
+  var len = String(o.instr || "").length;
+  var h = '<label class="gm-field-label" for="' + idp + 'Instr">' + escHtml(gmT("Instruções de entrega (opcional)", "Delivery instructions (optional)")) + '</label>' +
+    '<textarea id="' + idp + 'Instr" class="gm-input" rows="3" maxlength="255" oninput="gmBrSet(\'' + t + '\', \'instr\', this.value); var c = document.getElementById(\'' + idp + 'Count\'); if (c) { c.textContent = this.value.length + \' / 255\'; }">' + escHtml(o.instr || "") + '</textarea>' +
+    '<p class="muted" style="margin:2px 0 6px;" id="' + idp + 'Count">' + len + ' / 255</p><div class="gm-br-quick">';
+  if (o.access) { h += '<button type="button" class="gm-btn-secondary" onclick="gmBrQuick(\'' + t + '\', \'gate\')">' + escHtml(gmT("Adicionar código do portão", "Add gate code")) + '</button>'; }
+  h += '<button type="button" class="gm-btn-secondary" onclick="gmBrQuick(\'' + t + '\', \'call\')">' + escHtml(gmT("Ligar antes de entregar", "Call before delivery")) + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmBrQuick(\'' + t + '\', \'garage\')">' + escHtml(gmT("Deixar na garagem", "Leave at the garage")) + '</button></div>';
+  if (o.instrMsg) { h += '<p class="gm-warn" style="margin:6px 0 0;">' + escHtml(o.instrMsg) + '</p>'; }
+  return h;
+}
+// The whole delivery block: date or TBD, the on-site person, the instructions.
+function gmBrDeliveryHtml(o, t, idp) { return gmBrDateHtml(o, t, idp) + gmBrPeopleHtml(o, t, idp) + gmBrInstrHtml(o, t, idp); }
+
+// ── 3.4 The branch of a draft: compare my branches ──
+function gmBrReasonWords(code) {
+  var m = {
+    lowest_total_all_items: [gmT("Menor total", "Lowest total"), gmT("Vende todos os itens com o menor total.", "Carries every item at the lowest total.")],
+    carries_all_items: [gmT("Vende tudo", "Carries everything"), gmT("Vende todos os itens.", "Carries every item.")],
+    most_items_available: [gmT("Mais itens", "Most items"), gmT("Vende o maior número de itens.", "Carries the most items.")],
+    only_branch: [gmT("Única filial", "Only branch"), gmT("Esta é a sua única filial.", "This is your only branch.")],
+    tie_default: [gmT("Filial padrão", "Default branch"), gmT("Mesmo total que outra filial. A filial padrão vem primeiro.", "Same total as another branch. Your default branch comes first.")],
+    not_checked: [null, gmT("Não deu para conferir esta filial.", "We could not check this branch.")]
+  };
+  return m[code] || [null, ""];
+}
+function gmBrDraftPair(m) {
+  var d = m.data, pairs = d.pairs || [], dr = d.draft;
+  if (dr.ship_to_number && dr.branch_number) { return { ship_to: dr.ship_to_number, branch: dr.branch_number }; }
+  var df = pairs.filter(function(p) { return p.is_default; })[0] || pairs[0];
+  return df ? { ship_to: df.ship_to, branch: df.branch } : null;
+}
+function gmBrPairNameIn(m, p) { var hit = null; ((m.data && m.data.pairs) || []).forEach(function(x) { if (p && x.ship_to === p.ship_to && x.branch === p.branch) { hit = x; } }); return hit ? gmBrName(hit) : (p ? p.ship_to + " · " + p.branch : ""); }
+function gmBrCmpLoad(m) {
+  if (!m || m.cmpLoading) { return; }
+  m.cmpLoading = true; m.cmpErr = "";
+  gmApi("abc/branch-compare", { method: "POST", body: { draft_id: m.id } }).then(function(r) {
+    m.cmpLoading = false; m.cmp = r; if (gmMatDraft === m) { gmMatDraftRender(); }
+  }).catch(function(e) { m.cmpLoading = false; m.cmpErr = e.message; if (gmMatDraft === m) { gmMatDraftRender(); } console.error("abc compare: " + e.message); });
+}
+function gmBrCardsHtml(cmp, curKey, orderFn) {
+  var h = '<div class="gm-br-cards">';
+  var total = cmp.pairs.length;
+  cmp.pairs.forEach(function(p, i) {
+    var rec = cmp.recommended && cmp.recommended.ship_to === p.ship_to && cmp.recommended.branch === p.branch;
+    var words = gmBrReasonWords(p.reason_code);
+    h += '<div class="gm-br-card' + (rec ? " gm-br-card-rec" : "") + '"><div class="gm-br-card-head"><strong>' + escHtml(gmBrName(p)) + '</strong>' +
+      (rec && words[0] ? '<span class="gm-pill gm-gold">' + escHtml(words[0]) + '</span>' : "") + (gmBrKey(p) === curKey ? '<span class="gm-pill gm-muted">' + escHtml(gmT("Em uso", "In use")) + '</span>' : "") + '</div>';
+    p.lines.forEach(function(l, li) {
+      var txt = l.carried === false ? gmT("Não disponível nesta filial", "Not available at this branch")
+        : (l.carried === null ? gmT("Não deu para conferir", "Could not check")
+        : (l.unit_mismatch ? gmT("Preço em outra unidade", "Price in another unit")
+        : (l.price === null ? gmT("A ABC não devolveu preço", "ABC returned no price") : gmT("Disponível, ", "Available, ") + gmBrMoney(l.price) + (l.uom ? gmT(" por ", " per ") + l.uom : "") + (l.line_total !== null ? " = " + gmBrMoney(l.line_total) : ""))));
+      h += '<div class="gm-br-line' + (l.carried === false ? " gm-br-line-no" : "") + '"><span>' + escHtml(cmp.names && cmp.names[l.line_id] ? cmp.names[l.line_id] : l.item_number) + '</span><span>' + escHtml(txt) + '</span></div>';
+    });
+    if (p.complete) { h += '<div class="gm-mat-sum"><span>' + escHtml(gmT("Total", "Total")) + '</span><strong>' + escHtml(gmBrMoney(p.total)) + '</strong></div>'; }
+    else { h += '<p class="muted" style="margin:6px 0;">' + escHtml(gmT("Vende ", "Carries ") + p.carried_count + gmT(" de ", " of ") + p.line_count + gmT(" itens", " items")) + '</p>'; }
+    if (words[1] && p.reason_code) { h += '<p class="muted" style="margin:2px 0 6px;">' + escHtml(words[1]) + '</p>'; }
+    h += '<button type="button" class="gm-btn-' + (rec ? "primary" : "secondary") + '" onclick="' + orderFn + '(' + i + ')">' + escHtml(gmT("Pedir da filial ", "Order from ") + gmBrShort(p)) + '</button></div>';
+  });
+  h += '</div>';
+  if (cmp.saving_vs_next !== null && cmp.saving_vs_next !== undefined && cmp.saving_vs_next > 0 && total > 1) {
+    h += '<p style="margin:6px 0;">' + escHtml(gmT("A filial mais barata custa " + gmBrMoney(cmp.saving_vs_next) + " a menos que a outra.", gmBrMoney(cmp.saving_vs_next) + " less than the other branch.")) + '</p>';
+  }
+  if (cmp.availability_checked === false) { h += '<p class="muted">' + escHtml(gmT("Não deu para conferir o que cada filial vende.", "We could not check what each branch carries.")) + '</p>'; }
+  return h;
+}
+function gmBrBranchSectionHtml(m) {
+  if (!m.ready || !m.multi) { return ""; }
+  var cur = gmBrDraftPair(m);
+  var h = '<div class="gm-sheet-section" id="gmBrBranchBox"><div class="gm-field-label">' + escHtml(gmT("Filial", "Branch")) + '</div>' +
+    '<p style="margin:0 0 6px;"><strong>' + escHtml(gmBrPairNameIn(m, cur)) + '</strong></p>' +
+    '<button type="button" class="gm-btn-secondary"' + (m.cmpLoading ? " disabled" : "") + ' onclick="gmBrCmpLoad(gmMatDraft)">' + escHtml(m.cmpLoading ? gmT("Comparando...", "Comparing...") : gmT("Comparar minhas filiais", "Compare my branches")) + '</button>';
+  if (m.cmpErr) { h += '<p class="gm-warn">' + escHtml(m.cmpErr) + '</p>'; }
+  if (m.cmp && m.cmp.pairs && m.cmp.pairs.length) {
+    var names = {}; m.data.lines.forEach(function(l) { names[l.id] = l.description; });
+    m.cmp.names = names;
+    h += gmBrCardsHtml(m.cmp, cur ? gmBrKey(cur) : "", "gmBrOrderFrom");
+  }
+  return h + '</div>';
+}
+function gmBrOrderFrom(i) {
+  var m = gmMatDraft, c = m && m.cmp && m.cmp.pairs[i]; if (!m || !c || m.busy) { return; }
+  var cur = gmBrDraftPair(m);
+  if (cur && gmBrKey(cur) === gmBrKey(c)) { gmToast(gmT("Este pedido já usa esta filial.", "This order already uses this branch.")); return; }
+  if (c.carried_count === c.line_count && !c.missing.length) { gmBrDraftMove(c, [], null); return; }
+  m.cf = { cur: m.cmp.pairs.filter(function(p) { return cur && gmBrKey(p) === gmBrKey(cur); })[0] || null, other: c, fix: {} };
+  m.view = "conflict"; gmMatDraftRender();
+}
+// Saves the pair on the draft (and removes the lines named), then prices the lines again for the new pair.
+function gmBrDraftMove(c, removeIds, after) {
+  var m = gmMatDraft; if (!m) { return; }
+  m.busy = true; m.err = ""; gmMatDraftRender();
+  var body = { ship_to: c.ship_to, branch: c.branch };
+  if (removeIds && removeIds.length) { body.lines = removeIds.map(function(id) { return { id: id, removed: true }; }); }
+  gmApi("abc/drafts/" + encodeURIComponent(m.id), { method: "PUT", body: body }).then(function() { return gmApi("abc/drafts/" + encodeURIComponent(m.id)); }).then(function(d) {
+    m.busy = false; m.data = d; m.form = gmMatDraftForm(d); m.cmp = null; m.cf = null; m.view = "edit"; gmMatDraftRender();
+    gmMatDraftPrices(function() { if (after) { after(); } });
+  }).catch(function(e) { m.busy = false; m.err = e.message; m.view = "edit"; gmMatDraftRender(); console.error("abc move draft: " + e.message); });
+}
+// The conflict screen: two branches side by side, what each can and cannot supply, and three plain choices.
+function gmBrConflictHtml(m) {
+  var cf = m.cf, o = cf.other, cur = cf.cur;
+  var names = {}; m.data.lines.forEach(function(l) { names[l.id] = l.description; });
+  var cardFor = function(p, title) {
+    if (!p) { return ""; }
+    var ok = p.lines.filter(function(l) { return l.carried === true; }), no = p.lines.filter(function(l) { return l.carried !== true; });
+    return '<div class="gm-br-card"><div class="gm-br-card-head"><strong>' + escHtml(title) + '</strong></div>' +
+      ok.map(function(l) { return '<div class="gm-br-line"><span>' + escHtml(names[l.line_id] || l.item_number) + '</span><span>' + escHtml(l.price !== null ? gmBrMoney(l.price) : "") + '</span></div>'; }).join("") +
+      (no.length ? gmMatCalloutHtml(gmT("Esta filial não vende", "This branch cannot supply"), no.map(function(l) { return [names[l.line_id] || l.item_number, l.price !== null && l.price !== undefined ? gmBrMoney(l.price) : "-"]; })) : "") + '</div>';
+  };
+  var h = '<p class="muted">' + escHtml(gmT("Esta filial não vende todos os itens. Escolha uma opção. Nada muda até você tocar no botão final.", "This branch does not carry every item. Choose one option. Nothing changes until you tap a final button.")) + '</p>' +
+    '<div class="gm-br-cards">' + cardFor(cur, cur ? gmBrName(cur) : gmT("Filial atual", "Current branch")) + cardFor(o, gmBrName(o)) + '</div>';
+  var unavailable = o.lines.filter(function(l) { return l.carried !== true; });
+  h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("1. Pedir tudo da filial atual", "1. Order everything from the current branch")) + '</div>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmMatDraft.view = \'edit\'; gmMatDraft.cf = null; gmMatDraftRender()">' + escHtml(gmT("Manter a filial atual", "Keep the current branch")) + '</button></div>';
+  h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("2. Pedir tudo de ", "2. Order everything from ") + gmBrShort(o)) + '</div>';
+  var allFixed = true;
+  unavailable.forEach(function(l) {
+    var fx = cf.fix[l.line_id];
+    if (!fx) { allFixed = false; }
+    h += '<div class="gm-br-line"><span>' + escHtml(names[l.line_id] || l.item_number) + '</span><span>' +
+      (fx ? escHtml(fx === "replace" ? gmT("Será trocado", "Will be replaced") : gmT("Será removido", "Will be removed")) : "") + '</span></div>' +
+      '<div class="gm-mat-loc-actions" style="margin:0 0 8px;"><button type="button" class="gm-btn-secondary" onclick="gmMatDraft.cf.fix[\'' + escHtml(l.line_id) + '\'] = \'replace\'; gmMatDraftRender()">' + escHtml(gmT("Trocar este item", "Replace this item")) + '</button>' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmMatDraft.cf.fix[\'' + escHtml(l.line_id) + '\'] = \'remove\'; gmMatDraftRender()">' + escHtml(gmT("Remover", "Remove")) + '</button></div>';
+  });
+  h += '<button type="button" class="gm-btn-primary"' + (allFixed && !m.busy ? "" : " disabled") + ' onclick="gmBrConflictMove()">' + escHtml(gmT("Pedir tudo de ", "Order everything from ") + gmBrShort(o)) + '</button>' +
+    (allFixed ? "" : '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("Troque ou remova cada item que esta filial não vende.", "Replace or remove each item this branch cannot supply.")) + '</p>') + '</div>';
+  var carriedIds = o.lines.filter(function(l) { return l.carried === true; }).map(function(l) { return l.line_id; });
+  h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("3. Dividir em dois pedidos", "3. Split into two orders")) + '</div>' +
+    '<p class="muted" style="margin:0 0 6px;">' + escHtml(gmT("Os itens que " + gmBrShort(o) + " vende vão para lá. Os outros ficam. Serão dois pedidos, um por filial, com a mesma data, contato e instruções.", "The items " + gmBrShort(o) + " carries go there. The others stay. Two orders will be made, one per branch, with the same date, contact and instructions.")) + '</p>' +
+    '<button type="button" class="gm-btn-secondary"' + (carriedIds.length && !m.busy ? "" : " disabled") + ' onclick="gmBrConflictSplit()">' + escHtml(gmT("Dividir em dois pedidos", "Split into two orders")) + '</button></div>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmMatDraft.view = \'edit\'; gmMatDraft.cf = null; gmMatDraftRender()">' + escHtml(gmT("Voltar", "Back")) + '</button>';
+  return h;
+}
+function gmBrConflictMove() {
+  var m = gmMatDraft; if (!m || !m.cf) { return; }
+  var ids = Object.keys(m.cf.fix), replace = ids.some(function(k) { return m.cf.fix[k] === "replace"; });
+  gmBrDraftMove(m.cf.other, ids, replace ? function() { gmToast(gmT("Escolha os itens que vão trocar.", "Now choose the replacement items.")); gmMatLineAddOpen(); } : null);
+}
+function gmBrConflictSplit() {
+  var m = gmMatDraft; if (!m || !m.cf || m.busy) { return; }
+  var o = m.cf.other, ids = o.lines.filter(function(l) { return l.carried === true; }).map(function(l) { return l.line_id; });
+  if (!ids.length) { return; }
+  m.busy = true; gmMatDraftRender();
+  gmApi("abc/drafts/" + encodeURIComponent(m.id) + "/split", { method: "POST", body: { moves: [{ line_ids: ids, ship_to: o.ship_to, branch: o.branch }] } }).then(function() {
+    m.busy = false; gmToast(gmT("Dois pedidos criados. Envie cada um.", "Two orders made. Send each one."));
+    gmMatDraftsLoad(function() { gmMatOrdersOpen(); });
+  }).catch(function(e) { m.busy = false; m.err = e.message; m.view = "edit"; m.cf = null; gmMatDraftRender(); console.error("abc split: " + e.message); });
+}
+
+// ── 3.7 / 4(c) The pinned bar: what is still needed, then Review and send ──
+// Computed from what is on screen, so it follows the owner as they type. Each item scrolls to its field.
+var GM_BR_MISSING_IDS = { delivery_service: "gmMatSvc", delivery_date: "gmMatDateBox", delivery_place: "gmMatLocBox", address: "gmMatLocBox", contact_name: "gmMatCName", contact_email: "gmMatCEmail", contact_phone: "gmMatCPhone",
+  delivery_contact_name: "gmMatDcBox", delivery_contact_phone: "gmMatDcBox", quantity: "gmMatLinesBox", item_description: "gmMatLinesBox", item_length: "gmMatLinesBox", lines: "gmMatLinesBox", order_ref: "gmMatPo", job_name: "gmMatJob" };
+function gmBrStillNeeded(m) {
+  var f = m.form, d = m.data, need = [];
+  if (!f.service) { need.push("delivery_service"); }
+  if (m.ready) {
+    if (f.dateMode !== "tbd" && !(f.dateMode === "date" && gmMatIsoDate(f.date))) { need.push("delivery_date"); }
+    if (!String(f.dcName || "").trim()) { need.push("delivery_contact_name"); }
+    if (String(f.dcPhone || "").replace(/\D/g, "").replace(/^1(\d{10})$/, "$1").length !== 10) { need.push("delivery_contact_phone"); }
+  }
+  if (!m.locMode) { need.push("delivery_place"); }
+  if (!String(f.contact_name || "").trim()) { need.push("contact_name"); }
+  if (!/^[^\s@]{1,64}@[^\s@]+\.[^\s@]{2,}$/.test(String(f.contact_email || "").trim())) { need.push("contact_email"); }
+  if (String(f.contact_phone || "").replace(/\D/g, "").replace(/^1(\d{10})$/, "$1").length !== 10) { need.push("contact_phone"); }
+  d.lines.forEach(function(l) { var lf = f.lines[l.id]; if (lf && !lf.removed && String(lf.qty) === "" && need.indexOf("quantity") === -1) { need.push("quantity"); } });
+  ((d.draft && d.draft.missing) || []).forEach(function(k) { if ((k === "item_description" || k === "item_length") && need.indexOf(k) === -1) { need.push(k); } });
+  return need;
+}
+function gmBrBarHtml(m) {
+  var need = gmBrStillNeeded(m);
+  var h = '<div class="gm-bar" id="gmBrBar">' + gmBrBarInner(need) +
+    '<button type="button" class="gm-btn-primary"' + (m.busy ? " disabled" : "") + ' onclick="gmMatReviewOpen()">' + escHtml(gmT("Revisar e enviar", "Review and send")) + '</button></div>';
+  return h;
+}
+function gmBrBarInner(need) {
+  if (!need.length) { return '<p class="gm-bar-ok" id="gmBrNeed">' + escHtml(gmT("Pronto para enviar", "Ready to send")) + '</p>'; }
+  return '<div class="gm-bar-need" id="gmBrNeed"><strong>' + escHtml(gmT("Ainda falta:", "Still needed:")) + '</strong> ' +
+    need.map(function(k) { var mm = GM_MAT_MISSING[k]; return '<button type="button" class="gm-bar-link" onclick="gmBrGoto(\'' + (GM_BR_MISSING_IDS[k] || "gmMatLinesBox") + '\')">' + escHtml(mm ? gmT(mm[0], mm[1]) : k) + '</button>'; }).join(" ") + '</div>';
+}
+function gmBrBarPaint() {
+  var m = gmMatDraft, el = document.getElementById("gmBrNeed");
+  if (!m || !m.form || m.view !== "edit" || !el) { return; }
+  var tmp = document.createElement("div"); tmp.innerHTML = gmBrBarInner(gmBrStillNeeded(m));
+  if (tmp.firstChild) { el.replaceWith(tmp.firstChild); }
+}
+var gmBrBarWired = false;
+function gmBrBarWire() {
+  if (gmBrBarWired) { return; }
+  gmBrBarWired = true;
+  document.addEventListener("input", function() { gmBrBarPaint(); }, false);
+  document.addEventListener("change", function() { gmBrBarPaint(); }, false);
+}
+
+
+// ── 3.9 The estimate remembers its order branch ──
+// The first ABC item added to an estimate sets its order branch. Later the other tabs are grayed out, and "Can't find it?"
+// searches the other branches. An item found there moves the order, or opens the conflict screen. Nothing changes until a final tap.
+var gmBrEst = { tab: "", q: "", others: null, loading: false, err: "", move: null, cf: null, busy: false };
+function gmBrEstAbcLines(w) {
+  var out = [];
+  (w.options || []).forEach(function(o, oi) {
+    (o.items || []).forEach(function(it, ii) {
+      var row = it.pricing_id ? gmPricingRowById(it.pricing_id) : null;
+      if (row && row.abc_item_number) { out.push({ oi: oi, ii: ii, it: it, number: row.abc_item_number, name: it.item_name }); }
+    });
+  });
+  return out;
+}
+function gmBrEstOrderPair(w) {
+  var hit = null;
+  gmBrEstAbcLines(w).forEach(function(l) { if (!hit && l.it.abc_ship_to && l.it.abc_branch) { hit = { ship_to: l.it.abc_ship_to, branch: l.it.abc_branch }; } });
+  return hit;
+}
+function gmBrEstActivePair(w) {
+  var o = gmBrEstOrderPair(w); if (o) { return o; }
+  var t = gmBrEst.tab ? gmBrEst.tab.split("|") : null;
+  if (t && gmBrFind(t[0], t[1])) { return { ship_to: t[0], branch: t[1] }; }
+  var d = gmBrDefault(); return d ? { ship_to: d.ship_to, branch: d.branch } : null;
+}
+function gmBrEstTabsHtml(w) {
+  if (!gmBrMulti()) { return ""; }
+  var order = gmBrEstOrderPair(w), act = gmBrEstActivePair(w);
+  var reason = order ? gmT("Este orçamento é pedido de " + gmBrShort(gmBrFind(order.ship_to, order.branch)) + ".", "This estimate is ordered from " + gmBrShort(gmBrFind(order.ship_to, order.branch)) + ".") : "";
+  return '<div class="gm-sheet-section">' + gmBrTabsHtml(act ? gmBrKey(act) : "", "gmBrEstTab", !!order, reason) + '</div>';
+}
+function gmBrEstTab(i) { var p = gmBrPairs()[i]; if (p) { gmBrEst.tab = gmBrKey(p); gmBrEst.others = null; gmEstWizRender(); } }
+// An ABC linked item known NOT to be carried at the active branch is left out of the picker.
+function gmBrEstSkip(w, p) {
+  if (!gmBrMulti() || !p.abc_item_number || !gmBr.carry) { return false; }
+  var act = gmBrEstActivePair(w), c = act && (gmBr.carry[p.abc_item_number] || {})[gmBrKey(act)];
+  return !!c && c.carried === false;
+}
+// The pair a newly picked ABC item takes: the estimate's order branch, else the active tab.
+function gmBrEstNewPair(w) { var p = gmBrEstOrderPair(w) || gmBrEstActivePair(w); return p ? { ship_to: p.ship_to, branch: p.branch } : null; }
+function gmBrEstStamp(w, ln, p) { if (gmBrMulti() && p) { ln.abc_ship_to = p.ship_to; ln.abc_branch = p.branch; } }
+function gmBrEstSearchHtml(w) {
+  if (!gmBrMulti()) { return ""; }
+  var e = gmBrEst;
+  var h = '<div class="gm-sheet-section"><label class="gm-field-label" for="gmBrEstQ">' + escHtml(gmT("Buscar na ABC Supply", "Search ABC Supply")) + '</label>' +
+    '<input type="text" id="gmBrEstQ" class="gm-input" maxlength="40" value="' + escHtml(e.q) + '" placeholder="' + escHtml(gmT("Pelo menos 3 letras", "At least 3 characters")) + '" oninput="gmBrEst.q = this.value">' +
+    '<button type="button" class="gm-btn-secondary"' + (e.loading ? " disabled" : "") + ' onclick="gmBrEstSearch()">' + escHtml(gmT("Não achou? Buscar nas minhas outras filiais", "Can't find it? Search my other branches")) + '</button>';
+  if (e.loading) { h += '<p class="muted">' + escHtml(gmT("Buscando nas outras filiais...", "Searching your other branches...")) + '</p>'; }
+  if (e.err) { h += '<p class="gm-warn">' + escHtml(e.err) + '</p>'; }
+  (e.others || []).forEach(function(g, gi) {
+    h += '<div class="gm-field-label" style="margin-top:8px;">' + escHtml(gmBrName(g)) + '</div>';
+    if (g.failed) { h += '<p class="muted">' + escHtml(gmT("Não deu para buscar nesta filial.", "We could not search this branch.")) + '</p>'; }
+    else if (!g.items.length) { h += '<p class="muted">' + escHtml(gmT("Nada encontrado nesta filial.", "Nothing found at this branch.")) + '</p>'; }
+    g.items.forEach(function(it, ii) {
+      h += '<div class="gm-mat-line"><strong>' + escHtml(it.description) + '</strong><div class="gm-lead-sub">' + escHtml([it.item_number, it.has_price ? gmBrMoney(it.cost) + gmT(" por ", " per ") + (it.unit_name || it.unit_code || "") : gmT("A ABC não devolveu preço", "ABC returned no price")].join(" · ")) + '</div>' +
+        '<button type="button" class="gm-btn-secondary"' + (it.has_price && !e.busy ? "" : " disabled") + ' onclick="gmBrEstUse(' + gi + ',' + ii + ')">' + escHtml(gmT("Usar da filial ", "Use from ") + gmBrShort(g)) + '</button></div>';
+    });
+  });
+  return h + '</div>';
+}
+function gmBrEstSearch() {
+  var w = gmEstWiz, e = gmBrEst; if (!w || e.loading) { return; }
+  var q = String(e.q || "").trim(), p = gmBrEstActivePair(w);
+  if (q.length < 3 || !p) { e.err = gmT("Digite pelo menos 3 letras para buscar.", "Type at least 3 characters to search."); gmEstWizRender(); return; }
+  e.loading = true; e.err = ""; e.others = null; e.move = null; e.cf = null; gmEstWizRender();
+  gmApi("abc/search-other-branches", { method: "POST", body: { q: q, ship_to: p.ship_to, branch: p.branch } }).then(function(d) { e.loading = false; e.others = d.groups || []; gmEstWizRender(); })
+    .catch(function(er) { e.loading = false; e.err = er.message; gmEstWizRender(); console.error("abc estimate other branches: " + er.message); });
+}
+// An item from another branch was chosen: what can that branch supply of the lines already on the estimate?
+function gmBrEstUse(gi, ii) {
+  var w = gmEstWiz, e = gmBrEst; if (!w || e.busy || !e.others || !e.others[gi]) { return; }
+  var g = e.others[gi], it = g.items[ii], other = { ship_to: g.ship_to, branch: g.branch };
+  var lines = gmBrEstAbcLines(w);
+  if (!lines.length) { gmBrEstAddItem(other, it, function() { gmBrEstDone(); }); return; }
+  var nums = []; lines.forEach(function(l) { if (nums.indexOf(l.number) === -1 && nums.length < 50) { nums.push(l.number); } });
+  e.busy = true; e.err = ""; gmEstWizRender();
+  gmApi("abc/branch-prices", { method: "POST", body: { item_numbers: nums } }).then(function(d) {
+    e.busy = false;
+    var byKey = {}; (d.pairs || []).forEach(function(p) { byKey[gmBrKey(p)] = p; });
+    var cur = gmBrEstActivePair(w), curP = cur && byKey[gmBrKey(cur)], othP = byKey[gmBrKey(other)];
+    var carried = function(P, n) { return P && P.items && P.items[n] ? P.items[n].carried : null; };
+    var missing = lines.filter(function(l) { return carried(othP, l.number) !== true; });
+    if (!missing.length) { e.move = { other: other, item: it, g: g }; e.cf = null; }
+    else { e.cf = { other: other, item: it, g: g, cur: cur, curP: curP, othP: othP, lines: lines, missing: missing, fix: {} }; e.move = null; }
+    gmEstWizRender();
+  }).catch(function(er) { e.busy = false; e.err = er.message; gmEstWizRender(); console.error("abc estimate compare: " + er.message); });
+}
+function gmBrEstDone() { gmBrEst.others = null; gmBrEst.move = null; gmBrEst.cf = null; gmBrEst.q = ""; gmEstWizRender(); }
+// Adds the found item to the Price list from THAT branch, then to the estimate with that pair.
+function gmBrEstAddItem(other, it, then) {
+  var w = gmEstWiz, e = gmBrEst; if (!w) { return; }
+  e.busy = true; e.err = ""; gmEstWizRender();
+  var fail = function(msg) { e.busy = false; e.err = msg; gmEstWizRender(); };
+  gmApi("abc/add-items", { method: "POST", body: { items: [{ item_number: it.item_number }], ship_to: other.ship_to, branch: other.branch } }).then(function(d) {
+    var why = (d.skipped || [])[0];
+    if (why && why.reason !== "already_linked") { fail(it.description + ": " + gmAbcPlReasonText(why.reason)); return null; }
+    return gmApi("pricing");
+  }).then(function(all) {
+    if (!all) { return; }
+    gmPricingData = all;
+    var row = null; (all.items || []).forEach(function(r) { if (r.abc_item_number === it.item_number) { row = r; } });
+    if (!row) { fail(gmT("Não foi possível adicionar o item.", "Could not add the item.")); return; }
+    var opt = w.options[w.activeOpt], ln = gmEstWizLineFromPricing(row);
+    gmBrEstStamp(w, ln, other); opt.items.push(ln);
+    e.busy = false; if (then) { then(); } else { gmEstWizRender(); }
+  }).catch(function(er) { fail(er.message); console.error("abc estimate add: " + er.message); });
+}
+// F3: an ABC item added from a different branch than the one this line is ordered from is flagged (a flag only, never a block).
+function gmBrLineChipHtml(it) {
+  if (!gmBrMulti()) { return ""; }
+  var row = it.pricing_id ? gmPricingRowById(it.pricing_id) : null;
+  if (!row || !row.abc_item_number || !row.abc_ship_to || !row.abc_branch) { return ""; }
+  var d = gmBrDefault();
+  var lp = it.abc_ship_to && it.abc_branch ? it.abc_ship_to + "|" + it.abc_branch : (d ? gmBrKey(d) : "");
+  if (lp === row.abc_ship_to + "|" + row.abc_branch) { return ""; }
+  return '<div class="gm-lead-sub"><span class="gm-pill gm-muted">' + escHtml(gmT("De outra filial", "From a different branch")) + '</span></div>';
+}
+function gmBrEstSetPair(lines, p) { lines.forEach(function(l) { l.it.abc_ship_to = p.ship_to; l.it.abc_branch = p.branch; }); }
+function gmBrEstMoveYes() {
+  var w = gmEstWiz, m = gmBrEst.move; if (!w || !m) { return; }
+  gmBrEstSetPair(gmBrEstAbcLines(w), m.other);
+  gmBrEstAddItem(m.other, m.item, function() { gmBrEst.tab = gmBrKey(m.other); gmBrEstDone(); });
+}
+function gmBrEstMoveNo() { gmBrEst.move = null; gmEstWizRender(); }
+// The conflict screen inside the picker.
+function gmBrEstPanelHtml(w) {
+  var e = gmBrEst;
+  if (e.move) {
+    return gmMatCalloutHtml(gmT("Mover este pedido para " + gmBrShort(e.move.g) + "?", "Move this order to " + gmBrShort(e.move.g) + "?"), [[gmT("Item novo", "New item"), e.move.item.description], [gmT("Motivo", "Why"), gmT("Esta filial vende todos os itens que já estão no orçamento.", "This branch carries every item already on the estimate.")]],
+      '<button type="button" class="gm-btn-primary" onclick="gmBrEstMoveYes()">' + escHtml(gmT("Sim, mover tudo", "Yes, move everything")) + '</button><button type="button" class="gm-btn-secondary" onclick="gmBrEstMoveNo()">' + escHtml(gmT("Não", "No")) + '</button>');
+  }
+  if (!e.cf) { return ""; }
+  var cf = e.cf, curName = cf.cur ? gmBrName(gmBrFind(cf.cur.ship_to, cf.cur.branch) || cf.cur) : "", othName = gmBrName(cf.g);
+  var line = function(P, l) { var x = P && P.items ? P.items[l.number] : null; return x && x.carried === true ? (x.price !== null ? gmBrMoney(x.price) : "") : gmT("Não vende", "Cannot supply"); };
+  var cardFor = function(P, title) {
+    var ok = cf.lines.filter(function(l) { return P && P.items && P.items[l.number] && P.items[l.number].carried === true; });
+    var no = cf.lines.filter(function(l) { return ok.indexOf(l) === -1; });
+    return '<div class="gm-br-card"><div class="gm-br-card-head"><strong>' + escHtml(title) + '</strong></div>' +
+      ok.map(function(l) { return '<div class="gm-br-line"><span>' + escHtml(l.name) + '</span><span>' + escHtml(line(P, l)) + '</span></div>'; }).join("") +
+      (no.length ? gmMatCalloutHtml(gmT("Esta filial não vende", "This branch cannot supply"), no.map(function(l) { return [l.name, line(P, l)]; })) : "") + '</div>';
+  };
+  var h = '<div class="gm-sheet-section gm-br-conflict"><div class="gm-field-label">' + escHtml(gmT("Os itens vêm de filiais diferentes", "The items come from different branches")) + '</div>' +
+    '<p class="muted">' + escHtml(gmT("Escolha uma opção. Nada muda até você tocar no botão final.", "Choose one option. Nothing changes until you tap a final button.")) + '</p>' +
+    '<div class="gm-br-cards">' + cardFor(cf.curP, curName) + cardFor(cf.othP, othName) + '</div>' +
+    '<div class="gm-field-label">' + escHtml(gmT("1. Pedir tudo de ", "1. Order everything from ") + gmBrShort(gmBrFind(cf.cur && cf.cur.ship_to, cf.cur && cf.cur.branch) || {})) + '</div>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmBrEstDone()">' + escHtml(gmT("Manter a filial atual (o item novo não entra)", "Keep the current branch (the new item is not added)")) + '</button>' +
+    '<div class="gm-field-label" style="margin-top:10px;">' + escHtml(gmT("2. Pedir tudo de ", "2. Order everything from ") + gmBrShort(cf.g)) + '</div>';
+  var all = true;
+  cf.missing.forEach(function(l, i) {
+    var fx = cf.fix[i]; if (!fx) { all = false; }
+    h += '<div class="gm-br-line"><span>' + escHtml(l.name) + '</span><span>' + escHtml(fx ? (fx === "replace" ? gmT("Será trocado", "Will be replaced") : gmT("Será removido", "Will be removed")) : "") + '</span></div>' +
+      '<div class="gm-mat-loc-actions" style="margin:0 0 8px;"><button type="button" class="gm-btn-secondary" onclick="gmBrEst.cf.fix[' + i + '] = \'replace\'; gmEstWizRender()">' + escHtml(gmT("Trocar este item", "Replace this item")) + '</button>' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmBrEst.cf.fix[' + i + '] = \'remove\'; gmEstWizRender()">' + escHtml(gmT("Remover", "Remove")) + '</button></div>';
+  });
+  h += '<button type="button" class="gm-btn-primary"' + (all && !e.busy ? "" : " disabled") + ' onclick="gmBrEstConflictMove()">' + escHtml(gmT("Pedir tudo de ", "Order everything from ") + gmBrShort(cf.g)) + '</button>' +
+    (all ? "" : '<p class="muted">' + escHtml(gmT("Troque ou remova cada item que esta filial não vende.", "Replace or remove each item this branch cannot supply.")) + '</p>') +
+    '<div class="gm-field-label" style="margin-top:10px;">' + escHtml(gmT("3. Dividir em dois pedidos", "3. Split into two orders")) + '</div>' +
+    '<p class="muted">' + escHtml(gmT("Os itens que " + gmBrShort(cf.g) + " não vende ficam na filial atual. O item novo e os que ela vende vão para " + gmBrShort(cf.g) + ". Serão dois pedidos, um por filial, com a mesma data, contato e instruções.",
+      "The items " + gmBrShort(cf.g) + " cannot supply stay with the current branch. The new item and the ones it can supply go to " + gmBrShort(cf.g) + ". Two orders will be made, one per branch, with the same date, contact and instructions.")) + '</p>' +
+    '<button type="button" class="gm-btn-secondary"' + (e.busy ? " disabled" : "") + ' onclick="gmBrEstConflictSplit()">' + escHtml(gmT("Dividir em dois pedidos", "Split into two orders")) + '</button></div>';
+  return h;
+}
+function gmBrEstConflictMove() {
+  var w = gmEstWiz, cf = gmBrEst.cf; if (!w || !cf) { return; }
+  var gone = cf.missing.filter(function(l, i) { return !!cf.fix[i]; });
+  var replace = cf.missing.some(function(l, i) { return cf.fix[i] === "replace"; });
+  // Remove the lines (highest index first so the others keep their place), then move what is left.
+  gone.slice().sort(function(a, b) { return (b.oi - a.oi) || (b.ii - a.ii); }).forEach(function(l) { w.options[l.oi].items.splice(l.ii, 1); });
+  gmBrEstSetPair(gmBrEstAbcLines(w), cf.other);
+  gmBrEstAddItem(cf.other, cf.item, function() {
+    gmBrEst.tab = gmBrKey(cf.other); gmBrEstDone();
+    if (replace) { gmToast(gmT("Agora escolha os itens que vão trocar nesta filial.", "Now choose the replacement items at this branch.")); }
+  });
+}
+function gmBrEstConflictSplit() {
+  var w = gmEstWiz, cf = gmBrEst.cf; if (!w || !cf) { return; }
+  var missingSet = cf.missing;
+  var move = cf.lines.filter(function(l) { return missingSet.indexOf(l) === -1; });
+  gmBrEstSetPair(move, cf.other);
+  var stay = cf.lines.filter(function(l) { return missingSet.indexOf(l) !== -1; });
+  if (cf.cur) { gmBrEstSetPair(stay, cf.cur); }
+  gmBrEstAddItem(cf.other, cf.item, function() { gmBrEstDone(); gmToast(gmT("Serão dois pedidos, um por filial.", "Two orders will be made, one per branch.")); });
+}
+
+// The estimate editor may open before the ABC status was ever read; read it once, then draw again.
+var gmBrEstAsked = false;
+function gmBrEstInit() {
+  if (gmIsSeller() || gmAbcPlStatus || gmAbcStatus || gmBrEstAsked) { if (gmBrMulti() && gmPricingData) { gmBrPlCarryKick(gmPricingData.items || []); } return; }
+  gmBrEstAsked = true;
+  gmApi("abc/status").then(function(d) { gmAbcPlStatus = d || { available: false, connected: false }; if (gmEstWiz) { gmEstWizRender(); } }).catch(function(e) { console.error("abc status: " + e.message); });
+}
 
 var gmPricingCsvText = null;
 var gmPricingColumnMap = null;
@@ -8940,7 +9861,7 @@ function gmConTabContractRow(c) {
     '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(c.display_number || "") + ' · ' + escHtml(c.job_name || "") + gmMatContractBadgeHtml(c) + '</span>' +
     '<div class="gm-lead-sub">' + line2 + '</div>' +
     (note ? '<div class="gm-lead-sub gm-warn">' + escHtml(note) + '</div>' : "") +
-    '</span><span class="gm-lead-side">' + gmConPill(c.status) + '</span></button>';
+    '</span><span class="gm-lead-side">' + gmConPill(c.status) + '</span></button>' + gmMatContractSendBtnHtml(c);
 }
 function gmConTabJobRow(x) {
   var j = x.job;
@@ -9217,6 +10138,8 @@ function gmRenderContractSheet() {
   if (!c.routed_only && companySigned && ["company_signed", "sent", "viewed"].indexOf(c.status) !== -1) {
     body += '<button type="button" class="gm-btn-primary" id="gmConSendBtn" onclick="gmConSendOpen()">' + gmT("Enviar ao cliente", "Send to the homeowner") + '</button>';
   }
+  // 4(b): the way to send the materials order is the FIRST thing on a signed contract, above Preview as customer.
+  if (c.status === "completed") { body += gmMatContractSendBtnHtml(c); }
   body += '<a class="gm-btn-secondary" href="' + escHtml(c.preview_link) + '" target="_blank" rel="noopener" onclick="return gmOpenDocLink(this.href)">' + gmT("Ver como o cliente", "Preview as customer") + '</a>';
   if (c.status !== "draft" && c.status !== "awaiting_company") { body += '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(c.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>'; }
   if (!c.routed_only && ["draft", "awaiting_company", "void"].indexOf(c.status) === -1) { body += gmLinkControlBtn("contract", c.id, !!c.link_disabled_at); }
@@ -16381,6 +17304,7 @@ function gmEstWizFromDetail(est) {
           preset_rate_cents: ln.preset_rate_cents !== null && ln.preset_rate_cents !== undefined ? ln.preset_rate_cents : (ln.pricing_id ? ln.rate_cents : null),
           rate_override_reason: ln.rate_override_reason || "", is_addon: !!ln.is_addon,
           material_cost_cents: ln.material_cost_cents || 0, labor_cost_cents: ln.labor_cost_cents || 0, other_cost_cents: ln.other_cost_cents || 0,
+          abc_ship_to: ln.abc_ship_to || "", abc_branch: ln.abc_branch || "",
           calc: gmEstCalcFromServer(ln) });
       });
     });
@@ -16613,7 +17537,10 @@ function gmEstWizPreselectService() {
 function gmEstWizStepPick(addons) {
   var w = gmEstWiz;
   var opt = w.options[w.activeOpt];
+  gmBrEstInit();
   var items = ((gmPricingData && gmPricingData.items) || []).filter(function(p) { return addons ? p.kind === "addon" : p.kind !== "addon"; });
+  var hiddenAbc = 0;
+  if (!addons && gmBrMulti()) { items = items.filter(function(p) { if (gmBrEstSkip(w, p)) { hiddenAbc++; return false; } return true; }); }
   var chosenCats = {};
   opt.items.forEach(function(it) { if (!it.is_addon) { chosenCats[it.category || ""] = true; } });
   if (addons) { items = items.filter(function(p) { return chosenCats[p.category || ""]; }); }
@@ -16632,7 +17559,9 @@ function gmEstWizStepPick(addons) {
       .map(function(x) { return x.p; });
   });
   var h = '<div id="gmEstWizTabs">' + gmEstWizOptTabs() + '</div>';
+  if (!addons) { h += gmBrEstTabsHtml(w) + gmBrEstPanelHtml(w); }
   h += '<div class="gm-sheet-section">';
+  if (hiddenAbc) { h += '<p class="muted">' + escHtml(hiddenAbc + gmT(" itens da ABC não são vendidos nesta filial e estão ocultos.", " ABC items not carried at this branch are hidden.")) + '</p>'; }
   if (!items.length) {
     h += '<p class="muted">' + (addons ? gmT("Nenhum adicional para as categorias escolhidas.", "No add-ons for the chosen categories.")
                                         : gmT("Nenhum produto na Tabela de preços. Cadastre itens em Preços primeiro.", "No products in the price list. Add items under Pricing first.")) + '</p>';
@@ -16651,6 +17580,7 @@ function gmEstWizStepPick(addons) {
     });
   });
   h += '</div>';
+  if (!addons) { h += gmBrEstSearchHtml(w); }
   // Custom line (not from the price list)
   h += '<div class="gm-sheet-section"><button type="button" class="gm-btn-secondary" onclick="gmEstWizAddCustom(' + (addons ? "true" : "false") + ')">' + gmT("+ Linha avulsa", "+ Custom line") + '</button></div>';
   // Picked lines: their own container, so a quantity typed in the list
@@ -16707,6 +17637,7 @@ function gmEstWizLineHtml(it, i) {
     gmEstCalcHtml(it, i) +
     '<div class="gm-lead-sub" id="gmEwLineSum_' + i + '">' + gmEstWizLineSummary(it) + '</div>' +
     (gmEstLineRow(it) && gmEstLineRow(it).abc_item_number && gmAbcLiveLabelHtml(gmEstLineRow(it)) ? '<div class="gm-lead-sub">' + gmAbcLiveLabelHtml(gmEstLineRow(it)) + '</div>' : "") +
+    gmBrLineChipHtml(it) +
     '<textarea class="gm-input" rows="2" placeholder="' + gmT("Descrição para o cliente (impressa abaixo da linha)", "Customer description (printed under the line)") + '" oninput="gmEstWizLineSet(' + i + ', \'description\', this.value)">' + escHtml(it.description || "") + '</textarea>' +
     '</div>';
 }
@@ -16718,7 +17649,7 @@ function gmEstWizPickQty(pricingId, v) {
   if (!q || Number(q.replace(",", ".")) <= 0) { if (idx !== -1) { opt.items.splice(idx, 1); } gmEstWizRefreshChosen(); return; }
   var p = null; ((gmPricingData && gmPricingData.items) || []).forEach(function(x) { if (x.id === pricingId) { p = x; } });
   if (!p) { return; }
-  if (idx === -1) { var ln = gmEstWizLineFromPricing(p); ln.qty = q; opt.items.push(ln); if (p.abc_item_number) { gmAbcLiveRefresh([p.id], function(res) { if (gmEstApplyCosts(res)) { gmEstWizRefreshChosen(); } }); } } else { opt.items[idx].qty = q; }
+  if (idx === -1) { var ln = gmEstWizLineFromPricing(p); ln.qty = q; if (p.abc_item_number) { gmBrEstStamp(w, ln, gmBrEstNewPair(w)); } opt.items.push(ln); if (p.abc_item_number) { gmAbcLiveRefresh([p.id], function(res) { if (gmEstApplyCosts(res)) { gmEstWizRefreshChosen(); } }); } } else { opt.items[idx].qty = q; }
   gmEstWizRefreshChosen();
 }
 
@@ -17029,7 +17960,8 @@ function gmEstWizPayload() {
           qty: Number(String(it.qty).replace(",", ".")) || 0, unit: it.unit || null, rate_cents: it.rate_cents, rate_override_reason: it.rate_override_reason || null, is_addon: !!it.is_addon,
           material_cost_cents: it.material_cost_cents, labor_cost_cents: it.labor_cost_cents, other_cost_cents: it.other_cost_cents,
           calc_kind: cp.calc_kind || null, calc_unit: cp.calc_unit || null, calc_length: cp.calc_length === undefined ? null : cp.calc_length,
-          calc_width: cp.calc_width === undefined ? null : cp.calc_width, calc_depth: cp.calc_depth === undefined ? null : cp.calc_depth };
+          calc_width: cp.calc_width === undefined ? null : cp.calc_width, calc_depth: cp.calc_depth === undefined ? null : cp.calc_depth,
+          abc_ship_to: it.abc_ship_to || undefined, abc_branch: it.abc_branch || undefined };
       }) };
     })
   };

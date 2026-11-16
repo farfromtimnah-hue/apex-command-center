@@ -44994,8 +44994,8 @@ async function abcAvailCall(cfg, token, items, branches, secrets, carried) {
     while (page <= total && page <= ABC.avail_pages_max) {
         var res = await abcApi(cfg, token, "POST", "/api/product/v1/search/availability/items", {
             filters: [
-                { key: "itemNumber", condition: "equals", values: items, joinCondition: "and" },
-                { key: "branchNumber", condition: "equals", values: branches, joinCondition: null }
+                { key: "itemNumber", condition: "equals", values: items },
+                { key: "branchNumber", condition: "equals", values: branches }
             ],
             pagination: { itemsPerPage: 50, pageNumber: page }
         }, secrets);

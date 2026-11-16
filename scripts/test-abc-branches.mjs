@@ -746,6 +746,13 @@ await check("accounts-status-disconnect", async () => {
   ok(q(w, ["SELECT COUNT(*) AS n FROM gm_abc_branches"])[0].n === 0, "disconnecting ABC removes the business's pair rows");
 });
 
+// Proven live 2026-11-16: ABC's availability search answers nothing when the filters carry joinCondition.
+await check("availability-filter-has-no-joinCondition", async () => {
+  const i = workerSrc.indexOf("async function abcAvailCall");
+  const body = workerSrc.slice(i, workerSrc.indexOf("async function abcAvailability", i));
+  ok(body.indexOf("joinCondition") === -1, "the availability request body carries no joinCondition (live ABC returns zero items with it)");
+});
+
 await check("no-secret-and-no-guess", async () => {
   ok(!seen.some((t) => HIDDEN.some((sct) => t.indexOf(sct) !== -1)), "no answer carried a secret");
   ok(!logged.some((l) => HIDDEN.some((sct) => l.indexOf(sct) !== -1)), "no log carried a secret");

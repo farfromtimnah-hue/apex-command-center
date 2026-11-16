@@ -119,7 +119,9 @@ await check("estimates-untouched", async () => {
 
 await check("only-routes-ask-abc-for-prices", async () => {
   const src = readFileSync(new URL("../worker/index.js", import.meta.url), "utf8");
-  const allowed = ["handleGetGmAbcItems", "handlePostGmAbcAddItems", "handlePostGmPricingAbcLink", "abcRefreshRows", "abcDraftFreshPrices", "handlePostGmAbcDraftPrices", "handlePostGmAbcDraftSend", "handlePostGmAbcDraftsCombine", "handleGetGmAbcDiagnose"];
+  const allowed = ["handleGetGmAbcItems", "handlePostGmAbcAddItems", "handlePostGmPricingAbcLink", "abcRefreshRows", "abcDraftFreshPrices", "handlePostGmAbcDraftPrices", "handlePostGmAbcDraftSend", "handlePostGmAbcDraftsCombine", "handleGetGmAbcDiagnose",
+    // 2026-11-16: the per branch helpers; the test below proves they too are reached only from owner routes
+    "abcPairInfo", "abcSearchForPair"];
   const bad = [];
   let i = -1;
   while ((i = src.indexOf("abcFetchPrices(", i + 1)) !== -1) {
@@ -130,6 +132,20 @@ await check("only-routes-ask-abc-for-prices", async () => {
     if (!name || allowed.indexOf(name[1]) === -1) { bad.push(name && name[1]); }
   }
   ok(bad.length === 0, "abcFetchPrices is called only from owner routes, never from a cron, webhook or background job" + (bad.length ? " (found in " + bad.join(", ") + ")" : ""));
+  // The per branch helpers (2026-11-16) ask ABC for prices and availability: they may be called only from these owner routes.
+  const helperOk = ["handleGetGmAbcItems", "handlePostGmAbcBranchPrices", "handlePostGmAbcSearchOtherBranches", "handlePostGmAbcBranchCompare", "abcPairInfo", "abcSearchForPair", "abcAvailability"];
+  const helperBad = [];
+  for (const helper of ["abcPairInfo(", "abcSearchForPair(", "abcAvailability(", "abcAvailCall("]) {
+    let j = -1;
+    while ((j = src.indexOf(helper, j + 1)) !== -1) {
+      const lineStart = src.lastIndexOf("\n", j) + 1;
+      if (/^\s*(async\s+)?function /.test(src.slice(lineStart, lineStart + 60))) { continue; }
+      const fnStart = Math.max(src.lastIndexOf("\nasync function ", j), src.lastIndexOf("\nfunction ", j));
+      const nm = /function (\w+)\(/.exec(src.slice(fnStart, fnStart + 80));
+      if (!nm || (helperOk.indexOf(nm[1]) === -1 && nm[1] !== "abcAvailability")) { helperBad.push(helper + " in " + (nm && nm[1])); }
+    }
+  }
+  ok(helperBad.length === 0, "the per branch helpers are called only from owner routes (no cron, webhook or background job)" + (helperBad.length ? " (found " + helperBad.join(", ") + ")" : ""));
 });
 
 console.log(fail ? "\n" + fail + " check(s) FAILED" : "\nAll checks passed");

@@ -26,13 +26,15 @@ const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientA
   "metaHex", "metaHmac", "metaSafeEqual", "metaScrub", "metaPlain", "publicReadRateLimited",
   "abcSettings", "abcClientAllowed", "abcTablesReady", "abcNotAvailable", "abcOwnerGuard", "abcB64url", "abcSha256Hex", "abcFetch", "abcApi",
   "abcErrTransient", "abcTokenCall", "abcFlagReconnect", "abcAccessToken", "abcRefreshToken", "abcText", "abcOwnerStart", "abcServerError", "abcUpstreamError",
+  // 2026-11-16 branches (the new tables are not in this world, so every one of them answers "not ready" and the old behavior runs)
+  "abcBranchColumnsReady", "abcMap", "abcPairKey", "abcPairOut", "abcPairArg", "abcPairIn", "abcPairs", "abcApplyPair", "abcWriteBranchRow", "abcBusinessNames", "abcNameKey", "abcAvailCall", "abcAvailability", "abcPairInfo", "abcSearchForPair", "abcAuthLike",
   "gmPricingParseBreakdown", "gmCostLineType", "gmPricingComputed", "gmPricingCachedTotal", "gmPricingKind", "gmOwnedRow", "gmServiceFromPricingStmt", "handleGetGmPricing",
   "abcPlColumnsReady", "abcPlStart", "abcNorm", "abcUnitPlan", "abcCostPerUnit", "abcBreakdownWith", "abcBreakdownWithout", "abcFetchPrices", "abcItemsQuery",
   "abcPlLinkInput", "abcPlAddInput", "abcPlItemInfo", "abcPlShape", "abcPlUnitName", "abcPlBad", "abcPlOwnerOnly",
   "handleGetGmAbcItems", "handlePostGmAbcAddItems", "handlePostGmPricingAbcLink", "handlePostGmPricingAbcUnlink", "abcRefreshRows", "gmMaterialColumnsReady", "gmMaterialStandard", "handlePostGmAbcRefreshCosts",
   "clientRequestAllowed", "sellerRequestAllowed"].filter(hasFn);
 const VARS = ["DEFAULT_ORIGIN", "CORS_HEADERS", "GM_ACTOR_KEY_RE", "GM_HIDDEN_ACTORS", "TOKEN_SEAL_PREFIX", "ABC", "ABC_NA_PT", "ABC_NA_EN",
-  "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "ABC_REFRESHING", "ABC_SHIPTO_RE", "ABC_BRANCH_RE", "ABC_ITEM_RE", "ABC_UOM_RE",
+  "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "ABC_REFRESHING", "ABC_BRANCH_READY", "ABC_EMAIL_RE", "ABC_SHIPTO_RE", "ABC_BRANCH_RE", "ABC_ITEM_RE", "ABC_UOM_RE",
   "GM_COST_LINE_TYPES", "GM_PRICING_KINDS", "GM_PRICING_SELLER_FIELDS", "ABC_PL_INSERT"].filter(function (v) { try { varSrc(v); return true; } catch (e) { return false; } });
 
 const CLIENT_ID = "abc-client-id-123";

@@ -16640,6 +16640,8 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "thumbtack/status" || gmRest === "thumbtack/phones") { return true; }
                 // ABC Supply (2026-11-04): the owner's connection, accounts and orders list (owner only: the handler refuses a seller).
                 if (gmRest === "abc/status" || gmRest === "abc/accounts" || gmRest === "abc/orders" || gmRest === "abc/items" || gmRest === "abc/diagnose") { return true; }
+                // ABC branches, delivery contacts and Get Item (2026-11-16), owner only (the handlers refuse a seller).
+                if (gmRest === "abc/branches" || gmRest === "abc/delivery-contacts" || gmRest === "abc/item") { return true; }
                 // Extra material standard, ABC order drafts and saved delivery locations (2026-11-07), owner only (the handlers refuse a seller).
                 if (gmRest === "material-settings" || gmRest === "abc/drafts" || gmRest === "abc/locations" || /^abc\/drafts\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 // Hero follow-up (B3): the client's private hero collections
@@ -16736,7 +16738,10 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "abc/connect" || gmRest === "abc/disconnect" || gmRest === "abc/account" || gmRest === "abc/price" || gmRest === "abc/order") { return true; }
                 // ABC Supply price list (2026-11-05): add items, refresh costs, link or unlink one item (owner only).
                 if (gmRest === "material-settings/apply" || gmRest === "abc/drafts/ensure" || gmRest === "abc/drafts/combine" || gmRest === "abc/locations" ||
-                    /^abc\/drafts\/[A-Za-z0-9-]+\/(discard|prices|send)$/.test(gmRest) || /^abc\/locations\/[A-Za-z0-9-]+\/archive$/.test(gmRest)) { return true; }
+                    /^abc\/drafts\/[A-Za-z0-9-]+\/(discard|prices|send|split|refresh-descriptions)$/.test(gmRest) || /^abc\/locations\/[A-Za-z0-9-]+\/archive$/.test(gmRest)) { return true; }
+                // ABC branches, compare, saved on-site contacts (2026-11-16), owner only (the handlers refuse a seller).
+                if (gmRest === "abc/branches" || gmRest === "abc/branches/default" || gmRest === "abc/branches/remove" || gmRest === "abc/branch-prices" || gmRest === "abc/search-other-branches" ||
+                    gmRest === "abc/branch-compare" || gmRest === "abc/delivery-contacts" || gmRest === "abc/delivery-contacts/remove") { return true; }
                 if (gmRest === "abc/add-items" || gmRest === "abc/refresh-costs" || gmRest === "abc/price-rows" || /^pricing\/[A-Za-z0-9-]+\/abc-(link|unlink)$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 // G5e: a hand-made project becomes a lead (owner only; never
@@ -32371,6 +32376,8 @@ async function gmEstParseOptions(env, clientId, body, trustBodyCosts) {
             var calc = GM_MEASURE.parseCalc(r, qty);
             if (calc === undefined) { return { error: "\"" + name + "\": check the length, width and depth" }; }
             var line = {
+                // The ABC account and branch the editor sent for an ABC linked line (read by gmEstimateLinePairs, then removed).
+                _abc:           pr && pr.abc_item_number ? { ship_to: r.abc_ship_to, branch: r.abc_branch } : null,
                 calc_kind:      calc.none ? null : calc.calc_kind,
                 calc_unit:      calc.none ? null : calc.calc_unit,
                 calc_length:    calc.none ? null : calc.calc_length,
@@ -32403,6 +32410,8 @@ async function gmEstParseOptions(env, clientId, body, trustBodyCosts) {
         out.push({ tier: tier, label: gmStr(o.label, 80) || (tier === "single" ? null : tier.charAt(0).toUpperCase() + tier.slice(1)), sort_order: i, items: items,
                    discount_type: disc.type, discount_value: disc.value });
     }
+    var pairErr = await gmEstimateLinePairs(env, clientId, out);
+    if (pairErr) { return { error: pairErr }; }
     return { mode: mode, options: out };
 }
 
@@ -32605,6 +32614,9 @@ async function gmEstimateInternalPayload(env, est, settings, client, lead, origi
             ln.calc_length = it.calc_length === undefined ? null : it.calc_length;
             ln.calc_width = it.calc_width === undefined ? null : it.calc_width;
             ln.calc_depth = it.calc_depth === undefined ? null : it.calc_depth;
+            // The ABC account and branch of an ABC linked line (editor only); empty means the estimate's order branch, then the default pair.
+            ln.abc_ship_to = it.abc_ship_to || "";
+            ln.abc_branch = it.abc_branch || "";
         });
     });
     return pub;
@@ -33032,6 +33044,10 @@ async function gmEstWriteOptions(env, est, options) {
             if (it.calc_unit) {
                 stmts.push(env.DB.prepare("UPDATE gm_estimate_items SET calc_kind = ?, calc_length = ?, calc_width = ?, calc_depth = ?, calc_unit = ? WHERE id = ?")
                     .bind(it.calc_kind, it.calc_length, it.calc_width, it.calc_depth, it.calc_unit, lineId));
+            }
+            // The ABC account and branch this line is ordered from (only for a business with several pairs; before the migration never set).
+            if (it.abc_branch) {
+                stmts.push(env.DB.prepare("UPDATE gm_estimate_items SET abc_ship_to = ?, abc_branch = ? WHERE id = ?").bind(it.abc_ship_to, it.abc_branch, lineId));
             }
         });
     });
@@ -41814,11 +41830,24 @@ var ABC = {
     price_batch: 50,
     items_max: 40,
     add_max: 25,
+    // Branches and delivery (2026-11-16). The comment that carries the delivery instructions: ABC's docs give a
+    // header note (code H) and a generic note (code 0) and no maximum; which one the branch reads is UNPROVEN, so
+    // the code and the 255 limit live here, once, and can be switched later.
+    instructions_code: "H",
+    instructions_max: 255,
+    max_pairs: 10,
+    max_contacts: 25,
+    // Search Item Availability: how many item numbers and branches one call carries, and how many pages are followed.
+    avail_items_max: 20,
+    avail_branches_max: 10,
+    avail_pages_max: 5,
     portal_return: DEFAULT_ORIGIN + "/portal.html?tab=gmestimates"
 };
 var ABC_NA_PT = "Ainda não disponível.";
 var ABC_NA_EN = "Not available yet.";
 var ABC_REFRESHING = {};
+// True once abcBranchColumnsReady has seen every table and column of migrations/abc_branches_and_delivery.sql.
+var ABC_BRANCH_READY = false;
 
 // The Worker settings, trimmed. The environment is sandbox unless ABC_ENV says
 // exactly production. ready is false when a secret or the sealing key is missing.
@@ -42044,13 +42073,21 @@ async function abcStatusPayload(env, clientId) {
     var conn = await env.DB.prepare("SELECT connected_by, connected_at, needs_reconnect, ship_to_number, branch_number, environment FROM gm_abc_connections WHERE client_id = ?").bind(clientId).first();
     if (!conn) { return { available: true, connected: false }; }
     var hook = await env.DB.prepare("SELECT secret_hash FROM gm_abc_webhooks WHERE client_id = ?").bind(clientId).first();
-    return {
+    var out = {
         available: true, connected: true, mode: cfg.mode,
         needs_reconnect: !!conn.needs_reconnect || conn.environment !== cfg.mode,
         connected_at: conn.connected_at || null, connected_by: conn.connected_by || null,
         ship_to: conn.ship_to_number || null, branch: conn.branch_number || null,
         webhook: !!(hook && hook.secret_hash)
     };
+    // Branches and delivery (2026-11-16): the business's accounts and branches. Numbers, names and the default flag only.
+    if (await abcBranchColumnsReady(env)) {
+        var pairs = await abcPairs(env, clientId);
+        out.pairs = pairs.map(abcPairOut);
+        out.pair_count = pairs.length;
+        out.branches_ready = true;
+    }
+    return out;
 }
 
 // One webhook per business, carrying both order events (ABC allows five per
@@ -42207,6 +42244,7 @@ async function handlePostGmAbcDisconnect(id, request, env) {
         if (!(await abcTablesReady(env))) { return abcNotAvailable(); }
         await abcWebhookRemove(env, abcSettings(env), id);
         await env.DB.prepare("DELETE FROM gm_abc_connections WHERE client_id = ?").bind(id).run();
+        if (await abcBranchColumnsReady(env)) { await env.DB.prepare("DELETE FROM gm_abc_branches WHERE client_id = ?").bind(id).run(); }
         return jsonOk(await abcStatusPayload(env, id));
     } catch (e) {
         return abcServerError("disconnect", e);
@@ -42289,6 +42327,10 @@ async function handlePostGmAbcAccount(id, request, env) {
         var listed = ((info && info.shipTo && info.shipTo.branches) || []).some(function(b) { return b && b.number === branch; });
         if (!listed) { return bad; }
         await env.DB.prepare("UPDATE gm_abc_connections SET ship_to_number = ?, branch_number = ?, updated_at = datetime('now') WHERE client_id = ?").bind(shipTo, branch, id).run();
+        if (await abcBranchColumnsReady(env)) {
+            var picked = ((info && info.shipTo && info.shipTo.branches) || []).filter(function(b) { return b && b.number === branch; })[0] || {};
+            await abcWriteBranchRow(env, id, { ship_to_number: shipTo, branch_number: branch, ship_to_name: gmStr(info.shipTo.name, 100) || "", branch_name: gmStr(picked.name, 100) || "" }, true, actorName(a.user));
+        }
         var hook = await abcWebhookRegister(env, a.cfg, id, token);
         return jsonOk({ saved: true, webhook: hook });
     } catch (e) {
@@ -42359,18 +42401,41 @@ function abcValidDate(s) {
     return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
 }
 
+// Today's date in UTC, YYYY-MM-DD (the Worker's clock; the date the owner picks is a plain calendar date).
+function abcTodayUtc() { return new Date().toISOString().slice(0, 10); }
+
+// A delivery date ABC can use (2026-11-16): a real YYYY-MM-DD date, not earlier than yesterday (UTC, so a
+// device a day behind still works) and not more than 365 days ahead.
+function abcDateOk(s) {
+    if (!abcValidDate(s)) { return false; }
+    var d = new Date(s + "T00:00:00Z").getTime();
+    var today = new Date(abcTodayUtc() + "T00:00:00Z").getTime();
+    return d >= today - 86400000 && d <= today + 365 * 86400000;
+}
+
 // The order the person sent, checked field by field, or null. Nothing is repaired.
-function abcOrderInput(b, conn) {
+// opts.v2 (2026-11-16, only once migrations/abc_branches_and_delivery.sql has run): a date or TBD is required,
+// the submitter and the on-site person are individuals, ABC's own item descriptions go out, instructions are optional.
+// opts.names: the business's own names (lower case), which are never a person's name.
+function abcOrderInput(b, conn, opts) {
     if (!b || typeof b !== "object") { return null; }
-    var o = {};
+    var v2 = !!(opts && opts.v2);
+    var o = { v2: v2 };
     if (typeof b.order_ref !== "string" || !/^[A-Za-z0-9-]{1,16}$/.test(b.order_ref)) { return null; }
     o.order_ref = b.order_ref;
     if (typeof b.ship_to !== "string" || b.ship_to !== conn.ship_to_number) { return null; }
     if (typeof b.branch !== "string" || b.branch !== conn.branch_number) { return null; }
     o.ship_to = b.ship_to;
     o.branch = b.branch;
-    // The delivery date is OPTIONAL: left blank, the ABC branch decides the date. A date that is typed must still be a real YYYY-MM-DD date.
-    if (b.delivery_date === undefined || b.delivery_date === null || b.delivery_date === "") { o.delivery_date = ""; }
+    if (v2) {
+        // F5: exactly one of a real date or an explicit TBD (the field is then left out of the order). Never a default.
+        if (b.delivery_date_tbd === true || b.delivery_date_tbd === 1) { o.delivery_date = ""; o.delivery_date_tbd = true; }
+        else if (typeof b.delivery_date !== "string" || !abcDateOk(b.delivery_date)) { return null; }
+        else { o.delivery_date = b.delivery_date; o.delivery_date_tbd = false; }
+    } else if (b.delivery_date === undefined || b.delivery_date === null || b.delivery_date === "") {
+        // The old rule (before the migration): the date is OPTIONAL, left blank the ABC branch decides.
+        o.delivery_date = "";
+    }
     else if (!abcValidDate(b.delivery_date)) { return null; }
     else { o.delivery_date = b.delivery_date; }
     if (typeof b.delivery_service !== "string" || ABC.delivery_services.indexOf(b.delivery_service) === -1) { return null; }
@@ -42388,6 +42453,16 @@ function abcOrderInput(b, conn) {
     var email = abcText(c.email, 254);
     o.contact = { name: abcText(c.name, 60), email: email && /^[^\s@]{1,64}@[^\s@]+\.[^\s@]{2,}$/.test(email) ? email : null, phone: phone.length === 10 ? phone : null };
     if (!o.contact.name || !o.contact.email || !o.contact.phone) { return null; }
+    if (v2) {
+        var names = (opts && opts.names) || [];
+        if (!abcPersonOk(o.contact.name, names)) { return null; }
+        var dcIn = abcDeliveryContactInput(b.delivery_contact, names);
+        if (!dcIn || !dcIn.name || !dcIn.phone) { return null; }
+        o.delivery_contact = dcIn;
+        var ins = b.delivery_instructions === undefined || b.delivery_instructions === null ? "" : b.delivery_instructions;
+        if (!abcInstructionsOk(ins)) { return null; }
+        o.instructions = ins.trim();
+    }
     if (!Array.isArray(b.lines) || b.lines.length < 1 || b.lines.length > 99) { return null; }
     o.lines = [];
     for (var i = 0; i < b.lines.length; i++) {
@@ -42395,11 +42470,13 @@ function abcOrderInput(b, conn) {
         if (!l || typeof l !== "object") { return null; }
         if (typeof l.item_number !== "string" || !ABC_ITEM_RE.test(l.item_number)) { return null; }
         var desc = abcText(l.description, 100);
-        if (!desc) { return null; }
+        // F6: ABC's own description is REQUIRED and the Apex one is never a stand-in. A line sold in lengths cannot be sent.
+        var abcDesc = v2 ? abcText(l.abc_description, 200) : null;
+        if (v2 ? (!abcDesc || l.dimensional === true || l.dimensional === 1) : !desc) { return null; }
         if (typeof l.quantity !== "number" || !isFinite(l.quantity) || l.quantity <= 0 || l.quantity > 100000) { return null; }
         if (typeof l.uom !== "string" || !ABC_UOM_RE.test(l.uom)) { return null; }
         if (typeof l.unit_price !== "number" || !isFinite(l.unit_price) || l.unit_price < 0 || l.unit_price > 1000000) { return null; }
-        o.lines.push({ item_number: l.item_number, description: desc, quantity: l.quantity, uom: l.uom, unit_price: l.unit_price });
+        o.lines.push({ item_number: l.item_number, description: desc, abc_description: abcDesc, quantity: l.quantity, uom: l.uom, unit_price: l.unit_price });
     }
     return o;
 }
@@ -42419,10 +42496,19 @@ function abcOrderBody(o) {
             ]
         },
         lines: o.lines.map(function(l, i) {
-            return { id: String(i + 1), itemNumber: l.item_number, itemDescription: l.description, orderedQty: { value: l.quantity, uom: l.uom },
+            // F6: itemDescription is ABC's own description (v2), never the Apex or the user's words.
+            return { id: String(i + 1), itemNumber: l.item_number, itemDescription: o.v2 ? l.abc_description : l.description, orderedQty: { value: l.quantity, uom: l.uom },
                 unitPrice: { value: l.unit_price, uom: l.uom, instructions: "" } };
         })
     };
+    if (o.v2) {
+        // The on-site person is the delivery contact: own name and phone, and an email only when one was entered.
+        var dc = { name: o.delivery_contact.name, functionCode: "DC", phones: [{ number: o.delivery_contact.phone, ext: "", type: "MOBILE" }] };
+        if (o.delivery_contact.email) { dc.email = o.delivery_contact.email; }
+        body.shipTo.contacts[1] = dc;
+        if (o.instructions) { body.orderComments = [{ code: ABC.instructions_code, description: o.instructions }]; }
+    }
+    // TBD (the owner chose it) leaves the field out; the ABC branch then notes the delivery as To Be Determined.
     if (o.delivery_date) { body.dates = { deliveryRequestedFor: o.delivery_date }; }
     return body;
 }
@@ -42477,7 +42563,8 @@ async function handlePostGmAbcOrder(id, request, env) {
         try { body = await request.json(); } catch (e1) { body = null; }
         var conn = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(id).first();
         if (!conn || !conn.ship_to_number || !conn.branch_number) { return jsonErr2("Escolha a conta e a filial da ABC primeiro.", "Choose the ABC account and branch first.", 409); }
-        var order = abcOrderInput(body, conn);
+        var v2 = await abcBranchColumnsReady(env);
+        var order = abcOrderInput(body, conn, v2 ? { v2: true, names: await abcBusinessNames(env, id) } : undefined);
         if (!order) { return jsonErr2("Pedido inválido. Confira os campos.", "Invalid order. Check the fields.", 400); }
         try {
             return jsonOk(await abcPlaceOrder(env, a, id, order, secrets));
@@ -43012,7 +43099,7 @@ async function abcPlOwnerOnly(request, env, id, bucket, limit) {
 // The common start of every route that asks ABC: owner only, the feature on
 // for this business, the columns there, inside the limit, and a connection
 // that can be used with a saved account. Each failure says what to do.
-async function abcPlStart(request, env, id, bucket, limit) {
+async function abcPlStart(request, env, id, bucket, limit, pairArg) {
     var a = await abcOwnerStart(request, env, id);
     if (a.err) { return a; }
     if (publicReadRateLimited(request, bucket, id, 0, limit)) {
@@ -43030,6 +43117,11 @@ async function abcPlStart(request, env, id, bucket, limit) {
         return { err: jsonErr2("Escolha a conta e a filial da ABC em Configurações.", "Choose the ABC account and branch in Settings.", 409, { connected: true, account_needed: true }) };
     }
     a.conn = conn;
+    // Branches (2026-11-16): the pair of the active tab, one of the business's own, or the default pair.
+    if (pairArg !== undefined && pairArg !== null) {
+        var bad = await abcApplyPair(a, env, id, pairArg);
+        if (bad) { return { err: bad }; }
+    }
     return a;
 }
 
@@ -43037,65 +43129,47 @@ function abcPlBad() {
     return jsonErr2("Confira os dados enviados.", "Check the data sent.", 400);
 }
 
-// GET /api/clients/:id/gm/abc/items?q=   (owner only)
+// GET /api/clients/:id/gm/abc/items?q=[&ship_to=&branch=][&other_branches=1]   (owner only)
 // Searches ABC items for the text typed and prices them in the contractor's own
-// account. Stores nothing.
+// account. Stores nothing. With a pair (the active branch tab) only items THAT branch carries are listed (F2);
+// other_branches=1 adds, under each item, what the business's other branches charge or the words not carried.
 async function handleGetGmAbcItems(id, request, env) {
     var secrets = [];
     try {
-        var a = await abcPlStart(request, env, id, "abcitems", 60);
+        var url = new URL(request.url);
+        var pairArg = abcPairArg(url.searchParams.get("ship_to"), url.searchParams.get("branch"));
+        var a = await abcPlStart(request, env, id, "abcitems", 60, pairArg);
         if (a.err) { return a.err; }
-        var q = abcItemsQuery(new URL(request.url).searchParams.get("q"));
+        var q = abcItemsQuery(url.searchParams.get("q"));
         if (!q) { return jsonErr2("Digite pelo menos 3 letras para buscar.", "Type at least 3 characters to search.", 400); }
+        var ready = await abcBranchColumnsReady(env);
+        var wantOthers = ready && url.searchParams.get("other_branches") === "1";
+        // An other_branches request asks ABC for the other branches too: it counts as 3 requests.
+        if (wantOthers && (publicReadRateLimited(request, "abcitems", id, 0, 60) || publicReadRateLimited(request, "abcitems", id, 0, 60))) {
+            return jsonErr2("Muitas tentativas. Tente de novo em alguns minutos.", "Too many attempts. Try again in a few minutes.", 429);
+        }
         var token = await abcAccessToken(env, a.cfg, id);
         secrets = [token, a.cfg.client_secret];
-        var byNumber = {};
-        var order = [];
-        var searches = [{ key: "itemDescription", value: q }];
-        if (/^[A-Za-z0-9]+$/.test(q)) { searches.push({ key: "itemNumber", value: q }); }
-        for (var s = 0; s < searches.length; s++) {
-            var res = null;
-            try {
-                res = await abcApi(a.cfg, token, "POST", "/api/product/v1/search/items", {
-                    filters: [
-                        { key: searches[s].key, condition: "contains", values: [searches[s].value], joinCondition: "and" },
-                        { key: "branchNumber", condition: "equals", values: [a.conn.branch_number], joinCondition: null }
-                    ],
-                    pagination: { itemsPerPage: ABC.items_max, pageNumber: 1 }
-                }, secrets);
-            } catch (eS) { if (eS) { eS.message = "search by " + searches[s].key + ": " + eS.message; } throw eS; }
-            ((res && res.items) || []).forEach(function(it) {
-                var n = it && typeof it.itemNumber === "string" ? it.itemNumber : "";
-                if (!ABC_ITEM_RE.test(n) || byNumber[n]) { return; }
-                var shape = abcPlShape(it);
-                if (!shape) { return; }
-                byNumber[n] = shape;
-                order.push(n);
-            });
+        var found = await abcSearchForPair(a.cfg, token, a.conn, q, ABC.items_max, secrets, ready);
+        var out = { items: found.items, skipped_dimensional: found.skipped_dimensional, ship_to: a.conn.ship_to_number, branch: a.conn.branch_number, retrieved_at: new Date().toISOString() };
+        if (ready) {
+            var pairs = await abcPairs(env, id);
+            var mine = abcPairIn(pairs, a.conn.ship_to_number, a.conn.branch_number) || {};
+            out.ship_to_name = mine.ship_to_name || ""; out.branch_name = mine.branch_name || "";
+            out.total_items = found.total_items; out.shown = found.items.length; out.more_available = found.more_available;
+            out.hidden_not_carried = found.hidden_not_carried; out.availability_checked = found.availability_checked;
+            if (wantOthers && found.items.length) {
+                var others = pairs.filter(function(p) { return !(p.ship_to_number === a.conn.ship_to_number && p.branch_number === a.conn.branch_number); }).slice(0, ABC.max_pairs - 1);
+                var info = await abcPairInfo(a.cfg, token, others, found.items.map(function(i) { return i.item_number; }), secrets);
+                found.items.forEach(function(it) {
+                    it.others = others.map(function(p) {
+                        var x = (info.byPair[abcPairKey(p.ship_to_number, p.branch_number)] || {})[it.item_number] || { carried: null, price: null, uom: null };
+                        return { ship_to: p.ship_to_number, branch: p.branch_number, ship_to_name: p.ship_to_name || "", branch_name: p.branch_name || "", carried: x.carried, price: x.price, uom: x.uom };
+                    });
+                });
+            }
         }
-        var skippedDim = 0;
-        var numbers = [];
-        order.forEach(function(n) {
-            if (byNumber[n].inactive) { return; }
-            if (byNumber[n].dimensional) { skippedDim++; return; }
-            if (numbers.length < ABC.items_max) { numbers.push(n); }
-        });
-        var prices = {};
-        if (numbers.length) {
-            try { prices = await abcFetchPrices(a.cfg, token, a.conn, numbers, secrets); }
-            catch (eP) { if (eP) { eP.message = "pricing " + numbers.length + " items: " + eP.message; } throw eP; }
-        }
-        var items = numbers.map(function(n) {
-            var sh = byNumber[n];
-            var p = prices[n] && !prices[n].none ? prices[n] : null;
-            var stock = null;
-            sh.uoms.forEach(function(u) { if (u.stocking) { stock = u.code; } });
-            var code = p ? p.uom : stock;
-            return { item_number: n, description: sh.description, category: sh.category,
-                unit_code: code, unit_name: code ? abcPlUnitName(sh, code) : null,
-                cost: p ? p.price : null, has_price: !!p };
-        });
-        return jsonOk({ items: items, skipped_dimensional: skippedDim, ship_to: a.conn.ship_to_number, branch: a.conn.branch_number, retrieved_at: new Date().toISOString() });
+        return jsonOk(out);
     } catch (e) {
         if (e && e.abcStatus !== undefined) { return abcUpstreamError("items", e, secrets); }
         return abcServerError("items", e, secrets);
@@ -43120,6 +43194,12 @@ async function handlePostGmAbcAddItems(id, request, env) {
         try { body = await request.json(); } catch (e1) { body = null; }
         var list = abcPlAddInput(body);
         if (!list) { return abcPlBad(); }
+        // Branches (2026-11-16): the item is added from the active tab's pair (one of the business's own); that pair is saved on the row.
+        var ready = await abcBranchColumnsReady(env);
+        if (ready && body && (body.ship_to !== undefined || body.branch !== undefined)) {
+            var badPair = await abcApplyPair(a, env, id, abcPairArg(body.ship_to, body.branch));
+            if (badPair) { return badPair; }
+        }
         var token = await abcAccessToken(env, a.cfg, id);
         secrets = [token, a.cfg.client_secret];
         var infos = await Promise.all(list.map(function(l) { return abcPlItemInfo(a.cfg, token, l.item_number, secrets); }));
@@ -43183,6 +43263,10 @@ async function handlePostGmAbcAddItems(id, request, env) {
             planned.push(rowId);
             stmts.push(env.DB.prepare(ABC_PL_INSERT).bind(rowId, id, f.info.description, unit, json, gmPricingCachedTotal(json), who, who,
                 f.input.item_number, p.uom, plan.conversion, cost, a.conn.ship_to_number, a.conn.branch_number, unit));
+            // F6: ABC's own description is kept for the order (itemDescription), and whether the item is sold in lengths.
+            if (ready) {
+                stmts.push(env.DB.prepare("UPDATE gm_pricing SET abc_description = ?, abc_dimensional = ? WHERE id = ? AND client_id = ?").bind(f.info.description, f.info.dimensional ? 1 : 0, rowId, id));
+            }
             if (extraNow !== null) {
                 stmts.push(env.DB.prepare("UPDATE gm_pricing SET order_extra_percent = ?, order_extra_source = ? WHERE id = ? AND client_id = ?").bind(extraNow, extraSrc, rowId, id));
             }
@@ -43229,6 +43313,11 @@ async function handlePostGmPricingAbcLink(id, pid, request, env) {
         try { body = await request.json(); } catch (e1) { body = null; }
         var input = abcPlLinkInput(body);
         if (!input) { return abcPlBad(); }
+        var linkReady = await abcBranchColumnsReady(env);
+        if (linkReady && body && (body.ship_to !== undefined || body.branch !== undefined)) {
+            var badLinkPair = await abcApplyPair(a, env, id, abcPairArg(body.ship_to, body.branch));
+            if (badLinkPair) { return badLinkPair; }
+        }
         var row = await gmOwnedRow(env, "gm_pricing", String(pid), id);
         if (!row) { return jsonErr2("Item não encontrado.", "Item not found.", 404); }
         if (!abcNorm(row.unit)) { return jsonErr2("Defina a unidade deste item primeiro.", "Set a unit for this item first.", 409, { unit_needed: true }); }
@@ -43263,6 +43352,9 @@ async function handlePostGmPricingAbcLink(id, pid, request, env) {
         }
         if (!res.meta || res.meta.changes !== 1) {
             return jsonErr2("O item mudou enquanto a ABC respondia. Tente de novo.", "The item changed while ABC was answering. Try again.", 409, { changed: true });
+        }
+        if (linkReady) {
+            await env.DB.prepare("UPDATE gm_pricing SET abc_description = ?, abc_dimensional = ? WHERE id = ? AND client_id = ?").bind(info.description, info.dimensional ? 1 : 0, row.id, id).run();
         }
         var saved = await gmOwnedRow(env, "gm_pricing", row.id, id);
         var comp = gmPricingComputed(saved);
@@ -43334,13 +43426,26 @@ async function abcRefreshRows(env, a, id, rows, secrets) {
     if (!usable.length) { return { out: out, per: per }; }
     var token = await abcAccessToken(env, a.cfg, id);
     secrets.push(token, a.cfg.client_secret);
-    var prices = await abcFetchPrices(a.cfg, token, a.conn, usable.map(function(u) { return u.row.abc_item_number; }), secrets);
+    // A row is priced at the pair it was added from (its abc_ship_to and abc_branch, when that is one of the business's
+    // own pairs), otherwise at the pair in use: with one pair this is exactly the old behavior.
+    var ownPairs = (await abcBranchColumnsReady(env)) ? await abcPairs(env, id) : [];
+    var byPair = {};
+    usable.forEach(function(u) {
+        var r = u.row;
+        var hit = r.abc_ship_to && r.abc_branch ? abcPairIn(ownPairs, r.abc_ship_to, r.abc_branch) : null;
+        u.pair = hit ? { ship_to_number: hit.ship_to_number, branch_number: hit.branch_number } : { ship_to_number: a.conn.ship_to_number, branch_number: a.conn.branch_number };
+        var k = abcPairKey(u.pair.ship_to_number, u.pair.branch_number);
+        (byPair[k] = byPair[k] || { pair: u.pair, numbers: [] }).numbers.push(r.abc_item_number);
+    });
+    var pricesByPair = {};
+    var pairKeys = Object.keys(byPair);
+    for (var pk = 0; pk < pairKeys.length; pk++) { pricesByPair[pairKeys[pk]] = await abcFetchPrices(a.cfg, token, byPair[pairKeys[pk]].pair, byPair[pairKeys[pk]].numbers, secrets); }
     var stmts = [];
     var kinds = [];
     var who = actorName(a.user);
     usable.forEach(function(u) {
         var r = u.row;
-        var p = prices[r.abc_item_number];
+        var p = pricesByPair[abcPairKey(u.pair.ship_to_number, u.pair.branch_number)][r.abc_item_number];
         if (!p || p.none) { out.no_price++; out.no_price_items.push({ item: r.item, item_number: r.abc_item_number }); per.push({ id: r.id, status: "no_price", has_price: false }); return; }
         if (p.uom !== r.abc_unit) { out.needs_conversion++; per.push({ id: r.id, status: "needs_conversion", has_price: true }); return; }
         var cost = abcCostPerUnit(p.price, u.factor);
@@ -43352,7 +43457,7 @@ async function abcRefreshRows(env, a, id, rows, secrets) {
         stmts.push(env.DB.prepare(
             "UPDATE gm_pricing SET cost_breakdown = ?, cost_total = ?, abc_cost = ?, abc_cost_synced_at = datetime('now'), abc_ship_to = ?, abc_branch = ?, updated_at = datetime('now'), updated_by = ? " +
             "WHERE id = ? AND client_id = ? AND abc_item_number = ? AND cost_breakdown = ? AND unit = ?"
-        ).bind(json, gmPricingCachedTotal(json), cost, a.conn.ship_to_number, a.conn.branch_number, who, r.id, id, r.abc_item_number, r.cost_breakdown, r.unit));
+        ).bind(json, gmPricingCachedTotal(json), cost, u.pair.ship_to_number, u.pair.branch_number, who, r.id, id, r.abc_item_number, r.cost_breakdown, r.unit));
     });
     for (var s = 0; s < stmts.length; s += 40) {
         var results = await env.DB.batch(stmts.slice(s, s + 40));
@@ -43373,7 +43478,7 @@ async function handlePostGmAbcRefreshCosts(id, request, env) {
         var a = await abcPlStart(request, env, id, "abcrefresh", 6);
         if (a.err) { return a.err; }
         var rows = (await env.DB.prepare(
-            "SELECT id, item, unit, cost_breakdown, abc_item_number, abc_unit, abc_units_per_apex_unit, abc_cost, abc_apex_unit FROM gm_pricing " +
+            "SELECT id, item, unit, cost_breakdown, abc_item_number, abc_unit, abc_units_per_apex_unit, abc_cost, abc_apex_unit, abc_ship_to, abc_branch FROM gm_pricing " +
             "WHERE client_id = ? AND abc_item_number IS NOT NULL ORDER BY item COLLATE NOCASE LIMIT 201"
         ).bind(id).all()).results || [];
         var truncated = rows.length > 200;
@@ -43407,7 +43512,7 @@ async function handlePostGmAbcPriceRows(id, request, env) {
             if (typeof ids[i] !== "string" || !/^[A-Za-z0-9-]{1,80}$/.test(ids[i]) || seenIds[ids[i]]) { return abcPlBad(); }
             seenIds[ids[i]] = true;
         }
-        var q = "SELECT id, item, unit, cost_breakdown, abc_item_number, abc_unit, abc_units_per_apex_unit, abc_cost, abc_apex_unit FROM gm_pricing " +
+        var q = "SELECT id, item, unit, cost_breakdown, abc_item_number, abc_unit, abc_units_per_apex_unit, abc_cost, abc_apex_unit, abc_ship_to, abc_branch FROM gm_pricing " +
             "WHERE client_id = ? AND abc_item_number IS NOT NULL AND id IN (" + ids.map(function() { return "?"; }).join(",") + ")";
         var stmt = env.DB.prepare(q);
         var rows = (await stmt.bind.apply(stmt, [id].concat(ids)).all()).results || [];
@@ -43628,6 +43733,7 @@ var ABC_PO_RE = /^[A-Za-z0-9-]{1,16}$/;
 var ABC_ID_RE = /^[A-Za-z0-9-]{1,80}$/;
 var ABC_STATE_RE = /^[A-Z]{2}$/;
 var ABC_ZIP_RE = /^\d{5}(-\d{4})?$/;
+var ABC_EMAIL_RE = /^[^\s@]{1,64}@[^\s@]+\.[^\s@]{2,}$/;
 
 // False until migrations/abc_order_drafts.sql has run.
 async function abcDraftTablesReady(env) {
@@ -43723,7 +43829,11 @@ async function abcDraftJob(env, clientId, jobId) {
 // number, and the lines that are not from ABC. The quantity follows the measured
 // material math: estimate quantity, plus the item's own extra percent, divided by
 // what one ABC unit covers, rounded UP. null quantity = the owner must set it.
-async function abcDraftBuildLines(env, clientId, contract) {
+async function abcDraftBuildLines(env, clientId, contract, ctx) {
+    // ctx (2026-11-16, only once the migration has run): { ready, pairs, pickFirst }. pairs are the business's own
+    // pairs, default first; each line then carries the pair it will be ordered from (explicit when there are several).
+    ctx = ctx || {};
+    var multi = !!(ctx.ready && ctx.pairs && ctx.pairs.length > 1);
     var ids = [];
     try { ids = JSON.parse(contract.estimate_ids_json || "[]"); } catch (e) { ids = []; }
     ids = (Array.isArray(ids) ? ids : []).filter(function(x) { return typeof x === "string" && ABC_ID_RE.test(x); }).slice(0, 10);
@@ -43738,8 +43848,12 @@ async function abcDraftBuildLines(env, clientId, contract) {
             var single = await env.DB.prepare("SELECT id FROM gm_estimate_options WHERE estimate_id = ? AND tier = 'single' LIMIT 1").bind(est.id).first();
             optId = single ? single.id : null;
         }
+        if (!optId && ctx.pickFirst) {
+            var firstOpt = await env.DB.prepare("SELECT id FROM gm_estimate_options WHERE estimate_id = ? AND id NOT LIKE 'replaced:%' ORDER BY sort_order LIMIT 1").bind(est.id).first();
+            optId = firstOpt ? firstOpt.id : null;
+        }
         if (!optId) { continue; }
-        var rows = (await env.DB.prepare("SELECT id, pricing_id, item_name, qty, unit FROM gm_estimate_items WHERE estimate_id = ? AND option_id = ? ORDER BY sort_order").bind(est.id, optId).all()).results || [];
+        var rows = (await env.DB.prepare("SELECT id, pricing_id, item_name, qty, unit" + (ctx.ready ? ", abc_ship_to, abc_branch" : "") + " FROM gm_estimate_items WHERE estimate_id = ? AND option_id = ? ORDER BY sort_order").bind(est.id, optId).all()).results || [];
         items = items.concat(rows);
     }
     var pricingIds = {};
@@ -43753,16 +43867,28 @@ async function abcDraftBuildLines(env, clientId, contract) {
     var groups = {};
     var order = [];
     var notFromAbc = [];
+    // The estimate's order branch is the pair of its first ABC line that has one; a line with no pair takes it, then the default pair.
+    var orderBranch = null;
+    if (multi) {
+        items.forEach(function(it) {
+            var pr0 = it.pricing_id ? pricing[it.pricing_id] : null;
+            if (!orderBranch && pr0 && pr0.abc_item_number && it.abc_ship_to && it.abc_branch) { orderBranch = { ship_to_number: it.abc_ship_to, branch_number: it.abc_branch }; }
+        });
+    }
+    var dflt = multi ? (ctx.pairs.filter(function(p) { return p.is_default; })[0] || ctx.pairs[0]) : null;
     items.forEach(function(it) {
         var pr = it.pricing_id ? pricing[it.pricing_id] : null;
         if (!pr || !pr.abc_item_number) { notFromAbc.push({ item_name: it.item_name }); return; }
-        var g = groups[pr.abc_item_number];
-        if (!g) { g = groups[pr.abc_item_number] = { row: pr, qty: 0, unitsOk: true, source: it.id }; order.push(pr.abc_item_number); }
+        var pair = null;
+        if (multi) { pair = abcResolveLinePair(it, orderBranch, dflt); }
+        var gkey = pr.abc_item_number + (pair ? "|" + abcPairKey(pair.ship_to_number, pair.branch_number) : "");
+        var g = groups[gkey];
+        if (!g) { g = groups[gkey] = { row: pr, qty: 0, unitsOk: true, source: it.id, pair: pair, item_number: pr.abc_item_number }; order.push(gkey); }
         g.qty += Number(it.qty) || 0;
         if (abcNorm(it.unit) && abcNorm(it.unit) !== abcNorm(pr.unit)) { g.unitsOk = false; }
     });
-    var lines = order.map(function(n, idx) {
-        var g = groups[n], r = g.row;
+    var lines = order.map(function(gk, idx) {
+        var g = groups[gk], r = g.row, n = g.item_number;
         var kind = GM_MEASURE.effectiveKind(r);
         var sameUnitNow = !!abcNorm(r.abc_apex_unit) && abcNorm(r.abc_apex_unit) === abcNorm(r.unit);
         var factor = null;
@@ -43773,7 +43899,10 @@ async function abcDraftBuildLines(env, clientId, contract) {
         return {
             item_number: n, description: String(r.item || n).slice(0, 100), quantity: qty, uom: ABC_UOM_RE.test(String(r.abc_unit || "")) ? r.abc_unit : "",
             extra_percent_used: extra, extra_source: extra === null ? "" : (r.order_extra_source === "standard" ? "standard" : "item"),
-            source_line_id: g.source, sort_order: idx
+            source_line_id: g.source, sort_order: idx,
+            // F6: ABC's own description (empty until it is saved from the Product API) and whether the item is sold in lengths.
+            abc_description: ctx.ready ? String(r.abc_description || "").slice(0, 200) : "", abc_dimensional: ctx.ready && r.abc_dimensional ? 1 : 0,
+            ship_to: g.pair ? g.pair.ship_to_number : "", branch: g.pair ? g.pair.branch_number : ""
         };
     });
     return { lines: lines, notFromAbc: notFromAbc, estimate_id: firstEstimate };
@@ -43782,7 +43911,11 @@ async function abcDraftBuildLines(env, clientId, contract) {
 // Makes the draft of a signed contract, once. Never calls ABC. Answers the draft
 // row, or null when there is nothing to make (unsigned, no ABC lines, no
 // connection, discarded earlier). Safe to call again: it returns the same draft.
-async function abcDraftEnsureForContract(env, clientId, contractId, actor) {
+// 2026-11-16: a business with several accounts and branches gets ONE draft per pair among the ABC
+// lines of the contract (a line with no pair counts as the default pair), each with only its own lines.
+// `person` is the signed-in owner's own personal name for the contact field ("" when not known: a
+// customer signing has no owner present); it is never the business name.
+async function abcDraftEnsureForContract(env, clientId, contractId, actor, person) {
     if (!clientId || !contractId || !ABC_ID_RE.test(String(contractId))) { return null; }
     var cfg = abcSettings(env);
     if (!cfg.ready || !abcClientAllowed(cfg, clientId) || !(await abcTablesReady(env)) || !(await abcDraftTablesReady(env)) || !(await abcPlColumnsReady(env))) { return null; }
@@ -43790,29 +43923,67 @@ async function abcDraftEnsureForContract(env, clientId, contractId, actor) {
     if (!conn || !conn.ship_to_number || !conn.branch_number) { return null; }
     var con = await env.DB.prepare("SELECT id, client_id, job_id, lead_id, estimate_ids_json, number, status, homeowner_signed_at FROM gm_contracts WHERE id = ? AND client_id = ?").bind(contractId, clientId).first();
     if (!con || con.status !== "completed" || !con.homeowner_signed_at) { return null; }
-    var existing = await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE client_id = ? AND contract_id = ? ORDER BY created_at LIMIT 1").bind(clientId, contractId).first();
-    if (existing) { return existing.status === "discarded" ? null : existing; }
-    var built = await abcDraftBuildLines(env, clientId, con);
+    var ready = await abcBranchColumnsReady(env);
+    var pairs = ready ? await abcPairs(env, clientId) : [];
+    var multi = ready && pairs.length > 1;
+    var existingAll = (await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE client_id = ? AND contract_id = ? ORDER BY created_at, rowid").bind(clientId, contractId).all()).results || [];
+    // One pair: as before, one draft per contract, and a discarded one is never remade.
+    if (!multi && existingAll.length) { return existingAll[0].status === "discarded" ? null : existingAll[0]; }
+    var built = await abcDraftBuildLines(env, clientId, con, { ready: ready, pairs: pairs });
     if (!built.lines.length) { return null; }
     var job = await abcDraftJob(env, clientId, con.job_id);
     var biz = await abcDraftBusiness(env, clientId);
+    // The groups: one per pair (a single group with no pair when the business has one pair).
+    var groups = [];
+    built.lines.forEach(function(l) {
+        var k = multi ? abcPairKey(l.ship_to, l.branch) : "";
+        var g = groups.filter(function(x) { return x.key === k; })[0];
+        if (!g) { g = { key: k, ship_to: multi ? l.ship_to : "", branch: multi ? l.branch : "", lines: [] }; groups.push(g); }
+        g.lines.push(l);
+    });
+    var dfltPair = pairs.filter(function(p) { return p.is_default; })[0] || pairs[0];
+    var result = null;
+    for (var gi = 0; gi < groups.length; gi++) {
+        var grp = groups[gi];
+        if (multi) {
+            // An older draft with an empty pair counts as the default pair. A discarded draft is never remade.
+            var have = existingAll.filter(function(d) {
+                var dk = d.ship_to_number && d.branch_number ? abcPairKey(d.ship_to_number, d.branch_number) : abcPairKey(dfltPair.ship_to_number, dfltPair.branch_number);
+                return dk === grp.key;
+            })[0];
+            if (have) { if (!result && have.status !== "discarded") { result = have; } continue; }
+        }
+        var made = await abcDraftInsert(env, clientId, contractId, con, built, grp, job, biz, actor, person, ready);
+        if (made && !result) { result = made; }
+    }
+    return result;
+}
+
+// Writes one draft with its lines (one pair's worth). Answers the row, or null when it lost a race to another writer.
+async function abcDraftInsert(env, clientId, contractId, con, built, grp, job, biz, actor, person, ready) {
     for (var attempt = 0; attempt < 2; attempt++) {
         var did = crypto.randomUUID();
         var ref = await abcDraftPoRef(env, clientId);
-        var stmts = [env.DB.prepare(
-            "INSERT INTO gm_abc_order_drafts (id, client_id, contract_id, estimate_id, project_id, job_name, order_ref, contact_name, contact_email, contact_phone, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        ).bind(did, clientId, contractId, built.estimate_id, con.job_id || "", job.name, ref, biz.name, biz.email, biz.phone, String(actor || "").slice(0, 80))];
-        built.lines.forEach(function(l) {
-            stmts.push(env.DB.prepare(
-                "INSERT INTO gm_abc_order_draft_lines (id, draft_id, client_id, item_number, description, quantity, uom, extra_percent_used, extra_source, source_line_id, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-            ).bind(crypto.randomUUID(), did, clientId, l.item_number, l.description, l.quantity, l.uom, l.extra_percent_used, l.extra_source, l.source_line_id, l.sort_order));
+        // Once the migration has run the contact name is the owner's own personal name or empty; never the business name.
+        var contactName = ready ? (abcText(person, 60) || "") : biz.name;
+        var cols = "id, client_id, contract_id, estimate_id, project_id, job_name, order_ref, contact_name, contact_email, contact_phone, created_by";
+        var vals = [did, clientId, contractId, built.estimate_id, con.job_id || "", job.name, ref, contactName, biz.email, biz.phone, String(actor || "").slice(0, 80)];
+        if (grp.ship_to && grp.branch) { cols += ", ship_to_number, branch_number"; vals.push(grp.ship_to, grp.branch); }
+        var ins = env.DB.prepare("INSERT INTO gm_abc_order_drafts (" + cols + ") VALUES (" + vals.map(function() { return "?"; }).join(", ") + ")");
+        var stmts = [ins.bind.apply(ins, vals)];
+        grp.lines.forEach(function(l, idx) {
+            var lcols = "id, draft_id, client_id, item_number, description, quantity, uom, extra_percent_used, extra_source, source_line_id, sort_order";
+            var lvals = [crypto.randomUUID(), did, clientId, l.item_number, l.description, l.quantity, l.uom, l.extra_percent_used, l.extra_source, l.source_line_id, idx];
+            if (ready) { lcols += ", abc_description, abc_dimensional"; lvals.push(l.abc_description || "", l.abc_dimensional ? 1 : 0); }
+            var ls = env.DB.prepare("INSERT INTO gm_abc_order_draft_lines (" + lcols + ") VALUES (" + lvals.map(function() { return "?"; }).join(", ") + ")");
+            stmts.push(ls.bind.apply(ls, lvals));
         });
         try {
             await env.DB.batch(stmts);
             return await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE id = ?").bind(did).first();
         } catch (e) {
             if (String(e && e.message || "").indexOf("UNIQUE") === -1) { throw e; }
-            var again = await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE client_id = ? AND contract_id = ? ORDER BY created_at LIMIT 1").bind(clientId, contractId).first();
+            var again = await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE client_id = ? AND contract_id = ? ORDER BY created_at, rowid LIMIT 1").bind(clientId, contractId).first();
             if (again) { return again.status === "discarded" ? null : again; }
         }
     }
@@ -43843,7 +44014,8 @@ async function abcDraftShip(env, clientId, draft, jobDefault) {
 }
 
 // What is still missing before a draft can be sent. Plain keys the page turns into words.
-function abcDraftMissing(draft, lines, ship) {
+// v2 (2026-11-16, once the migration has run) is { names }: the business's own names, which are not a person.
+function abcDraftMissing(draft, lines, ship, v2) {
     var m = [];
     if (!draft.job_name) { m.push("job_name"); }
     if (ABC.delivery_services.indexOf(draft.delivery_service) === -1) { m.push("delivery_service"); }
@@ -43857,6 +44029,17 @@ function abcDraftMissing(draft, lines, ship) {
     var active = lines.filter(function(l) { return !l.removed; });
     if (!active.length) { m.push("lines"); }
     if (active.some(function(l) { return l.quantity === null || l.quantity === undefined; })) { m.push("quantity"); }
+    if (v2) {
+        // F5: a real date or an explicit TBD, never chosen for the owner.
+        if (!(draft.delivery_date_tbd === 1 || draft.delivery_date_tbd === true) && !abcDateOk(draft.delivery_date)) { m.push("delivery_date"); }
+        // F4: the on-site person, and the submitter as an individual.
+        if (!draft.delivery_contact_name || !abcPersonOk(draft.delivery_contact_name, v2.names || [])) { m.push("delivery_contact_name"); }
+        if (abcPhoneDigits(draft.delivery_contact_phone).length !== 10) { m.push("delivery_contact_phone"); }
+        if (draft.contact_name && !abcPersonOk(draft.contact_name, v2.names || []) && m.indexOf("contact_name") === -1) { m.push("contact_name"); }
+        // F6: ABC's own description for every line, and no line sold in lengths (a length cannot be chosen yet).
+        if (active.some(function(l) { return !l.abc_description; })) { m.push("item_description"); }
+        if (active.some(function(l) { return l.abc_dimensional; })) { m.push("item_length"); }
+    }
     return m;
 }
 
@@ -43865,10 +44048,13 @@ function abcDraftOrderFromRow(draft, ship, lines, conn, priceOf) {
     return {
         order_ref: draft.order_ref, ship_to: conn.ship_to_number, branch: conn.branch_number,
         delivery_date: draft.delivery_date, delivery_service: draft.delivery_service,
+        delivery_date_tbd: draft.delivery_date_tbd === 1 || draft.delivery_date_tbd === true,
         job_name: ship.name || draft.job_name, address: { line1: ship.line1, city: ship.city, state: ship.state, postal: ship.postal },
         contact: { name: draft.contact_name, email: draft.contact_email, phone: draft.contact_phone },
+        delivery_contact: { name: draft.delivery_contact_name, phone: draft.delivery_contact_phone, email: draft.delivery_contact_email },
+        delivery_instructions: draft.delivery_instructions || "",
         lines: lines.map(function(l) {
-            return { item_number: l.item_number, description: l.description, quantity: l.quantity, uom: l.uom, unit_price: priceOf(l) };
+            return { item_number: l.item_number, description: l.description, abc_description: l.abc_description || "", dimensional: !!l.abc_dimensional, quantity: l.quantity, uom: l.uom, unit_price: priceOf(l) };
         })
     };
 }
@@ -43998,7 +44184,8 @@ async function handlePostGmAbcLocationArchive(id, lid, request, env) {
 function abcDraftSummary(r) {
     return { id: r.id, contract_id: r.contract_id, contract_number: r.contract_number || null, job_name: r.job_name, status: r.status, delivery_service: r.delivery_service,
         delivery_to: r.delivery_to, delivery_date: r.delivery_date, order_ref: r.order_ref, abc_confirmation: r.abc_confirmation, combined_into: r.combined_into,
-        created_at: r.created_at, line_count: r.line_count, order_status: r.order_status || null };
+        created_at: r.created_at, line_count: r.line_count, order_status: r.order_status || null,
+        ship_to_number: r.ship_to_number || "", branch_number: r.branch_number || "", delivery_date_tbd: r.delivery_date_tbd ? 1 : 0 };
 }
 
 // GET /api/clients/:id/gm/abc/drafts[?contract_id=]   (owner only)
@@ -44032,19 +44219,33 @@ async function handleGetGmAbcDraft(id, did, request, env) {
         if (a.err) { return a.err; }
         var d = await abcDraftLoad(env, id, did);
         if (!d) { return abcDraftNotFound(); }
-        var con = await env.DB.prepare("SELECT id, client_id, job_id, estimate_ids_json, number FROM gm_contracts WHERE id = ? AND client_id = ?").bind(d.draft.contract_id, id).first();
+        var con = await env.DB.prepare("SELECT id, client_id, job_id, lead_id, estimate_ids_json, number FROM gm_contracts WHERE id = ? AND client_id = ?").bind(d.draft.contract_id, id).first();
         var job = await abcDraftJob(env, id, d.draft.project_id);
         var built = con ? await abcDraftBuildLines(env, id, con) : { notFromAbc: [] };
         var biz = await abcDraftBusiness(env, id);
         var locs = (await env.DB.prepare("SELECT * FROM gm_abc_delivery_locations WHERE client_id = ? AND archived = 0 ORDER BY (last_used_at <> '') DESC, last_used_at DESC, name COLLATE NOCASE LIMIT 200").bind(id).all()).results || [];
         var ship = await abcDraftShip(env, id, d.draft, job.address);
         var ord = await env.DB.prepare("SELECT status, last_event_at FROM gm_abc_orders WHERE client_id = ? AND order_ref = ?").bind(id, d.draft.combined_into || d.draft.order_ref).first();
-        var draft = Object.assign({}, d.draft, { contract_number: con ? con.number : null, order_status: ord ? ord.status : null, order_status_at: ord ? ord.last_event_at : null, missing: abcDraftMissing(d.draft, d.lines, ship) });
-        return jsonOk({
+        var ready = await abcBranchColumnsReady(env);
+        var v2 = ready ? { names: await abcBusinessNames(env, id) } : undefined;
+        var draft = Object.assign({}, d.draft, { contract_number: con ? con.number : null, order_status: ord ? ord.status : null, order_status_at: ord ? ord.last_event_at : null, missing: abcDraftMissing(d.draft, d.lines, ship, v2) });
+        var out = {
             draft: draft,
             lines: d.lines.map(function(l) { return Object.assign({}, l, { removed: !!l.removed, needs_quantity: !l.removed && (l.quantity === null || l.quantity === undefined) }); }),
             not_from_abc: built.notFromAbc, job_address: job.address, ship: ship, business: biz, locations: locs.map(abcLocationOut)
-        });
+        };
+        if (ready) {
+            // The access notes saved on the contract's lead (a gate code or entrance note) for the quick button. Never sent unless the
+            // owner taps the button and presses Send; the owner of this business only (the route refuses anyone else).
+            out.access_notes = await abcDraftAccessNotes(env, id, con);
+            // The owner's own personal name, for the contact field when it is still empty. Never the business name.
+            out.suggested_contact_name = await abcOwnerPersonName(env, a.user, id);
+            var pairs = await abcPairs(env, id);
+            out.pairs = pairs.map(abcPairOut);
+            var mine = d.draft.ship_to_number && d.draft.branch_number ? abcPairIn(pairs, d.draft.ship_to_number, d.draft.branch_number) : (pairs.filter(function(p) { return p.is_default; })[0] || null);
+            out.pair = mine ? abcPairOut(mine) : null;
+        }
+        return jsonOk(out);
     } catch (e) {
         return abcServerError("draft", e);
     }
@@ -44059,8 +44260,10 @@ async function handlePostGmAbcDraftEnsure(id, request, env) {
         var body = null;
         try { body = await request.json(); } catch (e1) { body = null; }
         if (!body || typeof body.contract_id !== "string" || !ABC_ID_RE.test(body.contract_id)) { return abcDraftBad(); }
-        var d = await abcDraftEnsureForContract(env, id, body.contract_id, actorName(a.user));
-        return jsonOk({ draft: d ? { id: d.id, status: d.status, contract_id: d.contract_id } : null });
+        var person = (await abcBranchColumnsReady(env)) ? await abcOwnerPersonName(env, a.user, id) : "";
+        var d = await abcDraftEnsureForContract(env, id, body.contract_id, actorName(a.user), person);
+        var all = d ? (await env.DB.prepare("SELECT id, status, contract_id FROM gm_abc_order_drafts WHERE client_id = ? AND contract_id = ? AND status = 'draft' ORDER BY created_at, rowid").bind(id, body.contract_id).all()).results || [] : [];
+        return jsonOk({ draft: d ? { id: d.id, status: d.status, contract_id: d.contract_id } : null, drafts: all.map(function(x) { return { id: x.id, status: x.status, contract_id: x.contract_id }; }) });
     } catch (e) {
         return abcServerError("draft-ensure", e);
     }
@@ -44093,6 +44296,38 @@ async function handlePutGmAbcDraft(id, did, request, env) {
         if (has("contact_name")) { sets.contact_name = b.contact_name === "" ? "" : abcText(b.contact_name, 60); if (sets.contact_name === null) { return abcDraftBad(); } }
         if (has("contact_email")) { sets.contact_email = b.contact_email === "" ? "" : abcText(b.contact_email, 254); if (sets.contact_email === null) { return abcDraftBad(); } }
         if (has("contact_phone")) { sets.contact_phone = b.contact_phone === "" ? "" : abcText(b.contact_phone, 30); if (sets.contact_phone === null) { return abcDraftBad(); } }
+        // Branches and delivery (2026-11-16). Only once the migration has run; before that these keys are ignored, as unknown keys always were.
+        var ready = await abcBranchColumnsReady(env);
+        var clearPrices = false;
+        if (ready) {
+            if (has("delivery_date_tbd")) { if (b.delivery_date_tbd !== 0 && b.delivery_date_tbd !== 1) { return abcDraftBad(); } sets.delivery_date_tbd = b.delivery_date_tbd; }
+            if (has("delivery_contact_name")) { sets.delivery_contact_name = b.delivery_contact_name === "" ? "" : abcText(b.delivery_contact_name, 60); if (sets.delivery_contact_name === null) { return abcDraftBad(); } }
+            if (has("delivery_contact_phone")) {
+                if (typeof b.delivery_contact_phone !== "string" || /[\u0000-\u001f\u007f]/.test(b.delivery_contact_phone)) { return abcDraftBad(); }
+                var dph = abcPhoneDigits(b.delivery_contact_phone);
+                if (b.delivery_contact_phone.trim() !== "" && dph.length !== 10) { return abcDraftBad(); }
+                sets.delivery_contact_phone = b.delivery_contact_phone.trim() === "" ? "" : dph;
+            }
+            if (has("delivery_contact_email")) {
+                sets.delivery_contact_email = b.delivery_contact_email === "" ? "" : abcText(b.delivery_contact_email, 254);
+                if (sets.delivery_contact_email === null || (sets.delivery_contact_email !== "" && !ABC_EMAIL_RE.test(sets.delivery_contact_email))) { return abcDraftBad(); }
+            }
+            if (has("delivery_instructions")) { if (!abcInstructionsOk(b.delivery_instructions)) { return abcDraftBad(); } sets.delivery_instructions = b.delivery_instructions.trim(); }
+            if (has("ship_to") || has("branch")) {
+                var pArg = abcPairArg(b.ship_to, b.branch);
+                if (!pArg) { return abcDraftBad(); }
+                var ownPairs = await abcPairs(env, id);
+                var hitPair = abcPairIn(ownPairs, pArg.ship_to_number, pArg.branch_number);
+                if (!hitPair) { return abcDraftBad(); }
+                var dfltPair = ownPairs.filter(function(p) { return p.is_default; })[0] || ownPairs[0];
+                var nowKey = abcPairKey(d.draft.ship_to_number || dfltPair.ship_to_number, d.draft.branch_number || dfltPair.branch_number);
+                // One pair stores nothing new (an empty pair means the default pair).
+                sets.ship_to_number = ownPairs.length > 1 ? hitPair.ship_to_number : "";
+                sets.branch_number = ownPairs.length > 1 ? hitPair.branch_number : "";
+                // The old price belonged to the old pair: every line is priced again for the new one.
+                clearPrices = abcPairKey(hitPair.ship_to_number, hitPair.branch_number) !== nowKey;
+            }
+        }
         var place = null;
         if (has("delivery_to")) {
             if (b.delivery_to !== "" && b.delivery_to !== "job" && b.delivery_to !== "saved") { return abcDraftBad(); }
@@ -44164,6 +44399,7 @@ async function handlePutGmAbcDraft(id, did, request, env) {
             var upd = env.DB.prepare("UPDATE gm_abc_order_drafts SET " + keys.map(function(k) { return k + " = ?"; }).join(", ") + ", updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status = 'draft'");
             stmts.push(upd.bind.apply(upd, keys.map(function(k) { return sets[k]; }).concat([did, id])));
         }
+        if (clearPrices) { stmts.push(env.DB.prepare("UPDATE gm_abc_order_draft_lines SET unit_price = NULL WHERE draft_id = ? AND client_id = ?").bind(did, id)); }
         lineEdits.forEach(function(e) {
             var sq = [], bv = [];
             if (e.quantity !== undefined) { sq.push("quantity = ?"); bv.push(e.quantity); }
@@ -44240,6 +44476,8 @@ async function handlePostGmAbcDraftPrices(id, did, request, env) {
         var d = await abcDraftLoad(env, id, did);
         if (!d) { return abcDraftNotFound(); }
         if (d.draft.status !== "draft") { return jsonErr2("Este pedido já foi enviado ou descartado.", "This order was already sent or discarded.", 409); }
+        var pairErr = await abcDraftUsePair(a, env, id, d.draft);
+        if (pairErr) { return pairErr; }
         var active = d.lines.filter(function(l) { return !l.removed; });
         var fresh = active.length ? await abcDraftFreshPrices(a, id, active, secrets) : {};
         var stmts = [];
@@ -44292,9 +44530,18 @@ async function handlePostGmAbcDraftSend(id, did, request, env) {
         var d = await abcDraftLoad(env, id, did);
         if (!d) { return abcDraftNotFound(); }
         if (d.draft.status !== "draft") { return jsonErr2("Este pedido já foi enviado ou descartado.", "This order was already sent or discarded.", 409); }
+        var pairErr = await abcDraftUsePair(a, env, id, d.draft);
+        if (pairErr) { return pairErr; }
         var job = await abcDraftJob(env, id, d.draft.project_id);
         var ship = await abcDraftShip(env, id, d.draft, job.address);
-        var missing = abcDraftMissing(d.draft, d.lines, ship);
+        var ready = await abcBranchColumnsReady(env);
+        var names = ready ? await abcBusinessNames(env, id) : [];
+        // F4: ABC saw the business name as the submitter and as the delivery contact. Both must be people.
+        var namedWrong = (d.draft.contact_name && !abcPersonOk(d.draft.contact_name, names)) || (d.draft.delivery_contact_name && !abcPersonOk(d.draft.delivery_contact_name, names));
+        if (ready && namedWrong) {
+            return jsonErr2("A ABC precisa do nome de uma pessoa aqui, não o nome da empresa.", "ABC needs a person's name here, not the business name.", 400, { missing: ["person_name"] });
+        }
+        var missing = abcDraftMissing(d.draft, d.lines, ship, ready ? { names: names } : undefined);
         if (missing.length) { return jsonErr2("Faltam dados no pedido.", "Some details are missing from the order.", 400, { missing: missing }); }
         var active = d.lines.filter(function(l) { return !l.removed; });
         var fresh = await abcDraftFreshPrices(a, id, active, secrets);
@@ -44312,7 +44559,7 @@ async function handlePostGmAbcDraftSend(id, did, request, env) {
             return jsonErr2("Algum preço mudou desde a sua revisão. Confira e confirme.", "A price changed since you reviewed. Check it and confirm.", 409, { price_changed: true, changes: changes });
         }
         var order = abcDraftOrderFromRow(d.draft, ship, active, a.conn, function(l) { return fresh[l.id].price; });
-        var checked = abcOrderInput(order, a.conn);
+        var checked = abcOrderInput(order, a.conn, ready ? { v2: true, names: names } : undefined);
         if (!checked) { return jsonErr2("Confira os campos do pedido.", "Check the order fields.", 400, { missing: [] }); }
         var claim = await env.DB.prepare("UPDATE gm_abc_order_drafts SET status = 'sent', ship_name = ?, ship_line1 = ?, ship_city = ?, ship_state = ?, ship_postal = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status = 'draft'")
             .bind(ship.name, ship.line1, ship.city, ship.state, ship.postal, did, id).run();
@@ -44335,6 +44582,7 @@ async function handlePostGmAbcDraftSend(id, did, request, env) {
         }
         await env.DB.prepare("UPDATE gm_abc_order_drafts SET abc_confirmation = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ?").bind(placed.confirmation_number, did, id).run();
         if (d.draft.location_id) { await abcLocationUse(env, id, d.draft.location_id); }
+        if (ready && checked.delivery_contact) { await abcContactUsed(env, id, checked.delivery_contact, actorName(a.user)); }
         return jsonOk({ order_ref: placed.order_ref, status: "sent", confirmation_number: placed.confirmation_number });
     } catch (e) {
         if (e && e.abcStatus !== undefined) { return abcUpstreamError("draft-send", e, secrets); }
@@ -44366,6 +44614,17 @@ async function handlePostGmAbcDraftsCombine(id, request, env) {
         if (reviewed === null) { return abcDraftBad(); }
         var c = b.contact;
         if (!c || typeof c !== "object") { return abcDraftBad(); }
+        // F5: the one form asks once for a real date OR an explicit TBD (never a default).
+        var ready = await abcBranchColumnsReady(env);
+        var tbd = false;
+        var names = ready ? await abcBusinessNames(env, id) : [];
+        if (ready) {
+            if (b.delivery_date_tbd !== undefined && b.delivery_date_tbd !== 0 && b.delivery_date_tbd !== 1) { return abcDraftBad(); }
+            tbd = b.delivery_date_tbd === 1;
+            if (!tbd && !abcDateOk(b.delivery_date)) { return abcDraftBad(); }
+            if (!abcDeliveryContactInput(b.delivery_contact, names)) { return abcDraftBad(); }
+            if (b.delivery_instructions !== undefined && b.delivery_instructions !== null && !abcInstructionsOk(b.delivery_instructions)) { return abcDraftBad(); }
+        }
         var loaded = [];
         for (var k = 0; k < ids.length; k++) {
             var one = await abcDraftLoad(env, id, ids[k]);
@@ -44374,6 +44633,19 @@ async function handlePostGmAbcDraftsCombine(id, request, env) {
         }
         if (loaded.some(function(x) { return x.draft.status !== "draft"; })) {
             return jsonErr2("Algum pedido já foi enviado ou descartado.", "One of these orders was already sent or discarded.", 409);
+        }
+        // One ABC order has one account and one branch: drafts at different pairs cannot be combined.
+        if (ready) {
+            var ownPairs = await abcPairs(env, id);
+            var dflt = ownPairs.filter(function(p) { return p.is_default; })[0] || ownPairs[0];
+            var keyOf = function(dr) { return abcPairKey(dr.ship_to_number || (dflt && dflt.ship_to_number), dr.branch_number || (dflt && dflt.branch_number)); };
+            if (loaded.some(function(x) { return keyOf(x.draft) !== keyOf(loaded[0].draft); })) {
+                return jsonErr2("Estes pedidos usam contas ou filiais da ABC diferentes, e um pedido da ABC tem uma conta e uma filial.", "These orders use different ABC accounts or branches, and one ABC order has one account and one branch.", 409,
+                    { differing: loaded.map(function(x) { return { id: x.draft.id, ship_to: x.draft.ship_to_number || (dflt && dflt.ship_to_number) || "", branch: x.draft.branch_number || (dflt && dflt.branch_number) || "" }; }) });
+            }
+            var shared = abcPairIn(ownPairs, loaded[0].draft.ship_to_number || (dflt && dflt.ship_to_number), loaded[0].draft.branch_number || (dflt && dflt.branch_number));
+            if (!shared) { return jsonErr2("Esta conta ou filial da ABC não está mais na sua lista.", "This ABC account or branch is no longer on your list.", 409); }
+            a.conn = Object.assign({}, a.conn, { ship_to_number: shared.ship_to_number, branch_number: shared.branch_number });
         }
         // The one place.
         var L = null;
@@ -44396,7 +44668,7 @@ async function handlePostGmAbcDraftsCombine(id, request, env) {
             x.lines.filter(function(l) { return !l.removed; }).forEach(function(l) {
                 if (l.quantity === null || l.quantity === undefined) { gaps = true; return; }
                 var key = l.item_number + "|" + l.uom;
-                if (!merged[key]) { merged[key] = { item_number: l.item_number, description: l.description, uom: l.uom, quantity: 0, ids: [] }; mergedOrder.push(key); }
+                if (!merged[key]) { merged[key] = { item_number: l.item_number, description: l.description, abc_description: l.abc_description || "", abc_dimensional: l.abc_dimensional || 0, uom: l.uom, quantity: 0, ids: [] }; mergedOrder.push(key); }
                 merged[key].quantity += l.quantity;
                 merged[key].ids.push(l.id);
             });
@@ -44405,8 +44677,11 @@ async function handlePostGmAbcDraftsCombine(id, request, env) {
         var mlines = mergedOrder.map(function(key) { var m = merged[key]; m.id = m.ids[0]; return m; });
         if (mlines.some(function(m) { return m.quantity > 100000; })) { return abcDraftBad(); }
         var shipFake = { name: L.name, line1: L.line1, city: L.city, state: L.state, postal: L.postal };
-        var pseudo = { order_ref: b.order_ref, delivery_date: b.delivery_date || "", delivery_service: b.delivery_service, job_name: L.name,
-            contact_name: typeof c.name === "string" ? c.name : "", contact_email: typeof c.email === "string" ? c.email : "", contact_phone: typeof c.phone === "string" ? c.phone : "" };
+        var dcIn = ready ? abcDeliveryContactInput(b.delivery_contact, names) : null;
+        var pseudo = { order_ref: b.order_ref, delivery_date: tbd ? "" : (b.delivery_date || ""), delivery_date_tbd: tbd, delivery_service: b.delivery_service, job_name: L.name,
+            contact_name: typeof c.name === "string" ? c.name : "", contact_email: typeof c.email === "string" ? c.email : "", contact_phone: typeof c.phone === "string" ? c.phone : "",
+            delivery_contact_name: dcIn ? dcIn.name : "", delivery_contact_phone: dcIn ? dcIn.phone : "", delivery_contact_email: dcIn ? dcIn.email : "",
+            delivery_instructions: ready && typeof b.delivery_instructions === "string" ? b.delivery_instructions : "" };
         // Another draft already using this purchase order number refuses it.
         var clash = await env.DB.prepare("SELECT id FROM gm_abc_order_drafts WHERE client_id = ? AND order_ref = ? AND status IN ('draft', 'sent') LIMIT 1").bind(id, b.order_ref).first();
         if (clash && ids.indexOf(clash.id) === -1) { return jsonErr2("Esse número de pedido já está em uso.", "That purchase order number is already in use.", 409); }
@@ -44423,7 +44698,7 @@ async function handlePostGmAbcDraftsCombine(id, request, env) {
             return jsonErr2("Algum preço mudou desde a sua revisão. Confira e confirme.", "A price changed since you reviewed. Check it and confirm.", 409, { price_changed: true, changes: changes });
         }
         var order = abcDraftOrderFromRow(pseudo, shipFake, mlines, a.conn, function(m) { return fresh[m.id].price; });
-        var checked = abcOrderInput(order, a.conn);
+        var checked = abcOrderInput(order, a.conn, ready ? { v2: true, names: names } : undefined);
         if (!checked) { return jsonErr2("Confira os campos do pedido.", "Check the order fields.", 400, { missing: ["contact"] }); }
         // Claim every draft; if any one was taken meanwhile, put the others back.
         var claimed = [];
@@ -44459,11 +44734,1020 @@ async function handlePostGmAbcDraftsCombine(id, request, env) {
                 .bind(b.order_ref, placed.confirmation_number, shipFake.name, shipFake.line1, shipFake.city, shipFake.state, shipFake.postal, ids[u], id).run();
         }
         await abcLocationUse(env, id, L.id);
+        if (ready && checked.delivery_contact) { await abcContactUsed(env, id, checked.delivery_contact, actorName(a.user)); }
         return jsonOk({ order_ref: b.order_ref, status: "combined", confirmation_number: placed.confirmation_number, drafts: ids });
     } catch (e) {
         if (e && e.abcStatus !== undefined) { return abcUpstreamError("draft-combine", e, secrets); }
         return abcServerError("draft-combine", e, secrets);
     }
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// ABC branches, estimate order branch, compare, split, delivery date or TBD, saved on-site contacts,
+// person names, ABC descriptions, Get Item and delivery instructions (2026-11-16).
+// Everything here needs migrations/abc_branches_and_delivery.sql. Until abcBranchColumnsReady is true the
+// Worker behaves exactly as before and every new route answers Not available yet.
+// Terms of Use: every ABC call below starts from an owner action (opening a screen or pressing a button),
+// a price is shown only to the owner whose own account returned it, nothing here stores a price for the
+// per branch views, and nothing runs from a cron, a webhook or a background job.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+// True once every table and column of the migration exists. A true answer is kept for this Worker instance.
+async function abcBranchColumnsReady(env) {
+    if (ABC_BRANCH_READY) { return true; }
+    try {
+        await env.DB.prepare("SELECT id, client_id, ship_to_number, branch_number, ship_to_name, branch_name, address_text, is_default FROM gm_abc_branches LIMIT 1").first();
+        await env.DB.prepare("SELECT id, client_id, name, phone, email, last_used_at FROM gm_abc_delivery_contacts LIMIT 1").first();
+        await env.DB.prepare("SELECT ship_to_number, branch_number, delivery_contact_name, delivery_contact_phone, delivery_contact_email, delivery_instructions, delivery_date_tbd FROM gm_abc_order_drafts LIMIT 1").first();
+        await env.DB.prepare("SELECT abc_ship_to, abc_branch FROM gm_estimate_items LIMIT 1").first();
+        await env.DB.prepare("SELECT abc_description, abc_dimensional FROM gm_pricing LIMIT 1").first();
+        await env.DB.prepare("SELECT abc_description, abc_dimensional FROM gm_abc_order_draft_lines LIMIT 1").first();
+        ABC_BRANCH_READY = true;
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// A map keyed by text that came from outside (an item number such as __proto__ is a legal item number).
+function abcMap() { return Object.create(null); }
+
+function abcPairKey(shipTo, branch) { return String(shipTo) + "|" + String(branch); }
+
+function abcPairOut(p) {
+    return { ship_to: p.ship_to_number, branch: p.branch_number, ship_to_name: p.ship_to_name || "", branch_name: p.branch_name || "", is_default: !!p.is_default };
+}
+
+// A pair from a request: null when none was sent, false when it is not a usable pair (one half, wrong type, wrong shape).
+function abcPairArg(shipTo, branch) {
+    var hasS = shipTo !== undefined && shipTo !== null && shipTo !== "";
+    var hasB = branch !== undefined && branch !== null && branch !== "";
+    if (!hasS && !hasB) { return null; }
+    if (!hasS || !hasB) { return false; }
+    if (typeof shipTo !== "string" || typeof branch !== "string" || !ABC_SHIPTO_RE.test(shipTo) || !ABC_BRANCH_RE.test(branch)) { return false; }
+    return { ship_to_number: shipTo, branch_number: branch };
+}
+
+// The row of `pairs` for this ship-to and branch, or null: is this pair one of the business's own?
+function abcPairIn(pairs, shipTo, branch) {
+    var hit = null;
+    (pairs || []).forEach(function(p) { if (!hit && p.ship_to_number === shipTo && p.branch_number === branch) { hit = p; } });
+    return hit;
+}
+
+// All of the business's accounts and branches, default first. With no rows, the connection's own pair is the single default.
+async function abcPairs(env, clientId) {
+    var rows = [];
+    try {
+        rows = (await env.DB.prepare("SELECT ship_to_number, branch_number, ship_to_name, branch_name, address_text, is_default FROM gm_abc_branches WHERE client_id = ? ORDER BY is_default DESC, created_at, rowid LIMIT 20").bind(clientId).all()).results || [];
+    } catch (e) { rows = []; }
+    if (!rows.length) {
+        var conn = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(clientId).first();
+        if (conn && conn.ship_to_number && conn.branch_number) {
+            rows = [{ ship_to_number: conn.ship_to_number, branch_number: conn.branch_number, ship_to_name: "", branch_name: "", address_text: "", is_default: 1 }];
+        }
+    }
+    return rows;
+}
+
+// Uses the pair of a request (or refuses it): one of the business's own pairs, else 400. Sets a.conn to it.
+async function abcApplyPair(a, env, id, pairArg) {
+    if (pairArg === false) { return abcPlBad(); }
+    if (!pairArg) { return null; }
+    if (!(await abcBranchColumnsReady(env))) { return abcNotAvailable(); }
+    var pairs = await abcPairs(env, id);
+    var hit = abcPairIn(pairs, pairArg.ship_to_number, pairArg.branch_number);
+    if (!hit) { return abcPlBad(); }
+    a.conn = Object.assign({}, a.conn, { ship_to_number: hit.ship_to_number, branch_number: hit.branch_number });
+    return null;
+}
+
+// A draft is priced and sent at ITS pair. An empty pair is the default pair (a.conn already is it).
+async function abcDraftUsePair(a, env, id, draft) {
+    if (!draft.ship_to_number || !draft.branch_number) { return null; }
+    var hit = abcPairIn(await abcPairs(env, id), draft.ship_to_number, draft.branch_number);
+    if (!hit) { return jsonErr2("Esta conta ou filial da ABC não está mais na sua lista. Escolha outra.", "This ABC account or branch is no longer on your list. Choose another.", 409); }
+    a.conn = Object.assign({}, a.conn, { ship_to_number: hit.ship_to_number, branch_number: hit.branch_number });
+    return null;
+}
+
+// The pair an estimate line is ordered from: its own, else the estimate's order branch (the pair of its first ABC line), else the default pair.
+function abcResolveLinePair(it, orderBranch, dflt) {
+    if (it.abc_ship_to && it.abc_branch) { return { ship_to_number: it.abc_ship_to, branch_number: it.abc_branch }; }
+    return orderBranch || dflt;
+}
+
+// Writes (or updates) one pair row of a business.
+async function abcWriteBranchRow(env, clientId, p, makeDefault, actor) {
+    var addr = typeof p.address_text === "string" ? p.address_text.slice(0, 200) : "";
+    var stmts = [];
+    if (makeDefault) { stmts.push(env.DB.prepare("UPDATE gm_abc_branches SET is_default = 0 WHERE client_id = ? AND NOT (ship_to_number = ? AND branch_number = ?)").bind(clientId, p.ship_to_number, p.branch_number)); }
+    stmts.push(env.DB.prepare(
+        "INSERT INTO gm_abc_branches (id, client_id, ship_to_number, branch_number, ship_to_name, branch_name, address_text, is_default, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?) " +
+        "ON CONFLICT (client_id, ship_to_number, branch_number) DO UPDATE SET ship_to_name = excluded.ship_to_name, branch_name = excluded.branch_name, address_text = CASE WHEN excluded.address_text <> '' THEN excluded.address_text ELSE address_text END"
+    ).bind(crypto.randomUUID(), clientId, p.ship_to_number, p.branch_number, p.ship_to_name || "", p.branch_name || "", addr, String(actor || "").slice(0, 80)));
+    if (makeDefault) { stmts.push(env.DB.prepare("UPDATE gm_abc_branches SET is_default = 1 WHERE client_id = ? AND ship_to_number = ? AND branch_number = ?").bind(clientId, p.ship_to_number, p.branch_number)); }
+    await env.DB.batch(stmts);
+}
+
+// The start of a route about the business's pairs (no ABC call needed): owner only, the feature on, inside the limit, the migration there.
+async function abcBranchOwnerStart(request, env, id, bucket, limit) {
+    var a = await abcOwnerStart(request, env, id);
+    if (a.err) { return a; }
+    if (publicReadRateLimited(request, bucket, id, 0, limit)) {
+        return { err: jsonErr2("Muitas tentativas. Tente de novo em alguns minutos.", "Too many attempts. Try again in a few minutes.", 429) };
+    }
+    if (!(await abcBranchColumnsReady(env))) { return { err: abcNotAvailable() }; }
+    return a;
+}
+
+// The start of a route that asks ABC: as abcPlStart, and the migration must be there.
+async function abcBranchStart(request, env, id, bucket, limit, pairArg) {
+    var a = await abcPlStart(request, env, id, bucket, limit, undefined);
+    if (a.err) { return a; }
+    if (!(await abcBranchColumnsReady(env))) { return { err: abcNotAvailable() }; }
+    if (pairArg !== undefined && pairArg !== null) {
+        var bad = await abcApplyPair(a, env, id, pairArg);
+        if (bad) { return { err: bad }; }
+    }
+    return a;
+}
+
+function abcAuthLike(e) { return !!e && (e.abcStatus === 401 || e.abcStatus === 403 || e.abcStatus === 429); }
+
+// GET /api/clients/:id/gm/abc/branches   (owner only): the business's accounts and branches. No secrets.
+async function handleGetGmAbcBranches(id, request, env) {
+    try {
+        var a = await abcBranchOwnerStart(request, env, id, "abcbranches", 120);
+        if (a.err) { return a.err; }
+        var pairs = await abcPairs(env, id);
+        return jsonOk({ pairs: pairs.map(abcPairOut), count: pairs.length, max: ABC.max_pairs });
+    } catch (e) {
+        return abcServerError("branches", e);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/branches   { ship_to, branch }   (owner only)
+// Adds an account and branch after ABC confirms the branch is listed under that ship-to for this contractor.
+// A ship-to with no branches is never accepted (F1). No second webhook: one per business already exists.
+async function handlePostGmAbcBranch(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcBranchOwnerStart(request, env, id, "abcbranchadd", 30);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var pa = body && typeof body === "object" ? abcPairArg(body.ship_to, body.branch) : false;
+        var bad = jsonErr2("Escolha uma conta e uma filial da lista.", "Choose an account and a branch from the list.", 400);
+        if (!pa) { return bad; }
+        var conn = await env.DB.prepare("SELECT client_id, ship_to_number, branch_number, needs_reconnect, environment FROM gm_abc_connections WHERE client_id = ?").bind(id).first();
+        if (!conn) { return jsonErr2("A ABC Supply não está conectada.", "ABC Supply is not connected.", 409); }
+        if (conn.needs_reconnect || conn.environment !== a.cfg.mode) { return jsonErr2("A ABC Supply precisa ser reconectada. Reconecte em Configurações.", "ABC Supply needs to be reconnected. Reconnect it in Settings.", 409, { needs_reconnect: true }); }
+        var rows = (await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_branches WHERE client_id = ? LIMIT 20").bind(id).all()).results || [];
+        var already = abcPairIn(rows, pa.ship_to_number, pa.branch_number);
+        if (!already && rows.length >= ABC.max_pairs) {
+            return jsonErr2("Você pode usar até 10 contas e filiais da ABC.", "You can use up to 10 ABC accounts and branches.", 400, { max: ABC.max_pairs });
+        }
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var info = null;
+        try {
+            info = await abcApi(a.cfg, token, "GET", "/api/account/v1/shiptos/" + encodeURIComponent(pa.ship_to_number), null, secrets);
+        } catch (e2) {
+            if (e2 && (e2.abcStatus === 401 || e2.abcStatus === 403 || e2.abcStatus === 404)) { return bad; }
+            throw e2;
+        }
+        var list = (info && info.shipTo && Array.isArray(info.shipTo.branches)) ? info.shipTo.branches : [];
+        // F1: a ship-to whose branches array is empty is never accepted, and the branch must be one ABC lists for it.
+        var listed = list.filter(function(b) { return b && b.number === pa.branch_number; })[0];
+        if (!list.length || !listed) { return bad; }
+        var ad = info.shipTo.address || {};
+        var addressText = [gmStr(ad.line1, 100), gmStr(ad.city, 60), gmStr(ad.state, 10), gmStr(ad.postal, 12)].filter(function(x) { return !!x; }).join(", ");
+        var first = rows.length === 0;
+        await abcWriteBranchRow(env, id, { ship_to_number: pa.ship_to_number, branch_number: pa.branch_number, ship_to_name: gmStr(info.shipTo.name, 100) || "", branch_name: gmStr(listed.name, 100) || "", address_text: addressText }, first && !already, actorName(a.user));
+        // The first pair of a business is its default, and the connection row always holds the default pair.
+        if (first) {
+            await env.DB.prepare("UPDATE gm_abc_connections SET ship_to_number = ?, branch_number = ?, updated_at = datetime('now') WHERE client_id = ?").bind(pa.ship_to_number, pa.branch_number, id).run();
+        }
+        return jsonOk({ saved: true, pairs: (await abcPairs(env, id)).map(abcPairOut) });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("branch-add", e, secrets); }
+        return abcServerError("branch-add", e, secrets);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/branches/default   { ship_to, branch }   (owner only)
+// Makes that pair the default and writes the same pair into the connection row in one batch.
+async function handlePostGmAbcBranchDefault(id, request, env) {
+    try {
+        var a = await abcBranchOwnerStart(request, env, id, "abcbranchset", 30);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var pa = body && typeof body === "object" ? abcPairArg(body.ship_to, body.branch) : false;
+        if (!pa) { return abcPlBad(); }
+        var hit = abcPairIn(await abcPairs(env, id), pa.ship_to_number, pa.branch_number);
+        if (!hit) { return abcPlBad(); }
+        await env.DB.batch([
+            env.DB.prepare("UPDATE gm_abc_branches SET is_default = 0 WHERE client_id = ?").bind(id),
+            env.DB.prepare("UPDATE gm_abc_branches SET is_default = 1 WHERE client_id = ? AND ship_to_number = ? AND branch_number = ?").bind(id, pa.ship_to_number, pa.branch_number),
+            env.DB.prepare("UPDATE gm_abc_connections SET ship_to_number = ?, branch_number = ?, updated_at = datetime('now') WHERE client_id = ?").bind(pa.ship_to_number, pa.branch_number, id)
+        ]);
+        return jsonOk({ saved: true, pairs: (await abcPairs(env, id)).map(abcPairOut) });
+    } catch (e) {
+        return abcServerError("branch-default", e);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/branches/remove   { ship_to, branch }   (owner only)
+// Refused for the default pair and for a pair a live order draft or an estimate line uses.
+async function handlePostGmAbcBranchRemove(id, request, env) {
+    try {
+        var a = await abcBranchOwnerStart(request, env, id, "abcbranchset", 30);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var pa = body && typeof body === "object" ? abcPairArg(body.ship_to, body.branch) : false;
+        if (!pa) { return abcPlBad(); }
+        var hit = abcPairIn(await abcPairs(env, id), pa.ship_to_number, pa.branch_number);
+        if (!hit) { return jsonErr2("Conta ou filial não encontrada.", "Account or branch not found.", 404); }
+        if (hit.is_default) { return jsonErr2("Escolha outra conta ou filial como padrão antes de remover esta.", "Choose another account or branch as the default before removing this one.", 409); }
+        var inDraft = await env.DB.prepare("SELECT 1 AS x FROM gm_abc_order_drafts WHERE client_id = ? AND status = 'draft' AND ship_to_number = ? AND branch_number = ? LIMIT 1").bind(id, pa.ship_to_number, pa.branch_number).first();
+        var inEstimate = await env.DB.prepare("SELECT 1 AS x FROM gm_estimate_items i JOIN gm_estimates e ON e.id = i.estimate_id WHERE e.client_id = ? AND i.abc_ship_to = ? AND i.abc_branch = ? AND i.option_id NOT LIKE 'replaced:%' LIMIT 1").bind(id, pa.ship_to_number, pa.branch_number).first();
+        if (inDraft || inEstimate) {
+            return jsonErr2("Um pedido ou um orçamento ainda usa esta conta e filial. Mude esses itens primeiro.", "An order or an estimate still uses this account and branch. Move those items first.", 409);
+        }
+        await env.DB.prepare("DELETE FROM gm_abc_branches WHERE client_id = ? AND ship_to_number = ? AND branch_number = ? AND is_default = 0").bind(id, pa.ship_to_number, pa.branch_number).run();
+        return jsonOk({ removed: true, pairs: (await abcPairs(env, id)).map(abcPairOut) });
+    } catch (e) {
+        return abcServerError("branch-remove", e);
+    }
+}
+
+// ── Search Item Availability ─────────────────────────────────────────────────────────────────
+
+// One availability call (following the pages) for at most 20 item numbers and 10 branch numbers. Fills `carried`.
+async function abcAvailCall(cfg, token, items, branches, secrets, carried) {
+    var page = 1;
+    var total = 1;
+    while (page <= total && page <= ABC.avail_pages_max) {
+        var res = await abcApi(cfg, token, "POST", "/api/product/v1/search/availability/items", {
+            filters: [
+                { key: "itemNumber", condition: "equals", values: items, joinCondition: "and" },
+                { key: "branchNumber", condition: "equals", values: branches, joinCondition: null }
+            ],
+            pagination: { itemsPerPage: 50, pageNumber: page }
+        }, secrets);
+        ((res && res.availability) || []).forEach(function(av) {
+            if (!av || typeof av !== "object") { return; }
+            var b = String(av.branchNumber === undefined || av.branchNumber === null ? "" : av.branchNumber);
+            var n = typeof av.itemNumber === "string" ? av.itemNumber : String(av.itemNumber === undefined || av.itemNumber === null ? "" : av.itemNumber);
+            if (carried[b] && ABC_ITEM_RE.test(n)) { carried[b][n] = true; }
+        });
+        var tp = Number(res && res.pagination && res.pagination.totalPages);
+        total = isFinite(tp) && tp > 0 ? tp : 1;
+        page++;
+    }
+}
+
+// Which branches carry which items. { ok, carried: { branch: { item: true } }, bad: { "branch|item": true } }.
+// bad marks what could not be checked (a failed call). A 401, 403 or 429 is thrown; a 400 is asked again once with
+// half the values; any other failure means "availability not checked". It tells who CARRIES an item, not how many are in stock.
+async function abcAvailability(cfg, token, itemNumbers, branchNumbers, secrets) {
+    var items = [];
+    (itemNumbers || []).forEach(function(n) { if (items.indexOf(n) === -1) { items.push(n); } });
+    var branches = [];
+    (branchNumbers || []).forEach(function(b) { b = String(b); if (branches.indexOf(b) === -1) { branches.push(b); } });
+    var carried = abcMap();
+    branches.forEach(function(b) { carried[b] = abcMap(); });
+    var bad = abcMap();
+    var ok = true;
+    function markBad(its, brs) { brs.forEach(function(b) { its.forEach(function(n) { bad[b + "|" + n] = true; }); }); ok = false; }
+    for (var i = 0; i < items.length; i += ABC.avail_items_max) {
+        var itemChunk = items.slice(i, i + ABC.avail_items_max);
+        for (var j = 0; j < branches.length; j += ABC.avail_branches_max) {
+            var brChunk = branches.slice(j, j + ABC.avail_branches_max);
+            try {
+                await abcAvailCall(cfg, token, itemChunk, brChunk, secrets, carried);
+            } catch (e) {
+                if (abcAuthLike(e)) { throw e; }
+                if (e && e.abcStatus === 400 && itemChunk.length > 1) {
+                    var half = Math.ceil(itemChunk.length / 2);
+                    var parts = [itemChunk.slice(0, half), itemChunk.slice(half)];
+                    for (var h = 0; h < parts.length; h++) {
+                        try { await abcAvailCall(cfg, token, parts[h], brChunk, secrets, carried); }
+                        catch (e3) {
+                            if (abcAuthLike(e3)) { throw e3; }
+                            console.error("abc availability failed: " + metaScrub(e3 && e3.message, secrets));
+                            markBad(parts[h], brChunk);
+                        }
+                    }
+                } else {
+                    console.error("abc availability failed: " + metaScrub(e && e.message, secrets));
+                    markBad(itemChunk, brChunk);
+                }
+            }
+        }
+    }
+    return { ok: ok, carried: carried, bad: bad };
+}
+
+// Availability and prices of the same items at several pairs. { availability_checked, byPair: { "ship|branch": { item: { carried, price, uom } } } }.
+// carried is null when it could not be checked; price is null when ABC gave none. An item a branch does not carry is not priced there.
+// No price is stored. Prices are asked for three pairs at a time.
+async function abcPairInfo(cfg, token, pairs, itemNumbers, secrets) {
+    var branches = [];
+    pairs.forEach(function(p) { if (branches.indexOf(p.branch_number) === -1) { branches.push(p.branch_number); } });
+    var av = itemNumbers.length && pairs.length ? await abcAvailability(cfg, token, itemNumbers, branches, secrets) : { ok: true, carried: abcMap(), bad: abcMap() };
+    var byPair = abcMap();
+    var toPrice = [];
+    pairs.forEach(function(p) {
+        var key = abcPairKey(p.ship_to_number, p.branch_number);
+        var m = abcMap();
+        itemNumbers.forEach(function(n) {
+            var yes = av.carried[p.branch_number] && av.carried[p.branch_number][n];
+            m[n] = { carried: yes ? true : (av.bad[p.branch_number + "|" + n] ? null : false), price: null, uom: null };
+        });
+        byPair[key] = m;
+        var need = itemNumbers.filter(function(n) { return m[n].carried !== false; });
+        if (need.length) { toPrice.push({ pair: p, key: key, need: need }); }
+    });
+    for (var i = 0; i < toPrice.length; i += 3) {
+        await Promise.all(toPrice.slice(i, i + 3).map(async function(t) {
+            try {
+                var pr = await abcFetchPrices(cfg, token, { ship_to_number: t.pair.ship_to_number, branch_number: t.pair.branch_number }, t.need, secrets);
+                t.need.forEach(function(n) { var x = pr[n]; if (x && !x.none) { byPair[t.key][n].price = x.price; byPair[t.key][n].uom = x.uom; } });
+            } catch (e) {
+                if (abcAuthLike(e)) { throw e; }
+                console.error("abc pair prices failed: " + metaScrub(e && e.message, secrets));
+            }
+        }));
+    }
+    return { availability_checked: av.ok, byPair: byPair };
+}
+
+// The branch limited search shared by the item search and "search my other branches": Search Items, then
+// Search Item Availability confirms which of those the branch really carries (ABC may not honor the branch filter),
+// then Price Items for that pair. Before the migration (ready false) it is the old search: no availability call.
+async function abcSearchForPair(cfg, token, conn, q, max, secrets, ready) {
+    var byNumber = {};
+    var order = [];
+    var total = 0;
+    var searches = [{ key: "itemDescription", value: q }];
+    if (/^[A-Za-z0-9]+$/.test(q)) { searches.push({ key: "itemNumber", value: q }); }
+    for (var s = 0; s < searches.length; s++) {
+        var res = null;
+        try {
+            res = await abcApi(cfg, token, "POST", "/api/product/v1/search/items", {
+                filters: [
+                    { key: searches[s].key, condition: "contains", values: [searches[s].value], joinCondition: "and" },
+                    { key: "branchNumber", condition: "equals", values: [conn.branch_number], joinCondition: null }
+                ],
+                pagination: { itemsPerPage: max, pageNumber: 1 }
+            }, secrets);
+        } catch (eS) { if (eS) { eS.message = "search by " + searches[s].key + ": " + eS.message; } throw eS; }
+        var ti = Number(res && res.pagination && res.pagination.totalItems);
+        if (isFinite(ti) && ti > total) { total = ti; }
+        ((res && res.items) || []).forEach(function(it) {
+            var n = it && typeof it.itemNumber === "string" ? it.itemNumber : "";
+            if (!ABC_ITEM_RE.test(n) || byNumber[n]) { return; }
+            var shape = abcPlShape(it);
+            if (!shape) { return; }
+            byNumber[n] = shape;
+            order.push(n);
+        });
+    }
+    var skippedDim = 0;
+    var numbers = [];
+    order.forEach(function(n) {
+        if (byNumber[n].inactive) { return; }
+        // Items sold in lengths were skipped before the migration; now they are listed with a flag.
+        if (byNumber[n].dimensional && !ready) { skippedDim++; return; }
+        if (numbers.length < max) { numbers.push(n); }
+    });
+    var fetched = numbers.length;
+    var checked = false;
+    if (ready && numbers.length) {
+        var branchKey = String(conn.branch_number);
+        var av = await abcAvailability(cfg, token, numbers, [branchKey], secrets);
+        checked = av.ok;
+        // Keep what the branch carries and what could not be checked; hide only what a successful check says it does not carry.
+        numbers = numbers.filter(function(n) { return (av.carried[branchKey] && av.carried[branchKey][n]) || av.bad[branchKey + "|" + n]; });
+    } else if (ready) { checked = true; }
+    var hidden = fetched - numbers.length;
+    var prices = {};
+    if (numbers.length) {
+        try { prices = await abcFetchPrices(cfg, token, conn, numbers, secrets); }
+        catch (eP) { if (eP) { eP.message = "pricing " + numbers.length + " items: " + eP.message; } throw eP; }
+    }
+    var items = numbers.map(function(n) {
+        var sh = byNumber[n];
+        var p = prices[n] && !prices[n].none ? prices[n] : null;
+        var stock = null;
+        sh.uoms.forEach(function(u) { if (u.stocking) { stock = u.code; } });
+        var code = p ? p.uom : stock;
+        var item = { item_number: n, description: sh.description, category: sh.category,
+            unit_code: code, unit_name: code ? abcPlUnitName(sh, code) : null,
+            cost: p ? p.price : null, has_price: !!p };
+        if (ready) { item.dimensional = !!sh.dimensional; }
+        return item;
+    });
+    var totalItems = total > 0 ? Math.max(total, fetched) : fetched;
+    return { items: items, skipped_dimensional: skippedDim, total_items: totalItems, hidden_not_carried: hidden, availability_checked: checked, more_available: totalItems > fetched };
+}
+
+// POST /api/clients/:id/gm/abc/branch-prices   { item_numbers: [up to 50] }   (owner only)
+// For every account and branch of the business: does it carry each item, and at what price. Nothing is stored; the
+// answer lives on the screen. A price is shown only to the owner whose own account returned it.
+async function handlePostGmAbcBranchPrices(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcBranchStart(request, env, id, "abcbranchprices", 20);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var list = body && body.item_numbers;
+        if (!Array.isArray(list) || list.length < 1 || list.length > 50) { return abcPlBad(); }
+        for (var i = 0; i < list.length; i++) {
+            if (typeof list[i] !== "string" || !ABC_ITEM_RE.test(list[i]) || list.indexOf(list[i]) !== i) { return abcPlBad(); }
+        }
+        var pairs = (await abcPairs(env, id)).slice(0, ABC.max_pairs);
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var info = await abcPairInfo(a.cfg, token, pairs, list, secrets);
+        return jsonOk({
+            availability_checked: info.availability_checked,
+            retrieved_at: new Date().toISOString(),
+            pairs: pairs.map(function(p) {
+                return Object.assign(abcPairOut(p), { items: info.byPair[abcPairKey(p.ship_to_number, p.branch_number)] });
+            })
+        });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("branch-prices", e, secrets); }
+        return abcServerError("branch-prices", e, secrets);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/search-other-branches   { q, ship_to, branch }   (owner only, owner action)
+// The same branch limited search for each of the business's OTHER pairs. Nothing is stored.
+async function handlePostGmAbcSearchOtherBranches(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcBranchStart(request, env, id, "abcother", 10);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var q = body && typeof body === "object" ? abcItemsQuery(body.q) : null;
+        var pa = body && typeof body === "object" ? abcPairArg(body.ship_to, body.branch) : false;
+        if (!q || !pa) { return abcPlBad(); }
+        var pairs = await abcPairs(env, id);
+        if (!abcPairIn(pairs, pa.ship_to_number, pa.branch_number)) { return abcPlBad(); }
+        var others = pairs.filter(function(p) { return !(p.ship_to_number === pa.ship_to_number && p.branch_number === pa.branch_number); }).slice(0, ABC.max_pairs - 1);
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var groups = [];
+        for (var i = 0; i < others.length; i += 3) {
+            var part = await Promise.all(others.slice(i, i + 3).map(async function(p) {
+                var g = Object.assign(abcPairOut(p), { items: [], availability_checked: false });
+                try {
+                    var f = await abcSearchForPair(a.cfg, token, { ship_to_number: p.ship_to_number, branch_number: p.branch_number }, q, 20, secrets, true);
+                    g.items = f.items; g.availability_checked = f.availability_checked; g.hidden_not_carried = f.hidden_not_carried; g.total_items = f.total_items;
+                } catch (e2) {
+                    if (abcAuthLike(e2)) { throw e2; }
+                    console.error("abc other branch search failed: " + metaScrub(e2 && e2.message, secrets));
+                    g.failed = true;
+                }
+                return g;
+            }));
+            groups = groups.concat(part);
+        }
+        return jsonOk({ groups: groups, retrieved_at: new Date().toISOString() });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("search-other-branches", e, secrets); }
+        return abcServerError("search-other-branches", e, secrets);
+    }
+}
+
+// ── Compare branches for an order ────────────────────────────────────────────────────────────
+
+function abcMoney(x) { return Math.round(x * 100) / 100; }
+
+// One pair's figures for these lines. `info` is { item: { carried, price, uom } } for that pair.
+function abcCompareLines(pair, lines, info, checked) {
+    var out = { ship_to: pair.ship_to_number, branch: pair.branch_number, ship_to_name: pair.ship_to_name || "", branch_name: pair.branch_name || "", is_default: !!pair.is_default,
+        lines: [], carried_count: 0, line_count: lines.length, priced_count: 0, total: null, carried_total: 0, complete: false, missing: [], availability_checked: !!checked };
+    var sum = 0;
+    lines.forEach(function(l) {
+        var x = info[l.item_number] || { carried: null, price: null, uom: null };
+        var mismatch = x.carried !== false && x.price !== null && x.uom !== l.uom;
+        var qtyOk = typeof l.quantity === "number" && l.quantity > 0;
+        var total = x.carried === true && x.price !== null && !mismatch && qtyOk ? abcMoney(l.quantity * x.price) : null;
+        if (x.carried === true) { out.carried_count++; }
+        if (x.carried === false) { out.missing.push({ line_id: l.id, item_number: l.item_number, description: l.abc_description || l.description || l.item_number }); }
+        if (total !== null) { out.priced_count++; sum += total; out.carried_total = abcMoney(out.carried_total + total); }
+        out.lines.push({ line_id: l.id, item_number: l.item_number, carried: x.carried, price: x.price, uom: x.uom, line_total: total, unit_mismatch: mismatch, needs_quantity: !qtyOk });
+    });
+    out.complete = lines.length > 0 && out.priced_count === lines.length;
+    out.total = out.complete ? abcMoney(sum) : null;
+    return out;
+}
+
+// Ranks the pairs (the pairs keep the order they came in; the default pair first on a tie). The total is only a real
+// total when complete is true. Complete pairs first by lowest total; then the most carried lines, then the lowest total of those.
+function abcCompareRank(list) {
+    var pairs = list.map(function(p) { return Object.assign({}, p, { rank: null, reason_code: null }); });
+    var anyChecked = pairs.some(function(p) { return p.availability_checked; });
+    var result = { recommended: null, pairs: pairs, saving_vs_next: null };
+    if (!anyChecked) { pairs.forEach(function(p) { p.reason_code = "not_checked"; }); return result; }
+    function byDefault(a, b) { return (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0); }
+    var complete = pairs.filter(function(p) { return p.complete; }).sort(function(a, b) { return (a.total - b.total) || byDefault(a, b); });
+    var partial = pairs.filter(function(p) { return !p.complete && p.carried_count > 0; }).sort(function(a, b) { return (b.carried_count - a.carried_count) || (a.carried_total - b.carried_total) || byDefault(a, b); });
+    var ordered = complete.concat(partial);
+    ordered.forEach(function(p, i) { p.rank = i + 1; });
+    pairs.forEach(function(p) { p.reason_code = p.complete ? "carries_all_items" : (p.carried_count > 0 ? "most_items_available" : null); });
+    if (!ordered.length) { return result; }
+    var win = ordered[0];
+    if (pairs.length === 1) { win.reason_code = "only_branch"; }
+    else if (complete.length) {
+        if (complete.length === 1) { win.reason_code = "carries_all_items"; }
+        else if (win.is_default && complete[1].total === win.total) { win.reason_code = "tie_default"; }
+        else { win.reason_code = "lowest_total_all_items"; }
+        if (complete.length > 1) { result.saving_vs_next = abcMoney(complete[1].total - win.total); }
+    } else { win.reason_code = "most_items_available"; }
+    result.recommended = { ship_to: win.ship_to, branch: win.branch };
+    return result;
+}
+
+// POST /api/clients/:id/gm/abc/branch-compare   { draft_id } or { estimate_id }   (owner only)
+// For each pair of the business: which of the order's ABC lines it carries and what they cost there. Never changes the
+// draft or the estimate. The page writes the plain sentences.
+async function handlePostGmAbcBranchCompare(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcBranchStart(request, env, id, "abccompare", 20);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var did = body && typeof body === "object" ? body.draft_id : undefined;
+        var eid = body && typeof body === "object" ? body.estimate_id : undefined;
+        var hasD = did !== undefined && did !== null, hasE = eid !== undefined && eid !== null;
+        if (hasD === hasE) { return abcPlBad(); }
+        if ((hasD && (typeof did !== "string" || !ABC_ID_RE.test(did))) || (hasE && (typeof eid !== "string" || !ABC_ID_RE.test(eid)))) { return abcPlBad(); }
+        var lines = [];
+        if (hasD) {
+            var d = await abcDraftLoad(env, id, did);
+            if (!d) { return abcDraftNotFound(); }
+            lines = d.lines.filter(function(l) { return !l.removed; });
+        } else {
+            var est = await env.DB.prepare("SELECT id FROM gm_estimates WHERE id = ? AND client_id = ?").bind(eid, id).first();
+            if (!est) { return jsonErr2("Orçamento não encontrado.", "Estimate not found.", 404); }
+            var built = await abcDraftBuildLines(env, id, { estimate_ids_json: JSON.stringify([eid]) }, { ready: true, pairs: [], pickFirst: true });
+            lines = built.lines.map(function(l) { return { id: l.source_line_id, item_number: l.item_number, description: l.description, abc_description: l.abc_description, quantity: l.quantity, uom: l.uom }; });
+        }
+        var pairs = (await abcPairs(env, id)).slice(0, ABC.max_pairs);
+        var numbers = [];
+        lines.forEach(function(l) { if (numbers.indexOf(l.item_number) === -1) { numbers.push(l.item_number); } });
+        if (!numbers.length) { return jsonOk({ recommended: null, pairs: [], saving_vs_next: null, availability_checked: true, retrieved_at: new Date().toISOString() }); }
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var info = await abcPairInfo(a.cfg, token, pairs, numbers, secrets);
+        var figures = pairs.map(function(p) { return abcCompareLines(p, lines, info.byPair[abcPairKey(p.ship_to_number, p.branch_number)], info.availability_checked); });
+        var ranked = abcCompareRank(figures);
+        return jsonOk({ recommended: ranked.recommended, pairs: ranked.pairs, saving_vs_next: ranked.saving_vs_next, availability_checked: info.availability_checked, retrieved_at: new Date().toISOString() });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("branch-compare", e, secrets); }
+        return abcServerError("branch-compare", e, secrets);
+    }
+}
+
+// ── People on the order (F4), saved on-site contacts, instructions ────────────────────────────
+
+// A name compared as the business's own names are: trimmed, one space between words, lower case.
+function abcNameKey(v) { return String(v === null || v === undefined ? "" : v).trim().toLowerCase().replace(/\s+/g, " "); }
+
+// The business's own names (trading name and legal name), as compared keys. None of them is a person.
+async function abcBusinessNames(env, clientId) {
+    var names = [];
+    var cl = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(clientId).first();
+    if (cl && cl.name) { names.push(abcNameKey(cl.name)); }
+    try {
+        var ds = await env.DB.prepare("SELECT legal_name FROM gm_doc_settings WHERE client_id = ?").bind(clientId).first();
+        if (ds && ds.legal_name) { names.push(abcNameKey(ds.legal_name)); }
+    } catch (e) { /* the document settings may not exist: the trading name is still checked */ }
+    return names;
+}
+
+// A person's name: text, at most 60 characters, and not one of the business's own names.
+function abcPersonOk(name, names) {
+    var t = abcText(name, 60);
+    if (!t) { return false; }
+    return (names || []).indexOf(abcNameKey(t)) === -1;
+}
+
+// Ten digits after removing punctuation and a leading 1 (the same rule as the contact phone), or whatever digits there are.
+function abcPhoneDigits(v) {
+    return String(v === null || v === undefined ? "" : v).replace(/\D/g, "").replace(/^1(\d{10})$/, "$1");
+}
+
+// The on-site person { name, phone, email }, or null when anything is off. The email is optional.
+function abcDeliveryContactInput(c, names) {
+    if (!c || typeof c !== "object") { return null; }
+    var name = abcText(c.name, 60);
+    if (!name || !abcPersonOk(name, names)) { return null; }
+    if (typeof c.phone !== "string" || /[\u0000-\u001f\u007f]/.test(c.phone)) { return null; }
+    var phone = abcPhoneDigits(c.phone);
+    if (phone.length !== 10) { return null; }
+    var email = "";
+    if (c.email !== undefined && c.email !== null && c.email !== "") {
+        email = abcText(c.email, 254);
+        if (!email || !ABC_EMAIL_RE.test(email)) { return null; }
+    }
+    return { name: name, phone: phone, email: email };
+}
+
+// Delivery instructions: text of at most ABC.instructions_max characters with no control characters; empty is allowed.
+function abcInstructionsOk(v) {
+    if (typeof v !== "string") { return false; }
+    var t = v.trim();
+    return t.length <= ABC.instructions_max && !/[\u0000-\u001f\u007f]/.test(t);
+}
+
+// The signed in owner's own personal name from the verified user record, never the business name and never a username. Empty when unknown.
+async function abcOwnerPersonName(env, user, clientId) {
+    var raw = abcText(user && user.display_name, 60);
+    if (!raw) { return ""; }
+    var key = abcNameKey(raw);
+    if ((await abcBusinessNames(env, clientId)).indexOf(key) !== -1) { return ""; }
+    if (user && user.username && abcNameKey(user.username) === key) { return ""; }
+    return raw;
+}
+
+// The access notes (a gate code or entrance note) saved on the contract's lead, or "". Only ever shown to the owner.
+async function abcDraftAccessNotes(env, clientId, con) {
+    if (!con || !con.lead_id) { return ""; }
+    try {
+        var row = await env.DB.prepare("SELECT addr_access FROM gm_leads WHERE id = ? AND client_id = ?").bind(con.lead_id, clientId).first();
+        var t = row && typeof row.addr_access === "string" ? row.addr_access.replace(/[\u0000-\u001f\u007f]/g, " ").trim() : "";
+        return t.slice(0, 300);
+    } catch (e) { return ""; }
+}
+
+// A sent order used this person: saved if new (while there is room), and used just now. Never fails the order.
+async function abcContactUsed(env, clientId, dc, actor) {
+    try {
+        var have = await env.DB.prepare("SELECT id FROM gm_abc_delivery_contacts WHERE client_id = ? AND name = ? AND phone = ?").bind(clientId, dc.name, dc.phone).first();
+        if (have) {
+            await env.DB.prepare("UPDATE gm_abc_delivery_contacts SET last_used_at = datetime('now') WHERE id = ? AND client_id = ?").bind(have.id, clientId).run();
+            return;
+        }
+        var n = await env.DB.prepare("SELECT COUNT(*) AS n FROM gm_abc_delivery_contacts WHERE client_id = ?").bind(clientId).first();
+        if (n && n.n >= ABC.max_contacts) { return; }
+        await env.DB.prepare("INSERT OR IGNORE INTO gm_abc_delivery_contacts (id, client_id, name, phone, email, last_used_at, created_by) VALUES (?, ?, ?, ?, ?, datetime('now'), ?)")
+            .bind(crypto.randomUUID(), clientId, dc.name, dc.phone, dc.email || "", String(actor || "").slice(0, 80)).run();
+    } catch (e) {
+        console.error("abc contact use failed: " + String(e && e.message || "").slice(0, 200));
+    }
+}
+
+// GET /api/clients/:id/gm/abc/delivery-contacts   (owner only): the business's saved on-site people, most recently used first.
+async function handleGetGmAbcDeliveryContacts(id, request, env) {
+    try {
+        var a = await abcBranchOwnerStart(request, env, id, "abccontacts", 60);
+        if (a.err) { return a.err; }
+        var rows = (await env.DB.prepare("SELECT id, name, phone, email, last_used_at FROM gm_abc_delivery_contacts WHERE client_id = ? ORDER BY (last_used_at <> '') DESC, last_used_at DESC, name COLLATE NOCASE LIMIT 25").bind(id).all()).results || [];
+        return jsonOk({ contacts: rows.map(function(r) { return { id: r.id, name: r.name, phone: r.phone, email: r.email, last_used_at: r.last_used_at }; }), max: ABC.max_contacts });
+    } catch (e) {
+        return abcServerError("delivery-contacts", e);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/delivery-contacts   { name, phone, email? }   (owner only)
+// Saves a person (at most 25). The same name and phone only updates last_used_at.
+async function handlePostGmAbcDeliveryContact(id, request, env) {
+    try {
+        var a = await abcBranchOwnerStart(request, env, id, "abccontacts", 60);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var dc = abcDeliveryContactInput(body, await abcBusinessNames(env, id));
+        if (!dc) { return abcPlBad(); }
+        var have = await env.DB.prepare("SELECT id FROM gm_abc_delivery_contacts WHERE client_id = ? AND name = ? AND phone = ?").bind(id, dc.name, dc.phone).first();
+        if (have) {
+            await env.DB.prepare("UPDATE gm_abc_delivery_contacts SET last_used_at = datetime('now'), email = CASE WHEN ? <> '' THEN ? ELSE email END WHERE id = ? AND client_id = ?").bind(dc.email, dc.email, have.id, id).run();
+            return jsonOk({ contact: { id: have.id, name: dc.name, phone: dc.phone, email: dc.email } });
+        }
+        var n = await env.DB.prepare("SELECT COUNT(*) AS n FROM gm_abc_delivery_contacts WHERE client_id = ?").bind(id).first();
+        if (n && n.n >= ABC.max_contacts) { return jsonErr2("Você pode salvar até 25 pessoas. Remova uma primeiro.", "You can save up to 25 people. Remove one first.", 400, { max: ABC.max_contacts }); }
+        var cid = crypto.randomUUID();
+        await env.DB.prepare("INSERT INTO gm_abc_delivery_contacts (id, client_id, name, phone, email, created_by) VALUES (?, ?, ?, ?, ?, ?)").bind(cid, id, dc.name, dc.phone, dc.email, actorName(a.user)).run();
+        return jsonOk({ contact: { id: cid, name: dc.name, phone: dc.phone, email: dc.email } });
+    } catch (e) {
+        if (String(e && e.message || "").indexOf("UNIQUE") !== -1) { return abcPlBad(); }
+        return abcServerError("delivery-contact-add", e);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/delivery-contacts/remove   { id }   (owner only). A draft keeps its own copy of the person.
+async function handlePostGmAbcDeliveryContactRemove(id, request, env) {
+    try {
+        var a = await abcBranchOwnerStart(request, env, id, "abccontacts", 60);
+        if (a.err) { return a.err; }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        if (!body || typeof body !== "object" || typeof body.id !== "string" || !ABC_ID_RE.test(body.id)) { return abcPlBad(); }
+        var res = await env.DB.prepare("DELETE FROM gm_abc_delivery_contacts WHERE id = ? AND client_id = ?").bind(body.id, id).run();
+        if (!res.meta || res.meta.changes !== 1) { return jsonErr2("Pessoa não encontrada.", "Person not found.", 404); }
+        return jsonOk({ removed: true });
+    } catch (e) {
+        return abcServerError("delivery-contact-remove", e);
+    }
+}
+
+// ── Split a draft ────────────────────────────────────────────────────────────────────────────
+
+// POST /api/clients/:id/gm/abc/drafts/:did/split   { moves: [{ line_ids, ship_to, branch }] }   (owner only)
+// For lines another branch will supply: a new draft for that pair holds copies of the moved lines (priced again later)
+// with the same date, contact, instructions, place and purchase order text; the moved lines are marked removed on the
+// original. One batch. Both drafts stay drafts and each is sent by the owner.
+async function handlePostGmAbcDraftSplit(id, did, request, env) {
+    try {
+        var a = await abcDraftStart(request, env, id, "abcdraftsplit", 20, false);
+        if (a.err) { return a.err; }
+        if (!(await abcBranchColumnsReady(env))) { return abcNotAvailable(); }
+        var d = await abcDraftLoad(env, id, did);
+        if (!d) { return abcDraftNotFound(); }
+        if (d.draft.status !== "draft") { return jsonErr2("Este pedido já foi enviado ou descartado e não pode ser dividido.", "This order was already sent or discarded and cannot be split.", 409); }
+        var body = null;
+        try { body = await request.json(); } catch (e1) { body = null; }
+        var moves = body && Array.isArray(body.moves) ? body.moves : null;
+        if (!moves || moves.length < 1 || moves.length > ABC.max_pairs) { return abcDraftBad(); }
+        var pairs = await abcPairs(env, id);
+        var dflt = pairs.filter(function(p) { return p.is_default; })[0] || pairs[0];
+        var ownKey = abcPairKey(d.draft.ship_to_number || (dflt && dflt.ship_to_number), d.draft.branch_number || (dflt && dflt.branch_number));
+        var activeById = {};
+        d.lines.forEach(function(l) { if (!l.removed) { activeById[l.id] = l; } });
+        var used = {};
+        var plan = [];
+        for (var m = 0; m < moves.length; m++) {
+            var mv = moves[m];
+            if (!mv || typeof mv !== "object" || !Array.isArray(mv.line_ids) || mv.line_ids.length < 1 || mv.line_ids.length > 99) { return abcDraftBad(); }
+            var pa = abcPairArg(mv.ship_to, mv.branch);
+            if (!pa) { return abcDraftBad(); }
+            var target = abcPairIn(pairs, pa.ship_to_number, pa.branch_number);
+            if (!target) { return abcDraftBad(); }
+            if (abcPairKey(target.ship_to_number, target.branch_number) === ownKey) { return abcDraftBad(); }
+            var picked = [];
+            for (var i = 0; i < mv.line_ids.length; i++) {
+                var lid = mv.line_ids[i];
+                if (typeof lid !== "string" || !activeById[lid] || used[lid]) { return abcDraftBad(); }
+                used[lid] = true;
+                picked.push(activeById[lid]);
+            }
+            plan.push({ target: target, lines: picked });
+        }
+        var stmts = [];
+        var created = [];
+        var refs = {};
+        for (var p = 0; p < plan.length; p++) {
+            var ref = await abcDraftPoRef(env, id);
+            while (refs[ref]) { ref = await abcDraftPoRef(env, id); }
+            refs[ref] = true;
+            var nid = crypto.randomUUID();
+            var src = d.draft;
+            var cols = ["id", "client_id", "contract_id", "estimate_id", "project_id", "job_name", "delivery_service", "delivery_date", "delivery_date_tbd", "delivery_to", "location_id", "ship_name", "ship_line1", "ship_city", "ship_state", "ship_postal",
+                "contact_name", "contact_email", "contact_phone", "delivery_contact_name", "delivery_contact_phone", "delivery_contact_email", "delivery_instructions", "order_ref", "created_by", "ship_to_number", "branch_number"];
+            var vals = [nid, id, src.contract_id, src.estimate_id, src.project_id, src.job_name, src.delivery_service, src.delivery_date, src.delivery_date_tbd ? 1 : 0, src.delivery_to, src.location_id, src.ship_name, src.ship_line1, src.ship_city, src.ship_state, src.ship_postal,
+                src.contact_name, src.contact_email, src.contact_phone, src.delivery_contact_name, src.delivery_contact_phone, src.delivery_contact_email, src.delivery_instructions, ref, actorName(a.user), plan[p].target.ship_to_number, plan[p].target.branch_number];
+            var ins = env.DB.prepare("INSERT INTO gm_abc_order_drafts (" + cols.join(", ") + ") VALUES (" + cols.map(function() { return "?"; }).join(", ") + ")");
+            stmts.push(ins.bind.apply(ins, vals));
+            plan[p].lines.forEach(function(l, idx) {
+                // The moved line is copied (priced again for its new pair, ABC's own description kept) and removed from the original.
+                stmts.push(env.DB.prepare(
+                    "INSERT INTO gm_abc_order_draft_lines (id, draft_id, client_id, item_number, description, quantity, uom, extra_percent_used, extra_source, unit_price, source_line_id, removed, added_by_hand, sort_order, abc_description, abc_dimensional) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 0, ?, ?, ?, ?)"
+                ).bind(crypto.randomUUID(), nid, id, l.item_number, l.description, l.quantity, l.uom, l.extra_percent_used, l.extra_source, l.source_line_id, l.added_by_hand, idx, l.abc_description || "", l.abc_dimensional ? 1 : 0));
+                stmts.push(env.DB.prepare("UPDATE gm_abc_order_draft_lines SET removed = 1 WHERE id = ? AND draft_id = ? AND client_id = ?").bind(l.id, did, id));
+            });
+            created.push({ id: nid, ship_to: plan[p].target.ship_to_number, branch: plan[p].target.branch_number });
+        }
+        try { await env.DB.batch(stmts); }
+        catch (eB) {
+            if (String(eB && eB.message || "").indexOf("UNIQUE") !== -1) {
+                return jsonErr2("Já existe um pedido aberto para essa filial neste contrato. Abra esse pedido.", "There is already an open order for that branch on this contract. Open that order.", 409);
+            }
+            throw eB;
+        }
+        return jsonOk({ original: did, created: created });
+    } catch (e) {
+        return abcServerError("draft-split", e);
+    }
+}
+
+// ── ABC's own item descriptions, Get Item and the size reader ─────────────────────────────────
+
+// POST /api/clients/:id/gm/abc/drafts/:did/refresh-descriptions   (owner only)
+// Asks ABC Search Items for the draft's item numbers (20 per call) and saves ABC's own description on the draft's lines
+// (and on the owner's own Price list rows for the same items). The Apex description is never changed and never used instead.
+async function handlePostGmAbcDraftRefreshDescriptions(id, did, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcDraftStart(request, env, id, "abcdraftrefresh", 20, true);
+        if (a.err) { return a.err; }
+        if (!(await abcBranchColumnsReady(env))) { return abcNotAvailable(); }
+        var d = await abcDraftLoad(env, id, did);
+        if (!d) { return abcDraftNotFound(); }
+        if (d.draft.status !== "draft") { return jsonErr2("Este pedido já foi enviado ou descartado.", "This order was already sent or discarded.", 409); }
+        var numbers = [];
+        d.lines.forEach(function(l) { if (!l.removed && numbers.indexOf(l.item_number) === -1) { numbers.push(l.item_number); } });
+        if (numbers.length > 100) { numbers = numbers.slice(0, 100); }
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var found = abcMap();
+        for (var i = 0; i < numbers.length; i += 20) {
+            var chunk = numbers.slice(i, i + 20);
+            var res = await abcApi(a.cfg, token, "POST", "/api/product/v1/search/items", {
+                filters: [{ key: "itemNumber", condition: "equals", values: chunk, joinCondition: null }],
+                pagination: { itemsPerPage: 20, pageNumber: 1 }
+            }, secrets);
+            ((res && res.items) || []).forEach(function(it) {
+                var n = it && typeof it.itemNumber === "string" ? it.itemNumber : "";
+                if (chunk.indexOf(n) === -1) { return; }
+                var shape = abcPlShape(it);
+                if (shape) { found[n] = shape; }
+            });
+        }
+        var stmts = [];
+        var updated = 0;
+        var missing = [];
+        numbers.forEach(function(n) {
+            var sh = found[n];
+            if (!sh) { missing.push(n); return; }
+            updated++;
+            stmts.push(env.DB.prepare("UPDATE gm_abc_order_draft_lines SET abc_description = ?, abc_dimensional = ? WHERE draft_id = ? AND client_id = ? AND item_number = ?").bind(sh.description, sh.dimensional ? 1 : 0, did, id, n));
+            stmts.push(env.DB.prepare("UPDATE gm_pricing SET abc_description = ?, abc_dimensional = ? WHERE client_id = ? AND abc_item_number = ?").bind(sh.description, sh.dimensional ? 1 : 0, id, n));
+        });
+        for (var s = 0; s < stmts.length; s += 40) { await env.DB.batch(stmts.slice(s, s + 40)); }
+        return jsonOk({ updated: updated, missing: missing });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("draft-descriptions", e, secrets); }
+        return abcServerError("draft-descriptions", e, secrets);
+    }
+}
+
+// Units ABC writes for inches and feet, as inches per unit, or 0.
+function abcLenToInches(value, uom) {
+    var v = Number(value);
+    if (!isFinite(v) || v <= 0) { return 0; }
+    var u = String(uom || "").trim().toLowerCase();
+    if (u === "in" || u === "inch" || u === "inches" || u === "\"") { return v; }
+    if (u === "ft" || u === "foot" || u === "feet" || u === "'") { return v * 12; }
+    return 0;
+}
+
+// What one sold unit covers, read from ABC's item (width and length of a single piece, or the words of its description).
+// Returns { unit_name, per_unit_sqft, per_unit_linear_ft, source: "dimensions" | "description" | null, text }.
+// NEVER GUESSES: when it is not sure, or two readings disagree, everything is null. One Square is 100 square feet.
+function abcCoverageHint(item) {
+    var none = { unit_name: null, per_unit_sqft: null, per_unit_linear_ft: null, source: null, text: null };
+    if (!item || typeof item !== "object") { return none; }
+    var readings = [];
+    function add(source, unit, sqft, linear) { readings.push({ source: source, unit: unit, sqft: sqft, linear: linear }); }
+    // A single piece: a width and exactly one length.
+    var dim = item.dimensions && typeof item.dimensions === "object" ? item.dimensions : null;
+    if (dim && dim.width && Array.isArray(dim.variations) && dim.variations.length === 1 && dim.variations[0] && dim.variations[0].length) {
+        var wIn = abcLenToInches(dim.width.value, dim.width.uom);
+        var lIn = abcLenToInches(dim.variations[0].length.value, dim.variations[0].length.uom);
+        if (wIn && lIn) { add("dimensions", "Piece", (wIn * lIn) / 144, null); }
+    }
+    var d = typeof item.itemDescription === "string" ? item.itemDescription : "";
+    var m;
+    var re1 = /(\d+(?:\.\d+)?)\s*Squares?\s+per\s+([A-Za-z]+)/gi;
+    while ((m = re1.exec(d)) !== null) { add("description", abcCap(m[2]), Number(m[1]) * 100, null); }
+    var re2 = /(\d+(?:\.\d+)?)\s*(?:Bdl|Bundles?)\s+per\s+Squares?/gi;
+    while ((m = re2.exec(d)) !== null) { if (Number(m[1]) > 0) { add("description", "Bundle", 100 / Number(m[1]), null); } }
+    var re3 = /(\d+(?:\.\d+)?)\s*(?:Linear\s*(?:Feet|Foot|Ft)|Lin\.?\s*Ft|LF)\s+per\s+([A-Za-z]+)/gi;
+    while ((m = re3.exec(d)) !== null) { add("description", abcCap(m[2]), null, Number(m[1])); }
+    var re4 = /(\d+(?:\.\d+)?)\s*(?:SF|Sq\.?\s*Ft\.?|Square\s*Feet)\b/gi;
+    while ((m = re4.exec(d)) !== null) { add("description", null, Number(m[1]), null); }
+    var re5 = /(\d+(?:\.\d+)?)\s*['′]\s*[xX×]\s*(\d+(?:\.\d+)?)\s*['′]/g;
+    while ((m = re5.exec(d)) !== null) { add("description", "Sheet", Number(m[1]) * Number(m[2]), null); }
+    readings = readings.filter(function(r) { return (r.sqft === null || (isFinite(r.sqft) && r.sqft > 0)) && (r.linear === null || (isFinite(r.linear) && r.linear > 0)); });
+    if (!readings.length) { return none; }
+    var first = readings[0];
+    function same(a, b) {
+        if ((a.sqft === null) !== (b.sqft === null) || (a.linear === null) !== (b.linear === null)) { return false; }
+        return Math.abs((a.sqft || 0) - (b.sqft || 0)) < 0.005 && Math.abs((a.linear || 0) - (b.linear || 0)) < 0.005;
+    }
+    if (!readings.every(function(r) { return same(r, first); })) { return none; }
+    var unit = null;
+    readings.forEach(function(r) { if (!unit && r.unit) { unit = r.unit; } });
+    var dimReading = readings.filter(function(r) { return r.source === "dimensions"; })[0];
+    var sqft = first.sqft === null ? null : Math.round(first.sqft * 100) / 100;
+    var linear = first.linear === null ? null : Math.round(first.linear * 100) / 100;
+    var each = unit ? "Each " + unit.toLowerCase() : "Each unit";
+    var text = sqft !== null ? each + " covers about " + sqft + " square feet." : each + " is about " + linear + " linear feet.";
+    return { unit_name: unit, per_unit_sqft: sqft, per_unit_linear_ft: linear, source: dimReading ? "dimensions" : "description", text: text };
+}
+
+function abcCap(w) { w = String(w || ""); return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }
+
+// The few safe fields of ABC's Get Item answer. Anything else ABC sent is dropped. image_href is kept only when it is
+// an https address and is only ever shown as an image (the Worker never fetches it).
+function abcItemSafe(it) {
+    if (!it || typeof it !== "object") { return null; }
+    var out = {
+        item_number: typeof it.itemNumber === "string" ? it.itemNumber.slice(0, 40) : "",
+        description: gmStr(it.itemDescription, 200) || "",
+        marketing_description: gmStr(it.marketingDescription, 600) || "",
+        supplier_name: gmStr(it.supplierName, 100) || "",
+        brand_line: null,
+        color: it.color && typeof it.color === "object" ? (gmStr(it.color.description, 60) || gmStr(it.color.name, 60) || "") : "",
+        uoms: [],
+        dimensional: it.isDimensional === true,
+        width: null, thickness: null, variations: [],
+        status: gmStr(it.status, 30) || ""
+    };
+    var mc = it.hierarchy && it.hierarchy.materialComposition;
+    if (mc && typeof mc === "object" && mc.brandLine !== undefined && mc.brandLine !== null) {
+        out.brand_line = gmStr(typeof mc.brandLine === "string" ? mc.brandLine : (mc.brandLine.name || mc.brandLine.description), 80) || null;
+    }
+    (Array.isArray(it.uoms) ? it.uoms : []).slice(0, 10).forEach(function(u) {
+        if (u && typeof u.code === "string" && /^[A-Za-z0-9]{1,6}$/.test(u.code)) { out.uoms.push({ name: gmStr(u.name, 40) || u.code, code: u.code }); }
+    });
+    var dim = it.dimensions && typeof it.dimensions === "object" ? it.dimensions : null;
+    function measure(x) { return x && typeof x === "object" && typeof x.value === "number" && isFinite(x.value) ? { value: x.value, uom: gmStr(x.uom, 10) || "" } : null; }
+    if (dim) {
+        out.width = measure(dim.width);
+        out.thickness = measure(dim.thickness);
+        (Array.isArray(dim.variations) ? dim.variations : []).slice(0, 20).forEach(function(v) {
+            if (!v || typeof v !== "object") { return; }
+            out.variations.push({ size: gmStr(v.size, 40) || "", conversionFactor: typeof v.conversionFactor === "number" && isFinite(v.conversionFactor) ? v.conversionFactor : null, length: measure(v.length) });
+        });
+    }
+    var imgs = Array.isArray(it.images) ? it.images : [];
+    for (var i = 0; i < imgs.length; i++) {
+        var href = imgs[i] && typeof imgs[i].href === "string" ? imgs[i].href.trim() : "";
+        if (/^https:\/\/[^\s"'<>]{1,500}$/.test(href)) { out.image_href = href; break; }
+    }
+    out.hint = abcCoverageHint(it);
+    return out;
+}
+
+// GET /api/clients/:id/gm/abc/item?item_number=   (owner only, when the owner adds an item)
+// ABC's Get Item for the contractor's own connection, trimmed to a few safe fields, with a size hint when ABC's own words make it clear.
+async function handleGetGmAbcItem(id, request, env) {
+    var secrets = [];
+    try {
+        var a = await abcBranchStart(request, env, id, "abcitem", 20);
+        if (a.err) { return a.err; }
+        var n = new URL(request.url).searchParams.get("item_number");
+        if (typeof n !== "string" || !ABC_ITEM_RE.test(n)) { return abcPlBad(); }
+        var token = await abcAccessToken(env, a.cfg, id);
+        secrets = [token, a.cfg.client_secret];
+        var res = null;
+        try { res = await abcApi(a.cfg, token, "GET", "/api/product/v1/items/" + encodeURIComponent(n), null, secrets); }
+        catch (e2) { if (e2 && e2.abcStatus === 404) { return jsonErr2("A ABC não encontrou esse item.", "ABC did not find that item.", 404); } throw e2; }
+        var safe = abcItemSafe(res && res.item && typeof res.item === "object" ? res.item : res);
+        if (!safe || !safe.item_number) { return jsonErr2("A ABC não encontrou esse item.", "ABC did not find that item.", 404); }
+        return jsonOk({ item: safe });
+    } catch (e) {
+        if (e && e.abcStatus !== undefined) { return abcUpstreamError("item", e, secrets); }
+        return abcServerError("item", e, secrets);
+    }
+}
+
+// The order branch of each ABC linked estimate line (2.7). After the lines are parsed: a line may carry a pair of
+// the business (the active tab); a line with none takes the estimate's order branch (the pair of its first ABC line),
+// else the default pair. A business with one pair stores nothing new. Before the migration nothing is read or written.
+// Answers an error text or null.
+async function gmEstimateLinePairs(env, clientId, options) {
+    var any = false;
+    options.forEach(function(o) { o.items.forEach(function(it) { if (it._abc) { any = true; } }); });
+    if (!any) { return null; }
+    var ready = await abcBranchColumnsReady(env);
+    var pairs = ready ? await abcPairs(env, clientId) : [];
+    var multi = ready && pairs.length > 1;
+    var dflt = pairs.filter(function(p) { return p.is_default; })[0] || pairs[0];
+    var orderBranch = null;
+    var err = null;
+    options.forEach(function(o) {
+        o.items.forEach(function(it) {
+            var raw = it._abc;
+            delete it._abc;
+            if (!raw || !ready || err) { return; }
+            var arg = abcPairArg(raw.ship_to, raw.branch);
+            var hit = null;
+            if (arg === false) { err = "Check the ABC account and branch."; return; }
+            if (arg) {
+                hit = abcPairIn(pairs, arg.ship_to_number, arg.branch_number);
+                if (!hit) { err = "Check the ABC account and branch."; return; }
+            } else { hit = orderBranch || dflt; }
+            if (!orderBranch && hit) { orderBranch = hit; }
+            if (multi && hit) { it.abc_ship_to = hit.ship_to_number; it.abc_branch = hit.branch_number; }
+        });
+    });
+    return err;
 }
 
 // ── Who gets a push inside a client's business ─────────────────────────
@@ -64133,6 +65417,19 @@ async function handleFetch(request, env, ctx) {
                     if (segs[5] === "drafts" && method === "GET") { return handleGetGmAbcDrafts(cid, request, env); }
                     if (segs[5] === "locations" && method === "GET") { return handleGetGmAbcLocations(cid, request, env); }
                     if (segs[5] === "locations" && method === "POST") { return handlePostGmAbcLocation(cid, request, env); }
+                    if (segs[5] === "branches" && method === "GET") { return handleGetGmAbcBranches(cid, request, env); }
+                    if (segs[5] === "branches" && method === "POST") { return handlePostGmAbcBranch(cid, request, env); }
+                    if (segs[5] === "branch-prices" && method === "POST") { return handlePostGmAbcBranchPrices(cid, request, env); }
+                    if (segs[5] === "search-other-branches" && method === "POST") { return handlePostGmAbcSearchOtherBranches(cid, request, env); }
+                    if (segs[5] === "branch-compare" && method === "POST") { return handlePostGmAbcBranchCompare(cid, request, env); }
+                    if (segs[5] === "delivery-contacts" && method === "GET") { return handleGetGmAbcDeliveryContacts(cid, request, env); }
+                    if (segs[5] === "delivery-contacts" && method === "POST") { return handlePostGmAbcDeliveryContact(cid, request, env); }
+                    if (segs[5] === "item" && method === "GET") { return handleGetGmAbcItem(cid, request, env); }
+                }
+                if (segs.length === 7 && gmCol === "abc" && method === "POST") {
+                    if (segs[5] === "branches" && segs[6] === "default") { return handlePostGmAbcBranchDefault(cid, request, env); }
+                    if (segs[5] === "branches" && segs[6] === "remove") { return handlePostGmAbcBranchRemove(cid, request, env); }
+                    if (segs[5] === "delivery-contacts" && segs[6] === "remove") { return handlePostGmAbcDeliveryContactRemove(cid, request, env); }
                 }
                 // ABC order drafts and saved delivery locations (2026-11-07, owner only).
                 if (segs.length === 7 && gmCol === "abc" && segs[5] === "drafts" && method === "POST" && segs[6] === "ensure") { return handlePostGmAbcDraftEnsure(cid, request, env); }
@@ -64143,6 +65440,8 @@ async function handleFetch(request, env, ctx) {
                     if (segs[7] === "discard") { return handlePostGmAbcDraftDiscard(cid, segs[6], request, env); }
                     if (segs[7] === "prices") { return handlePostGmAbcDraftPrices(cid, segs[6], request, env); }
                     if (segs[7] === "send") { return handlePostGmAbcDraftSend(cid, segs[6], request, env); }
+                    if (segs[7] === "split") { return handlePostGmAbcDraftSplit(cid, segs[6], request, env); }
+                    if (segs[7] === "refresh-descriptions") { return handlePostGmAbcDraftRefreshDescriptions(cid, segs[6], request, env); }
                 }
                 if (segs.length === 7 && gmCol === "abc" && segs[5] === "locations" && method === "PUT") { return handlePutGmAbcLocation(cid, segs[6], request, env); }
                 if (segs.length === 8 && gmCol === "abc" && segs[5] === "locations" && segs[7] === "archive" && method === "POST") { return handlePostGmAbcLocationArchive(cid, segs[6], request, env); }

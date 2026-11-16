@@ -46,22 +46,38 @@ const FN_BASE = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireCli
   "abcDraftLoad", "abcDraftShip", "abcDraftMissing", "abcDraftOrderFromRow", "abcRefusal", "abcLocationFields", "abcSameAddress", "abcLocationSave", "abcLocationUse", "abcLocationOut", "abcDraftSummary", "abcDraftFreshPrices", "abcDraftReviewedPrices", "abcSamePrice",
   "handleGetGmAbcLocations", "handlePostGmAbcLocation", "handlePutGmAbcLocation", "handlePostGmAbcLocationArchive", "handleGetGmAbcDrafts", "handleGetGmAbcDraft", "handlePostGmAbcDraftEnsure", "handlePutGmAbcDraft",
   "handlePostGmAbcDraftDiscard", "handlePostGmAbcDraftPrices", "handlePostGmAbcDraftSend", "handlePostGmAbcDraftsCombine",
+  "abcBranchColumnsReady", "abcMap", "abcPairKey", "abcPairOut", "abcPairArg", "abcPairIn", "abcPairs", "abcApplyPair", "abcDraftUsePair", "abcResolveLinePair", "abcWriteBranchRow", "abcBranchOwnerStart", "abcBranchStart", "abcAuthLike",
+  "handleGetGmAbcBranches", "handlePostGmAbcBranch", "handlePostGmAbcBranchDefault", "handlePostGmAbcBranchRemove",
+  "abcAvailCall", "abcAvailability", "abcPairInfo", "abcSearchForPair", "handlePostGmAbcBranchPrices", "handlePostGmAbcSearchOtherBranches",
+  "abcMoney", "abcCompareLines", "abcCompareRank", "handlePostGmAbcBranchCompare", "handlePostGmAbcDraftSplit", "abcDraftInsert",
+  "abcNameKey", "abcBusinessNames", "abcPersonOk", "abcPhoneDigits", "abcDeliveryContactInput", "abcInstructionsOk", "abcOwnerPersonName", "abcDraftAccessNotes", "abcContactUsed",
+  "handleGetGmAbcDeliveryContacts", "handlePostGmAbcDeliveryContact", "handlePostGmAbcDeliveryContactRemove",
+  "handlePostGmAbcDraftRefreshDescriptions", "abcLenToInches", "abcCoverageHint", "abcCap", "abcItemSafe", "handleGetGmAbcItem", "gmEstimateLinePairs",
+  "abcDateOk", "abcTodayUtc",
+  "handleGetGmAbcAccounts", "handlePostGmAbcAccount", "handlePostGmAbcDisconnect", "abcWebhookRegister", "abcWebhookRemove", "abcStatusPayload", "handleGetGmAbcStatus",
   "gmEstParseOptions", "gmEstWriteOptions", "gmEstOptTotals", "gmCents", "gmEstLineAmountCents", "gmEstParseDiscount", "gmEstOptDiscount", "gmEstOptionTotals", "gmEstDiscountCents",
   "clientRequestAllowed", "sellerRequestAllowed"];
 export const FNS = FN_BASE.filter(hasFn);
 const VARS_ALL = ["DEFAULT_ORIGIN", "CORS_HEADERS", "GM_ACTOR_KEY_RE", "GM_HIDDEN_ACTORS", "TOKEN_SEAL_PREFIX", "ABC", "ABC_NA_PT", "ABC_NA_EN",
   "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "ABC_REFRESHING", "ABC_SHIPTO_RE", "ABC_BRANCH_RE", "ABC_ITEM_RE", "ABC_UOM_RE",
-  "GM_COST_LINE_TYPES", "GM_PRICING_KINDS", "GM_PRICING_SELLER_FIELDS", "ABC_PL_INSERT", "GM_EST_LINE_TYPES", "GM_EST_TIERS", "GM_MATERIAL_FIELDS", "ABC_PO_RE", "ABC_ID_RE", "ABC_STATE_RE", "ABC_ZIP_RE"];
+  "GM_COST_LINE_TYPES", "GM_PRICING_KINDS", "GM_PRICING_SELLER_FIELDS", "ABC_PL_INSERT", "GM_EST_LINE_TYPES", "GM_EST_TIERS", "GM_MATERIAL_FIELDS", "ABC_PO_RE", "ABC_ID_RE", "ABC_STATE_RE", "ABC_ZIP_RE", "ABC_EMAIL_RE", "ABC_BRANCH_READY"];
 export const VARS = VARS_ALL.filter(function (v) { try { varSrc(v); return true; } catch (e) { return false; } });
 
 export const CATALOG = {
   "02GASTZ3WW": { itemDescription: "GAF Timberline HD Weathered Wood", status: "Active", uoms: [{ name: "Square", code: "SQ", description: "costing" }, { name: "Bundle", code: "BD", description: "stocking" }], hierarchy: { category: { name: "Steep Slope Roofing" } } },
   "PAVER6X9": { itemDescription: "Paver 6x9 Charcoal", status: "Active", uoms: [{ name: "Pallet", code: "PL", description: "stocking" }], hierarchy: { category: { name: "Hardscape" } } },
   "EACH0001": { itemDescription: "Pipe boot each", status: "Active", uoms: [{ name: "Each", code: "EA", description: "stocking" }], hierarchy: {} },
-  "NOPRICE1": { itemDescription: "Ridge vent no price", status: "Active", uoms: [{ name: "Each", code: "EA", description: "stocking" }], hierarchy: {} }
+  "NOPRICE1": { itemDescription: "Ridge vent no price", status: "Active", uoms: [{ name: "Each", code: "EA", description: "stocking" }], hierarchy: {} },
+  "RIDGE0001": { itemDescription: "Ridge cap shingle 20 Linear Feet per Bundle", status: "Active", uoms: [{ name: "Bundle", code: "BD", description: "stocking" }], hierarchy: { category: { name: "Steep Slope Roofing" } } },
+  "DIMLEN01": { itemDescription: "Aluminum drip edge flashing", status: "Active", isDimensional: true, uoms: [{ name: "Piece", code: "PC", description: "stocking" }], hierarchy: {},
+    dimensions: { width: { value: 4, uom: "IN", description: "4 in" }, thickness: { value: 0.02, uom: "IN", description: "" }, variations: [{ size: "10 ft", conversionFactor: 1, type: "Length", length: { value: 10, uom: "FT", uomCode: "FT", description: "10 ft" } }] } },
+  "OLDITEM1": { itemDescription: "Old shingle inactive", status: "Inactive", uoms: [{ name: "Bundle", code: "BD", description: "stocking" }], hierarchy: {} }
 };
+export const PAIR_A = { ship: "2010466-2", branch: "1234", shipName: "Zeta Roofing", branchName: "Tampa" };
+export const PAIR_B = { ship: "2010466-2", branch: "340", shipName: "Zeta Roofing", branchName: "Orem" };
+export const PAIR_C = { ship: "2010999-1", branch: "55", shipName: "Zeta Siding", branchName: "Provo" };
 
-export const SCHEMA_EXTRA = "CREATE TABLE gm_leads (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, cliente TEXT, address TEXT, city TEXT, estado TEXT, telefone TEXT, email TEXT, estimate_sent_at TEXT, commission_review_json TEXT);" +
+export const SCHEMA_EXTRA = "CREATE TABLE gm_leads (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, cliente TEXT, addr_access TEXT, address TEXT, city TEXT, estado TEXT, telefone TEXT, email TEXT, estimate_sent_at TEXT, commission_review_json TEXT);" +
   "CREATE TABLE gm_jobs (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, lead_id TEXT, obra TEXT, job_name TEXT, addr_street TEXT, addr_city TEXT, addr_state TEXT, addr_zip TEXT);" +
   "CREATE TABLE gm_config (client_id TEXT PRIMARY KEY, servicos_json TEXT, updated_at TEXT);";
 
@@ -81,8 +97,17 @@ export function makeWorld(opts, getUser) {
   if (opts.columns !== false) { run(sqlOf("migrations/abc_price_list.sql")); }
   if (opts.measured !== false) { run(sqlOf("migrations/measured_materials.sql")); }
   if (opts.drafts !== false) { run(sqlOf("migrations/abc_order_drafts.sql")); }
+  if (opts.branches !== false && opts.drafts !== false && opts.columns !== false) { run(sqlOf("migrations/abc_branches_and_delivery.sql")); }
   d.raw.prepare("INSERT INTO clients (id, name, language) VALUES ('c1', 'Zeta Roofing', 'en'), ('c2', 'Omega Roofing', 'pt')").run();
-  const abc = { calls: [], prices: {}, priceBatches: [], orders: [], down: false, orderFail: null, onPrice: null };
+  const abc = { calls: [], prices: {}, priceBatches: [], orders: [], down: false, orderFail: null, onPrice: null,
+    // branch -> item numbers that branch carries (Search Item Availability); a branch not listed carries nothing
+    carried: { "1234": Object.keys(CATALOG), "340": Object.keys(CATALOG), "55": Object.keys(CATALOG) },
+    pairPrices: {}, availFail: null, availPageSize: 50, searchHonorsBranch: false, searchTotal: null, availCalls: [], searchCalls: [], getItemCalls: [],
+    accounts: [
+      { number: "2010466-2", name: "Zeta Roofing", branches: [{ number: "1234", name: "Tampa" }, { number: "340", name: "Orem" }] },
+      { number: "2010999-1", name: "Zeta Siding", branches: [{ number: "55", name: "Provo" }] },
+      { number: "2010777-9", name: "No branches", branches: [] }
+    ] };
   abc.prices["02GASTZ3WW"] = { uom: "BD", price: 41.5 };
   abc.prices["PAVER6X9"] = { uom: "PL", price: 380 };
   abc.prices["EACH0001"] = { uom: "EA", price: 12.5 };
@@ -102,18 +127,45 @@ export function makeWorld(opts, getUser) {
     if (bearer !== ACCESS) { return J({ message: "Unauthorized" }, 401); }
     const p = u.pathname;
     let m = /^\/api\/product\/v1\/items\/([\w-]+)$/.exec(p);
-    if (m && method === "GET") { return CATALOG[m[1]] ? J(Object.assign({ itemNumber: m[1] }, CATALOG[m[1]])) : J({ message: "not found" }, 404); }
+    if (m && method === "GET") { abc.getItemCalls.push(m[1]); return CATALOG[m[1]] ? J(Object.assign({ itemNumber: m[1] }, CATALOG[m[1]])) : J({ message: "not found" }, 404); }
     if (p === "/api/pricing/v2/prices" && method === "POST") {
       if (json.lines.length > 50) { return J({ message: "too many lines" }, 400); }
       if (!json.requestId) { return J({ message: "required key requestId not found" }, 400); }
       abc.priceBatches.push(json);
       if (abc.onPrice) { abc.onPrice(json); }
       return J({ lines: json.lines.map((l) => {
-        const t = abc.prices[l.itemNumber] || { err: true };
+        const pp = abc.pairPrices[json.shipToNumber + "|" + json.branchNumber];
+        const t = (pp && pp[l.itemNumber]) || abc.prices[l.itemNumber] || { err: true };
         if (t.err) { return { id: l.id, itemNumber: l.itemNumber, quantity: l.quantity, uom: l.uom || "EA", unitPrice: 0, status: { code: "Error", message: "Cannot price item" } }; }
         return { id: l.id, itemNumber: l.itemNumber, quantity: l.quantity, uom: t.uom, unitPrice: t.price, status: { code: "OK", message: "Priced Successfully" } };
       }) });
     }
+    if (p === "/api/product/v1/search/items" && method === "POST") {
+      abc.searchCalls.push(json);
+      const want = (key) => { const f = json.filters.find((x) => x.key === key); return f ? f.values : null; };
+      const desc = want("itemDescription"), num = want("itemNumber"), br = want("branchNumber");
+      let hits = Object.keys(CATALOG).filter((n) => (desc ? CATALOG[n].itemDescription.toLowerCase().indexOf(String(desc[0]).toLowerCase()) !== -1 : (num ? n.toLowerCase().indexOf(String(num[0]).toLowerCase()) !== -1 : false)));
+      if (abc.searchHonorsBranch && br) { hits = hits.filter((n) => (abc.carried[br[0]] || []).indexOf(n) !== -1); }
+      const per = json.pagination.itemsPerPage;
+      const total = abc.searchTotal === null ? hits.length : abc.searchTotal;
+      return J({ pagination: { itemsPerPage: per, pageNumber: 1, totalPages: Math.ceil(total / per), totalItems: total },
+        items: hits.slice(0, per).map((n) => Object.assign({ itemNumber: n }, CATALOG[n])) });
+    }
+    if (p === "/api/product/v1/search/availability/items" && method === "POST") {
+      abc.availCalls.push(json);
+      if (abc.availFail) { const f = typeof abc.availFail === "function" ? abc.availFail(json) : abc.availFail; if (f) { return J({ message: "availability failed" }, f === true ? 500 : f); } }
+      const items = (json.filters.find((x) => x.key === "itemNumber") || { values: [] }).values;
+      const brs = (json.filters.find((x) => x.key === "branchNumber") || { values: [] }).values;
+      const all = [];
+      brs.forEach((b) => items.forEach((n) => { if ((abc.carried[b] || []).indexOf(n) !== -1) { all.push({ branchNumber: Number(b), itemNumber: n, size: "", conversionFactor: 1, length: null, type: "", isDimensional: !!(CATALOG[n] && CATALOG[n].isDimensional) }); } }));
+      const per = Math.min(json.pagination.itemsPerPage, abc.availPageSize), pg = json.pagination.pageNumber;
+      return J({ pagination: { itemsPerPage: per, pageNumber: pg, totalPages: Math.max(1, Math.ceil(all.length / per)), totalItems: all.length }, availability: all.slice((pg - 1) * per, pg * per) });
+    }
+    if (p === "/api/account/v1/search/accounts" && method === "POST") {
+      return J({ pagination: { itemsPerPage: 50, pageNumber: 1, totalPages: 1, totalItems: abc.accounts.length }, shipTos: abc.accounts.map((a) => ({ number: a.number, name: a.name, address: {}, branches: a.branches })) });
+    }
+    let sm = /^\/api\/account\/v1\/shiptos\/([\w-]+)$/.exec(p);
+    if (sm && method === "GET") { const a = abc.accounts.find((x) => x.number === sm[1]); return a ? J({ shipTo: { number: a.number, name: a.name, branches: a.branches } }) : J({ message: "not found" }, 404); }
     if (p === "/api/order/v2/orders" && method === "POST") {
       abc.orders.push(json[0]);
       if (abc.orderFail) {
@@ -159,4 +211,11 @@ export function reader(seen) {
     try { data = JSON.parse(text); } catch (e) { data = null; }
     return { status: res.status, text: text, data: data };
   };
+}
+
+// Several accounts and branches for the business c1: the first is the default (the connection row holds it).
+export function seedPairs(w, pairs) {
+  pairs = pairs || [PAIR_A, PAIR_B];
+  pairs.forEach((p, i) => w.d.raw.prepare("INSERT INTO gm_abc_branches (id, client_id, ship_to_number, branch_number, ship_to_name, branch_name, is_default, created_by) VALUES (?, 'c1', ?, ?, ?, ?, ?, 'test')")
+    .run("bk" + i + "-" + p.branch, p.ship, p.branch, p.shipName, p.branchName, i === 0 ? 1 : 0));
 }

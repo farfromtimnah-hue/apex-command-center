@@ -15,12 +15,15 @@ const read = reader(null);
 const world = (o) => makeWorld(o, () => user);
 
 // ── seed: Price list rows, a job, an accepted estimate and a signed contract ──
+// 2026-11-16: ABC's own description is required on every order line (F6); every Price list row below carries one.
+const future = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
 function seedPricing(w) {
   addRow(w, { id: "p-paver", item: "Paver 6x9 Charcoal", unit: "sq ft", abc: "PAVER6X9", abcUnit: "PL", apexUnit: "sq ft", conv: 100, abcCost: 3.8, extra: 10, extraSource: "standard" });
   addRow(w, { id: "p-boot", item: "Pipe boot each", unit: "each", abc: "EACH0001", abcUnit: "EA", apexUnit: "each", abcCost: 12.5 });
   addRow(w, { id: "p-shingle", item: "GAF Timberline HD", unit: "bundle", abc: "02GASTZ3WW", abcUnit: "BD", apexUnit: "bundle", abcCost: 41.5, extra: 5, extraSource: "item" });
   addRow(w, { id: "p-noconv", item: "Mystery roll", unit: "sq ft", abc: "NOCONV01", abcUnit: "RL", apexUnit: null, abcCost: null });
   addRow(w, { id: "p-labor", item: "Labor", unit: "hora" });
+  w.d.raw.exec("UPDATE gm_pricing SET abc_description = 'ABC ' || item WHERE abc_item_number IS NOT NULL");
 }
 function seedWorld(w) {
   seedPricing(w);
@@ -49,7 +52,7 @@ const sendDraft = async (w, did, prices) => (await read(await w.F.handlePostGmAb
 const GOOD_LOC = { name: "Warehouse", line1: "5 Yard Rd", city: "Tampa", state: "FL", postal: "33610" };
 const pricesOf = (g) => Object.fromEntries(g.data.lines.filter((l) => !l.removed).map((l) => [l.id, l.unit_price]));
 async function ready(w, did, over) {
-  const body = Object.assign({ delivery_service: "OTG", delivery_to: "job", delivery_date: "2026-11-20", contact_name: "Zeta Roofing LLC", contact_email: "office@zeta.example", contact_phone: "8135550100" }, over || {});
+  const body = Object.assign({ delivery_service: "OTG", delivery_to: "job", delivery_date: future(10), contact_name: "Zeta Owner", contact_email: "office@zeta.example", contact_phone: "8135550100", delivery_contact_name: "Sam Lee", delivery_contact_phone: "8135550111" }, over || {});
   return putDraft(w, did, body);
 }
 async function openAndPrice(w, did) {
@@ -216,7 +219,7 @@ await check("send-one-order", async () => {
   r = await sendDraft(w, did, pricesOf(g));
   ok(r.status === 200 && /^CONF-/.test(r.data.confirmation_number) && r.data.status === "sent", "sent: a confirmation number comes back (" + JSON.stringify(r.data).slice(0, 100) + ")");
   const o = w.abc.orders[0];
-  ok(w.abc.orders.length === 1 && o.deliveryService === "OTG" && o.dates.deliveryRequestedFor === "2026-11-20" && o.shipTo.address.line1 === "1 Oak St" && o.lines.length === 3, "ONE order, the chosen delivery type and date, the job address, 3 lines (the line with no quantity was removed)");
+  ok(w.abc.orders.length === 1 && o.deliveryService === "OTG" && o.dates.deliveryRequestedFor === future(10) && o.shipTo.address.line1 === "1 Oak St" && o.lines.length === 3, "ONE order, the chosen delivery type and date, the job address, 3 lines (the line with no quantity was removed)");
   ok(o.lines.find((l) => l.itemNumber === "PAVER6X9").orderedQty.value === 1 && o.lines.find((l) => l.itemNumber === "PAVER6X9").unitPrice.value === 380, "quantities and prices as reviewed");
   ok(o.purchaseOrder === draftsOf(w)[0].order_ref && o.requestId === o.purchaseOrder && o.purchaseOrder.length <= 16, "purchase order and request id are the draft's number");
   const row = draftsOf(w)[0];
@@ -235,17 +238,21 @@ await check("blank-date-and-order-input", async () => {
   const w = world(); seedWorld(w); await seedConn(w); user = OWNER;
   const { did } = await oneDraft(w);
   const g = await openAndPrice(w, did);
+  // CHANGED ON PURPOSE (2026-11-16, ABC feedback F5): a blank date used to be sent without a date. Now a draft needs a real date
+  // or an explicit TBD, so a blank date is REFUSED (the old rule only holds while the migration is missing, see test-abc-branches.mjs).
   await ready(w, did, { delivery_date: "" });
   const r = await sendDraft(w, did, pricesOf(g));
-  ok(r.status === 200 && w.abc.orders[0].dates === undefined, "a blank date is sent without a date: the branch decides");
+  ok(r.status === 400 && w.abc.orders.length === 0 && r.data.missing.indexOf("delivery_date") !== -1, "a blank date with no TBD is refused and named: nothing sent");
   const conn = { ship_to_number: "2010466-2", branch_number: "1234" };
-  const base = () => ({ order_ref: "AP-1", ship_to: "2010466-2", branch: "1234", delivery_service: "COM", job_name: "J", address: { line1: "1 St", city: "Tampa", state: "FL", postal: "33610" },
-    contact: { name: "N", email: "a@b.co", phone: "8135550100" }, lines: [{ item_number: "EACH0001", description: "d", quantity: 1, uom: "EA", unit_price: 1 }] });
-  ok(w.F.abcOrderInput(base(), conn) !== null && w.F.abcOrderInput(Object.assign(base(), { delivery_date: "" }), conn) !== null, "the order input accepts no date");
-  ok(w.F.abcOrderInput(Object.assign(base(), { delivery_date: "2026-02-30" }), conn) === null && w.F.abcOrderInput(Object.assign(base(), { delivery_date: "11/20/2026" }), conn) === null, "a date that is typed must still be a real YYYY-MM-DD date");
+  const v2 = { v2: true, names: [] };
+  const base = () => ({ order_ref: "AP-1", ship_to: "2010466-2", branch: "1234", delivery_service: "COM", job_name: "J", delivery_date: future(5), address: { line1: "1 St", city: "Tampa", state: "FL", postal: "33610" },
+    contact: { name: "N", email: "a@b.co", phone: "8135550100" }, delivery_contact: { name: "Sam Lee", phone: "8135550111" }, lines: [{ item_number: "EACH0001", description: "d", abc_description: "ABC pipe boot", quantity: 1, uom: "EA", unit_price: 1 }] });
+  ok(w.F.abcOrderInput(base(), conn, v2) !== null && w.F.abcOrderInput(Object.assign(base(), { delivery_date: "" }), conn, v2) === null, "the order input needs a date: a blank one is refused");
+  ok(w.F.abcOrderInput(Object.assign(base(), { delivery_date: "", delivery_date_tbd: 1 }), conn, v2) !== null, "...unless the owner chose TBD");
+  ok(w.F.abcOrderInput(Object.assign(base(), { delivery_date: "2026-02-30" }), conn, v2) === null && w.F.abcOrderInput(Object.assign(base(), { delivery_date: "11/20/2026" }), conn, v2) === null, "a date that is typed must still be a real YYYY-MM-DD date");
   const noService = base(); delete noService.delivery_service;
-  ok(w.F.abcOrderInput(noService, conn) === null, "every other check stays: delivery service");
-  ok(w.F.abcOrderInput(Object.assign(base(), { order_ref: "has space" }), conn) === null && w.F.abcOrderInput(Object.assign(base(), { branch: "9999" }), conn) === null, "every other check stays: reference and branch");
+  ok(w.F.abcOrderInput(noService, conn, v2) === null, "every other check stays: delivery service");
+  ok(w.F.abcOrderInput(Object.assign(base(), { order_ref: "has space" }), conn, v2) === null && w.F.abcOrderInput(Object.assign(base(), { branch: "9999" }), conn, v2) === null, "every other check stays: reference and branch");
 });
 
 await check("price-change-needs-confirm", async () => {
@@ -341,7 +348,7 @@ await check("batch-B-one-place-separate-and-combined", async () => {
   const b2 = await oneDraft(w2, [["p-paver", 150, "sq ft"], ["p-boot", 2, "each"]]);
   const g1 = await openAndPrice(w2, a2.did), g2 = await openAndPrice(w2, b2.did);
   const prices = { PAVER6X9: 380, EACH0001: 12.5 };
-  const body = (extra) => Object.assign({ draft_ids: [a2.did, b2.did], mode: "combined", delivery_service: "OTG", delivery_date: "", location: GOOD_LOC, contact: { name: "Zeta", email: "office@zeta.example", phone: "8135550100" }, order_ref: "AP-COMBO1", prices: prices }, extra || {});
+  const body = (extra) => Object.assign({ draft_ids: [a2.did, b2.did], mode: "combined", delivery_service: "OTG", delivery_date: future(8), location: GOOD_LOC, contact: { name: "Zeta", email: "office@zeta.example", phone: "8135550100" }, delivery_contact: { name: "Sam Lee", phone: "8135550111" }, order_ref: "AP-COMBO1", prices: prices }, extra || {});
   let r = await read(await w2.F.handlePostGmAbcDraftsCombine("c1", post("/x", body({ delivery_service: "" })), w2.env));
   ok(r.status === 400 && w2.abc.orders.length === 0, "a combined order with no delivery type is refused, nothing sent");
   r = await read(await w2.F.handlePostGmAbcDraftsCombine("c1", post("/x", body({ prices: { PAVER6X9: 1, EACH0001: 12.5 } })), w2.env));
@@ -350,7 +357,7 @@ await check("batch-B-one-place-separate-and-combined", async () => {
   ok(r.status === 200 && w2.abc.orders.length === 1, "ONE COMBINED ORDER: one call to ABC (" + r.status + " " + JSON.stringify(r.data).slice(0, 120) + ")");
   const o = w2.abc.orders[0];
   ok(o.purchaseOrder === "AP-COMBO1" && o.lines.length === 2 && o.lines.find((l) => l.itemNumber === "PAVER6X9").orderedQty.value === 3 && o.lines.find((l) => l.itemNumber === "EACH0001").orderedQty.value === 5, "lines merged by ABC item number: 1 + 2 pallets = 3, 3 + 2 = 5, one purchase order");
-  ok(o.dates === undefined && o.shipTo.name === "Warehouse" && o.shipTo.address.line1 === "5 Yard Rd", "blank date left out; the one place is the ship to");
+  ok(o.dates.deliveryRequestedFor === future(8) && o.shipTo.name === "Warehouse" && o.shipTo.address.line1 === "5 Yard Rd", "the date is sent (changed on purpose: it is required now); the one place is the ship to");
   ok(draftsOf(w2).every((d) => d.status === "combined" && d.combined_into === "AP-COMBO1" && /^CONF-/.test(d.abc_confirmation)), "every included draft shows: combined into order AP-COMBO1 with the confirmation");
   ok(w2.d.q("SELECT * FROM gm_abc_delivery_locations WHERE client_id = 'c1'").length === 1, "the location typed in the form was saved once");
   r = await read(await w2.F.handlePostGmAbcDraftsCombine("c1", post("/x", body({ order_ref: "AP-COMBO2" })), w2.env));
@@ -360,7 +367,7 @@ await check("batch-B-one-place-separate-and-combined", async () => {
   const a3 = await oneDraft(w3, [["p-paver", 72, "sq ft"]]), b3 = await oneDraft(w3, [["p-paver", 72, "sq ft"]]);
   await openAndPrice(w3, a3.did);
   w3.abc.orderFail = { status: 400, message: "Branch cannot deliver on that day" };
-  r = await read(await w3.F.handlePostGmAbcDraftsCombine("c1", post("/x", { draft_ids: [a3.did, b3.did], mode: "combined", delivery_service: "OTG", delivery_date: "", location: GOOD_LOC, contact: { name: "Z", email: "o@z.example", phone: "8135550100" }, order_ref: "AP-C3", prices: { PAVER6X9: 380 } }), w3.env));
+  r = await read(await w3.F.handlePostGmAbcDraftsCombine("c1", post("/x", { draft_ids: [a3.did, b3.did], mode: "combined", delivery_service: "OTG", delivery_date: future(8), location: GOOD_LOC, contact: { name: "Z", email: "o@z.example", phone: "8135550100" }, delivery_contact: { name: "Sam Lee", phone: "8135550111" }, order_ref: "AP-C3", prices: { PAVER6X9: 380 } }), w3.env));
   ok(r.status === 422 && draftsOf(w3).every((d) => d.status === "draft" && d.combined_into === ""), "a refused combined order puts every draft back and says why");
 });
 

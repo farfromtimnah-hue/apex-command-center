@@ -23,12 +23,14 @@ const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientA
   "abcSettings", "abcClientAllowed", "abcTablesReady", "abcNotAvailable", "abcOwnerGuard", "abcRedirectUri", "abcWebhookUrl",
   "abcB64url", "abcPkcePair", "abcSha256Hex", "abcFetch", "abcApi", "abcErrTransient", "abcTokenCall", "abcAuthorizeUrl", "abcBack",
   "abcStateUse", "abcFlagReconnect", "abcAccessToken", "abcStatusPayload", "abcWebhookRegister", "abcWebhookRemove",
-  "abcPriceInput", "abcOrderInput", "abcOrderBody", "abcPlaceOrder", "abcValidDate", "abcText", "abcOwnerStart", "abcRefreshToken", "abcServerError", "abcUpstreamError", "abcCron",
+  "abcPriceInput", "abcOrderInput", "abcOrderBody", "abcPlaceOrder", "abcValidDate", "abcText", "abcOwnerStart", "abcRefreshToken", "abcServerError", "abcUpstreamError",
+  // 2026-11-16 branches (the new tables are not in this world, so every one of them answers "not ready" and the old behavior runs)
+  "abcBranchColumnsReady", "abcMap", "abcPairKey", "abcPairOut", "abcPairArg", "abcPairIn", "abcPairs", "abcApplyPair", "abcWriteBranchRow", "abcBusinessNames", "abcNameKey", "abcAvailCall", "abcAvailability", "abcPairInfo", "abcSearchForPair", "abcAuthLike", "abcCron",
   "handleGetGmAbcStatus", "handlePostGmAbcConnect", "handleGetAbcCallback", "handlePostGmAbcDisconnect", "handleGetGmAbcAccounts",
   "handlePostGmAbcAccount", "handlePostGmAbcPrice", "handlePostGmAbcOrder", "handleGetGmAbcOrders", "handlePostAbcWebhook",
   "handleGetAbcSandboxPing", "clientRequestAllowed", "sellerRequestAllowed"].filter(hasFn);
 const VARS = ["DEFAULT_ORIGIN", "CORS_HEADERS", "GM_ACTOR_KEY_RE", "GM_HIDDEN_ACTORS", "TOKEN_SEAL_PREFIX", "ABC", "ABC_NA_PT", "ABC_NA_EN",
-  "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "ABC_REFRESHING", "ABC_SHIPTO_RE", "ABC_BRANCH_RE", "ABC_ITEM_RE", "ABC_UOM_RE"].filter(function (v) { try { varSrc(v); return true; } catch (e) { return false; } });
+  "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "ABC_REFRESHING", "ABC_BRANCH_READY", "ABC_EMAIL_RE", "ABC_SHIPTO_RE", "ABC_BRANCH_RE", "ABC_ITEM_RE", "ABC_UOM_RE"].filter(function (v) { try { varSrc(v); return true; } catch (e) { return false; } });
 
 const CLIENT_ID = "abc-client-id-123";
 const SECRET = "abc-client-secret-ccc333";

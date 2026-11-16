@@ -44770,7 +44770,7 @@ async function handlePostPublicContractSecondSign(token, request, env) {
 async function contractJobParties(env, clientId, jobId) {
     var out = { subs: [], suppliers: [], updated_at: null };
     try {
-        out.subs = (await env.DB.prepare("SELECT s.*, js.created_at AS assigned_at FROM gm_job_subcontractors js JOIN gm_subcontractors s ON s.id = js.subcontractor_id WHERE js.client_id = ? AND js.job_id = ? AND js.removed_at IS NULL ORDER BY s.name").bind(clientId, jobId).all()).results || [];
+        out.subs = (await env.DB.prepare("SELECT s.*, js.assigned_at AS assigned_at FROM gm_job_subcontractors js JOIN gm_subcontractors s ON s.id = js.subcontractor_id WHERE js.client_id = ? AND js.job_id = ? AND js.removed_at IS NULL ORDER BY s.name").bind(clientId, jobId).all()).results || [];
     } catch (e1) { console.error("job subcontractors for the state list", e1 && e1.message); }
     try {
         out.suppliers = (await env.DB.prepare("SELECT * FROM gm_job_suppliers WHERE client_id = ? AND job_id = ? AND removed_at IS NULL ORDER BY name").bind(clientId, jobId).all()).results || [];

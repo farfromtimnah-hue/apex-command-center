@@ -181,7 +181,7 @@ for (const lang of ["en", "pt"]) {
 // ══ 2026-11-16: names, phone, questions, conflict screen, Replace, orders without a contract ══
 const NEWF = ["gmBrLabel", "gmBrAcct", "gmBrPhone", "gmBrPhoneDigits", "gmBrAddrOk", "gmBrAskLocal", "gmBrSig", "gmBrActiveLines", "gmBrAskNeed", "gmBrAskGroups", "gmBrAskGroup", "gmBrSyncState", "gmBrAskTitle", "gmBrAskInput", "gmBrAskBody", "gmBrAskHtml",
   "gmBrFixOk", "gmBrFixText", "gmBrConflictHtml", "gmBrRepPickHtml", "gmBrRepChoose", "gmBrConflictMove", "gmBrFixUndo", "gmBrRepOpen", "gmBrRepSearch", "gmBrConflictPaint", "gmBrDraftMove", "gmMatField", "gmMatAddrFields", "gmMatSavedListHtml", "gmMatCalloutHtml",
-  "gmBrDateHtml", "gmBrBarHtml", "gmBrBarInner", "gmBrCardPairsHtml", "gmBrTabsHtml", "gmBrOtherLine", "gmBrCardsHtml", "gmBrSheetTopHtml", "gmBrPlLinesHtml", "gmConReasonText", "gmMatDraftNumber", "gmMatEstimateSendBtnHtml", "gmMatEstimateCheckBtnHtml", "gmMatNewReady", "gmMatNewPicked", "gmMatNewRender", "gmMatServiceName", "gmMatIsoDate", "gmMatUsDate", "gmBrTodayIso", "gmBrMoney", "gmBrKey", "gmBrPairs", "gmBrStatus", "gmBrMulti", "gmBrReady", "gmBrFind", "gmBrDefault", "gmBrShort", "gmBrName"];
+  "gmBrDateHtml", "gmBrBarHtml", "gmBrBarInner", "gmBrCardPairsHtml", "gmBrTabsHtml", "gmBrOtherLine", "gmBrCardsHtml", "gmBrSheetTopHtml", "gmBrPairOfFind", "gmBrPlLinesHtml", "gmConReasonText", "gmMatDraftNumber", "gmMatEstimateSendBtnHtml", "gmMatEstimateCheckBtnHtml", "gmMatNewReady", "gmMatNewPicked", "gmMatNewRender", "gmMatServiceName", "gmMatIsoDate", "gmMatUsDate", "gmBrTodayIso", "gmBrMoney", "gmBrKey", "gmBrPairs", "gmBrStatus", "gmBrMulti", "gmBrReady", "gmBrFind", "gmBrDefault", "gmBrShort", "gmBrName"];
 function uiWorld(lang, extra) {
   const calls = [];
   const w = world(lang, Object.assign({ gmBrContactsLoad: () => {}, gmApi: (path, opt) => { calls.push({ path, opt }); return new Promise(() => {}); }, gmMatDraftRender: () => { w.__drawn = (w.__drawn || 0) + 1; }, gmMatBatchRender: () => {}, gmToast: () => {},
@@ -209,6 +209,46 @@ vm.runInContext(fn("gmBrNamesEnsure"), nm);
 nm.gmBrNamesEnsure(); await new Promise((r) => setTimeout(r, 20));
 ok(nm.gmAbcPlStatus.pairs[0].branch_name === "Orem" && nm.gmAbcPlStatus.pairs[0].ship_to_name === "Zeta Roofing" && nm.gmBr.namesAsked === true, "empty names are asked from ABC once per page load and filled");
 nm.gmBrNamesEnsure(); ok(nm.gmBr.namesAsked === true, "and it is not asked twice");
+
+// ── one branch name, everywhere (2026-11-16): the same string for the same pair, on every screen ──
+{
+  const NAMED = { ship_to: "S1", branch: "340", ship_to_name: "Zeta Roofing", branch_name: "Orem", is_default: true };
+  const BARE = { ship_to: "S1", branch: "340", ship_to_name: "", branch_name: "", is_default: true };
+  const surfaces = (lang, pair, other) => {
+    const w = uiWorld(lang);
+    w.gmAbcPlStatus = { available: true, connected: true, branches_ready: true, pairs: [pair, Object.assign({}, other, { is_default: false })] };
+    const m = { id: "d1", ready: true, multi: true, busy: false, view: "edit", form: { lines: {} }, cmp: null, data: { pairs: [pair, Object.assign({}, other, { is_default: false })], draft: { ship_to_number: "S1", branch_number: "340", missing: [] }, lines: [{ id: "l1", description: "Shingle", uom: "BD", quantity: 1 }] } };
+    w.gmMatDraft = m;
+    const cmpData = { pairs: [Object.assign({ reason_code: "", carried_count: 1, line_count: 1, complete: true, total: 1, lines: [] }, pair)], recommended: null };
+    m.cf = { cur: Object.assign({ lines: [] }, other), other: Object.assign({ lines: [{ line_id: "l1", item_number: "A", carried: false, price: 5 }] }, pair), fix: {}, pick: null };
+    return {
+      title: w.gmBrPairNameIn(m, w.gmBrDraftPair(m)),
+      section: w.gmBrBranchSectionHtml(m),
+      tabs: w.gmBrTabsHtml("S1|340", "f", false, ""),
+      other: w.gmBrOtherLine(Object.assign({ carried: true, price: 1, uom: "EA" }, pair)),
+      compare: w.gmBrCardsHtml(cmpData, "", "x"),
+      conflict: w.gmBrConflictHtml(m),
+      card: w.gmBrCardPairsHtml({ pairs: [pair] }),
+      sheet: w.gmBrSheetTopHtml({ pair: { ship_to: "S1", branch: "340" } }),
+      label: w.gmBrLabel(pair)
+    };
+  };
+  const OTHER = { ship_to: "S1", branch: "1234", ship_to_name: "Zeta Roofing", branch_name: "Tampa" };
+  for (const [lang, named, bare] of [["en", "Orem (340)", "Branch 340"], ["pt", "Orem (340)", "Filial 340"]]) {
+    const a = surfaces(lang, NAMED, OTHER), b = surfaces(lang, BARE, OTHER);
+    const names = Object.keys(a).filter((k) => k !== "label");
+    ok(names.every((k) => a[k].indexOf(named) !== -1), lang + ": a known name shows as " + named + " on the order title, the branch section, tabs, available line, Compare, conflict screen and Settings card (missing: " + names.filter((k) => a[k].indexOf(named) === -1).join(",") + ")");
+    ok(["title", "section", "tabs", "other", "compare", "conflict", "card"].every((k) => b[k].indexOf(bare) !== -1) && a.label === named && b.label === bare, lang + ": an unknown name shows as " + bare + " on those same screens, and the label is the same one string");
+  }
+  // the order screen's own list can lag behind the status read: the name that is known anywhere is the one shown
+  const lag = uiWorld("en");
+  lag.gmAbcPlStatus = { available: true, connected: true, branches_ready: true, pairs: [NAMED] };
+  const lm = { data: { pairs: [BARE], draft: { missing: [] } } };
+  ok(lag.gmBrPairNameIn(lm, { ship_to: "S1", branch: "340" }) === "Orem (340)", "an order screen whose own pair list has no name still shows the name the account list knows (never two strings for one pair)");
+  ok(uiWorld("en").gmBrPairNameIn({ data: { pairs: [], draft: {} } }, { ship_to: "S1", branch: "340" }) === "Branch 340", "a pair nobody knows is Branch number");
+  const rawUse = (src.match(/\.branch_name/g) || []).length;
+  ok(/function gmBrLabel/.test(src) && !/escHtml\([^)]*\.branch_name/.test(src) && !/escHtml\([^)]*\.ship_to_name/.test(src), "no screen draws a raw name; every one goes through gmBrLabel (" + rawUse + " other mentions are data handling)");
+}
 // phone
 ok(uen.gmBrPhone("5550100222") === "(555) 010-0222" && uen.gmBrPhone("15550100222") === "(555) 010-0222" && uen.gmBrPhone("(555) 010-0222") === "(555) 010-0222" && uen.gmBrPhone("12345") === "12345" && uen.gmBrPhone(null) === "", "a phone shows as (555) 010-0222; anything else is shown as typed");
 ok(uen.gmBrPhoneDigits("(555) 010-0222") === "5550100222" && uen.gmBrPhoneDigits("+1 555 010 0222") === "5550100222", "and it is saved as digits only");

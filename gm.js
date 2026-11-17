@@ -7665,9 +7665,16 @@ function gmMatDraftSave(then) {
   }).catch(function(e) { m.busy = false; m.err = e.message; gmMatDraftRender(); console.error("draft save: " + e.message); });
 }
 function gmMatDraftSaveBtn() { gmMatDraftSave(function() { gmToast(gmT("Salvo.", "Saved.")); }); }
+// What the discard question says depends on where the order came from: a contract, an accepted estimate, or no document at all.
+function gmMatDiscardWords(m) {
+  var k = m && m.data && m.data.draft ? m.data.draft.source_kind : "";
+  if (k === "manual") { return gmT("Este pedido sai da lista e não é enviado.", "This order leaves the list and is not sent."); }
+  if (k === "estimate") { return gmT("O pedido de material deste orçamento sai da lista e não é enviado.", "This estimate's materials order leaves the list and is not sent."); }
+  return gmT("O pedido de material deste contrato sai da lista e não é enviado.", "This contract's materials order leaves the list and is not sent.");
+}
 function gmMatDiscardAsk() {
   gmAsk({
-    message: gmT("Descartar este pedido?\n\nO pedido de material deste contrato sai da lista e não é enviado.", "Discard this order?\n\nThis contract's materials order leaves the list and is not sent."),
+    message: gmT("Descartar este pedido?", "Discard this order?") + "\n\n" + gmMatDiscardWords(gmMatDraft),
     yes: gmT("Sim, descartar", "Yes, discard"), keep: gmT("Manter", "Keep it"),
     onYes: function() {
       var m = gmMatDraft; if (!m) { return; }
@@ -8621,7 +8628,13 @@ function gmBrDraftPair(m) {
   var df = pairs.filter(function(p) { return p.is_default; })[0] || pairs[0];
   return df ? { ship_to: df.ship_to, branch: df.branch } : null;
 }
-function gmBrPairNameIn(m, p) { var hit = null; ((m.data && m.data.pairs) || []).forEach(function(x) { if (p && x.ship_to === p.ship_to && x.branch === p.branch) { hit = x; } }); return hit ? gmBrName(hit) : (p ? gmBrLabel({ branch: p.branch }) : ""); }
+// The pair's name on an order screen: the order's own pair list, or the account list when that one has no name yet (one string per pair).
+function gmBrPairNameIn(m, p) {
+  var hit = null; ((m.data && m.data.pairs) || []).forEach(function(x) { if (p && x.ship_to === p.ship_to && x.branch === p.branch) { hit = x; } });
+  var st = p ? gmBrFind(p.ship_to, p.branch) : null;
+  if ((!hit || !hit.branch_name) && st && st.branch_name) { hit = st; }
+  return hit ? gmBrName(hit) : (p ? gmBrLabel({ branch: p.branch }) : "");
+}
 function gmBrCmpLoad(m) {
   if (!m || m.cmpLoading) { return; }
   m.cmpLoading = true; m.cmpErr = "";

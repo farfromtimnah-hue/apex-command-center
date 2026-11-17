@@ -26,7 +26,7 @@ const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientA
   "abcPriceInput", "abcOrderInput", "abcOrderBody", "abcPlaceOrder", "abcValidDate", "abcText", "abcOwnerStart", "abcRefreshToken", "abcServerError", "abcUpstreamError",
   // 2026-11-16 branches (the new tables are not in this world, so every one of them answers "not ready" and the old behavior runs)
   "abcBranchColumnsReady", "abcMap", "abcPairKey", "abcPairOut", "abcPairArg", "abcPairIn", "abcPairs", "abcApplyPair", "abcWriteBranchRow", "abcBusinessNames", "abcNameKey", "abcAvailCall", "abcAvailability", "abcPairInfo", "abcSearchForPair", "abcAuthLike", "abcCron",
-  "handleGetGmAbcStatus", "handlePostGmAbcConnect", "handleGetAbcCallback", "handlePostGmAbcDisconnect", "handleGetGmAbcAccounts",
+  "handleGetGmAbcStatus", "handlePostGmAbcConnect", "handleGetAbcCallback", "handlePostGmAbcDisconnect", "handleGetGmAbcAccounts", "abcFetchAccounts",
   "handlePostGmAbcAccount", "handlePostGmAbcPrice", "handlePostGmAbcOrder", "handleGetGmAbcOrders", "handlePostAbcWebhook",
   "handleGetAbcSandboxPing", "clientRequestAllowed", "sellerRequestAllowed"].filter(hasFn);
 const VARS = ["DEFAULT_ORIGIN", "CORS_HEADERS", "GM_ACTOR_KEY_RE", "GM_HIDDEN_ACTORS", "TOKEN_SEAL_PREFIX", "ABC", "ABC_NA_PT", "ABC_NA_EN",

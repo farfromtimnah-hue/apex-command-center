@@ -42110,7 +42110,7 @@ async function abcRefreshToken(env, cfg, clientId, conn, token) {
 }
 
 // What the card shows. Never a token, and never ABC's own error text.
-async function abcStatusPayload(env, clientId) {
+async function abcStatusPayload(env, clientId, fillNames) {
     var cfg = abcSettings(env);
     if (!cfg.ready || !abcClientAllowed(cfg, clientId) || !(await abcTablesReady(env))) { return { available: false, connected: false }; }
     var conn = await env.DB.prepare("SELECT connected_by, connected_at, needs_reconnect, ship_to_number, branch_number, environment FROM gm_abc_connections WHERE client_id = ?").bind(clientId).first();
@@ -42126,6 +42126,7 @@ async function abcStatusPayload(env, clientId) {
     // Branches and delivery (2026-11-16): the business's accounts and branches. Numbers, names and the default flag only.
     if (await abcBranchColumnsReady(env)) {
         var pairs = await abcPairs(env, clientId);
+        if (fillNames) { await abcEnsurePairNames(env, clientId, pairs); }
         out.pairs = pairs.map(abcPairOut);
         out.pair_count = pairs.length;
         out.branches_ready = true;
@@ -42198,6 +42199,48 @@ async function abcFillPairNames(env, clientId, accounts) {
     }
 }
 
+// The status read (an owner opening a screen) fills the names of the business's pairs that have none, ONCE: from ABC's own list of
+// accounts, one call for the whole business, then one UPDATE per changed pair (a default pair that was never stored is stored).
+// A name ABC does not give is saved as the number, so the screens say "Branch <number>" and the business is not asked about again.
+// Nothing is asked when no name is empty. A failed try is not repeated for ten minutes (per Worker instance). Never throws.
+var ABC_NAMES_LAST = {};
+async function abcEnsurePairNames(env, clientId, pairs) {
+    try {
+        var todo = (pairs || []).slice(0, 20).filter(function(p) { return !p.ship_to_name || !p.branch_name; });
+        if (!todo.length) { return; }
+        var cfg = abcSettings(env);
+        if (!cfg.ready) { return; }
+        var last = ABC_NAMES_LAST[clientId];
+        if (last && Date.now() - last < 600000) { return; }
+        ABC_NAMES_LAST[clientId] = Date.now();
+        var conn = await env.DB.prepare("SELECT needs_reconnect, environment FROM gm_abc_connections WHERE client_id = ?").bind(clientId).first();
+        if (!conn || conn.needs_reconnect || conn.environment !== cfg.mode) { return; }
+        var token = await abcAccessToken(env, cfg, clientId);
+        var accounts = await abcFetchAccounts(cfg, token, [token, cfg.client_secret]);
+        for (var i = 0; i < todo.length; i++) {
+            var p = todo[i];
+            var acct = accounts.filter(function(x) { return x.ship_to === p.ship_to_number; })[0];
+            if (!acct) { continue; }
+            var br = acct.branches.filter(function(x) { return x.number === p.branch_number; })[0];
+            var sn = p.ship_to_name || acct.name;
+            var bn = p.branch_name || (br ? br.name : "");
+            if (sn === p.ship_to_name && bn === p.branch_name) { continue; }
+            if (p.synthetic) {
+                // The connection's own pair was never stored: one statement stores it, as the default (no other pair exists).
+                await env.DB.prepare("INSERT INTO gm_abc_branches (id, client_id, ship_to_number, branch_number, ship_to_name, branch_name, address_text, is_default, created_by) VALUES (?, ?, ?, ?, ?, ?, '', 1, 'names') " +
+                    "ON CONFLICT (client_id, ship_to_number, branch_number) DO UPDATE SET ship_to_name = excluded.ship_to_name, branch_name = excluded.branch_name")
+                    .bind(crypto.randomUUID(), clientId, p.ship_to_number, p.branch_number, sn, bn).run();
+            } else {
+                await env.DB.prepare("UPDATE gm_abc_branches SET ship_to_name = ?, branch_name = ? WHERE client_id = ? AND ship_to_number = ? AND branch_number = ?")
+                    .bind(sn, bn, clientId, p.ship_to_number, p.branch_number).run();
+            }
+            p.ship_to_name = sn; p.branch_name = bn; p.synthetic = false;
+        }
+    } catch (e) {
+        console.error("abc pair names failed: " + String(e && e.message || "").slice(0, 200));
+    }
+}
+
 function abcServerError(label, e, secrets) {
     console.error("abc " + label + " failed: " + metaScrub(e && e.message, secrets));
     var resp = jsonErr2("Algo deu errado na conexão com a ABC Supply. Tente de novo.", "Something went wrong with the ABC Supply connection. Try again.", 500);
@@ -42236,7 +42279,7 @@ async function handleGetGmAbcStatus(id, request, env) {
         var user = await authenticate(request, env);
         var block = abcOwnerGuard(user, id);
         if (block) { return block; }
-        return jsonOk(await abcStatusPayload(env, id));
+        return jsonOk(await abcStatusPayload(env, id, true));
     } catch (e) {
         return abcServerError("status", e);
     }
@@ -42340,6 +42383,30 @@ var ABC_BRANCH_RE = /^[0-9A-Za-z-]{1,10}$/;
 var ABC_ITEM_RE = /^[A-Za-z0-9._-]{1,30}$/;
 var ABC_UOM_RE = /^[A-Za-z]{1,4}$/;
 
+// ABC's own list of this contractor's ship-to accounts with their branches: [{ ship_to, name, address, branches: [{ number, name }] }].
+// A name ABC does not give is the number itself (the screens read a name equal to its number as "no name").
+async function abcFetchAccounts(cfg, token, secrets) {
+    var data = await abcApi(cfg, token, "POST", "/api/account/v1/search/accounts", {
+        filters: [{ key: "accountType", condition: "equals", values: ["Ship-To"], joinCondition: null }],
+        pagination: { itemsPerPage: 50, pageNumber: 1 }
+    }, secrets);
+    var out = [];
+    ((data && data.shipTos) || []).forEach(function(s) {
+        var num = s && typeof s.number === "string" ? s.number : "";
+        if (!ABC_SHIPTO_RE.test(num)) { return; }
+        var branches = [];
+        (Array.isArray(s.branches) ? s.branches : []).forEach(function(b) {
+            var bn = b && typeof b === "object" ? b.number : b;
+            if (typeof bn === "string" && ABC_BRANCH_RE.test(bn)) { branches.push({ number: bn, name: gmStr(b && b.name, 100) || bn }); }
+        });
+        if (!branches.length) { return; }
+        var ad = s.address || {};
+        out.push({ ship_to: num, name: gmStr(s.name, 100) || num,
+            address: { line1: gmStr(ad.line1, 100), city: gmStr(ad.city, 60), state: gmStr(ad.state, 10), postal: gmStr(ad.postal, 12) }, branches: branches });
+    });
+    return out;
+}
+
 // GET /api/clients/:id/gm/abc/accounts   (owner only)
 // The contractor's own ABC ship-to accounts with their branches.
 async function handleGetGmAbcAccounts(id, request, env) {
@@ -42349,24 +42416,7 @@ async function handleGetGmAbcAccounts(id, request, env) {
         if (a.err) { return a.err; }
         var token = await abcAccessToken(env, a.cfg, id);
         secrets = [token, a.cfg.client_secret];
-        var data = await abcApi(a.cfg, token, "POST", "/api/account/v1/search/accounts", {
-            filters: [{ key: "accountType", condition: "equals", values: ["Ship-To"], joinCondition: null }],
-            pagination: { itemsPerPage: 50, pageNumber: 1 }
-        }, secrets);
-        var out = [];
-        ((data && data.shipTos) || []).forEach(function(s) {
-            var num = s && typeof s.number === "string" ? s.number : "";
-            if (!ABC_SHIPTO_RE.test(num)) { return; }
-            var branches = [];
-            (Array.isArray(s.branches) ? s.branches : []).forEach(function(b) {
-                var bn = b && typeof b === "object" ? b.number : b;
-                if (typeof bn === "string" && ABC_BRANCH_RE.test(bn)) { branches.push({ number: bn, name: gmStr(b && b.name, 100) || bn }); }
-            });
-            if (!branches.length) { return; }
-            var ad = s.address || {};
-            out.push({ ship_to: num, name: gmStr(s.name, 100) || num,
-                address: { line1: gmStr(ad.line1, 100), city: gmStr(ad.city, 60), state: gmStr(ad.state, 10), postal: gmStr(ad.postal, 12) }, branches: branches });
-        });
+        var out = await abcFetchAccounts(a.cfg, token, secrets);
         if (await abcBranchColumnsReady(env)) { await abcFillPairNames(env, id, out.map(function(x) { return { number: x.ship_to, name: x.name, branches: x.branches }; })); }
         return jsonOk({ accounts: out });
     } catch (e) {
@@ -42405,7 +42455,7 @@ async function handlePostGmAbcAccount(id, request, env) {
         await env.DB.prepare("UPDATE gm_abc_connections SET ship_to_number = ?, branch_number = ?, updated_at = datetime('now') WHERE client_id = ?").bind(shipTo, branch, id).run();
         if (await abcBranchColumnsReady(env)) {
             var picked = ((info && info.shipTo && info.shipTo.branches) || []).filter(function(b) { return b && b.number === branch; })[0] || {};
-            await abcWriteBranchRow(env, id, { ship_to_number: shipTo, branch_number: branch, ship_to_name: gmStr(info.shipTo.name, 100) || "", branch_name: gmStr(picked.name, 100) || "" }, true, actorName(a.user));
+            await abcWriteBranchRow(env, id, { ship_to_number: shipTo, branch_number: branch, ship_to_name: gmStr(info.shipTo.name, 100) || shipTo, branch_name: gmStr(picked.name, 100) || branch }, true, actorName(a.user));
         }
         var hook = await abcWebhookRegister(env, a.cfg, id, token);
         return jsonOk({ saved: true, webhook: hook });
@@ -45166,7 +45216,7 @@ async function abcPairs(env, clientId) {
     if (!rows.length) {
         var conn = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(clientId).first();
         if (conn && conn.ship_to_number && conn.branch_number) {
-            rows = [{ ship_to_number: conn.ship_to_number, branch_number: conn.branch_number, ship_to_name: "", branch_name: "", address_text: "", is_default: 1 }];
+            rows = [{ ship_to_number: conn.ship_to_number, branch_number: conn.branch_number, ship_to_name: "", branch_name: "", address_text: "", is_default: 1, synthetic: true }];
         }
     }
     return rows;
@@ -45206,7 +45256,7 @@ async function abcWriteBranchRow(env, clientId, p, makeDefault, actor) {
     if (makeDefault) { stmts.push(env.DB.prepare("UPDATE gm_abc_branches SET is_default = 0 WHERE client_id = ? AND NOT (ship_to_number = ? AND branch_number = ?)").bind(clientId, p.ship_to_number, p.branch_number)); }
     stmts.push(env.DB.prepare(
         "INSERT INTO gm_abc_branches (id, client_id, ship_to_number, branch_number, ship_to_name, branch_name, address_text, is_default, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?) " +
-        "ON CONFLICT (client_id, ship_to_number, branch_number) DO UPDATE SET ship_to_name = excluded.ship_to_name, branch_name = excluded.branch_name, address_text = CASE WHEN excluded.address_text <> '' THEN excluded.address_text ELSE address_text END"
+        "ON CONFLICT (client_id, ship_to_number, branch_number) DO UPDATE SET ship_to_name = CASE WHEN excluded.ship_to_name <> '' AND excluded.ship_to_name <> excluded.ship_to_number THEN excluded.ship_to_name WHEN ship_to_name <> '' THEN ship_to_name ELSE excluded.ship_to_name END, branch_name = CASE WHEN excluded.branch_name <> '' AND excluded.branch_name <> excluded.branch_number THEN excluded.branch_name WHEN branch_name <> '' THEN branch_name ELSE excluded.branch_name END, address_text = CASE WHEN excluded.address_text <> '' THEN excluded.address_text ELSE address_text END"
     ).bind(crypto.randomUUID(), clientId, p.ship_to_number, p.branch_number, p.ship_to_name || "", p.branch_name || "", addr, String(actor || "").slice(0, 80)));
     if (makeDefault) { stmts.push(env.DB.prepare("UPDATE gm_abc_branches SET is_default = 1 WHERE client_id = ? AND ship_to_number = ? AND branch_number = ?").bind(clientId, p.ship_to_number, p.branch_number)); }
     await env.DB.batch(stmts);
@@ -45286,7 +45336,7 @@ async function handlePostGmAbcBranch(id, request, env) {
         var ad = info.shipTo.address || {};
         var addressText = [gmStr(ad.line1, 100), gmStr(ad.city, 60), gmStr(ad.state, 10), gmStr(ad.postal, 12)].filter(function(x) { return !!x; }).join(", ");
         var first = rows.length === 0;
-        await abcWriteBranchRow(env, id, { ship_to_number: pa.ship_to_number, branch_number: pa.branch_number, ship_to_name: gmStr(info.shipTo.name, 100) || "", branch_name: gmStr(listed.name, 100) || "", address_text: addressText }, first && !already, actorName(a.user));
+        await abcWriteBranchRow(env, id, { ship_to_number: pa.ship_to_number, branch_number: pa.branch_number, ship_to_name: gmStr(info.shipTo.name, 100) || pa.ship_to_number, branch_name: gmStr(listed.name, 100) || pa.branch_number, address_text: addressText }, first && !already, actorName(a.user));
         // Any pair of this business under the same account that still has no names gets them now (an owner action).
         await abcFillPairNames(env, id, [{ number: pa.ship_to_number, name: gmStr(info.shipTo.name, 100) || "", branches: list.map(function(x) { return { number: x.number, name: gmStr(x.name, 100) || "" }; }) }]);
         // The first pair of a business is its default, and the connection row always holds the default pair.

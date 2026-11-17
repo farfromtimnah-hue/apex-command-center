@@ -8907,7 +8907,7 @@ function gmBrSyncNow(m) {
 // Draws again only when the question changed (so a box being typed in keeps its focus); else only the bar.
 function gmBrAskRepaint(m) {
   if (gmMatDraft !== m || m.view !== "edit") { return; }
-  if (gmBrAskGroup(m) !== m.askGroup || gmBrAskGroups(gmBrAskNeed(m)).length === 0 !== !!m.askReady) { gmMatDraftRender(); return; }
+  if (!gmBrHold() && (gmBrAskGroup(m) !== m.askGroup || gmBrAskGroups(gmBrAskNeed(m)).length === 0 !== !!m.askReady)) { gmMatDraftRender(); return; }
   gmBrBarPaint();
 }
 function gmBrAskTitle(g) {
@@ -9055,11 +9055,21 @@ function gmBrBarInner(groups, state) {
   if (state === "err") { return '<p class="gm-bar-need" id="gmBrNeed">' + escHtml(gmT("Não deu para conferir. Toque em Revisar e enviar.", "Could not check. Tap Review and send.")) + '</p>'; }
   return '<p class="gm-bar-ok" id="gmBrNeed">' + escHtml(gmT("Pronto para enviar", "Ready to send")) + '</p>';
 }
+// True while the screen must not be redrawn: the cursor is in a box of the delivery section (a redraw would remove the
+// box and lose the rest of what is being typed), or a finger is down on a button (a redraw would replace the button under it).
+function gmBrHold() {
+  if (gmBrTapping) { return true; }
+  var a = document.activeElement, box = document.getElementById("gmMatDeliveryBox");
+  if (a === gmBrLeft) { return false; }
+  return !!(a && box && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && box.contains(a));
+}
 function gmBrBarPaint() {
   var m = gmMatDraft, el = document.getElementById("gmBrNeed");
   if (!m || !m.form || m.view !== "edit" || !el || !m.ready) { return; }
-  // The question changed: draw the screen again, so only the next question shows.
-  if (gmBrAskGroup(m) !== (m.askGroup || "")) { gmMatDraftRender(); return; }
+  var hold = gmBrHold();
+  // The question changed: draw the screen again, so only the next question shows. Never while someone is typing in a box:
+  // it waits until the box is left (focusout) and then comes back here.
+  if (!hold && gmBrAskGroup(m) !== (m.askGroup || "")) { gmMatDraftRender(); return; }
   // Nothing left that the screen can see: save it and ask the Worker, once per change.
   if (!gmBrAskLocal(m).length && gmBrSig(m) !== m.sigChecked && m.sync !== "pending") { gmBrSyncSoon(m); }
   var groups = gmBrAskGroups(gmBrAskNeed(m)), st = gmBrSyncState(m);
@@ -9067,14 +9077,43 @@ function gmBrBarPaint() {
   if (tmp.firstChild) { el.replaceWith(tmp.firstChild); }
   var btn = document.getElementById("gmBrReviewBtn"); if (btn) { btn.disabled = !!m.busy || !(!groups.length && (st === "ok" || st === "err")); }
   var q = document.getElementById("gmBrAsk");
-  if (q && !groups.length) { var re = document.createElement("div"); re.innerHTML = gmBrAskHtml(m); if (re.firstChild) { q.replaceWith(re.firstChild); } }
+  if (q && !groups.length && !hold) { var re = document.createElement("div"); re.innerHTML = gmBrAskHtml(m); if (re.firstChild) { q.replaceWith(re.firstChild); } }
 }
 var gmBrBarWired = false;
+var gmBrTapping = false, gmBrTapTimer = null, gmBrLeft = null;   // gmBrLeft: the box being left (some engines still call it the active one during focusout)
+// A finger or pointer is up again (or the tap never finished): redraw if something waited, once.
+function gmBrTapEnd() {
+  if (gmBrTapTimer) { clearTimeout(gmBrTapTimer); gmBrTapTimer = null; }
+  if (!gmBrTapping) { return; }
+  gmBrTapping = false;
+  setTimeout(gmBrBarPaint, 0);
+}
 function gmBrBarWire() {
   if (gmBrBarWired) { return; }
   gmBrBarWired = true;
   document.addEventListener("input", function() { gmBrBarPaint(); }, false);
   document.addEventListener("change", function() { gmBrBarPaint(); }, false);
+  // Leaving a box is when a waiting redraw (the block collapsing to Ready to send) runs. Going straight to another box does not redraw: that box keeps the cursor.
+  document.addEventListener("focusout", function(e) {
+    var to = e && e.relatedTarget;
+    if (to && /^(INPUT|TEXTAREA|SELECT)$/.test(to.tagName)) { return; }
+    gmBrLeft = e && e.target;
+    try { gmBrBarPaint(); } finally { gmBrLeft = null; }
+  }, false);
+  // A tap on a button: the blur and change that come before the click must not replace the button under the finger.
+  var down = function(e) {
+    var t = e && e.target;
+    if (t && typeof t.closest === "function" && t.closest("button")) {
+      gmBrTapping = true;
+      if (gmBrTapTimer) { clearTimeout(gmBrTapTimer); }
+      gmBrTapTimer = setTimeout(gmBrTapEnd, 1500);
+    }
+  };
+  document.addEventListener("pointerdown", down, true);
+  document.addEventListener("mousedown", down, true);
+  document.addEventListener("click", function() { gmBrTapEnd(); }, false);
+  document.addEventListener("pointercancel", function() { gmBrTapEnd(); }, false);
+  document.addEventListener("touchcancel", function() { gmBrTapEnd(); }, false);
 }
 
 

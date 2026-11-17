@@ -21,7 +21,7 @@ const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientA
   "tokenEncKey", "tokenIsSealed", "tokenSeal", "tokenOpen", "bytesToB64", "b64ToBytes", "gmStr", "gmEstNewToken",
   "metaHex", "metaHmac", "metaSafeEqual", "metaScrub", "metaPlain", "publicReadRateLimited",
   "abcSettings", "abcClientAllowed", "abcTablesReady", "abcNotAvailable", "abcOwnerGuard", "abcRedirectUri", "abcWebhookUrl",
-  "abcB64url", "abcPkcePair", "abcSha256Hex", "abcFetch", "abcApi", "abcErrTransient", "abcTokenCall", "abcAuthorizeUrl", "abcBack",
+  "abcB64url", "abcPkcePair", "abcSha256Hex", "abcFetch", "abcApi", "abcReadOnlyCall", "abcErrTransient", "abcTokenCall", "abcAuthorizeUrl", "abcBack",
   "abcStateUse", "abcFlagReconnect", "abcAccessToken", "abcStatusPayload", "abcWebhookRegister", "abcWebhookRemove",
   "abcPriceInput", "abcOrderInput", "abcOrderBody", "abcPlaceOrder", "abcValidDate", "abcText", "abcOwnerStart", "abcRefreshToken", "abcServerError", "abcUpstreamError",
   // 2026-11-16 branches (the new tables are not in this world, so every one of them answers "not ready" and the old behavior runs)

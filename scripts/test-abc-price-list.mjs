@@ -24,7 +24,7 @@ const abcPlSql = (() => { try { return sqlOf("migrations/abc_price_list.sql"); }
 const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientAccess", "sessionSellerName", "actorName",
   "tokenEncKey", "tokenIsSealed", "tokenSeal", "tokenOpen", "bytesToB64", "b64ToBytes", "gmStr", "gmNum", "gmEstNewToken",
   "metaHex", "metaHmac", "metaSafeEqual", "metaScrub", "metaPlain", "publicReadRateLimited",
-  "abcSettings", "abcClientAllowed", "abcTablesReady", "abcNotAvailable", "abcOwnerGuard", "abcB64url", "abcSha256Hex", "abcFetch", "abcApi",
+  "abcSettings", "abcClientAllowed", "abcTablesReady", "abcNotAvailable", "abcOwnerGuard", "abcB64url", "abcSha256Hex", "abcFetch", "abcApi", "abcReadOnlyCall",
   "abcErrTransient", "abcTokenCall", "abcFlagReconnect", "abcAccessToken", "abcRefreshToken", "abcText", "abcOwnerStart", "abcServerError", "abcUpstreamError",
   // 2026-11-16 branches (the new tables are not in this world, so every one of them answers "not ready" and the old behavior runs)
   "abcBranchColumnsReady", "abcMap", "abcPairKey", "abcPairOut", "abcPairArg", "abcPairIn", "abcPairs", "abcApplyPair", "abcWriteBranchRow", "abcBusinessNames", "abcNameKey", "abcAvailCall", "abcAvailability", "abcPairInfo", "abcSearchForPair", "abcAuthLike",

@@ -41955,10 +41955,25 @@ async function abcFetch(cfg, method, url, opts, secrets) {
 }
 
 // A call to the API with a contractor's (or the client credentials) token.
-function abcApi(cfg, token, method, path, json, secrets) {
+// Only calls that read and change nothing at ABC may be asked again by themselves. Placing an order never is.
+function abcReadOnlyCall(method, path) {
+    if (method === "GET") { return true; }
+    return method === "POST" && (path === "/api/product/v1/search/items" || path === "/api/product/v1/search/availability/items" || path === "/api/pricing/v2/prices");
+}
+async function abcApi(cfg, token, method, path, json, secrets) {
     var opts = { headers: { "Authorization": "Bearer " + token, "Accept": "application/json" } };
     if (json !== undefined && json !== null) { opts.json = json; }
-    return abcFetch(cfg, method, cfg.api_origin + path, opts, secrets);
+    var url = cfg.api_origin + path;
+    try {
+        return await abcFetch(cfg, method, url, opts, secrets);
+    } catch (e) {
+        // One more try after a short pause when ABC itself failed (not reached, or a 5xx). A 4xx, a 429 and any sign in problem are answered at once.
+        if (abcReadOnlyCall(method, path) && e && (e.abcStatus === 0 || e.abcStatus >= 500)) {
+            await new Promise(function(r) { setTimeout(r, 700); });
+            return await abcFetch(cfg, method, url, opts, secrets);
+        }
+        throw e;
+    }
 }
 
 // true = worth trying again by itself; false = the owner has to sign in again.

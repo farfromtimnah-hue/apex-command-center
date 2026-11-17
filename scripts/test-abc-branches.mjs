@@ -753,6 +753,15 @@ await check("availability-filter-has-no-joinCondition", async () => {
   ok(body.indexOf("joinCondition") === -1, "the availability request body carries no joinCondition (live ABC returns zero items with it)");
 });
 
+// 2026-11-16: ABC read calls get one automatic retry; placing an order must never be retried by itself.
+await check("auto-retry-never-for-orders", async () => {
+  const w = world();
+  ok(w.F.abcReadOnlyCall("GET", "/api/anything") === true, "a GET may be retried once");
+  ok(w.F.abcReadOnlyCall("POST", "/api/product/v1/search/items") === true, "item search may be retried once");
+  ok(w.F.abcReadOnlyCall("POST", "/api/pricing/v2/prices") === true, "price items may be retried once");
+  ok(w.F.abcReadOnlyCall("POST", "/api/order/v2/orders") === false, "placing an order is NEVER retried by itself");
+});
+
 await check("no-secret-and-no-guess", async () => {
   ok(!seen.some((t) => HIDDEN.some((sct) => t.indexOf(sct) !== -1)), "no answer carried a secret");
   ok(!logged.some((l) => HIDDEN.some((sct) => l.indexOf(sct) !== -1)), "no log carried a secret");

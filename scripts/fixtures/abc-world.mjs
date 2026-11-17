@@ -32,7 +32,7 @@ export const put = send("PUT");
 const FN_BASE = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientAccess", "sessionSellerName", "actorName",
   "tokenEncKey", "tokenIsSealed", "tokenSeal", "tokenOpen", "bytesToB64", "b64ToBytes", "gmStr", "gmNum", "gmEstNewToken",
   "metaHex", "metaHmac", "metaSafeEqual", "metaScrub", "metaPlain", "publicReadRateLimited",
-  "abcSettings", "abcClientAllowed", "abcTablesReady", "abcNotAvailable", "abcOwnerGuard", "abcB64url", "abcSha256Hex", "abcFetch", "abcApi",
+  "abcSettings", "abcClientAllowed", "abcTablesReady", "abcNotAvailable", "abcOwnerGuard", "abcB64url", "abcSha256Hex", "abcFetch", "abcApi", "abcReadOnlyCall",
   "abcErrTransient", "abcTokenCall", "abcFlagReconnect", "abcAccessToken", "abcRefreshToken", "abcText", "abcOwnerStart", "abcServerError", "abcUpstreamError",
   "gmPricingParseBreakdown", "gmCostLineType", "gmPricingComputed", "gmPricingCachedTotal", "gmPricingKind", "gmOwnedRow", "gmServiceFromPricingStmt", "gmRunUpdate",
   "gmPricingFields", "handleGetGmPricing", "handlePutGmPricing", "handlePostGmPricing",

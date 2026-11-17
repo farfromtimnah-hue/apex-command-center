@@ -66933,6 +66933,10 @@ async function checkIntegrationHealth(env) {
 // method + normalized path + status -- one kind of failing route is one
 // report, no matter how many requests hit it while it's broken.
 function apexErrorSignature(method, path, status) {
+    // 2026-11-16: one ABC Supply hiccup fails many routes (search, prices, send) within minutes and
+    // each used to send its own text and push. Every 502 on an ABC route now shares ONE signature, so
+    // ONE alert goes out per hour for the whole ABC outage.
+    if (Number(status) === 502 && String(path).indexOf("/gm/abc/") !== -1) { return "ABC upstream 502"; }
     return method + " " + path + " " + status;
 }
 

@@ -276,5 +276,15 @@ function response5xx(status, errorMsg) {
   ok(pushes.length === 2, "the same plain alert in the same hour makes no second push");
 }
 
+{
+  // 2026-11-16: one ABC outage fails many routes; they must share one alert per hour.
+  const w = world([], []);
+  const a = w.F.apexErrorSignature("GET", "/api/clients/:id/gm/abc/items", 502);
+  const b = w.F.apexErrorSignature("POST", "/api/clients/:id/gm/abc/drafts/:id/send", 502);
+  ok(a === b, "502 on two different ABC routes share one alert signature");
+  ok(w.F.apexErrorSignature("GET", "/api/clients/:id/gm/leads", 502) !== a, "a 502 outside ABC keeps its own signature");
+  ok(w.F.apexErrorSignature("GET", "/api/clients/:id/gm/abc/items", 500) !== a, "a 500 on an ABC route keeps its own signature");
+}
+
 console.log(fail ? ("\n" + fail + " FAILED") : "\nALL PASS");
 process.exit(fail ? 1 : 0);

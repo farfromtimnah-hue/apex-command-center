@@ -10,11 +10,11 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) fail+
 const FNS = [
   "supportStaffAuthed", "supportStaffAuth", "supportToolLookupClient", "supportRunClaudeTool",
   "supportRateLimited", "supportIncrementDailyCount", "handlePostSupportMessage",
-  "handleGetSupportTickets", "handleGetSupportTicketDetail", "handlePostSupportTicketResolve",
+  "handleGetSupportTickets", "apexTicketEvidenceReady", "handleGetSupportTicketDetail", "handlePostSupportTicketResolve",
   "handlePostSupportTicketUndoResolve", "handlePostSupportTicketsClearResolved", "handleGetSupportOpenCount",
   "supportPageIsPortal", "supportFeatureGuideFor"
 ];
-const VARS = ["SUPPORT_TOOLS", "SUPPORT_FEATURE_GUIDE_STAFF_PT", "SUPPORT_FEATURE_GUIDE_STAFF_EN",
+const VARS = ["APEX_EVIDENCE_STATE", "SUPPORT_TOOLS", "SUPPORT_FEATURE_GUIDE_STAFF_PT", "SUPPORT_FEATURE_GUIDE_STAFF_EN",
   "SUPPORT_FEATURE_GUIDE_PORTAL_PT", "SUPPORT_FEATURE_GUIDE_PORTAL_EN", "SUPPORT_AI_MODEL"];
 const MIGRATIONS = ["migrations/support_tickets.sql"];
 

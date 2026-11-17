@@ -5306,7 +5306,65 @@
 
     // The Support list shows a suggestion from Learn (Aprenda) with a plain label;
     // every other kind keeps its raw word. The caller still escapes the result.
-    function supportKindLabel(kind) {
+    // 2026-11-16: the evidence saved with an automatic error ticket, in plain labeled rows. Collapsed until opened. English only.
+// Developers only: the Worker sends evidence_json to no one else. The Copy button copies the same rows as text.
+function supportEvidenceRows(tk) {
+  var ev = null;
+  try { ev = JSON.parse(tk.evidence_json); } catch (e) { return [["Evidence", String(tk.evidence_json || "")]]; }
+  if (!ev || typeof ev !== "object") { return []; }
+  function js(v) { return v === undefined || v === null ? "" : (typeof v === "string" ? v : JSON.stringify(v)); }
+  var rows = [
+    ["Happened", (tk.occurrences || 1) + " time(s) in this hour"],
+    ["Method and path", js(ev.method) + " " + js(ev.path)], ["Status", js(ev.status)], ["Request id (cf-ray)", js(ev.cf_ray)],
+    ["Worker version", js(ev.worker_version)], ["Time (UTC)", js(ev.time_utc)], ["Time (Eastern)", js(ev.time_eastern)], ["Took (ms)", js(ev.duration_ms)],
+    ["Who (role)", js(ev.role) + (ev.login_role ? " / " + js(ev.login_role) : "")], ["Business id", js(ev.client_id)],
+    ["Browser and device", js(ev.user_agent)], ["Page language", js(ev.language)], ["Query", js(ev.query)],
+    ["Request body", js(ev.request_body)], ["Response sent back", js(ev.response_body)], ["Error", js(ev.error_message)],
+    ["Stack", Array.isArray(ev.stack) ? ev.stack.join("\n") : js(ev.stack)], ["Database tables", Array.isArray(ev.tables) ? ev.tables.join(", ") : ""]
+  ];
+  if (ev.abc) {
+    rows.push(["ABC step", js(ev.abc.step)], ["ABC HTTP status", js(ev.abc.http_status)], ["ABC said", js(ev.abc.said)], ["ABC call", js(ev.abc.call)], ["Fields sent to ABC (names only)", Array.isArray(ev.abc.fields) ? ev.abc.fields.join(", ") : ""]);
+  }
+  if (Array.isArray(ev.repeats) && ev.repeats.length) {
+    rows.push(["Seen again (newest 20)", ev.repeats.map(function(r) { return js(r.time) + " " + js(r.cf_ray) + " " + js(r.role); }).join("\n")]);
+  }
+  return rows.filter(function(r) { return r[1] !== ""; });
+}
+function supportEvidenceBlock(tk) {
+  var rows = supportEvidenceRows(tk);
+  var box = document.createElement("details");
+  box.style.cssText = "margin-top:8px;border:1px solid var(--border);border-radius:8px;padding:8px 12px;";
+  var sum = document.createElement("summary");
+  sum.style.cssText = "cursor:pointer;font-weight:600;";
+  sum.textContent = "Evidence" + ((tk.occurrences || 1) > 1 ? " (" + tk.occurrences + " times)" : "");
+  box.appendChild(sum);
+  var list = document.createElement("div");
+  list.style.cssText = "margin-top:8px;font-size:12px;";
+  rows.forEach(function(r) {
+    var row = document.createElement("div");
+    row.style.cssText = "margin-bottom:6px;";
+    var lab = document.createElement("div");
+    lab.style.cssText = "color:var(--muted);font-size:11px;";
+    lab.textContent = r[0];
+    var val = document.createElement("div");
+    val.style.cssText = "white-space:pre-wrap;word-break:break-word;font-family:monospace;";
+    val.textContent = r[1];
+    row.appendChild(lab); row.appendChild(val); list.appendChild(row);
+  });
+  box.appendChild(list);
+  var copy = document.createElement("button");
+  copy.type = "button"; copy.className = "btn-secondary btn-sm"; copy.textContent = "Copy";
+  copy.onclick = function(ev2) {
+    ev2.stopPropagation();
+    var text = rows.map(function(r) { return r[0] + ": " + r[1]; }).join("\n");
+    var done = function() { copy.textContent = "Copied"; setTimeout(function() { copy.textContent = "Copy"; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done, function() { copy.textContent = "Copy failed"; }); }
+    else { copy.textContent = "Copy not available"; }
+  };
+  box.appendChild(copy);
+  return box;
+}
+function supportKindLabel(kind) {
       if (kind === "suggestion") { return tellUsT("Sugestão", "Suggestion"); }
       return kind;
     }
@@ -5506,6 +5564,7 @@
             "<div style=\"margin-bottom:8px;\"><strong>" + tellUsT("Resumo (EN)", "Summary (EN)") + ":</strong><br>" + escHtml(tk.summary_en || "").replace(/\n/g, "<br>") + "</div>" +
             "<div style=\"margin-bottom:8px;\"><strong>" + tellUsT("Palavras originais", "Original words") + ":</strong><br>" + escHtml(tk.original_words || "").replace(/\n/g, "<br>") + "</div>" +
             (tk.guidance ? "<div style=\"margin-bottom:8px;\"><strong>" + tellUsT("Orientação dada", "Guidance given") + ":</strong><br>" + escHtml(tk.guidance).replace(/\n/g, "<br>") + "</div>" : "");
+          if (tk.evidence_json) { detail.appendChild(supportEvidenceBlock(tk)); }
           headerRow.onclick = function() { detail.hidden = !detail.hidden; };
           card.appendChild(headerRow);
           card.appendChild(detail);

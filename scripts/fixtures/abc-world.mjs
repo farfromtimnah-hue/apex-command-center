@@ -54,13 +54,14 @@ const FN_BASE = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireCli
   "handleGetGmAbcDeliveryContacts", "handlePostGmAbcDeliveryContact", "handlePostGmAbcDeliveryContactRemove",
   "handlePostGmAbcDraftRefreshDescriptions", "abcLenToInches", "abcCoverageHint", "abcCap", "abcItemSafe", "handleGetGmAbcItem", "gmEstimateLinePairs",
   "abcDateOk", "abcTodayUtc",
+  "abcNoContractReady", "abcDraftReadiness", "abcDraftEnsureForEstimate", "abcDraftAdoptEstimateDrafts", "handlePostGmAbcDraftNew", "abcFillPairNames", "abcDraftLeadId", "abcLeadAddress", "abcDraftPendingLocation",
   "handleGetGmAbcAccounts", "handlePostGmAbcAccount", "handlePostGmAbcDisconnect", "abcWebhookRegister", "abcWebhookRemove", "abcStatusPayload", "handleGetGmAbcStatus",
   "gmEstParseOptions", "gmEstWriteOptions", "gmEstOptTotals", "gmCents", "gmEstLineAmountCents", "gmEstParseDiscount", "gmEstOptDiscount", "gmEstOptionTotals", "gmEstDiscountCents",
   "clientRequestAllowed", "sellerRequestAllowed"];
 export const FNS = FN_BASE.filter(hasFn);
 const VARS_ALL = ["DEFAULT_ORIGIN", "CORS_HEADERS", "GM_ACTOR_KEY_RE", "GM_HIDDEN_ACTORS", "TOKEN_SEAL_PREFIX", "ABC", "ABC_NA_PT", "ABC_NA_EN",
   "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "ABC_REFRESHING", "ABC_SHIPTO_RE", "ABC_BRANCH_RE", "ABC_ITEM_RE", "ABC_UOM_RE",
-  "GM_COST_LINE_TYPES", "GM_PRICING_KINDS", "GM_PRICING_SELLER_FIELDS", "ABC_PL_INSERT", "GM_EST_LINE_TYPES", "GM_EST_TIERS", "GM_MATERIAL_FIELDS", "ABC_PO_RE", "ABC_ID_RE", "ABC_STATE_RE", "ABC_ZIP_RE", "ABC_EMAIL_RE", "ABC_BRANCH_READY"];
+  "GM_COST_LINE_TYPES", "GM_PRICING_KINDS", "GM_PRICING_SELLER_FIELDS", "ABC_PL_INSERT", "GM_EST_LINE_TYPES", "GM_EST_TIERS", "GM_MATERIAL_FIELDS", "ABC_PO_RE", "ABC_ID_RE", "ABC_STATE_RE", "ABC_ZIP_RE", "ABC_EMAIL_RE", "ABC_BRANCH_READY", "ABC_NOCON_READY"];
 export const VARS = VARS_ALL.filter(function (v) { try { varSrc(v); return true; } catch (e) { return false; } });
 
 export const CATALOG = {
@@ -98,6 +99,7 @@ export function makeWorld(opts, getUser) {
   if (opts.measured !== false) { run(sqlOf("migrations/measured_materials.sql")); }
   if (opts.drafts !== false) { run(sqlOf("migrations/abc_order_drafts.sql")); }
   if (opts.branches !== false && opts.drafts !== false && opts.columns !== false) { run(sqlOf("migrations/abc_branches_and_delivery.sql")); }
+  if (opts.nocontract !== false && opts.branches !== false && opts.drafts !== false && opts.columns !== false) { run(sqlOf("migrations/abc_orders_without_contract.sql")); }
   d.raw.prepare("INSERT INTO clients (id, name, language) VALUES ('c1', 'Zeta Roofing', 'en'), ('c2', 'Omega Roofing', 'pt')").run();
   const abc = { calls: [], prices: {}, priceBatches: [], orders: [], down: false, orderFail: null, onPrice: null,
     // branch -> item numbers that branch carries (Search Item Availability); a branch not listed carries nothing

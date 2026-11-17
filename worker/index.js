@@ -16737,7 +16737,7 @@ function clientRequestAllowed(path, method, clientId) {
                 // ABC Supply (2026-11-04): connect, disconnect, choose the account, price lines, send an order (owner only).
                 if (gmRest === "abc/connect" || gmRest === "abc/disconnect" || gmRest === "abc/account" || gmRest === "abc/price" || gmRest === "abc/order") { return true; }
                 // ABC Supply price list (2026-11-05): add items, refresh costs, link or unlink one item (owner only).
-                if (gmRest === "material-settings/apply" || gmRest === "abc/drafts/ensure" || gmRest === "abc/drafts/combine" || gmRest === "abc/locations" ||
+                if (gmRest === "material-settings/apply" || gmRest === "abc/drafts/ensure" || gmRest === "abc/drafts/combine" || gmRest === "abc/drafts/new" || gmRest === "abc/locations" ||
                     /^abc\/drafts\/[A-Za-z0-9-]+\/(discard|prices|send|split|refresh-descriptions)$/.test(gmRest) || /^abc\/locations\/[A-Za-z0-9-]+\/archive$/.test(gmRest)) { return true; }
                 // ABC branches, compare, saved on-site contacts (2026-11-16), owner only (the handlers refuse a seller).
                 if (gmRest === "abc/branches" || gmRest === "abc/branches/default" || gmRest === "abc/branches/remove" || gmRest === "abc/branch-prices" || gmRest === "abc/search-other-branches" ||
@@ -33600,7 +33600,14 @@ async function handlePostGmEstimateMarkAccepted(id, estId, request, env) {
         var full = await gmEstLoad(env, id, estId);
         await gmEstApplyToLead(env, id, full, actor, { sending: false, accepting: true });
         if (full && full.public_token) { docPdfAfterFinal(request, env, "estimate", full.public_token); }
-        return jsonOk({ accepted: true });
+        // 2026-11-16: the ABC linked lines of this accepted estimate become a materials order the owner reviews (no contract needed).
+        // It never makes the acceptance fail and never calls ABC.
+        var materials = false;
+        try {
+            var dm = await abcDraftEnsureForEstimate(env, id, estId, actor, (await abcBranchColumnsReady(env)) ? await abcOwnerPersonName(env, user, id) : "");
+            materials = !!(dm && dm.status === "draft");
+        } catch (eMat) { console.error("abc order draft at in person acceptance failed", eMat && eMat.message); }
+        return jsonOk({ accepted: true, materials_order: materials });
     } catch (e) {
         return jsonErr("Error marking accepted: " + e.message, 500);
     }
@@ -33946,6 +33953,9 @@ async function handlePostPublicEstimateAccept(token, request, env) {
                 await gmPromoteLeadCore(env, est.client_id, leadRow, signer, "estimate " + est.number + " accepted online");
             }
         } catch (e3) { console.error("online acceptance: lead close/promote failed", e3 && e3.message); }
+        // 2026-11-16: the ABC linked lines become a materials order draft for the owner (no contract needed). Never fails the acceptance, never calls ABC.
+        try { await abcDraftEnsureForEstimate(env, est.client_id, est.id, "estimate accepted", ""); }
+        catch (eMat2) { console.error("abc order draft at online acceptance failed", eMat2 && eMat2.message); }
         // Send with contract (one link): only when the owner pre-authorized the
         // company signature at sending. Anything that cannot finish stops the
         // chain; the acceptance above stands exactly as it would have.
@@ -34181,18 +34191,25 @@ async function handlePostGmEstimateSignApprove(id, estId, request, env) {
 async function gmChainReason(res) {
     try {
         var d = await res.clone().json();
-        return String(d.error_en || d.error || "refused").slice(0, 400);
+        // English first, then the Portuguese line after a record separator, so the Home card can show the owner's language.
+        var en = String(d.error_en || d.error || "refused").slice(0, 400);
+        var pt = d.error_pt ? String(d.error_pt).slice(0, 400) : "";
+        return pt && pt !== en ? en + "\u001e" + pt : en;
     } catch (e) { return "refused (" + res.status + ")"; }
 }
 
 // The chain stopped: a line on the contract (when there is one) and on the
 // lead, and the owner is told. Never throws.
 async function gmEstChainStopped(env, est, contractId, reason, jobId) {
+    // reason may hold two languages (English, a record separator, Portuguese): the log lines keep the English one,
+    // the Home card keeps both and shows the owner's.
+    var reasonBoth = reason;
+    reason = String(reason === null || reason === undefined ? "" : reason).split("\u001e")[0];
     try {
         if (contractId) { await gmContractEvent(env, est.client_id, contractId, "system", "flow_stopped", { step: "contract", reason: reason }); }
         await gmLogLeadEvents(env, est.client_id, est.lead_id, "system", [{ action: "contract_flow_stopped", field: "contract", old_value: null, new_value: est.number, reason: reason }]);
         await gmRecordHomeownerResponse(env, { client_id: est.client_id, lead_id: est.lead_id, job_id: jobId || null, doc_kind: "estimate", doc_id: est.id,
-            doc_number: est.number + (est.revision > 1 ? "-R" + est.revision : ""), response: "contract_not_ready", reason: reason, customer_name: est.customer_name });
+            doc_number: est.number + (est.revision > 1 ? "-R" + est.revision : ""), response: "contract_not_ready", reason: reasonBoth, customer_name: est.customer_name });
     } catch (e) { console.error("one-link flow: could not record the stop", e && e.message); }
 }
 
@@ -41848,6 +41865,7 @@ var ABC_NA_EN = "Not available yet.";
 var ABC_REFRESHING = {};
 // True once abcBranchColumnsReady has seen every table and column of migrations/abc_branches_and_delivery.sql.
 var ABC_BRANCH_READY = false;
+var ABC_NOCON_READY = false;
 
 // The Worker settings, trimmed. The environment is sandbox unless ABC_ENV says
 // exactly production. ready is false when a secret or the sealing key is missing.
@@ -41967,8 +41985,16 @@ async function abcApi(cfg, token, method, path, json, secrets) {
     try {
         return await abcFetch(cfg, method, url, opts, secrets);
     } catch (e) {
+        // For the error ticket only: which call it was and the NAMES (never the values) of what was sent.
+        try {
+            if (e && typeof e === "object") {
+                var first = Array.isArray(json) ? json[0] : json;
+                e.abcCall = { method: method, path: String(path).split("?")[0].slice(0, 120), fields: first && typeof first === "object" ? Object.keys(first).slice(0, 40) : [] };
+            }
+        } catch (eC) { /* a bonus for the ticket; never break the call */ }
         // One more try after a short pause when ABC itself failed (not reached, or a 5xx). A 4xx, a 429 and any sign in problem are answered at once.
         if (abcReadOnlyCall(method, path) && e && (e.abcStatus === 0 || e.abcStatus >= 500)) {
+            console.log("abc auto-retry after HTTP " + e.abcStatus + " on " + method + " " + path + ": " + metaScrub(e.message, secrets));
             await new Promise(function(r) { setTimeout(r, 700); });
             return await abcFetch(cfg, method, url, opts, secrets);
         }
@@ -42151,19 +42177,45 @@ async function abcWebhookRemove(env, cfg, clientId) {
     await env.DB.prepare("DELETE FROM gm_abc_webhooks WHERE client_id = ?").bind(clientId).run();
 }
 
+// Saves the account and branch NAMES of every pair of the business that has them empty, from ABC's own list of accounts
+// ({ number, name, branches: [{ number, name }] }). One UPDATE per pair, only the empty names, only on an owner action.
+// Never throws: a missing name is a cosmetic problem.
+async function abcFillPairNames(env, clientId, accounts) {
+    try {
+        var rows = (await env.DB.prepare("SELECT ship_to_number, branch_number, ship_to_name, branch_name FROM gm_abc_branches WHERE client_id = ? AND (ship_to_name = '' OR branch_name = '') LIMIT 20").bind(clientId).all()).results || [];
+        for (var i = 0; i < rows.length; i++) {
+            var acct = (accounts || []).filter(function(x) { return x.number === rows[i].ship_to_number || x.ship_to === rows[i].ship_to_number; })[0];
+            if (!acct) { continue; }
+            var br = (acct.branches || []).filter(function(x) { return x.number === rows[i].branch_number; })[0];
+            var sn = rows[i].ship_to_name || (acct.name && acct.name !== acct.number ? acct.name : "");
+            var bn = rows[i].branch_name || (br && br.name && br.name !== br.number ? br.name : "");
+            if (sn === rows[i].ship_to_name && bn === rows[i].branch_name) { continue; }
+            await env.DB.prepare("UPDATE gm_abc_branches SET ship_to_name = ?, branch_name = ? WHERE client_id = ? AND ship_to_number = ? AND branch_number = ?")
+                .bind(sn, bn, clientId, rows[i].ship_to_number, rows[i].branch_number).run();
+        }
+    } catch (e) {
+        console.error("abc pair names failed: " + String(e && e.message || "").slice(0, 200));
+    }
+}
+
 function abcServerError(label, e, secrets) {
     console.error("abc " + label + " failed: " + metaScrub(e && e.message, secrets));
-    return jsonErr2("Algo deu errado na conexão com a ABC Supply. Tente de novo.", "Something went wrong with the ABC Supply connection. Try again.", 500);
+    var resp = jsonErr2("Algo deu errado na conexão com a ABC Supply. Tente de novo.", "Something went wrong with the ABC Supply connection. Try again.", 500);
+    try { APEX_ERROR_EVIDENCE.set(resp, { abc: { step: label, http_status: null, said: metaScrub(e && e.message, secrets).slice(0, 300), call: null }, stack: e && e.stack ? String(e.stack) : "" }); } catch (eE) { /* a bonus for the ticket */ }
+    return resp;
 }
 
 // The ticket (never the person) gets what ABC really answered: the response object is the key, so nothing
 // about it travels in the body or a header the browser can read.
 var APEX_ERROR_DETAIL = new WeakMap();
+// More for the ticket (never for the person): the ABC step, status and exact scrubbed text, the call's field names, the stack.
+var APEX_ERROR_EVIDENCE = new WeakMap();
 function abcUpstreamError(label, e, secrets) {
     var detail = metaScrub(e && e.message, secrets);
     console.error("abc " + label + " failed: " + detail);
     var resp = jsonErr2("A ABC Supply não respondeu como esperado. Tente de novo.", "ABC Supply did not answer as expected. Try again.", 502);
     try { APEX_ERROR_DETAIL.set(resp, "ABC step: " + label + "; ABC HTTP " + (e && e.abcStatus !== undefined ? e.abcStatus : "?") + "; ABC said: " + String(detail).slice(0, 300)); } catch (eD) { /* detail is a bonus; never break the answer */ }
+    try { APEX_ERROR_EVIDENCE.set(resp, { abc: { step: label, http_status: e && e.abcStatus !== undefined ? e.abcStatus : null, said: String(detail).slice(0, 300), call: e && e.abcCall ? e.abcCall : null }, stack: e && e.stack ? String(e.stack) : "" }); } catch (eE) { /* same: a bonus */ }
     return resp;
 }
 
@@ -42315,6 +42367,7 @@ async function handleGetGmAbcAccounts(id, request, env) {
             out.push({ ship_to: num, name: gmStr(s.name, 100) || num,
                 address: { line1: gmStr(ad.line1, 100), city: gmStr(ad.city, 60), state: gmStr(ad.state, 10), postal: gmStr(ad.postal, 12) }, branches: branches });
         });
+        if (await abcBranchColumnsReady(env)) { await abcFillPairNames(env, id, out.map(function(x) { return { number: x.ship_to, name: x.name, branches: x.branches }; })); }
         return jsonOk({ accounts: out });
     } catch (e) {
         if (e && e.abcStatus !== undefined) { return abcUpstreamError("accounts", e, secrets); }
@@ -43832,20 +43885,44 @@ async function abcDraftBusiness(env, clientId) {
     };
 }
 
-// The project's name and address, as the page offers them (editable for one order).
-async function abcDraftJob(env, clientId, jobId) {
+// The lead's address as one line or as parts: { line1, city, state, postal } (parts that cannot be read stay empty).
+// A lead made with the + form keeps its address as ONE line ("12 Main St, Tampa, FL 33602"). Never rewrites the lead.
+async function abcLeadAddress(env, clientId, leadId) {
+    var empty = { line1: "", city: "", state: "", postal: "" };
+    if (!leadId) { return empty; }
+    var row = null;
+    try { row = await env.DB.prepare("SELECT address, city, estado FROM gm_leads WHERE id = ? AND client_id = ?").bind(leadId, clientId).first(); } catch (e) { row = null; }
+    if (!row || !row.address) { return empty; }
+    var whole = abcSplitAddress(row.address);
+    if (whole.city && whole.state && whole.postal) { return whole; }
+    // Street on its own, with the city and state kept in their own lead fields.
+    var st = String(row.estado || "").trim().toUpperCase();
+    var zipMatch = /\b(\d{5}(?:-\d{4})?)\b\s*$/.exec(String(row.address));
+    return { line1: whole.line1, city: String(row.city || "").trim().slice(0, 50), state: ABC_STATE_RE.test(st) ? st : "", postal: zipMatch ? zipMatch[1] : "" };
+}
+
+// The project's name and address, as the page offers them (editable for one order). When the project keeps no
+// structured address, the lead's one-line address is read instead (leadHint: the lead of the estimate or contract).
+async function abcDraftJob(env, clientId, jobId, leadHint) {
     var job = null;
-    try {
-        job = await env.DB.prepare("SELECT job_name, obra, addr_street, addr_city, addr_state, addr_zip FROM gm_jobs WHERE id = ? AND client_id = ?").bind(jobId, clientId).first();
-    } catch (e) {
-        job = await env.DB.prepare("SELECT job_name, obra FROM gm_jobs WHERE id = ? AND client_id = ?").bind(jobId, clientId).first();
+    if (jobId) {
+        try {
+            job = await env.DB.prepare("SELECT job_name, obra, lead_id, addr_street, addr_city, addr_state, addr_zip FROM gm_jobs WHERE id = ? AND client_id = ?").bind(jobId, clientId).first();
+        } catch (e) {
+            try { job = await env.DB.prepare("SELECT job_name, obra, addr_street, addr_city, addr_state, addr_zip FROM gm_jobs WHERE id = ? AND client_id = ?").bind(jobId, clientId).first(); }
+            catch (e2) { job = await env.DB.prepare("SELECT job_name, obra FROM gm_jobs WHERE id = ? AND client_id = ?").bind(jobId, clientId).first(); }
+        }
     }
     job = job || {};
     var st = String(job.addr_state || "").trim().toUpperCase();
-    return {
-        name: String(job.job_name || job.obra || "").trim().slice(0, 80),
-        address: { line1: String(job.addr_street || "").trim().slice(0, 80), city: String(job.addr_city || "").trim().slice(0, 50), state: ABC_STATE_RE.test(st) ? st : "", postal: String(job.addr_zip || "").trim() }
-    };
+    var addr = { line1: String(job.addr_street || "").trim().slice(0, 80), city: String(job.addr_city || "").trim().slice(0, 50), state: ABC_STATE_RE.test(st) ? st : "", postal: String(job.addr_zip || "").trim() };
+    if ((!addr.line1 || !addr.city || !ABC_STATE_RE.test(addr.state) || !ABC_ZIP_RE.test(addr.postal)) && (job.lead_id || leadHint) && (await abcNoContractReady(env))) {
+        var lead = await abcLeadAddress(env, clientId, job.lead_id || leadHint);
+        var merged = { line1: addr.line1 || lead.line1, city: addr.city || lead.city, state: addr.state || lead.state, postal: addr.postal || lead.postal };
+        // The lead's whole address only replaces the project's when it reads as complete; otherwise the known parts are merged.
+        addr = merged;
+    }
+    return { name: String(job.job_name || job.obra || "").trim().slice(0, 80), address: addr };
 }
 
 // The ABC lines of a signed contract's accepted estimates, merged by ABC item
@@ -43949,12 +44026,16 @@ async function abcDraftEnsureForContract(env, clientId, contractId, actor, perso
     var ready = await abcBranchColumnsReady(env);
     var pairs = ready ? await abcPairs(env, clientId) : [];
     var multi = ready && pairs.length > 1;
+    // 2026-11-16: drafts that were made from this contract's accepted estimates (no contract then) are ADOPTED:
+    // they keep their lines and every answer. A sent or discarded estimate draft is never made again.
+    var adoptedEarlier = ready && (await abcNoContractReady(env)) ? await abcDraftAdoptEstimateDrafts(env, clientId, contractId, con) : [];
     var existingAll = (await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE client_id = ? AND contract_id = ? ORDER BY created_at, rowid").bind(clientId, contractId).all()).results || [];
+    existingAll = existingAll.concat(adoptedEarlier);
     // One pair: as before, one draft per contract, and a discarded one is never remade.
     if (!multi && existingAll.length) { return existingAll[0].status === "discarded" ? null : existingAll[0]; }
     var built = await abcDraftBuildLines(env, clientId, con, { ready: ready, pairs: pairs });
     if (!built.lines.length) { return null; }
-    var job = await abcDraftJob(env, clientId, con.job_id);
+    var job = await abcDraftJob(env, clientId, con.job_id, con.lead_id);
     var biz = await abcDraftBusiness(env, clientId);
     // The groups: one per pair (a single group with no pair when the business has one pair).
     var groups = [];
@@ -43976,14 +44057,100 @@ async function abcDraftEnsureForContract(env, clientId, contractId, actor, perso
             })[0];
             if (have) { if (!result && have.status !== "discarded") { result = have; } continue; }
         }
-        var made = await abcDraftInsert(env, clientId, contractId, con, built, grp, job, biz, actor, person, ready);
+        var made = await abcDraftInsert(env, clientId, contractId, con, built, grp, job, biz, actor, person, ready, (await abcNoContractReady(env)) ? { kind: "contract", manual_key: "" } : null);
+        if (made && !result) { result = made; }
+    }
+    return result;
+}
+
+// True once source_kind and manual_key exist on the drafts (migrations/abc_orders_without_contract.sql). Kept once true.
+async function abcNoContractReady(env) {
+    if (ABC_NOCON_READY) { return true; }
+    if (!(await abcBranchColumnsReady(env))) { return false; }
+    try {
+        await env.DB.prepare("SELECT source_kind, manual_key, estimate_id FROM gm_abc_order_drafts LIMIT 1").first();
+        ABC_NOCON_READY = true;
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// The estimate drafts of the estimates a contract covers: every live one gets the contract id (and source kind
+// contract), keeping its lines and answers. The ones that are not live (sent, combined, discarded) are returned so the
+// contract never makes them again. Answers the rows the contract now holds or must respect.
+async function abcDraftAdoptEstimateDrafts(env, clientId, contractId, con) {
+    var ids = [];
+    try { ids = JSON.parse(con.estimate_ids_json || "[]"); } catch (e) { ids = []; }
+    ids = (Array.isArray(ids) ? ids : []).filter(function(x) { return typeof x === "string" && ABC_ID_RE.test(x); }).slice(0, 10);
+    var out = [];
+    for (var i = 0; i < ids.length; i++) {
+        var rows = (await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE client_id = ? AND estimate_id = ? AND source_kind = 'estimate' AND contract_id = '' ORDER BY created_at, rowid").bind(clientId, ids[i]).all()).results || [];
+        for (var j = 0; j < rows.length; j++) {
+            if (rows[j].status === "draft") {
+                try {
+                    await env.DB.prepare("UPDATE gm_abc_order_drafts SET contract_id = ?, source_kind = 'contract', updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status = 'draft' AND contract_id = ''").bind(contractId, rows[j].id, clientId).run();
+                } catch (eA) {
+                    if (String(eA && eA.message || "").indexOf("UNIQUE") === -1) { throw eA; }
+                    out.push(rows[j]);
+                }
+            } else {
+                out.push(rows[j]);
+            }
+        }
+    }
+    return out;
+}
+
+// Makes the draft(s) of an ACCEPTED estimate that has ABC linked lines: one per account and branch pair, once. Never calls
+// ABC. Answers the first live draft row, or null when there is nothing to make (not accepted, no ABC lines, no connection,
+// the business may not use ABC, discarded earlier, the migration not applied). Safe to call again.
+async function abcDraftEnsureForEstimate(env, clientId, estimateId, actor, person) {
+    if (!clientId || !estimateId || !ABC_ID_RE.test(String(estimateId))) { return null; }
+    var cfg = abcSettings(env);
+    if (!cfg.ready || !abcClientAllowed(cfg, clientId) || !(await abcTablesReady(env)) || !(await abcDraftTablesReady(env)) || !(await abcPlColumnsReady(env)) || !(await abcNoContractReady(env))) { return null; }
+    var conn = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(clientId).first();
+    if (!conn || !conn.ship_to_number || !conn.branch_number) { return null; }
+    var est = await env.DB.prepare("SELECT id, client_id, job_id, lead_id, number, revision, status, job_name FROM gm_estimates WHERE id = ? AND client_id = ?").bind(estimateId, clientId).first();
+    if (!est || est.status !== "accepted") { return null; }
+    var pairs = await abcPairs(env, clientId);
+    var multi = pairs.length > 1;
+    // Whatever was ever made from this estimate (an estimate draft, or a contract draft that already holds its lines) counts.
+    var existingAll = (await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE client_id = ? AND estimate_id = ? AND source_kind IN ('estimate', 'contract') ORDER BY created_at, rowid").bind(clientId, estimateId).all()).results || [];
+    if (!multi && existingAll.length) { return existingAll[0].status === "discarded" ? null : existingAll[0]; }
+    var built = await abcDraftBuildLines(env, clientId, { estimate_ids_json: JSON.stringify([estimateId]) }, { ready: true, pairs: pairs });
+    if (!built.lines.length) { return null; }
+    var job = await abcDraftJob(env, clientId, est.job_id, est.lead_id);
+    if (!job.name) { job.name = String(est.job_name || "").trim().slice(0, 80); }
+    var biz = await abcDraftBusiness(env, clientId);
+    var groups = [];
+    built.lines.forEach(function(l) {
+        var k = multi ? abcPairKey(l.ship_to, l.branch) : "";
+        var g = groups.filter(function(x) { return x.key === k; })[0];
+        if (!g) { g = { key: k, ship_to: multi ? l.ship_to : "", branch: multi ? l.branch : "", lines: [] }; groups.push(g); }
+        g.lines.push(l);
+    });
+    var dfltPair = pairs.filter(function(p) { return p.is_default; })[0] || pairs[0];
+    var result = null;
+    for (var gi = 0; gi < groups.length; gi++) {
+        var grp = groups[gi];
+        if (multi) {
+            var have = existingAll.filter(function(d) {
+                var dk = d.ship_to_number && d.branch_number ? abcPairKey(d.ship_to_number, d.branch_number) : abcPairKey(dfltPair.ship_to_number, dfltPair.branch_number);
+                return dk === grp.key;
+            })[0];
+            if (have) { if (!result && have.status !== "discarded") { result = have; } continue; }
+        }
+        var made = await abcDraftInsert(env, clientId, "", { job_id: est.job_id || "" }, built, grp, job, biz, actor, person, true, { kind: "estimate", manual_key: "" });
         if (made && !result) { result = made; }
     }
     return result;
 }
 
 // Writes one draft with its lines (one pair's worth). Answers the row, or null when it lost a race to another writer.
-async function abcDraftInsert(env, clientId, contractId, con, built, grp, job, biz, actor, person, ready) {
+async function abcDraftInsert(env, clientId, contractId, con, built, grp, job, biz, actor, person, ready, srcInfo) {
+    // srcInfo (2026-11-16, only once migrations/abc_orders_without_contract.sql has run): { kind: contract|estimate|manual, manual_key }.
+    srcInfo = srcInfo || null;
     for (var attempt = 0; attempt < 2; attempt++) {
         var did = crypto.randomUUID();
         var ref = await abcDraftPoRef(env, clientId);
@@ -43992,6 +44159,7 @@ async function abcDraftInsert(env, clientId, contractId, con, built, grp, job, b
         var cols = "id, client_id, contract_id, estimate_id, project_id, job_name, order_ref, contact_name, contact_email, contact_phone, created_by";
         var vals = [did, clientId, contractId, built.estimate_id, con.job_id || "", job.name, ref, contactName, biz.email, biz.phone, String(actor || "").slice(0, 80)];
         if (grp.ship_to && grp.branch) { cols += ", ship_to_number, branch_number"; vals.push(grp.ship_to, grp.branch); }
+        if (srcInfo) { cols += ", source_kind, manual_key"; vals.push(srcInfo.kind, srcInfo.manual_key || ""); }
         var ins = env.DB.prepare("INSERT INTO gm_abc_order_drafts (" + cols + ") VALUES (" + vals.map(function() { return "?"; }).join(", ") + ")");
         var stmts = [ins.bind.apply(ins, vals)];
         grp.lines.forEach(function(l, idx) {
@@ -44006,7 +44174,9 @@ async function abcDraftInsert(env, clientId, contractId, con, built, grp, job, b
             return await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE id = ?").bind(did).first();
         } catch (e) {
             if (String(e && e.message || "").indexOf("UNIQUE") === -1) { throw e; }
-            var again = await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE client_id = ? AND contract_id = ? ORDER BY created_at, rowid LIMIT 1").bind(clientId, contractId).first();
+            var again = srcInfo && srcInfo.kind === "estimate"
+                ? await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE client_id = ? AND estimate_id = ? AND source_kind = 'estimate' ORDER BY created_at, rowid LIMIT 1").bind(clientId, built.estimate_id).first()
+                : await env.DB.prepare("SELECT * FROM gm_abc_order_drafts WHERE client_id = ? AND contract_id = ? ORDER BY created_at, rowid LIMIT 1").bind(clientId, contractId).first();
             if (again) { return again.status === "discarded" ? null : again; }
         }
     }
@@ -44064,6 +44234,69 @@ function abcDraftMissing(draft, lines, ship, v2) {
         if (active.some(function(l) { return l.abc_dimensional; })) { m.push("item_length"); }
     }
     return m;
+}
+
+// A new location the owner is typing on the review screen (not saved yet), from the query of the GET: loc_name, loc_line1,
+// loc_city, loc_state, loc_postal. null when nothing (or not a whole location) was typed.
+function abcDraftPendingLocation(url) {
+    try {
+        var q = new URL(url).searchParams;
+        if (!q.get("loc_name")) { return null; }
+        return abcLocationFields({ name: q.get("loc_name"), line1: q.get("loc_line1"), city: q.get("loc_city"), state: q.get("loc_state"), postal: q.get("loc_postal") });
+    } catch (e) { return null; }
+}
+
+// ONE answer to "what would stop Review and Send" (2026-11-16). The list the page shows, and the list the send route
+// checks, are this same list: the page says Ready to send ONLY when it is empty, and the send never refuses with a
+// check that is not in it. Plain keys the page turns into questions. pre: { job, ship, names } when the caller has them.
+// pend: a new location typed but not saved yet, { name, line1, city, state, postal }.
+async function abcDraftReadiness(env, clientId, d, pend, pre) {
+    pre = pre || {};
+    var ready = await abcBranchColumnsReady(env);
+    var nc = ready && (await abcNoContractReady(env));
+    var draft = d.draft, lines = d.lines;
+    var job = pre.job;
+    if (!job) { job = await abcDraftJob(env, clientId, draft.project_id, nc ? await abcDraftLeadId(env, clientId, draft) : ""); }
+    var ship = pre.ship || await abcDraftShip(env, clientId, draft, job.address);
+    var names = ready ? (pre.names || await abcBusinessNames(env, clientId)) : [];
+    var m = abcDraftMissing(draft, lines, ship, ready ? { names: names } : undefined);
+    if (nc) {
+        // The job address must read as a complete address: the plain key is delivery_place_complete.
+        var ai = m.indexOf("address");
+        if (ai !== -1) { m[ai] = "delivery_place_complete"; }
+        var active = lines.filter(function(l) { return !l.removed; });
+        if (active.some(function(l) { return l.unit_price === null || l.unit_price === undefined; })) { m.push("line_price"); }
+        if (draft.ship_to_number && draft.branch_number && !abcPairIn(await abcPairs(env, clientId), draft.ship_to_number, draft.branch_number)) { m.push("branch"); }
+        if (pend) {
+            var taken = await env.DB.prepare("SELECT line1, city, state, postal FROM gm_abc_delivery_locations WHERE client_id = ? AND name = ? COLLATE NOCASE AND archived = 0").bind(clientId, pend.name).first();
+            if (taken && !abcSameAddress(taken, pend)) { m.push("location_name_taken"); }
+        }
+        // Whatever else abcOrderInput would refuse is named too, so Review and send never answers with a check nobody listed.
+        if (!m.length) {
+            var conn = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(clientId).first();
+            var pairs = await abcPairs(env, clientId);
+            var dflt = pairs.filter(function(p) { return p.is_default; })[0] || pairs[0];
+            var use = { ship_to_number: draft.ship_to_number || (dflt && dflt.ship_to_number) || (conn && conn.ship_to_number) || "", branch_number: draft.branch_number || (dflt && dflt.branch_number) || (conn && conn.branch_number) || "" };
+            var asOrder = abcDraftOrderFromRow(draft, ship, active, use, function(l) { return typeof l.unit_price === "number" ? l.unit_price : 0; });
+            if (!abcOrderInput(asOrder, use, { v2: true, names: names })) { m.push("order_fields"); }
+        }
+    }
+    return m;
+}
+
+// The lead of a draft's source: the project's lead, or the estimate's. "" when none.
+async function abcDraftLeadId(env, clientId, draft) {
+    try {
+        if (draft.estimate_id) {
+            var e = await env.DB.prepare("SELECT lead_id FROM gm_estimates WHERE id = ? AND client_id = ?").bind(draft.estimate_id, clientId).first();
+            if (e && e.lead_id) { return e.lead_id; }
+        }
+        if (draft.contract_id) {
+            var c = await env.DB.prepare("SELECT lead_id FROM gm_contracts WHERE id = ? AND client_id = ?").bind(draft.contract_id, clientId).first();
+            if (c && c.lead_id) { return c.lead_id; }
+        }
+    } catch (e2) { return ""; }
+    return "";
 }
 
 // The order the draft would send, in the shape abcOrderInput checks. Prices are the fresh ones.
@@ -44205,7 +44438,7 @@ async function handlePostGmAbcLocationArchive(id, lid, request, env) {
 
 // ── Draft routes ──
 function abcDraftSummary(r) {
-    return { id: r.id, contract_id: r.contract_id, contract_number: r.contract_number || null, job_name: r.job_name, status: r.status, delivery_service: r.delivery_service,
+    return { id: r.id, contract_id: r.contract_id, contract_number: r.contract_number || null, estimate_id: r.estimate_id || "", estimate_number: r.estimate_number || null, source_kind: r.source_kind || "contract", job_name: r.job_name, status: r.status, delivery_service: r.delivery_service,
         delivery_to: r.delivery_to, delivery_date: r.delivery_date, order_ref: r.order_ref, abc_confirmation: r.abc_confirmation, combined_into: r.combined_into,
         created_at: r.created_at, line_count: r.line_count, order_status: r.order_status || null,
         ship_to_number: r.ship_to_number || "", branch_number: r.branch_number || "", delivery_date_tbd: r.delivery_date_tbd ? 1 : 0 };
@@ -44222,10 +44455,21 @@ async function handleGetGmAbcDrafts(id, request, env) {
         if (a.err) { return a.err; }
         var cid = new URL(request.url).searchParams.get("contract_id");
         if (cid !== null && !ABC_ID_RE.test(cid)) { return abcDraftBad(); }
-        var sql = "SELECT d.*, c.number AS contract_number, " +
+        var eid = new URL(request.url).searchParams.get("estimate_id");
+        if (eid !== null && !ABC_ID_RE.test(eid)) { return abcDraftBad(); }
+        var nc = await abcNoContractReady(env);
+        if (nc && eid !== null) {
+            var estRows = (await env.DB.prepare("SELECT d.*, c.number AS contract_number, e.number AS estimate_number, " +
+                "(SELECT COUNT(*) FROM gm_abc_order_draft_lines l WHERE l.draft_id = d.id AND l.removed = 0) AS line_count, " +
+                "(SELECT o.status FROM gm_abc_orders o WHERE o.client_id = d.client_id AND o.order_ref = CASE WHEN d.combined_into <> '' THEN d.combined_into ELSE d.order_ref END) AS order_status " +
+                "FROM gm_abc_order_drafts d LEFT JOIN gm_contracts c ON c.id = d.contract_id AND c.client_id = d.client_id LEFT JOIN gm_estimates e ON e.id = d.estimate_id AND e.client_id = d.client_id " +
+                "WHERE d.client_id = ? AND d.status <> 'discarded' AND d.estimate_id = ? ORDER BY d.created_at DESC, d.rowid DESC LIMIT 200").bind(id, eid).all()).results || [];
+            return jsonOk({ drafts: estRows.map(abcDraftSummary), waiting: estRows.filter(function(r) { return r.status === "draft"; }).length });
+        }
+        var sql = "SELECT d.*, c.number AS contract_number, " + (nc ? "e.number AS estimate_number, " : "") +
             "(SELECT COUNT(*) FROM gm_abc_order_draft_lines l WHERE l.draft_id = d.id AND l.removed = 0) AS line_count, " +
             "(SELECT o.status FROM gm_abc_orders o WHERE o.client_id = d.client_id AND o.order_ref = CASE WHEN d.combined_into <> '' THEN d.combined_into ELSE d.order_ref END) AS order_status " +
-            "FROM gm_abc_order_drafts d LEFT JOIN gm_contracts c ON c.id = d.contract_id AND c.client_id = d.client_id WHERE d.client_id = ? AND d.status <> 'discarded'" +
+            "FROM gm_abc_order_drafts d LEFT JOIN gm_contracts c ON c.id = d.contract_id AND c.client_id = d.client_id" + (nc ? " LEFT JOIN gm_estimates e ON e.id = d.estimate_id AND e.client_id = d.client_id" : "") + " WHERE d.client_id = ? AND d.status <> 'discarded'" +
             (cid !== null ? " AND d.contract_id = ?" : "") + " ORDER BY d.created_at DESC, d.rowid DESC LIMIT 200";
         var st = env.DB.prepare(sql);
         var rows = (await (cid !== null ? st.bind(id, cid) : st.bind(id)).all()).results || [];
@@ -44242,16 +44486,21 @@ async function handleGetGmAbcDraft(id, did, request, env) {
         if (a.err) { return a.err; }
         var d = await abcDraftLoad(env, id, did);
         if (!d) { return abcDraftNotFound(); }
-        var con = await env.DB.prepare("SELECT id, client_id, job_id, lead_id, estimate_ids_json, number FROM gm_contracts WHERE id = ? AND client_id = ?").bind(d.draft.contract_id, id).first();
-        var job = await abcDraftJob(env, id, d.draft.project_id);
-        var built = con ? await abcDraftBuildLines(env, id, con) : { notFromAbc: [] };
+        var con = d.draft.contract_id ? await env.DB.prepare("SELECT id, client_id, job_id, lead_id, estimate_ids_json, number FROM gm_contracts WHERE id = ? AND client_id = ?").bind(d.draft.contract_id, id).first() : null;
+        var nc = await abcNoContractReady(env);
+        var leadId = nc ? (con && con.lead_id ? con.lead_id : await abcDraftLeadId(env, id, d.draft)) : "";
+        var estRow = nc && d.draft.estimate_id ? await env.DB.prepare("SELECT number, revision FROM gm_estimates WHERE id = ? AND client_id = ?").bind(d.draft.estimate_id, id).first() : null;
+        var job = await abcDraftJob(env, id, d.draft.project_id, leadId);
+        var built = con ? await abcDraftBuildLines(env, id, con) : (nc && d.draft.source_kind === "estimate" ? await abcDraftBuildLines(env, id, { estimate_ids_json: JSON.stringify([d.draft.estimate_id]) }) : { notFromAbc: [] });
         var biz = await abcDraftBusiness(env, id);
         var locs = (await env.DB.prepare("SELECT * FROM gm_abc_delivery_locations WHERE client_id = ? AND archived = 0 ORDER BY (last_used_at <> '') DESC, last_used_at DESC, name COLLATE NOCASE LIMIT 200").bind(id).all()).results || [];
         var ship = await abcDraftShip(env, id, d.draft, job.address);
         var ord = await env.DB.prepare("SELECT status, last_event_at FROM gm_abc_orders WHERE client_id = ? AND order_ref = ?").bind(id, d.draft.combined_into || d.draft.order_ref).first();
         var ready = await abcBranchColumnsReady(env);
         var v2 = ready ? { names: await abcBusinessNames(env, id) } : undefined;
-        var draft = Object.assign({}, d.draft, { contract_number: con ? con.number : null, order_status: ord ? ord.status : null, order_status_at: ord ? ord.last_event_at : null, missing: abcDraftMissing(d.draft, d.lines, ship, v2) });
+        var missing = nc ? await abcDraftReadiness(env, id, d, abcDraftPendingLocation(request.url), { job: job, ship: ship, names: v2 ? v2.names : [] }) : abcDraftMissing(d.draft, d.lines, ship, v2);
+        var draft = Object.assign({}, d.draft, { contract_number: con ? con.number : null, order_status: ord ? ord.status : null, order_status_at: ord ? ord.last_event_at : null, missing: missing });
+        if (nc) { draft.estimate_number = estRow ? estRow.number + (estRow.revision > 1 ? "-R" + estRow.revision : "") : null; }
         var out = {
             draft: draft,
             lines: d.lines.map(function(l) { return Object.assign({}, l, { removed: !!l.removed, needs_quantity: !l.removed && (l.quantity === null || l.quantity === undefined) }); }),
@@ -44260,7 +44509,7 @@ async function handleGetGmAbcDraft(id, did, request, env) {
         if (ready) {
             // The access notes saved on the contract's lead (a gate code or entrance note) for the quick button. Never sent unless the
             // owner taps the button and presses Send; the owner of this business only (the route refuses anyone else).
-            out.access_notes = await abcDraftAccessNotes(env, id, con);
+            out.access_notes = await abcDraftAccessNotes(env, id, con || (leadId ? { lead_id: leadId } : null));
             // The owner's own personal name, for the contact field when it is still empty. Never the business name.
             out.suggested_contact_name = await abcOwnerPersonName(env, a.user, id);
             var pairs = await abcPairs(env, id);
@@ -44282,13 +44531,85 @@ async function handlePostGmAbcDraftEnsure(id, request, env) {
         if (a.err) { return a.err; }
         var body = null;
         try { body = await request.json(); } catch (e1) { body = null; }
-        if (!body || typeof body.contract_id !== "string" || !ABC_ID_RE.test(body.contract_id)) { return abcDraftBad(); }
         var person = (await abcBranchColumnsReady(env)) ? await abcOwnerPersonName(env, a.user, id) : "";
+        if (body && typeof body === "object" && body.estimate_id !== undefined && body.contract_id === undefined) {
+            // 2026-11-16: the draft of an ACCEPTED estimate (a small job has no contract).
+            if (typeof body.estimate_id !== "string" || !ABC_ID_RE.test(body.estimate_id)) { return abcDraftBad(); }
+            if (!(await abcNoContractReady(env))) { return abcNotAvailable(); }
+            var est = await env.DB.prepare("SELECT id, status FROM gm_estimates WHERE id = ? AND client_id = ?").bind(body.estimate_id, id).first();
+            if (!est) { return abcDraftBad(); }
+            if (est.status !== "accepted") { return jsonErr2("Este orçamento ainda não foi aceito.", "This estimate has not been accepted yet.", 409); }
+            var de = await abcDraftEnsureForEstimate(env, id, body.estimate_id, actorName(a.user), person);
+            var alle = (await env.DB.prepare("SELECT id, status, contract_id, estimate_id FROM gm_abc_order_drafts WHERE client_id = ? AND estimate_id = ? AND status = 'draft' ORDER BY created_at, rowid").bind(id, body.estimate_id).all()).results || [];
+            return jsonOk({ draft: de ? { id: de.id, status: de.status, contract_id: de.contract_id, estimate_id: de.estimate_id } : null, drafts: alle.map(function(x) { return { id: x.id, status: x.status, contract_id: x.contract_id, estimate_id: x.estimate_id }; }) });
+        }
+        if (!body || typeof body.contract_id !== "string" || !ABC_ID_RE.test(body.contract_id)) { return abcDraftBad(); }
         var d = await abcDraftEnsureForContract(env, id, body.contract_id, actorName(a.user), person);
         var all = d ? (await env.DB.prepare("SELECT id, status, contract_id FROM gm_abc_order_drafts WHERE client_id = ? AND contract_id = ? AND status = 'draft' ORDER BY created_at, rowid").bind(id, body.contract_id).all()).results || [] : [];
         return jsonOk({ draft: d ? { id: d.id, status: d.status, contract_id: d.contract_id } : null, drafts: all.map(function(x) { return { id: x.id, status: x.status, contract_id: x.contract_id }; }) });
     } catch (e) {
         return abcServerError("draft-ensure", e);
+    }
+}
+
+// POST /api/clients/:id/gm/abc/drafts/new   { job_name, items: [{ item_number | price_list_id, quantity }], ship_to?, branch? }   (owner only)
+// A materials order with NO estimate and NO contract, from the owner's own Price list rows linked to ABC. The quantity is in
+// ABC units (what ABC sells: pallets, bundles, each). Nothing is stored beyond the draft; ABC is never called.
+async function handlePostGmAbcDraftNew(id, request, env) {
+    try {
+        var a = await abcDraftStart(request, env, id, "abcdraftnew", 30, false);
+        if (a.err) { return a.err; }
+        if (!(await abcNoContractReady(env))) { return abcNotAvailable(); }
+        var b = null;
+        try { b = await request.json(); } catch (e1) { b = null; }
+        if (!b || typeof b !== "object" || Array.isArray(b)) { return abcDraftBad(); }
+        var jobName = abcText(b.job_name, 60);
+        if (!jobName || /[<>]/.test(jobName)) { return abcDraftBad(); }
+        if (!Array.isArray(b.items) || b.items.length < 1 || b.items.length > 50) { return abcDraftBad(); }
+        var pa = abcPairArg(b.ship_to, b.branch);
+        if (pa === false) { return abcDraftBad(); }
+        var pairs = await abcPairs(env, id);
+        var dflt = pairs.filter(function(p) { return p.is_default; })[0] || pairs[0];
+        if (!dflt) { return abcDraftBad(); }
+        var pair = pa ? abcPairIn(pairs, pa.ship_to_number, pa.branch_number) : dflt;
+        if (!pair) { return abcDraftBad(); }
+        var byNumber = {};
+        var order = [];
+        for (var i = 0; i < b.items.length; i++) {
+            var it = b.items[i];
+            if (!it || typeof it !== "object" || Array.isArray(it) || !abcDraftQty(it.quantity)) { return abcDraftBad(); }
+            var hasId = it.price_list_id !== undefined, hasNum = it.item_number !== undefined;
+            if (hasId === hasNum) { return abcDraftBad(); }
+            var row = null;
+            if (hasId) {
+                if (typeof it.price_list_id !== "string" || !ABC_ID_RE.test(it.price_list_id)) { return abcDraftBad(); }
+                row = await env.DB.prepare("SELECT * FROM gm_pricing WHERE id = ? AND client_id = ? AND abc_item_number IS NOT NULL AND abc_item_number <> ''").bind(it.price_list_id, id).first();
+            } else {
+                if (typeof it.item_number !== "string" || !ABC_ITEM_RE.test(it.item_number)) { return abcDraftBad(); }
+                row = await env.DB.prepare("SELECT * FROM gm_pricing WHERE client_id = ? AND abc_item_number = ? ORDER BY rowid LIMIT 1").bind(id, it.item_number).first();
+            }
+            if (!row) { return abcDraftBad(); }
+            var key = row.abc_item_number;
+            if (!byNumber[key]) { byNumber[key] = { row: row, qty: 0 }; order.push(key); }
+            byNumber[key].qty += it.quantity;
+            if (byNumber[key].qty > 100000) { return abcDraftBad(); }
+        }
+        var lines = order.map(function(k, idx) {
+            var r = byNumber[k].row;
+            return { item_number: k, description: String(r.item || k).slice(0, 100), quantity: byNumber[k].qty, uom: ABC_UOM_RE.test(String(r.abc_unit || "")) ? r.abc_unit : "",
+                extra_percent_used: null, extra_source: "", source_line_id: "", sort_order: idx, abc_description: String(r.abc_description || "").slice(0, 200), abc_dimensional: r.abc_dimensional ? 1 : 0 };
+        });
+        if (lines.some(function(l) { return !l.uom; })) { return abcDraftBad(); }
+        var biz = await abcDraftBusiness(env, id);
+        var person = await abcOwnerPersonName(env, a.user, id);
+        var multi = pairs.length > 1;
+        var grp = { key: "", ship_to: multi ? pair.ship_to_number : "", branch: multi ? pair.branch_number : "", lines: lines };
+        var manualKey = crypto.randomUUID().replace(/-/g, "");
+        var made = await abcDraftInsert(env, id, "", { job_id: "" }, { estimate_id: "", lines: lines }, grp, { name: jobName, address: { line1: "", city: "", state: "", postal: "" } }, biz, actorName(a.user), person, true, { kind: "manual", manual_key: manualKey });
+        if (!made) { return abcServerError("draft-new", new Error("no draft was made")); }
+        return jsonOk({ draft: { id: made.id, status: made.status, source_kind: "manual", job_name: made.job_name } });
+    } catch (e) {
+        return abcServerError("draft-new", e);
     }
 }
 
@@ -44389,11 +44710,17 @@ async function handlePutGmAbcDraft(id, did, request, env) {
                 if (!al || typeof al !== "object" || typeof al.item_number !== "string" || !ABC_ITEM_RE.test(al.item_number) || typeof al.uom !== "string" || !ABC_UOM_RE.test(al.uom) || !abcDraftQty(al.quantity)) { return abcDraftBad(); }
                 var desc = abcText(al.description, 100);
                 if (!desc) { return abcDraftBad(); }
-                addLines.push({ item_number: al.item_number, description: desc, uom: al.uom, quantity: al.quantity });
+                var addLine = { item_number: al.item_number, description: desc, uom: al.uom, quantity: al.quantity, abc_description: "", abc_dimensional: 0 };
+                if (ready && al.abc_description !== undefined && al.abc_description !== null && al.abc_description !== "") {
+                    addLine.abc_description = abcText(al.abc_description, 200);
+                    if (!addLine.abc_description) { return abcDraftBad(); }
+                }
+                if (ready && al.abc_dimensional !== undefined) { if (typeof al.abc_dimensional !== "boolean") { return abcDraftBad(); } addLine.abc_dimensional = al.abc_dimensional ? 1 : 0; }
+                addLines.push(addLine);
             }
         }
         // Everything below needs the database. Resolve the delivery place first.
-        var job = await abcDraftJob(env, id, d.draft.project_id);
+        var job = await abcDraftJob(env, id, d.draft.project_id, (await abcNoContractReady(env)) ? await abcDraftLeadId(env, id, d.draft) : "");
         var useLocId = null;
         if (newLoc) {
             var saved = await abcLocationSave(env, id, newLoc, actorName(a.user));
@@ -44439,8 +44766,13 @@ async function handlePutGmAbcDraft(id, did, request, env) {
                 if (sum > 100000) { return; }
                 stmts.push(env.DB.prepare("UPDATE gm_abc_order_draft_lines SET quantity = ? WHERE id = ? AND draft_id = ? AND client_id = ?").bind(sum, same.id, did, id));
             } else {
-                stmts.push(env.DB.prepare("INSERT INTO gm_abc_order_draft_lines (id, draft_id, client_id, item_number, description, quantity, uom, added_by_hand, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)")
-                    .bind(crypto.randomUUID(), did, id, al.item_number, al.description, al.quantity, al.uom, nextSort++));
+                if (ready) {
+                    stmts.push(env.DB.prepare("INSERT INTO gm_abc_order_draft_lines (id, draft_id, client_id, item_number, description, quantity, uom, added_by_hand, sort_order, abc_description, abc_dimensional) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)")
+                        .bind(crypto.randomUUID(), did, id, al.item_number, al.description, al.quantity, al.uom, nextSort++, al.abc_description || "", al.abc_dimensional ? 1 : 0));
+                } else {
+                    stmts.push(env.DB.prepare("INSERT INTO gm_abc_order_draft_lines (id, draft_id, client_id, item_number, description, quantity, uom, added_by_hand, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)")
+                        .bind(crypto.randomUUID(), did, id, al.item_number, al.description, al.quantity, al.uom, nextSort++));
+                }
             }
         });
         if (stmts.length) {
@@ -44554,18 +44886,24 @@ async function handlePostGmAbcDraftSend(id, did, request, env) {
         if (!d) { return abcDraftNotFound(); }
         if (d.draft.status !== "draft") { return jsonErr2("Este pedido já foi enviado ou descartado.", "This order was already sent or discarded.", 409); }
         var pairErr = await abcDraftUsePair(a, env, id, d.draft);
-        if (pairErr) { return pairErr; }
-        var job = await abcDraftJob(env, id, d.draft.project_id);
-        var ship = await abcDraftShip(env, id, d.draft, job.address);
         var ready = await abcBranchColumnsReady(env);
+        var nc = ready && (await abcNoContractReady(env));
+        // Before the migration the refusal comes first as it always did; after it the readiness list below names the branch first.
+        if (pairErr && !nc) { return pairErr; }
+        var job = await abcDraftJob(env, id, d.draft.project_id, nc ? await abcDraftLeadId(env, id, d.draft) : "");
+        var ship = await abcDraftShip(env, id, d.draft, job.address);
         var names = ready ? await abcBusinessNames(env, id) : [];
         // F4: ABC saw the business name as the submitter and as the delivery contact. Both must be people.
         var namedWrong = (d.draft.contact_name && !abcPersonOk(d.draft.contact_name, names)) || (d.draft.delivery_contact_name && !abcPersonOk(d.draft.delivery_contact_name, names));
         if (ready && namedWrong) {
-            return jsonErr2("A ABC precisa do nome de uma pessoa aqui, não o nome da empresa.", "ABC needs a person's name here, not the business name.", 400, { missing: ["person_name"] });
+            // Once the readiness list exists, the answer names the list's own keys (contact_name, delivery_contact_name), never a key it does not hold.
+            var namedList = nc ? (await abcDraftReadiness(env, id, d, null, { job: job, ship: ship, names: names })).filter(function(k) { return k !== "line_price"; }) : ["person_name"];
+            return jsonErr2("A ABC precisa do nome de uma pessoa aqui, não o nome da empresa.", "ABC needs a person's name here, not the business name.", 400, { missing: namedList });
         }
-        var missing = abcDraftMissing(d.draft, d.lines, ship, ready ? { names: names } : undefined);
+        // The same list the page shows (abcDraftReadiness). A price not yet saved on a line is not a refusal here: the fresh prices are read right below.
+        var missing = nc ? (await abcDraftReadiness(env, id, d, null, { job: job, ship: ship, names: names })).filter(function(k) { return k !== "line_price"; }) : abcDraftMissing(d.draft, d.lines, ship, ready ? { names: names } : undefined);
         if (missing.length) { return jsonErr2("Faltam dados no pedido.", "Some details are missing from the order.", 400, { missing: missing }); }
+        if (pairErr) { return pairErr; }
         var active = d.lines.filter(function(l) { return !l.removed; });
         var fresh = await abcDraftFreshPrices(a, id, active, secrets);
         var noPrice = active.filter(function(l) { return fresh[l.id].none; }).map(function(l) { return { id: l.id, item_number: l.item_number, description: l.description }; });
@@ -44949,6 +45287,8 @@ async function handlePostGmAbcBranch(id, request, env) {
         var addressText = [gmStr(ad.line1, 100), gmStr(ad.city, 60), gmStr(ad.state, 10), gmStr(ad.postal, 12)].filter(function(x) { return !!x; }).join(", ");
         var first = rows.length === 0;
         await abcWriteBranchRow(env, id, { ship_to_number: pa.ship_to_number, branch_number: pa.branch_number, ship_to_name: gmStr(info.shipTo.name, 100) || "", branch_name: gmStr(listed.name, 100) || "", address_text: addressText }, first && !already, actorName(a.user));
+        // Any pair of this business under the same account that still has no names gets them now (an owner action).
+        await abcFillPairNames(env, id, [{ number: pa.ship_to_number, name: gmStr(info.shipTo.name, 100) || "", branches: list.map(function(x) { return { number: x.number, name: gmStr(x.name, 100) || "" }; }) }]);
         // The first pair of a business is its default, and the connection row always holds the default pair.
         if (first) {
             await env.DB.prepare("UPDATE gm_abc_connections SET ship_to_number = ?, branch_number = ?, updated_at = datetime('now') WHERE client_id = ?").bind(pa.ship_to_number, pa.branch_number, id).run();
@@ -45542,6 +45882,8 @@ async function handlePostGmAbcDraftSplit(id, did, request, env) {
                 "contact_name", "contact_email", "contact_phone", "delivery_contact_name", "delivery_contact_phone", "delivery_contact_email", "delivery_instructions", "order_ref", "created_by", "ship_to_number", "branch_number"];
             var vals = [nid, id, src.contract_id, src.estimate_id, src.project_id, src.job_name, src.delivery_service, src.delivery_date, src.delivery_date_tbd ? 1 : 0, src.delivery_to, src.location_id, src.ship_name, src.ship_line1, src.ship_city, src.ship_state, src.ship_postal,
                 src.contact_name, src.contact_email, src.contact_phone, src.delivery_contact_name, src.delivery_contact_phone, src.delivery_contact_email, src.delivery_instructions, ref, actorName(a.user), plan[p].target.ship_to_number, plan[p].target.branch_number];
+            // An estimate or manual draft keeps what it is (and its manual key) when it is split to another branch.
+            if (await abcNoContractReady(env)) { cols.push("source_kind", "manual_key"); vals.push(src.source_kind || "contract", src.manual_key || ""); }
             var ins = env.DB.prepare("INSERT INTO gm_abc_order_drafts (" + cols.join(", ") + ") VALUES (" + cols.map(function() { return "?"; }).join(", ") + ")");
             stmts.push(ins.bind.apply(ins, vals));
             plan[p].lines.forEach(function(l, idx) {
@@ -45801,6 +46143,12 @@ async function gmOwnerPushLang(env, clientId) {
     } catch (e) { return "pt"; }
 }
 
+// The part of a two language reason (English, a record separator, Portuguese) in one language. A one language reason is returned as it is.
+function gmReasonIn(reason, lang) {
+    var parts = String(reason === null || reason === undefined ? "" : reason).split("\u001e");
+    return lang === "pt" && parts.length > 1 ? parts[1] : parts[0];
+}
+
 // F18/F28: a homeowner's answer reaches the owner: a row for the Home card
 // "Respostas dos clientes" (with the reason) and a push to the owner login.
 async function gmRecordHomeownerResponse(env, o) {
@@ -45826,7 +46174,7 @@ async function gmRecordHomeownerResponse(env, o) {
             var autoTitle = o.response === "invoice_not_ready"
                 ? (respEn ? "Contract signed, the invoice needs you" : "Contrato assinado, a fatura precisa de você")
                 : (respEn ? "Estimate accepted, the contract needs you" : "Orçamento aceito, o contrato precisa de você");
-            var autoBody = autoStop ? who + (respEn ? " signed " + whatEn : " assinou " + what) + (o.doc_number ? " " + o.doc_number : "") + (respEn ? ". The next step was not sent automatically" : ". O próximo passo não foi enviado automaticamente") + (o.reason ? ": " + String(o.reason).slice(0, 140) : "") : null;
+            var autoBody = autoStop ? who + (respEn ? " signed " + whatEn : " assinou " + what) + (o.doc_number ? " " + o.doc_number : "") + (respEn ? ". The next step was not sent automatically" : ". O próximo passo não foi enviado automaticamente") + (o.reason ? ": " + gmReasonIn(o.reason, respEn ? "en" : "pt").slice(0, 140) : "") : null;
             await pushToUsers(env, targets, {
                 title: autoStop ? autoTitle : (respEn ? (o.response === "changes_requested" ? "Customer asked for changes" : "Customer declined") : (o.response === "changes_requested" ? "Cliente pediu mudanças" : "Cliente recusou")),
                 body: autoStop ? autoBody : who + (respEn ? (o.response === "changes_requested" ? " asked for changes to " : " declined ") + whatEn : (o.response === "changes_requested" ? " pediu mudanças em " : " recusou ") + what) + (o.doc_number ? " " + o.doc_number : "") + (o.reason ? ": " + String(o.reason).slice(0, 140) : ""),
@@ -46029,12 +46377,13 @@ async function gmContractChainInvoice(env, request, c, customerName) {
     await gmContractEvent(env, c.client_id, c.id, actor, "flow_invoice_sent", { invoice: inv.number, customer: customerName });
 }
 
-async function gmContractChainInvoiceStopped(env, c, reason) {
+async function gmContractChainInvoiceStopped(env, c, reasonBoth) {
+    var reason = gmReasonIn(reasonBoth, "en");
     try {
         await gmContractEvent(env, c.client_id, c.id, "system", "flow_stopped", { step: "invoice", reason: reason });
         if (c.lead_id) { await gmLogLeadEvents(env, c.client_id, c.lead_id, "system", [{ action: "invoice_flow_stopped", field: "invoice", old_value: null, new_value: contractDisplayNumber(c), reason: reason }]); }
         await gmRecordHomeownerResponse(env, { client_id: c.client_id, lead_id: c.lead_id || null, job_id: c.job_id, doc_kind: "contract", doc_id: c.id,
-            doc_number: contractDisplayNumber(c), response: "invoice_not_ready", reason: reason, customer_name: c.homeowner_signer_name || null });
+            doc_number: contractDisplayNumber(c), response: "invoice_not_ready", reason: reasonBoth, customer_name: c.homeowner_signer_name || null });
     } catch (e) { console.error("one-link flow: could not record the stop", e && e.message); }
 }
 
@@ -64271,6 +64620,7 @@ export default {
     // to the app as a rejected one.
     fetch: async function(request, env, ctx) {
         installSendBlock(env);
+        apexEvidenceStart(request);
         try {
             if (new URL(request.url).hostname === "doc.resonateai.online") {
                 var docPath = new URL(request.url).pathname.toLowerCase();
@@ -64287,8 +64637,9 @@ export default {
                 // variable and returned unchanged; the reporting itself is
                 // deferred into ctx.waitUntil so it never delays this response.
                 if (docResponse.status >= 500) {
+                    var docExtra = apexEvidenceExtra(request, docResponse, null);
                     var docReport = apexErrorTextFromResponse(docResponse).then(function(errText) {
-                        return apexReportServerError(env, ctx, request.method, docPath, docResponse.status, errText);
+                        return apexReportServerError(env, ctx, request.method, docPath, docResponse.status, errText, docExtra);
                     });
                     if (ctx && typeof ctx.waitUntil === "function") { ctx.waitUntil(docReport); } else { await docReport; }
                 }
@@ -64301,8 +64652,9 @@ export default {
             // unchanged below; only the (cloned) text is read for the alert.
             if (response.status >= 500) {
                 var reqPath = new URL(request.url).pathname;
+                var mainExtra = apexEvidenceExtra(request, response, null);
                 var mainReport = apexErrorTextFromResponse(response).then(function(errText) {
-                    return apexReportServerError(env, ctx, request.method, reqPath, response.status, errText);
+                    return apexReportServerError(env, ctx, request.method, reqPath, response.status, errText, mainExtra);
                 });
                 if (ctx && typeof ctx.waitUntil === "function") { ctx.waitUntil(mainReport); } else { await mainReport; }
             }
@@ -64320,7 +64672,7 @@ export default {
             // an auth error (isAuthError already returned false above).
             try {
                 var errPath = new URL(request.url).pathname;
-                var errReport = apexReportServerError(env, ctx, request.method, errPath, 500, err && err.message);
+                var errReport = apexReportServerError(env, ctx, request.method, errPath, 500, err && err.message, apexEvidenceExtra(request, null, err));
                 if (ctx && typeof ctx.waitUntil === "function") { ctx.waitUntil(errReport); }
             } catch (e) { /* malformed request.url etc -- never let reporting break the error response */ }
             return withCorsOrigin(jsonErr("Internal error", 500), request);
@@ -65457,6 +65809,7 @@ async function handleFetch(request, env, ctx) {
                 // ABC order drafts and saved delivery locations (2026-11-07, owner only).
                 if (segs.length === 7 && gmCol === "abc" && segs[5] === "drafts" && method === "POST" && segs[6] === "ensure") { return handlePostGmAbcDraftEnsure(cid, request, env); }
                 if (segs.length === 7 && gmCol === "abc" && segs[5] === "drafts" && method === "POST" && segs[6] === "combine") { return handlePostGmAbcDraftsCombine(cid, request, env); }
+                if (segs.length === 7 && gmCol === "abc" && segs[5] === "drafts" && method === "POST" && segs[6] === "new") { return handlePostGmAbcDraftNew(cid, request, env); }
                 if (segs.length === 7 && gmCol === "abc" && segs[5] === "drafts" && method === "GET") { return handleGetGmAbcDraft(cid, segs[6], request, env); }
                 if (segs.length === 7 && gmCol === "abc" && segs[5] === "drafts" && method === "PUT") { return handlePutGmAbcDraft(cid, segs[6], request, env); }
                 if (segs.length === 8 && gmCol === "abc" && segs[5] === "drafts" && method === "POST") {
@@ -67066,12 +67419,192 @@ async function apexPushAutoTicket(env, summary, page) {
     }
 }
 
+// ── FULL EVIDENCE ON EVERY AUTOMATIC TICKET (2026-11-16) ──────────────────────────────────────
+// An automatic ticket used to hold only the route, the plain error line and the time. Now (once
+// migrations/ticket_evidence.sql has run) evidence_json holds everything the Worker has at the moment of the
+// failure, SCRUBBED FIRST by apexScrubValue / apexScrubText: passwords, tokens, keys, cookies, card and bank numbers,
+// social security numbers, one time codes, gate codes, delivery instruction text, emails (first letter and domain
+// kept) and phone numbers (last 2 digits kept) never reach the table. Never shown to clients or sellers (developer only).
+// Building it can never change or delay the answer: every part is wrapped, and it runs inside waitUntil.
+var APEX_EVIDENCE_REQ = new WeakMap();
+var APEX_EVIDENCE_STATE = { ready: false, repeats: {} };
+var APEX_SCRUB_KEY_RE = /pass|secret|token|api[-_]?key|apikey|authoriz|cookie|session|bearer|card|cvv|cvc|iban|routing|account[-_]?n|bank|ssn|social|otp|one[-_]?time|(^|[-_])code$|gate|access|instruction|signature|credential|private|(^|[-_])pin$|auth/i;
+
+async function apexTicketEvidenceReady(env) {
+    if (APEX_EVIDENCE_STATE.ready) { return true; }
+    try {
+        await env.DB.prepare("SELECT evidence_json, occurrences FROM support_tickets LIMIT 1").first();
+        APEX_EVIDENCE_STATE.ready = true;
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// Free text, scrubbed and cut to 300 characters.
+function apexScrubText(text) {
+    var t = String(text === null || text === undefined ? "" : text);
+    t = t.replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+\/=-]{6,}/gi, "$1 [hidden]");
+    t = t.replace(/\b(authorization|cookie|set-cookie|password|passwd|secret|token|api[-_]?key|access_token|client_secret)\s*[:=]\s*[^\s,;&"']+/gi, "$1=[hidden]");
+    t = t.replace(/\b\d{3}-\d{2}-\d{4}\b/g, "[hidden]");
+    t = t.replace(/\b(?:\d[ -]?){13,19}\b/g, "[hidden]");
+    t = t.replace(/\b([A-Za-z0-9])[A-Za-z0-9._%+-]*@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, "$1***@$2");
+    t = t.replace(/(?:\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g, function(m) { return "[phone **" + m.replace(/\D/g, "").slice(-2) + "]"; });
+    t = t.replace(/[A-Za-z0-9_-]{24,}/g, function(m) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(m) ? m : "[hidden]"; });
+    return t.slice(0, 300);
+}
+
+// Any JSON value, scrubbed: a value under a sensitive key is hidden whole, every string is scrubbed and cut to 300.
+function apexScrubValue(v, key, depth) {
+    depth = depth || 0;
+    if (key && APEX_SCRUB_KEY_RE.test(String(key))) { return (v === null || v === undefined || v === "") ? v : "[hidden]"; }
+    if (typeof v === "string") { return apexScrubText(v); }
+    if (typeof v === "number") { return String(Math.abs(v)).length >= 10 ? apexScrubText(String(v)) : v; }
+    if (typeof v === "boolean" || v === null || v === undefined) { return v; }
+    if (depth > 6) { return "[too deep]"; }
+    if (Array.isArray(v)) { return v.slice(0, 30).map(function(x) { return apexScrubValue(x, "", depth + 1); }); }
+    if (typeof v === "object") {
+        var out = {};
+        Object.keys(v).slice(0, 60).forEach(function(k) { out[String(k).slice(0, 60)] = apexScrubValue(v[k], k, depth + 1); });
+        return out;
+    }
+    return "[hidden]";
+}
+
+// The names of the database tables an error text speaks of, when it does.
+function apexEvidenceTables(text) {
+    var found = [];
+    var t = String(text || "");
+    var res = [/no such table: ([A-Za-z_][A-Za-z0-9_]*)/g, /table ([A-Za-z_][A-Za-z0-9_]*) has no column/g, /(?:UNIQUE|NOT NULL|CHECK|FOREIGN KEY) constraint failed: ([A-Za-z_][A-Za-z0-9_]*)\./g, /\b(?:FROM|INTO|UPDATE|JOIN)\s+([a-z_][a-z0-9_]{2,})/g];
+    res.forEach(function(re) {
+        var m;
+        while ((m = re.exec(t)) !== null && found.length < 12) { if (found.indexOf(m[1]) === -1) { found.push(m[1]); } }
+    });
+    return found;
+}
+
+// Called at the very start of a request: remembers when it began and keeps a copy of a small JSON body (the handler
+// consumes the original). Never throws. Reading the copy happens only after a failure.
+function apexEvidenceStart(request) {
+    var st = { t0: Date.now(), bodyClone: null };
+    try {
+        var m = request.method;
+        if (m === "POST" || m === "PUT" || m === "PATCH" || m === "DELETE") {
+            var ct = request.headers.get("content-type") || "";
+            var len = Number(request.headers.get("content-length") || "0");
+            if (/json/i.test(ct) && (!len || len <= 1000000)) { st.bodyClone = request.clone(); }
+        }
+    } catch (e) { st.bodyClone = null; }
+    try { APEX_EVIDENCE_REQ.set(request, st); } catch (e2) { /* a bonus */ }
+    return st;
+}
+
+// Taken at the moment of the failure, synchronously and cheaply: copies of what only exists right now. Never throws.
+function apexEvidenceExtra(request, response, err) {
+    var x = { request: request || null, err: err || null, resp: null, abc: null, stack: "", t1: Date.now() };
+    try { if (response) { x.resp = response.clone(); x.abc = APEX_ERROR_EVIDENCE.get(response) || null; } } catch (e) { x.resp = null; }
+    return x;
+}
+
+// The evidence as an object. Each part on its own, so a part that fails leaves the others.
+async function apexBuildEvidence(env, x, method, normalizedPath, status, errText) {
+    x = x || {};
+    var ev = { v: 1, method: String(method || "").slice(0, 10), path: String(normalizedPath || "").slice(0, 200), status: status };
+    function part(name, fn) { try { var r = fn(); if (r !== undefined) { ev[name] = r; } } catch (e) { /* this part is left out */ } }
+    var req = x.request || null;
+    part("query", function() {
+        var out = {};
+        var n = 0;
+        new URL(req.url).searchParams.forEach(function(val, key) { if (n++ < 20) { out[key.slice(0, 40)] = apexScrubValue(val, key); } });
+        return out;
+    });
+    part("cf_ray", function() { return req ? req.headers.get("cf-ray") : null; });
+    ev.worker_version = (env && env.CF_VERSION_METADATA && env.CF_VERSION_METADATA.id) || null;
+    var now = new Date();
+    ev.time_utc = now.toISOString();
+    part("time_eastern", function() { return new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "long" }).format(now); });
+    part("duration_ms", function() { var st = req ? APEX_EVIDENCE_REQ.get(req) : null; return st ? Math.max(0, (x.t1 || Date.now()) - st.t0) : null; });
+    // The signed in person, from OUR record (the verified user the request already authenticated), never from a header. No name, no email.
+    var u = null;
+    try { u = req ? AUTH_CACHE.get(req) || null : null; } catch (eU) { u = null; }
+    ev.role = u ? (u.role || null) : null;
+    ev.client_id = u ? (u.client_id || null) : null;
+    ev.login_role = u ? (u.login_role || null) : null;
+    part("user_agent", function() { return req ? apexScrubText(req.headers.get("user-agent") || "").slice(0, 200) : null; });
+    part("language", function() { return req ? String(req.headers.get("accept-language") || "").slice(0, 20) : null; });
+    if (req) {
+        try {
+            var st2 = APEX_EVIDENCE_REQ.get(req);
+            if (st2 && st2.bodyClone) {
+                var txt = (await st2.bodyClone.text()).slice(0, 20000);
+                var parsed = null;
+                try { parsed = JSON.parse(txt); } catch (eP) { parsed = null; }
+                ev.request_body = parsed !== null ? apexScrubValue(parsed, "", 0) : apexScrubText(txt);
+            }
+        } catch (eB) { /* the body could not be read: left out */ }
+    }
+    if (x.resp) {
+        try {
+            var rt = (await x.resp.text()).slice(0, 3000);
+            var rp = null;
+            try { rp = JSON.parse(rt); } catch (eR) { rp = null; }
+            ev.response_body = rp !== null ? apexScrubValue(rp, "", 0) : apexScrubText(rt);
+        } catch (eR2) { /* left out */ }
+    }
+    var err = x.err || null;
+    var msg = err && err.message ? String(err.message) : String(errText || "");
+    ev.error_message = apexScrubText(msg);
+    var stackText = err && err.stack ? String(err.stack) : (x.abc && x.abc.stack ? String(x.abc.stack) : (x.stack || ""));
+    if (!stackText && x.resp === null) { stackText = ""; }
+    var stackLines = stackText ? stackText.split("\n").slice(0, 20).map(function(l) { return apexScrubText(l).slice(0, 200); }) : [];
+    ev.stack = stackLines;
+    ev.tables = apexEvidenceTables(msg + " " + stackText);
+    if (x.abc) {
+        part("abc", function() {
+            var a = x.abc.abc || x.abc;
+            return { step: String(a.step || "").slice(0, 60), http_status: a.http_status === undefined ? null : a.http_status, said: apexScrubText(a.said || ""),
+                fields: a.call && Array.isArray(a.call.fields) ? a.call.fields.slice(0, 40).map(function(f) { return String(f).slice(0, 40); }) : [], call: a.call ? String(a.call.method || "") + " " + String(a.call.path || "") : "" };
+        });
+    }
+    return ev;
+}
+
+// The same ticket hit again: one more on occurrences and one compact record (time, request id, role), the newest 20 kept.
+// No new ticket, no push, no Telegram. Never throws. A flood is bounded: after 100 immediate writes an hour the counts are
+// gathered in memory and written once a minute.
+async function apexTicketRepeat(env, signature, x) {
+    try {
+        if (!(await apexTicketEvidenceReady(env))) { return; }
+        var id = apexErrorTicketId(signature);
+        var reps = APEX_EVIDENCE_STATE.repeats;
+        if (Object.keys(reps).length > 200) { APEX_EVIDENCE_STATE.repeats = reps = {}; }
+        var st = reps[id] || (reps[id] = { writes: 0, pending: 0, last: 0, records: [] });
+        var rec = { time: new Date().toISOString(), cf_ray: null, role: null };
+        try { rec.cf_ray = x && x.request ? x.request.headers.get("cf-ray") : null; } catch (e1) { rec.cf_ray = null; }
+        try { var u = x && x.request ? AUTH_CACHE.get(x.request) : null; rec.role = u ? (u.role || null) : null; } catch (e2) { rec.role = null; }
+        st.records.push(rec);
+        if (st.records.length > 20) { st.records = st.records.slice(-20); }
+        if (st.writes >= 100 && Date.now() - st.last < 60000) { st.pending++; return; }
+        var row = await env.DB.prepare("SELECT evidence_json FROM support_tickets WHERE id = ?").bind(id).first();
+        if (!row) { return; }
+        var ev = {};
+        try { ev = row.evidence_json ? JSON.parse(row.evidence_json) : {}; } catch (e3) { ev = {}; }
+        if (!ev || typeof ev !== "object") { ev = {}; }
+        ev.repeats = (Array.isArray(ev.repeats) ? ev.repeats : []).concat(st.records).slice(-20);
+        var add = 1 + st.pending;
+        st.pending = 0; st.records = []; st.writes++; st.last = Date.now();
+        await env.DB.prepare("UPDATE support_tickets SET occurrences = occurrences + ?, evidence_json = ? WHERE id = ?").bind(add, JSON.stringify(ev), id).run();
+    } catch (e) {
+        console.log("apexTicketRepeat failed: " + (e && e.message));
+    }
+}
+
 // Does the actual Telegram-then-ticket work (step 7 of the brief). Order
 // matters: Telegram first, ticket second -- a ticket-insert failure must
 // never prevent the Telegram message that already told Nicole, and a
 // Telegram failure must still leave the ticket as her history. Each step is
 // its own try block so neither failure can throw or stop the other.
-async function apexReportServerErrorDo(env, method, normalizedPath, status, errText, alertText, signature) {
+async function apexReportServerErrorDo(env, method, normalizedPath, status, errText, alertText, signature, extra) {
     try { await notifyNicoleTelegram(env, alertText, { noTicket: true }); }
     catch (e) { console.log("apexReportServerError: Telegram send failed: " + (e && e.message)); }
 
@@ -67081,11 +67614,23 @@ async function apexReportServerErrorDo(env, method, normalizedPath, status, errT
         var page = normalizedPath.slice(0, 200);
         var summaryEn = ("[Auto] Server error " + status + " on " + method + " " + normalizedPath + ": " +
             apexErrorMaskText(errText || "no message").slice(0, 500));
-        var ins = await env.DB.prepare(
-            "INSERT OR IGNORE INTO support_tickets (id, created_at, reporter_email, reporter_name, language, kind, page, transcript_json, original_words, summary_en, guidance, status) " +
-            "VALUES (?, ?, 'system', 'System (auto)', 'en', 'broken', ?, '[]', ?, ?, NULL, 'open')"
-        ).bind(ticketId, nowIso, page, alertText, summaryEn).run();
+        // The evidence (only once the columns exist). Building it can fail without costing the ticket.
+        var evJson = null, evReady = false;
+        try {
+            evReady = await apexTicketEvidenceReady(env);
+            if (evReady) { evJson = JSON.stringify(await apexBuildEvidence(env, extra, method, normalizedPath, status, errText)).slice(0, 60000); }
+        } catch (eEv) { evJson = null; console.log("apexReportServerError: evidence failed: " + (eEv && eEv.message)); }
+        var ins = evReady
+            ? await env.DB.prepare(
+                "INSERT OR IGNORE INTO support_tickets (id, created_at, reporter_email, reporter_name, language, kind, page, transcript_json, original_words, summary_en, guidance, status, evidence_json, occurrences) " +
+                "VALUES (?, ?, 'system', 'System (auto)', 'en', 'broken', ?, '[]', ?, ?, NULL, 'open', ?, 1)"
+            ).bind(ticketId, nowIso, page, alertText, summaryEn, evJson).run()
+            : await env.DB.prepare(
+                "INSERT OR IGNORE INTO support_tickets (id, created_at, reporter_email, reporter_name, language, kind, page, transcript_json, original_words, summary_en, guidance, status) " +
+                "VALUES (?, ?, 'system', 'System (auto)', 'en', 'broken', ?, '[]', ?, ?, NULL, 'open')"
+            ).bind(ticketId, nowIso, page, alertText, summaryEn).run();
         if (ins && ins.meta && ins.meta.changes === 1) { await apexPushAutoTicket(env, summaryEn, page); }
+        else if (evReady) { await apexTicketRepeat(env, signature, extra); }
     } catch (e) {
         console.log("apexReportServerError: ticket insert failed: " + (e && e.message));
     }
@@ -67112,14 +67657,19 @@ async function apexErrorTextFromResponse(response) {
 // that will be suppressed costs nothing), and only the actual Telegram +
 // ticket work is deferred into ctx.waitUntil(). Handles a missing/stub ctx
 // (as the tests pass) by just awaiting the work inline instead.
-async function apexReportServerError(env, ctx, method, path, status, errText) {
+async function apexReportServerError(env, ctx, method, path, status, errText, extra) {
     try {
         if (!apexErrorShouldReport(status, method)) { return; }
         var normalizedPath = apexErrorNormalizePath(path);
         var signature = apexErrorSignature(method, normalizedPath, status);
-        if (!apexErrorGateAndMark(signature)) { return; }
+        if (!apexErrorGateAndMark(signature)) {
+            // Held back (the phone is protected): no text, no push, no new ticket. The same ticket still counts the repeat.
+            var again = apexTicketRepeat(env, signature, extra);
+            if (ctx && typeof ctx.waitUntil === "function") { ctx.waitUntil(again); } else { await again; }
+            return;
+        }
         var alertText = apexErrorAlertText(method, normalizedPath, status, errText, env.CF_VERSION_METADATA && env.CF_VERSION_METADATA.id);
-        var work = apexReportServerErrorDo(env, method, normalizedPath, status, errText, alertText, signature);
+        var work = apexReportServerErrorDo(env, method, normalizedPath, status, errText, alertText, signature, extra);
         if (ctx && typeof ctx.waitUntil === "function") { ctx.waitUntil(work); } else { await work; }
     } catch (e) {
         console.log("apexReportServerError failed: " + (e && e.message));
@@ -76402,8 +76952,10 @@ async function handleGetSupportTickets(request, env) {
         if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
         var url = new URL(request.url);
         var status = url.searchParams.get("status") === "resolved" ? "resolved" : "open";
+        // 2026-11-16: the evidence of an automatic ticket and how many times it happened (once migrations/ticket_evidence.sql has run). Developers only.
+        var withEvidence = await apexTicketEvidenceReady(env);
         var rows = (await env.DB.prepare(
-            "SELECT id, created_at, reporter_email, reporter_name, language, kind, page, original_words, summary_en, guidance, status, resolved_at, resolved_by " +
+            "SELECT id, created_at, reporter_email, reporter_name, language, kind, page, original_words, summary_en, guidance, status, resolved_at, resolved_by" + (withEvidence ? ", evidence_json, occurrences" : "") + " " +
             "FROM support_tickets WHERE status = ? ORDER BY created_at DESC"
         ).bind(status).all()).results || [];
         return jsonOk({ tickets: rows });

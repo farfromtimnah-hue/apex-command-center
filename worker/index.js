@@ -41945,6 +41945,8 @@ async function abcFetch(cfg, method, url, opts, secrets) {
     if (!res.ok) {
         // When ABC's error carries none of the usual fields, keep a short copy of its body (scrubbed below, log only) so the cause can be read.
         var msg = (data && (data.error_description || data.message || data.error || data.title)) || ("ABC answered HTTP " + res.status + (data ? " " + JSON.stringify(data).slice(0, 300) : ""));
+        // ABC sometimes answers with an object in these fields; String(object) is "[object Object]" and hid the cause in the log.
+        if (msg && typeof msg === "object") { try { msg = JSON.stringify(msg).slice(0, 300); } catch (e3) { msg = "ABC answered HTTP " + res.status; } }
         var err = new Error(metaScrub(String(msg), secrets));
         err.abcStatus = res.status;
         throw err;
@@ -42139,9 +42141,15 @@ function abcServerError(label, e, secrets) {
     return jsonErr2("Algo deu errado na conexão com a ABC Supply. Tente de novo.", "Something went wrong with the ABC Supply connection. Try again.", 500);
 }
 
+// The ticket (never the person) gets what ABC really answered: the response object is the key, so nothing
+// about it travels in the body or a header the browser can read.
+var APEX_ERROR_DETAIL = new WeakMap();
 function abcUpstreamError(label, e, secrets) {
-    console.error("abc " + label + " failed: " + metaScrub(e && e.message, secrets));
-    return jsonErr2("A ABC Supply não respondeu como esperado. Tente de novo.", "ABC Supply did not answer as expected. Try again.", 502);
+    var detail = metaScrub(e && e.message, secrets);
+    console.error("abc " + label + " failed: " + detail);
+    var resp = jsonErr2("A ABC Supply não respondeu como esperado. Tente de novo.", "ABC Supply did not answer as expected. Try again.", 502);
+    try { APEX_ERROR_DETAIL.set(resp, "ABC step: " + label + "; ABC HTTP " + (e && e.abcStatus !== undefined ? e.abcStatus : "?") + "; ABC said: " + String(detail).slice(0, 300)); } catch (eD) { /* detail is a bonus; never break the answer */ }
+    return resp;
 }
 
 // The common start of every owner route that talks to ABC: who is calling,
@@ -67004,7 +67012,7 @@ function apexErrorTimeEt() {
 // Plain-English, one message, no query string / body / headers / cookies /
 // tokens / user names -- path only, and the error text masked and truncated.
 function apexErrorAlertText(method, normalizedPath, status, errText, workerVersion) {
-    var masked = apexErrorMaskText(errText || "no message").slice(0, 200);
+    var masked = apexErrorMaskText(errText || "no message").slice(0, 500);
     var parts = [
         "Apex server error " + status,
         method + " " + normalizedPath,
@@ -67057,7 +67065,7 @@ async function apexReportServerErrorDo(env, method, normalizedPath, status, errT
         var nowIso = new Date().toISOString().replace("T", " ").slice(0, 19);
         var page = normalizedPath.slice(0, 200);
         var summaryEn = ("[Auto] Server error " + status + " on " + method + " " + normalizedPath + ": " +
-            apexErrorMaskText(errText || "no message").slice(0, 200));
+            apexErrorMaskText(errText || "no message").slice(0, 500));
         var ins = await env.DB.prepare(
             "INSERT OR IGNORE INTO support_tickets (id, created_at, reporter_email, reporter_name, language, kind, page, transcript_json, original_words, summary_en, guidance, status) " +
             "VALUES (?, ?, 'system', 'System (auto)', 'en', 'broken', ?, '[]', ?, ?, NULL, 'open')"
@@ -67075,7 +67083,9 @@ async function apexReportServerErrorDo(env, method, normalizedPath, status, errT
 async function apexErrorTextFromResponse(response) {
     try {
         var data = await response.clone().json();
-        return (data && typeof data.error === "string") ? data.error : "no message";
+        var base = (data && typeof data.error === "string") ? data.error : "no message";
+        var extra = (typeof APEX_ERROR_DETAIL !== "undefined" && APEX_ERROR_DETAIL.get(response)) || "";
+        return extra ? (base + " | " + extra) : base;
     } catch (e) {
         return "no message";
     }

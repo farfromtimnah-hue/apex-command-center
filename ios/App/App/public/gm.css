@@ -1214,8 +1214,10 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
 .gm-callout-body { flex: 1 1 auto; min-width: 0; }
 .gm-callout-title { font-weight: 700; margin-bottom: 4px; }
 .gm-callout-row { display: flex; gap: 10px; justify-content: space-between; font-size: 14px; padding: 2px 0; }
-.gm-callout-k { color: var(--muted); flex: 0 0 auto; }
+.gm-callout { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.gm-callout-k { color: var(--muted); flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
 .gm-callout-row span:last-child { text-align: right; overflow-wrap: anywhere; }
+.gm-callout-row .gm-price { white-space: nowrap; overflow-wrap: normal; flex: 0 0 auto; }
 .gm-mat-ack { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 14px; }
 .gm-mat-item { display: flex; gap: 8px; align-items: center; }
 .gm-mat-check { flex: 0 0 22px; width: 22px; height: 22px; }
@@ -1518,13 +1520,21 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
 .gm-br-why { margin: 2px 0 8px; }
 .gm-br-other { display: flex; gap: 10px; justify-content: space-between; font-size: 13px; padding: 2px 0 2px 12px; }
 .gm-br-other span:last-child { text-align: right; }
-.gm-br-cards { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 8px 0; }
-@media (min-width: 720px) { .gm-br-cards { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); } }
-.gm-br-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--card); min-width: 0; }
+/* Two branch cards: stacked on a phone, side by side only when there is room. Nothing may push the sheet wider than the screen. */
+.gm-br-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 8px 0; min-width: 0; max-width: 100%; }
+@media (min-width: 720px) { .gm-br-cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); } }
+.gm-br-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--card); min-width: 0; max-width: 100%; overflow-wrap: anywhere; box-sizing: border-box; }
+.gm-br-card * { min-width: 0; overflow-wrap: anywhere; }
+.gm-br-acct { flex-basis: 100%; font-size: 13px; }
+/* The price is one cell that never breaks across lines; the item name wraps beside it. */
+.gm-price { white-space: nowrap; flex: 0 0 auto; text-align: right; font-variant-numeric: tabular-nums; }
+.gm-br-name { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
 .gm-br-card-rec { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
 .gm-br-card-head { display: flex; gap: 8px; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
-.gm-br-line { display: flex; gap: 10px; justify-content: space-between; font-size: 14px; padding: 3px 0; }
+.gm-br-line { display: flex; gap: 10px; justify-content: space-between; font-size: 14px; padding: 3px 0; min-width: 0; }
+.gm-br-line span:first-child { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
 .gm-br-line span:last-child { text-align: right; overflow-wrap: anywhere; }
+.gm-br-line .gm-price { overflow-wrap: normal; }
 .gm-br-line-no span:last-child { color: var(--red, #b04040); font-weight: 600; }
 .gm-br-quick { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 6px; }
 .gm-br-quick .gm-btn-secondary { width: auto; margin: 0; padding: 8px 12px; }
@@ -1537,6 +1547,14 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
 .gm-bar .gm-btn-primary { margin: 0; }
 .gm-bar-need { font-size: 14px; margin: 0 0 8px; line-height: 1.5; }
 .gm-bar-ok { margin: 0 0 8px; font-weight: 700; color: var(--green, #3f7d4e); }
-.gm-bar-link { background: none; border: 0; padding: 2px 4px; font: inherit; color: var(--gold); text-decoration: underline; cursor: pointer; }
-.gm-bar-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* The questions block (2026-11-16): one plain question at a time, the box right there. One border, a small corner, no side stripe. */
+.gm-ask { border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin: 0 0 12px; background: var(--card); min-width: 0; }
+.gm-ask-step { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.gm-ask-q { font-weight: 700; font-size: 17px; margin-bottom: 8px; }
+.gm-ask-ok { border-color: var(--green, #3f7d4e); }
+.gm-all { margin: 0 0 10px; }
+.gm-all > summary { cursor: pointer; padding: 8px 0; color: var(--muted); }
+.gm-all > summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* The conflict screen and the Replace picker */
+.gm-rep-pick { border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin: 6px 0; min-width: 0; }
 .gm-send-abc { display: block; width: 100%; margin: 8px 0; }

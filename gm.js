@@ -1318,7 +1318,7 @@ function gmAbcLoad(force) {
   gmAbcLoading = true;
   gmApi("abc/status").then(function(d) {
     gmAbcLoading = false; gmAbcStatus = d || { available: false, connected: false };
-    if (gmAbcStatus.connected) { gmAbcAwaiting = false; }
+    if (gmAbcStatus.connected) { gmAbcAwaiting = false; gmBrNamesEnsure(); }
     gmRenderEstimatesTab();
   }).catch(function(e) {
     gmAbcLoading = false; gmAbcStatus = { available: false, connected: false };
@@ -6378,6 +6378,7 @@ function gmAbcPlOpen() {
   gmAbcPlFind = { q: "", loading: false, items: null, skipped: 0, picked: {}, unit: {}, conv: {}, extra: {}, qty: {}, result: null, error: "", pair: null, meta: null, others: null };
   var dp = gmBrDefault(); if (dp && gmBrMulti()) { gmAbcPlFind.pair = { ship_to: dp.ship_to, branch: dp.branch }; }
   gmAbcPlRenderSheet();
+  gmBrNamesEnsure();
 }
 // The extra material number shown for a ticked item: what the owner typed, else the business standard for a measured unit, else empty.
 function gmAbcPlExtraShown(f, it, i, unitNow) {
@@ -6455,8 +6456,12 @@ function gmAbcPlRenderSheet() {
   }
   body += gmBrCantFindHtml(f);
   if (f.result) {
-    body += '<p style="margin:10px 0 4px;">' + escHtml(f.result.created.length + gmT(" itens adicionados. O preço de venda fica em branco para você preencher.", " items added. The sale price stays empty for you to fill in.")) + '</p>';
-    f.result.skipped.forEach(function(s) { body += '<p class="muted" style="margin:2px 0;">' + escHtml(s.item_number + ": " + gmAbcPlReasonText(s.reason)) + '</p>'; });
+    if (f.result.created.length) { body += '<p style="margin:10px 0 4px;">' + escHtml(f.result.created.length + gmT(" itens adicionados. O preço de venda fica em branco para você preencher.", " items added. The sale price stays empty for you to fill in.")) + '</p>'; }
+    f.result.skipped.forEach(function(s) {
+      // An item that is already on the Price list is named, never skipped in silence.
+      var nm = s.item_number; (f.items || []).forEach(function(x) { if (x.item_number === s.item_number) { nm = x.description || s.item_number; } });
+      body += '<p class="' + (s.reason === "already_linked" ? "" : "muted") + '" style="margin:2px 0;">' + escHtml(s.reason === "already_linked" ? gmT("Já está na sua lista de preços: ", "Already on your Price list: ") + nm : s.item_number + ": " + gmAbcPlReasonText(s.reason)) + '</p>';
+    });
   }
   gmSheetOpen(escHtml(f.draftId ? gmT("Adicionar linha da ABC", "Add a line from ABC") : gmT("Adicionar da ABC Supply", "Add from ABC Supply")), body, null, "pricing-item-and-import#item");
 }
@@ -7206,7 +7211,11 @@ var GM_MAT_MISSING = {
   delivery_contact_phone: ["o telefone da pessoa na obra", "the on-site person's phone"],
   item_description: ["atualizar este item pela ABC primeiro", "Refresh this item from ABC first"],
   item_length: ["escolher o comprimento ainda não é possível, pergunte à filial", "Choose a length is not supported yet, ask the branch"],
-  person_name: ["o nome de uma pessoa, não da empresa", "a person's name, not the business name"]
+  person_name: ["o nome de uma pessoa, não da empresa", "a person's name, not the business name"],
+  delivery_place_complete: ["o endereço completo (rua, cidade, estado, CEP)", "the full address (street, city, state, zip)"],
+  location_name_taken: ["outro nome para o local (esse já existe com outro endereço)", "another location name (that one exists with another address)"],
+  line_price: ["o preço da ABC de cada linha", "the ABC price of each line"], branch: ["uma filial da sua lista", "a branch from your list"],
+  order_fields: ["conferir os dados do pedido", "to check the order details"]
 };
 function gmMatMissingText(list) { return (list || []).map(function(k) { var m = GM_MAT_MISSING[k]; return m ? gmT(m[0], m[1]) : k; }).join(", "); }
 function gmMatServiceName(code) { var s = null; GM_MAT_SERVICES.forEach(function(x) { if (x[0] === code) { s = x; } }); return s ? gmT(s[2], s[1]) : ""; }
@@ -7223,7 +7232,7 @@ var GM_MAT_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" s
 // Anything the owner must notice: a callout card with an icon, a short title and labeled rows.
 function gmMatCalloutHtml(title, rows, extraHtml) {
   return '<div class="gm-callout" role="note"><span class="gm-callout-icon">' + GM_MAT_ICON + '</span><div class="gm-callout-body"><div class="gm-callout-title">' + escHtml(title) + '</div>' +
-    (rows || []).map(function(r) { return '<div class="gm-callout-row"><span class="gm-callout-k">' + escHtml(r[0]) + '</span><span>' + escHtml(r[1]) + '</span></div>'; }).join("") + (extraHtml || "") + '</div></div>';
+    (rows || []).map(function(r) { return '<div class="gm-callout-row"><span class="gm-callout-k">' + escHtml(r[0]) + '</span><span' + (r[2] === "price" ? ' class="gm-price"' : "") + '>' + escHtml(r[1]) + '</span></div>'; }).join("") + (extraHtml || "") + '</div></div>';
 }
 function gmMatField(id, label, value, handler, o) {
   o = o || {};
@@ -7245,19 +7254,30 @@ function gmMatStatusPill(d) {
 // Drafts by contract, for the badge on a signed contract.
 var gmMatDraftsByContract = {};
 var gmMatDraftsAll = {};    // contract id -> every draft still waiting to be sent (one per ABC account and branch)
+var gmMatDraftsEstAll = {};  // estimate id -> the same for a draft made from an accepted estimate (no contract)
+var gmMatDraftsEstSeen = {}; // estimate id -> true when any draft (waiting or sent) came from it
 var gmMatWaiting = 0;
+var gmMatDraftsAt = 0;
+// The list again only when the last read is older than 30 seconds (the estimate screens ask often).
+function gmMatDraftsFresh(cb) { if (gmIsSeller() || Date.now() - gmMatDraftsAt < 30000) { if (cb) { cb(); } return; } gmMatDraftsLoad(cb); }
 function gmMatDraftsLoad(cb) {
   if (gmIsSeller()) { if (cb) { cb(); } return; }
+  gmMatDraftsAt = Date.now();
   gmApi("abc/drafts").then(function(d) {
-    gmMatDraftsByContract = {}; gmMatDraftsAll = {}; gmMatWaiting = d.waiting || 0;
+    gmMatDraftsByContract = {}; gmMatDraftsAll = {}; gmMatDraftsEstAll = {}; gmMatDraftsEstSeen = {}; gmMatWaiting = d.waiting || 0;
     (d.drafts || []).forEach(function(x) {
+      if (x.source_kind === "estimate" || x.source_kind === "manual") {
+        if (x.estimate_id) { gmMatDraftsEstSeen[x.estimate_id] = true; if (x.status === "draft") { (gmMatDraftsEstAll[x.estimate_id] = gmMatDraftsEstAll[x.estimate_id] || []).push(x); } }
+        return;
+      }
+      if (x.estimate_id) { gmMatDraftsEstSeen[x.estimate_id] = true; }
       gmMatDraftsByContract[x.contract_id] = x;
       if (x.status === "draft") { (gmMatDraftsAll[x.contract_id] = gmMatDraftsAll[x.contract_id] || []).push(x); }
     });
     // The Home card counts these, so it is drawn again whenever they are read (found 2026-11-15: it stayed after an order was sent).
     if (typeof gmAttentionRecompute === "function") { gmAttentionRecompute(); }
     if (cb) { cb(); }
-  }).catch(function(e) { gmMatDraftsByContract = {}; gmMatWaiting = 0; if (e.status !== 503 && e.status !== 409) { console.error("materials orders: " + e.message); } if (cb) { cb(); } });
+  }).catch(function(e) { gmMatDraftsByContract = {}; gmMatDraftsEstAll = {}; gmMatDraftsEstSeen = {}; gmMatWaiting = 0; if (e.status !== 503 && e.status !== 409) { console.error("materials orders: " + e.message); } if (cb) { cb(); } });
 }
 // The Home card.
 function gmMatOrdersCardHtml() {
@@ -7266,6 +7286,73 @@ function gmMatOrdersCardHtml() {
     '<button type="button" class="gm-row" onclick="gmMatOrdersOpen()"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' +
     escHtml(gmMatWaiting === 1 ? gmT("1 pedido da ABC está pronto para revisar", "1 ABC order is ready to review") : gmT(gmMatWaiting + " pedidos da ABC estão prontos para revisar", gmMatWaiting + " ABC orders are ready to review")) +
     '</span></span><span class="gm-lead-side"><span class="gm-pill gm-gold">● ' + escHtml(gmT("revisar", "review")) + '</span></span></button>';
+}
+
+// The number shown for an order: the contract number, the estimate number (EST-xxxx), or the words New order.
+function gmMatDraftNumber(d) { return d.contract_number || d.estimate_number || (d.source_kind === "manual" ? gmT("Novo pedido", "New order") : ""); }
+// The gold button on an ACCEPTED estimate (sheet and list row): the same as on the contract.
+function gmMatEstimateSendBtnHtml(e) {
+  if (gmIsSeller() || !e || !e.id || (e.stored_status || e.status) !== "accepted") { return ""; }
+  var list = gmMatDraftsEstAll[e.id] || [];
+  if (!list.length) { return ""; }
+  var label = list.length > 1 ? gmT("Enviar pedidos de material (" + list.length + ")", "Send materials orders (" + list.length + ")") : gmT("Enviar pedido de material para a ABC", "Send materials order to ABC");
+  var go = list.length > 1 ? "gmMatOrdersOpen([" + list.map(function(x) { return "'" + escHtml(x.id) + "'"; }).join(",") + "])" : "gmMatDraftOpen('" + escHtml(list[0].id) + "')";
+  return '<button type="button" class="btn-gold gm-add-btn gm-send-abc" onclick="' + go + '">' + escHtml(label) + '</button>';
+}
+// An accepted estimate nobody has looked at yet (accepted before orders from estimates existed): one plain button asks the Worker.
+function gmMatEstimateCheckBtnHtml(e) {
+  if (gmIsSeller() || !gmMatUi() || !e || !e.id || (e.stored_status || e.status) !== "accepted" || gmMatDraftsEstSeen[e.id] || (gmMatDraftsEstAll[e.id] || []).length) { return ""; }
+  return '<button type="button" class="gm-btn-secondary" onclick="gmMatEnsureEstimate(\'' + escHtml(e.id) + '\')">' + escHtml(gmT("Verificar itens da ABC", "Check for ABC items")) + '</button>';
+}
+function gmMatEnsureEstimate(estimateId) {
+  gmApi("abc/drafts/ensure", { method: "POST", body: { estimate_id: estimateId } }).then(function(r) {
+    if (r.drafts && r.drafts.length > 1) { gmMatDraftsLoad(function() { gmMatOrdersOpen(r.drafts.map(function(x) { return x.id; })); }); }
+    else if (r.draft) { gmMatDraftsLoad(function() { gmMatDraftOpen(r.draft.id); }); }
+    else { gmToast(gmT("Este orçamento não tem itens da ABC para pedir.", "This estimate has no ABC items to order.")); }
+  }).catch(function(e) { gmToast(e.message); console.error("materials ensure (estimate): " + e.message); });
+}
+
+// ── New order: no estimate, no contract. The items come from the owner's own Price list (only ABC linked rows). ──
+var gmMatNew = null;
+function gmMatNewOpen() {
+  gmMatNew = { name: "", items: null, qty: {}, loading: true, err: "", busy: false };
+  gmMatNewRender();
+  var go = function() { var m = gmMatNew; if (!m) { return; } m.items = ((gmPricingData && gmPricingData.items) || []).filter(function(it) { return !!it.abc_item_number && !!it.abc_unit; }); m.loading = false; gmMatNewRender(); };
+  if (gmPricingData) { go(); } else { gmApi("pricing").then(function(d) { gmPricingData = d; go(); }).catch(function(e) { var m = gmMatNew; if (!m) { return; } m.loading = false; m.err = e.message; gmMatNewRender(); console.error("new order pricing: " + e.message); }); }
+}
+function gmMatNewPicked(m) {
+  var out = [];
+  (m.items || []).forEach(function(it) { var q = Number(String(m.qty[it.id] || "").replace(",", ".")); if (String(m.qty[it.id] || "").trim() && isFinite(q) && q > 0 && q <= 100000) { out.push({ price_list_id: it.id, quantity: q }); } });
+  return out;
+}
+function gmMatNewRender() {
+  var m = gmMatNew; if (!m) { return; }
+  var h = "";
+  if (m.loading) { h = '<p class="muted">' + escHtml(gmT("Carregando…", "Loading…")) + '</p>'; }
+  else if (m.err) { h = gmMatCalloutHtml(gmT("Não foi possível abrir", "Could not open"), [[gmT("Motivo", "Reason"), m.err]]); }
+  else {
+    h = gmMatField("gmMatNewName", gmT("Nome do trabalho", "Job name"), m.name, "gmMatNew.name = this.value; gmMatNewPaint()", { max: 60 });
+    if (!m.items.length) { h += '<p class="muted">' + escHtml(gmT("Nenhum item da ABC na sua lista de preços ainda. Adicione itens de Adicionar da ABC Supply.", "No ABC items on your Price list yet. Add some with Add from ABC Supply.")) + '</p>'; }
+    else {
+      h += '<div class="gm-field-label" style="margin-top:10px;">' + escHtml(gmT("Quantos de cada item?", "How many of each item?")) + '</div><p class="muted" style="margin:0 0 6px;">' + escHtml(gmT("Na unidade que a ABC vende (por exemplo paletes ou fardos).", "In the unit ABC sells (for example pallets or bundles).")) + '</p>';
+      m.items.forEach(function(it) {
+        h += '<div class="gm-mat-line"><div class="gm-br-name"><strong>' + escHtml(it.item) + '</strong></div><div class="gm-lead-sub">' + escHtml(it.abc_item_number) + '</div>' +
+          gmMatField("gmMatNewQ_" + it.id, gmT("Quantidade (", "Quantity (") + it.abc_unit + ")", m.qty[it.id] || "", "gmMatNew.qty['" + escHtml(it.id) + "'] = this.value; gmMatNewPaint()", { max: 9, inputmode: "decimal" }) + '</div>';
+      });
+    }
+    h += '<button type="button" class="gm-btn-primary" id="gmMatNewGo"' + (gmMatNewReady(m) ? "" : " disabled") + ' onclick="gmMatNewGo()">' + escHtml(m.busy ? gmT("Criando…", "Making…") : gmT("Criar o pedido", "Make the order")) + '</button>' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmMatOrdersOpen()">' + escHtml(gmT("Voltar à lista", "Back to the list")) + '</button>';
+  }
+  gmSheetOpen(escHtml(gmT("Novo pedido", "New order")), h, null, "pricing-item-and-import#item");
+}
+function gmMatNewReady(m) { return !m.busy && String(m.name || "").trim().length > 0 && String(m.name).trim().length <= 60 && !/[<>]/.test(m.name) && gmMatNewPicked(m).length > 0; }
+function gmMatNewPaint() { var m = gmMatNew, b = document.getElementById("gmMatNewGo"); if (m && b) { b.disabled = !gmMatNewReady(m); } }
+function gmMatNewGo() {
+  var m = gmMatNew; if (!m || !gmMatNewReady(m)) { return; }
+  m.busy = true; gmMatNewRender();
+  gmApi("abc/drafts/new", { method: "POST", body: { job_name: String(m.name).trim(), items: gmMatNewPicked(m) } }).then(function(r) {
+    gmMatNew = null; gmMatDraftsLoad(function() { gmMatDraftOpen(r.draft.id); });
+  }).catch(function(e) { m.busy = false; m.err = ""; gmToast(e.message); gmMatNewRender(); console.error("new order: " + e.message); });
 }
 
 // ── The list ──
@@ -7283,19 +7370,20 @@ function gmMatOrdersRender() {
   if (o.loading) { h = '<p class="muted">' + escHtml(gmT("Carregando…", "Loading…")) + '</p>'; }
   else if (o.err) { h = gmMatCalloutHtml(gmT("Não foi possível carregar", "Could not load"), [[gmT("Motivo", "Reason"), o.err]]); }
   else if (!o.list.length) {
-    h = '<p class="muted">' + escHtml(gmT("Nenhum pedido ainda. Quando um cliente assina um contrato com itens da ABC, o pedido aparece aqui para você revisar.",
-      "No orders yet. When a customer signs a contract with ABC items, the order appears here for you to review.")) + '</p>';
+    h = '<p class="muted">' + escHtml(gmT("Nenhum pedido ainda. Quando um cliente aceita um orçamento ou assina um contrato com itens da ABC, o pedido aparece aqui para você revisar.",
+      "No orders yet. When a customer accepts an estimate or signs a contract with ABC items, the order appears here for you to review.")) + '</p>';
   } else {
     var picked = Object.keys(o.picked).filter(function(k) { return o.picked[k]; }).length;
     o.list.forEach(function(d, i) {
       h += '<div class="gm-mat-item">' +
         (d.status === "draft" ? '<input type="checkbox" class="gm-mat-check" aria-label="' + escHtml(gmT("Escolher para pedido em lote", "Pick for a batch order")) + '"' + (o.picked[d.id] ? " checked" : "") + ' onchange="gmMatOrd.picked[\'' + escHtml(d.id) + '\'] = this.checked; gmMatOrdersRender()">' : '<span class="gm-mat-check"></span>') +
         '<button type="button" class="gm-row" style="flex:1;" onclick="gmMatDraftOpen(\'' + escHtml(d.id) + '\')"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(d.job_name || gmT("Sem nome", "No name")) + '</span>' +
-        '<div class="gm-lead-sub">' + escHtml([d.contract_number, d.line_count + " " + gmT(d.line_count === 1 ? "linha" : "linhas", d.line_count === 1 ? "line" : "lines"), d.abc_confirmation ? gmT("confirmação ", "confirmation ") + d.abc_confirmation : null].filter(function(x) { return !!x; }).join(" · ")) + '</div></span>' +
+        '<div class="gm-lead-sub">' + escHtml([gmMatDraftNumber(d), d.line_count + " " + gmT(d.line_count === 1 ? "linha" : "linhas", d.line_count === 1 ? "line" : "lines"), d.abc_confirmation ? gmT("confirmação ", "confirmation ") + d.abc_confirmation : null].filter(function(x) { return !!x; }).join(" · ")) + '</div></span>' +
         '<span class="gm-lead-side">' + gmMatStatusPill(d) + '</span></button></div>';
     });
     h += '<button type="button" class="gm-btn-primary"' + (picked ? "" : " disabled") + ' onclick="gmMatBatchOpen()">' + escHtml(gmT("Pedido em lote", "Batch order") + (picked ? " (" + picked + ")" : "")) + '</button>';
   }
+  if (!o.loading && !o.err && gmMatUi()) { h += '<button type="button" class="gm-btn-secondary" onclick="gmMatNewOpen()">' + escHtml(gmT("Novo pedido", "New order")) + '</button>'; }
   gmSheetOpen(escHtml(gmT("Pedidos de material", "Materials orders")), h, null, "pricing-item-and-import#item");
 }
 
@@ -7308,16 +7396,18 @@ function gmMatDraftOpen(id) {
     var m = gmMatDraft; if (!m || m.id !== id) { return; }
     m.data = d; m.loading = false; m.form = gmMatDraftForm(d);
     m.ready = Array.isArray(d.pairs); m.multi = m.ready && d.pairs.length > 1;
+    if (m.ready && d.pairs.some(function(p) { return !p.branch_name || !p.ship_to_name; })) { gmBrNamesEnsure(); }
     m.locMode = d.draft.delivery_to === "job" ? "job" : (d.draft.delivery_to === "saved" ? "saved" : "");
     m.view = d.draft.status === "draft" ? "edit" : "done";
+    m.sync = "ok"; m.sigChecked = gmBrSig(m);   // what was just read from the Worker is, by definition, what the Worker holds
     gmBrBarWire();
     gmMatDraftRender();
     if (d.draft.status === "draft") {
       // ABC's own item descriptions (F6): asked for when the owner opens the order, then the order is read again.
       if (m.ready && (d.draft.missing || []).some(function(k) { return k === "item_description"; })) {
         gmApi("abc/drafts/" + encodeURIComponent(id) + "/refresh-descriptions", { method: "POST", body: {} }).then(function() { return gmApi("abc/drafts/" + encodeURIComponent(id)); })
-          .then(function(d2) { if (gmMatDraft === m) { m.data.draft.missing = d2.draft.missing; d2.lines.forEach(function(l2) { m.data.lines.forEach(function(l) { if (l.id === l2.id) { l.abc_description = l2.abc_description; l.abc_dimensional = l2.abc_dimensional; } }); }); gmMatDraftRender(); } })
-          .catch(function(e) { console.error("abc descriptions: " + e.message); });
+          .then(function(d2) { if (gmMatDraft === m) { m.descTried = true; m.data.draft.missing = d2.draft.missing; d2.lines.forEach(function(l2) { m.data.lines.forEach(function(l) { if (l.id === l2.id) { l.abc_description = l2.abc_description; l.abc_dimensional = l2.abc_dimensional; } }); }); gmMatDraftRender(); } })
+          .catch(function(e) { m.descTried = true; console.error("abc descriptions: " + e.message); if (gmMatDraft === m) { gmMatDraftRender(); } });
       }
       gmMatDraftPrices(); gmMatDraftLiveRows();
       // With several branches, compare them by themselves once while no branch is chosen yet.
@@ -7328,7 +7418,7 @@ function gmMatDraftOpen(id) {
 function gmMatDraftForm(d) {
   var dr = d.draft, ja = dr.delivery_to === "job" && dr.ship_line1 ? { line1: dr.ship_line1, city: dr.ship_city, state: dr.ship_state, postal: dr.ship_postal } : d.job_address;
   var q = {}; d.lines.forEach(function(l) { q[l.id] = { qty: l.quantity === null || l.quantity === undefined ? "" : String(l.quantity), removed: !!l.removed }; });
-  var form = { job_name: dr.job_name, service: dr.delivery_service, date: gmMatUsDate(dr.delivery_date), contact_name: dr.contact_name, contact_email: dr.contact_email, contact_phone: dr.contact_phone,
+  var form = { job_name: dr.job_name, service: dr.delivery_service, date: gmMatUsDate(dr.delivery_date), contact_name: dr.contact_name, contact_email: dr.contact_email, contact_phone: gmBrPhone(dr.contact_phone),
     order_ref: dr.order_ref, ja: { line1: ja.line1 || "", city: ja.city || "", state: ja.state || "", postal: ja.postal || "" }, locId: dr.location_id || "", nl: { name: "", line1: "", city: "", state: "", postal: "" }, lines: q };
   if (Array.isArray(d.pairs)) {
     // Date or TBD is never preselected; the on-site person is never prefilled. The submitter starts as the owner's own name (never the business).
@@ -7383,7 +7473,15 @@ function gmMatDraftRender() {
   if (m.loading) { gmSheetOpen(title, '<p class="muted">' + escHtml(gmT("Carregando…", "Loading…")) + '</p>', null, "pricing-item-and-import#item"); return; }
   if (!m.data) { gmSheetOpen(title, gmMatCalloutHtml(gmT("Não foi possível abrir", "Could not open"), [[gmT("Motivo", "Reason"), m.err]]) + '<button type="button" class="gm-btn-secondary" onclick="gmMatOrdersOpen()">' + escHtml(gmT("Voltar à lista", "Back to the list")) + '</button>', null, "pricing-item-and-import#item"); return; }
   var h = m.view === "review" ? gmMatReviewHtml(m) : (m.view === "done" ? gmMatDoneHtml(m) : (m.view === "conflict" && m.cf ? gmBrConflictHtml(m) : gmMatEditHtml(m)));
-  gmSheetOpen(escHtml((m.data.draft.job_name || title) + (m.data.draft.contract_number ? " · " + m.data.draft.contract_number : "")), h, null, "pricing-item-and-import#item");
+  var dno = m.data.draft.contract_number || m.data.draft.estimate_number || (m.data.draft.source_kind === "manual" ? gmT("Novo pedido", "New order") : "");
+  var hdr = (m.data.draft.job_name || title) + (dno ? " · " + dno : "") + (m.multi ? " · " + gmBrPairNameIn(m, gmBrDraftPair(m)) : "");
+  gmSheetOpen(escHtml(hdr), h, null, "pricing-item-and-import#item");
+  if (m.view === "edit" && m.ready) { gmBrAfterRender(m); }
+}
+// After the screen is drawn: when nothing is missing on screen and the Worker has not checked this copy yet, it is saved and checked.
+function gmBrAfterRender(m) {
+  if (gmMatDraft !== m || m.syncBusy || m.busy) { return; }
+  if (!gmBrAskLocal(m).length && gmBrSig(m) !== m.sigChecked && m.sync !== "pending") { gmBrSyncSoon(m); }
 }
 function gmMatEditHtml(m) {
   var d = m.data, f = m.form, h = "";
@@ -7417,7 +7515,8 @@ function gmMatEditHtml(m) {
     h += '<p class="muted" style="margin:10px 0 0;">' + escHtml(gmT("Fora do pedido, não são da ABC: ", "Not from ABC, left out: ") + d.not_from_abc.map(function(x) { return x.item_name; }).join(", ")) + '</p>';
   }
   h += '</div>';
-  // Delivery.
+  // Delivery. With the branches migration the questions come first (one at a time, the box right there) and every field stays below.
+  var aboveDelivery = h; h = "";
   h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("Entrega", "Delivery")) + '</div>' +
     gmMatServiceSelect("gmMatSvc", f.service, "gmMatDraft.form.service = this.value") +
     '<div class="gm-field-label" id="gmMatLocBox" style="margin-top:10px;">' + escHtml(gmT("Para onde vai", "Where it goes")) + '</div>' +
@@ -7447,10 +7546,14 @@ function gmMatEditHtml(m) {
     gmMatField("gmMatCPhone", m.ready ? gmT("Seu telefone", "Your phone") : gmT("Telefone do contato", "Contact phone"), f.contact_phone, "gmMatDraft.form.contact_phone = this.value", { max: 30, inputmode: "tel" }) +
     gmMatField("gmMatJob", gmT("Nome do trabalho", "Job name"), f.job_name, "gmMatDraft.form.job_name = this.value", { max: 80 }) +
     gmMatField("gmMatPo", gmT("Número do pedido de compra", "Purchase order number"), f.order_ref, "gmMatDraft.form.order_ref = this.value", { max: 16, hint: gmT("Até 16 letras, números ou hifens. Único na sua empresa.", "Up to 16 letters, numbers or hyphens. Unique in your business.") }) + '</div>';
+  if (m.ready) {
+    var askHtml = gmBrAskHtml(m);
+    h = aboveDelivery + '<div class="gm-sheet-section" id="gmMatDeliveryBox">' + askHtml + '<details class="gm-all"' + (m.allOpen === true || m.askReady ? " open" : "") + ' ontoggle="if (gmMatDraft) { gmMatDraft.allOpen = this.open; }"><summary>' + escHtml(gmT("Todos os dados de entrega e contato", "All delivery and contact details")) + '</summary>' + h + '</details></div>';
+  } else { h = aboveDelivery + h; }
   var secondary = '<button type="button" class="gm-btn-secondary"' + (m.busy ? " disabled" : "") + ' onclick="gmMatDraftSaveBtn()">' + escHtml(gmT("Salvar para depois", "Save for later")) + '</button>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmMatDiscardAsk()">' + escHtml(gmT("Descartar este pedido", "Discard this order")) + '</button>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmMatOrdersOpen()">' + escHtml(gmT("Voltar à lista", "Back to the list")) + '</button>';
-  if (m.ready) { return h + secondary + gmBrBarHtml(m); }   // 4(c): Review and send is pinned at the bottom with what is still needed
+  if (m.ready) { return h + secondary + gmBrBarHtml(m); }   // 4(c): Review and send is pinned at the bottom with one line: the questions left, or Ready to send
   return h + '<button type="button" class="gm-btn-primary"' + (m.busy ? " disabled" : "") + ' onclick="gmMatReviewOpen()">' + escHtml(gmT("Revisar e enviar", "Review and send")) + '</button>' + secondary;
 }
 function gmMatAddrFields(key, a, withName) {
@@ -7505,7 +7608,7 @@ function gmMatDraftBody() {
   var m = gmMatDraft, f = m.form, d = m.data;
   var bad = function(pt, en) { m.err = gmT(pt, en); return null; };
   var body = { job_name: String(f.job_name || "").trim(), delivery_service: f.service || "", contact_name: String(f.contact_name || "").trim(), contact_email: String(f.contact_email || "").trim(),
-    contact_phone: String(f.contact_phone || "").trim(), order_ref: String(f.order_ref || "").trim() };
+    contact_phone: gmBrPhoneDigits(f.contact_phone) || String(f.contact_phone || "").trim(), order_ref: String(f.order_ref || "").trim() };
   if (!body.job_name) { return bad("Informe o nome do trabalho.", "Enter the job name."); }
   if (!/^[A-Za-z0-9-]{1,16}$/.test(body.order_ref)) { return bad("O número do pedido de compra tem até 16 letras, números ou hifens.", "The purchase order number has up to 16 letters, numbers or hyphens."); }
   if (m.ready) {
@@ -7557,6 +7660,7 @@ function gmMatDraftSave(then) {
     m.busy = false; m.data = d;
     var keepMode = m.locMode; m.form = gmMatDraftForm(d); m.locMode = d.draft.delivery_to === "job" ? "job" : (d.draft.delivery_to === "saved" ? "saved" : keepMode);
     if (m.priceKeep) { d.lines.forEach(function(l) { var k = m.priceKeep[l.id]; if (k !== undefined) { l.unit_price = k; } }); }
+    m.sync = "ok"; m.sigChecked = gmBrSig(m);
     gmMatDraftRender(); if (then) { then(); }
   }).catch(function(e) { m.busy = false; m.err = e.message; gmMatDraftRender(); console.error("draft save: " + e.message); });
 }
@@ -7633,7 +7737,11 @@ function gmMatReviewOpen() {
   gmMatDraftSave(function() {
     m.err = "";
     var miss = m.data.draft.missing || [];
-    if (miss.length) { m.err = gmT("Falta: ", "Still needed: ") + gmMatMissingText(miss) + "."; gmMatDraftRender(); return; }
+    // The Worker's list is the only one: what it still lists is asked as a question again (never a refusal in words after Ready).
+    if (miss.some(function(k) { return k !== "line_price"; }) || !m.ready && miss.length) {
+      if (m.ready) { m.sync = "ok"; m.sigChecked = gmBrSig(m); m.err = ""; } else { m.err = gmT("Falta: ", "Missing: ") + gmMatMissingText(miss) + "."; }
+      gmMatDraftRender(); return;
+    }
     m.view = "review"; m.rv = { changes: [], ack: true, sending: false, note: "" }; m.priceKeep = null;
     m.prices = "loading"; gmMatDraftRender();
     gmApi("abc/drafts/" + encodeURIComponent(m.id) + "/prices", { method: "POST", body: {} }).then(function(r) {
@@ -7671,8 +7779,8 @@ function gmMatReviewHtml(m) {
     gmMatSumRow(gmT("Para", "To"), gmMatShipText(d)) +
     (m.multi ? gmMatSumRow(gmT("Filial", "Branch"), gmBrPairNameIn(m, gmBrDraftPair(m))) : "") +
     gmMatSumRow(gmT("Data", "Date"), dr.delivery_date_tbd ? gmT("A definir: a filial segura o pedido", "TBD: the branch holds the order") : (dr.delivery_date ? gmMatUsDate(dr.delivery_date) : gmT("A filial da ABC escolhe a data", "The ABC branch decides the date"))) +
-    gmMatSumRow(m.ready ? gmT("Seu contato", "Your contact") : gmT("Contato", "Contact"), [dr.contact_name, dr.contact_email, dr.contact_phone].filter(Boolean).join(" · ")) +
-    (m.ready ? gmMatSumRow(gmT("Pessoa na obra", "On site"), [dr.delivery_contact_name, dr.delivery_contact_phone].filter(Boolean).join(" · ")) +
+    gmMatSumRow(m.ready ? gmT("Seu contato", "Your contact") : gmT("Contato", "Contact"), [dr.contact_name, dr.contact_email, gmBrPhone(dr.contact_phone)].filter(Boolean).join(" · ")) +
+    (m.ready ? gmMatSumRow(gmT("Pessoa na obra", "On site"), [dr.delivery_contact_name, gmBrPhone(dr.delivery_contact_phone)].filter(Boolean).join(" · ")) +
       (dr.delivery_instructions ? gmMatSumRow(gmT("Instruções", "Instructions"), dr.delivery_instructions) : "") : "") +
     gmMatSumRow(gmT("Pedido de compra", "Purchase order"), dr.order_ref) + '</div>';
   var total = 0, all = true;
@@ -7705,7 +7813,7 @@ function gmMatSend() {
       m.rv.changes = (dt.changes || []).map(function(c) { var l = by[c.line_id]; if (l) { l.unit_price = c.now; } return { item_number: c.item_number, description: l ? l.description : c.item_number, was: c.was, now: c.now }; });
       m.rv.ack = false;
     } else if (dt.abc_refusal) { m.rv.refusal = dt.abc_refusal; }
-    else if (dt.missing && dt.missing.length) { m.rv.err = gmT("Falta: ", "Still needed: ") + gmMatMissingText(dt.missing) + "."; }
+    else if (dt.missing && dt.missing.length) { m.rv.err = gmT("Falta: ", "Missing: ") + gmMatMissingText(dt.missing) + "."; }
     else if (dt.no_price) { m.rv.err = gmT("A ABC não devolveu preço para: ", "ABC returned no price for: ") + dt.no_price.map(function(x) { return x.description; }).join(", "); }
     else { m.rv.err = e.message; }
     gmMatDraftRender(); console.error("draft send: " + e.message);
@@ -7783,7 +7891,7 @@ function gmMatBatchOpen() {
     gmMatBatchRender();
   }).catch(function(e) { var b = gmMatBatch; if (!b) { return; } b.loading = false; b.err = e.message; gmMatBatchRender(); console.error("batch: " + e.message); });
 }
-function gmMatBatchName(id) { var d = gmMatBatch.det[id]; return d ? (d.draft.job_name || d.draft.contract_number || id) : id; }
+function gmMatBatchName(id) { var d = gmMatBatch.det[id]; return d ? (d.draft.job_name || d.draft.contract_number || d.draft.estimate_number || id) : id; }
 function gmMatBatchRender() {
   var b = gmMatBatch; if (!b) { return; }
   var h = "";
@@ -8037,7 +8145,7 @@ function gmMatBatchSend() {
 // branches_ready). A business with ONE account and branch sees none of the branch tabs. A 404 or "Not available yet"
 // from a new route simply leaves the new section out. Every ABC call starts from an owner action on screen.
 // ══════════════════════════════════════════════════════════════════════════════════════════════
-var gmBr = { carry: null, carryAt: 0, carryLoading: false, itemAt: {}, itemRes: {}, contacts: null, contactsLoading: false, newp: { name: "", phone: "", email: "" }, newpOpen: false, newpErr: "", cmp: null, cf: null, tab: "" };
+var gmBr = { namesAsked: false, carry: null, carryAt: 0, carryLoading: false, itemAt: {}, itemRes: {}, contacts: null, contactsLoading: false, newp: { name: "", phone: "", email: "" }, newpOpen: false, newpErr: "", cmp: null, cf: null, tab: "" };
 
 function gmBrStatus() { return gmAbcPlStatus || gmAbcStatus || {}; }
 function gmBrPairs() { return (gmBrStatus().pairs || []).slice(); }
@@ -8046,8 +8154,43 @@ function gmBrMulti() { return gmBrReady() && gmBrPairs().length > 1; }
 function gmBrKey(p) { return String(p.ship_to) + "|" + String(p.branch); }
 function gmBrFind(shipTo, branch) { var hit = null; gmBrPairs().forEach(function(p) { if (!hit && p.ship_to === shipTo && p.branch === branch) { hit = p; } }); return hit; }
 function gmBrDefault() { var l = gmBrPairs(); return l.filter(function(p) { return p.is_default; })[0] || l[0] || null; }
-function gmBrShort(p) { return p ? (p.branch_name || p.branch) : ""; }
-function gmBrName(p) { return p ? ((p.ship_to_name || p.ship_to) + " · " + (p.branch_name || p.branch)) : ""; }
+// ONE name format for a branch, everywhere (2026-11-16): "<Branch name> (<number>)" when the name is known, "Branch <number>" when not.
+// The account name goes on a second line only where there is room (gmBrAcct).
+function gmBrLabel(p) {
+  if (!p || (!p.branch && !p.branch_name)) { return ""; }
+  var n = p.branch_name ? String(p.branch_name).trim() : "";
+  return n && n !== String(p.branch) ? n + " (" + p.branch + ")" : gmT("Filial ", "Branch ") + p.branch;
+}
+function gmBrAcct(p) { return p && p.ship_to_name && String(p.ship_to_name) !== String(p.ship_to) ? String(p.ship_to_name) : ""; }
+function gmBrShort(p) { return gmBrLabel(p); }
+function gmBrName(p) { return gmBrLabel(p); }
+// A phone as (555) 010-0222 (ten digits, a leading 1 dropped); anything else is shown as typed. Saved as digits only.
+function gmBrPhone(v) {
+  var raw = v === null || v === undefined ? "" : String(v);
+  var d = raw.replace(/\D/g, "").replace(/^1(\d{10})$/, "$1");
+  return d.length === 10 ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : raw;
+}
+function gmBrPhoneDigits(v) { var d = String(v === null || v === undefined ? "" : v).replace(/\D/g, "").replace(/^1(\d{10})$/, "$1"); return d; }
+// Names of the branches are asked from ABC once per page load when any is empty (the Worker saves them; the page never waits).
+function gmBrNamesEnsure() {
+  if (gmBr.namesAsked || !gmBrReady()) { return; }
+  if (!gmBrPairs().some(function(p) { return !p.branch_name || !p.ship_to_name; })) { return; }
+  gmBr.namesAsked = true;
+  gmApi("abc/accounts").then(function(d) {
+    var fill = function(list) {
+      (list || []).forEach(function(p) {
+        (d.accounts || []).forEach(function(a) {
+          if (a.ship_to !== p.ship_to) { return; }
+          if (!p.ship_to_name && a.name && a.name !== a.ship_to) { p.ship_to_name = a.name; }
+          (a.branches || []).forEach(function(b) { if (b.number === p.branch && !p.branch_name && b.name && b.name !== b.number) { p.branch_name = b.name; } });
+        });
+      });
+    };
+    fill(gmAbcPlStatus && gmAbcPlStatus.pairs); fill(gmAbcStatus && gmAbcStatus.pairs); fill(gmMatDraft && gmMatDraft.data && gmMatDraft.data.pairs);
+    gmBrRepaintOpen();
+    if (typeof gmRenderEstimatesTab === "function" && gmCurrentTab === "gmestimates") { gmRenderEstimatesTab(); }
+  }).catch(function(e) { console.error("abc names: " + e.message); });
+}
 function gmBrMoney(n) { return n === null || n === undefined ? "" : gmMoney(Math.round(Number(n) * 100)); }
 function gmBrEnsure(cb) {
   if (gmAbcPlStatus || gmAbcStatus) { cb(); return; }
@@ -8064,13 +8207,13 @@ function gmBrTabsHtml(activeKey, fn, disabledAll, reason) {
   gmBrPairs().forEach(function(p, i) {
     var on = gmBrKey(p) === activeKey;
     h += '<button type="button" role="tab" aria-selected="' + (on ? "true" : "false") + '" class="gm-seg-btn' + (on ? " gm-seg-on" : "") + '"' + (disabledAll && !on ? " disabled" : "") + ' onclick="' + fn + '(' + i + ')">' +
-      '<strong>' + escHtml(p.ship_to_name || p.ship_to) + '</strong><span class="muted">' + escHtml(p.branch_name || p.branch) + '</span></button>';
+      '<strong>' + escHtml(gmBrLabel(p)) + '</strong>' + (gmBrAcct(p) ? '<span class="muted">' + escHtml(gmBrAcct(p)) + '</span>' : "") + '</button>';
   });
   return h + '</div>' + (disabledAll && reason ? '<p class="muted gm-br-why">' + escHtml(reason) + '</p>' : "");
 }
 // Price or the plain words, for one other branch under a search result.
 function gmBrOtherLine(o) {
-  var name = o.ship_to_name || o.branch_name ? gmBrName({ ship_to: o.ship_to, branch: o.branch, ship_to_name: o.ship_to_name, branch_name: o.branch_name }) : o.ship_to + " · " + o.branch;
+  var name = gmBrLabel({ ship_to: o.ship_to, branch: o.branch, ship_to_name: o.ship_to_name, branch_name: o.branch_name });
   var txt = o.carried === false ? gmT("Não disponível nesta filial", "Not available at this branch")
     : (o.carried === null ? gmT("Não deu para conferir", "Could not check")
     : (o.price !== null && o.price !== undefined ? gmBrMoney(o.price) + (o.uom ? gmT(" por ", " per ") + o.uom : "") : gmT("A ABC não devolveu preço", "ABC returned no price")));
@@ -8084,8 +8227,8 @@ function gmBrCardPairsHtml(st) {
   var many = pairs.length > 1, h = "";
   pairs.forEach(function(p, i) {
     h += '<div class="gm-mat-loc' + (many && p.is_default ? " gm-mat-loc-on" : "") + '"><div>' +
-      '<div><strong>' + escHtml(p.ship_to_name || p.ship_to) + '</strong> <span class="muted">' + escHtml(p.ship_to) + '</span></div>' +
-      '<div class="gm-lead-sub">' + escHtml(gmT("Filial: ", "Branch: ") + (p.branch_name ? p.branch_name + " · " : "") + p.branch) + '</div>' +
+      '<div><strong>' + escHtml(gmBrLabel(p)) + '</strong></div>' +
+      (gmBrAcct(p) ? '<div class="gm-lead-sub">' + escHtml(gmBrAcct(p) + " · " + p.ship_to) + '</div>' : '<div class="gm-lead-sub">' + escHtml(p.ship_to) + '</div>') +
       (many && p.is_default ? '<span class="gm-pill gm-gold">' + escHtml(gmT("Padrão", "Default")) + '</span>' : "") + '</div>' +
       (many && !p.is_default ? '<div class="gm-mat-loc-actions"><button type="button" class="gm-btn-secondary" onclick="gmBrMakeDefault(' + i + ')">' + escHtml(gmT("Tornar padrão", "Make default")) + '</button>' +
         '<button type="button" class="gm-btn-secondary" onclick="gmBrRemoveAsk(' + i + ')">' + escHtml(gmT("Remover", "Remove")) + '</button></div>' : "") + '</div>';
@@ -8122,7 +8265,7 @@ function gmBrSheetTopHtml(f) {
     return gmBrTabsHtml(cur ? gmBrKey(cur) : "", "gmBrSheetTab", !!f.draftId, gmT("Este pedido é feito em " + gmBrShort(gmBrFind(cur && cur.ship_to, cur && cur.branch)) + ".", "This order is placed at " + gmBrShort(gmBrFind(cur && cur.ship_to, cur && cur.branch)) + "."));
   }
   if (pairs.length === 1) {
-    return '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("Mostrando itens da filial ", "Showing items carried at branch ") + (pairs[0].branch_name ? pairs[0].branch_name + " (" + pairs[0].branch + ")" : pairs[0].branch)) + '</p>';
+    return '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("Mostrando itens da filial ", "Showing items carried at branch ") + gmBrLabel(pairs[0]).replace(/^(Filial|Branch) /, "")) + '</p>';
   }
   return "";
 }
@@ -8296,7 +8439,7 @@ function gmBrPlLinesHtml(it) {
   var pairs = gmBrPairs(), h = "";
   var from = it.abc_ship_to && it.abc_branch ? gmBrFind(it.abc_ship_to, it.abc_branch) : null;
   if (it.abc_branch) {
-    h += '<div class="gm-lead-sub">' + escHtml(gmT("Adicionado da filial ", "Added from ") + (from ? gmBrShort(from) : it.abc_branch)) +
+    h += '<div class="gm-lead-sub">' + escHtml(gmT("Adicionado da filial ", "Added from ") + (from ? gmBrShort(from) : gmBrLabel({ branch: it.abc_branch }))) +
       (gmBrMulti() && (it.abc_ship_to + "|" + it.abc_branch) !== gmBrPlActive() ? ' <span class="gm-pill gm-muted">' + escHtml(gmT("De outra filial", "From a different branch")) + '</span>' : "") + '</div>';
   }
   var c = gmBr.carry && gmBr.carry[it.abc_item_number];
@@ -8392,7 +8535,7 @@ function gmBrPeopleHtml(o, t, idp) {
     '<p class="muted" style="margin:0 0 6px;">' + escHtml(gmT("A filial pode ligar para esta pessoa.", "The branch may call this person.")) + '</p>';
   list.forEach(function(p, i) {
     var on = o.dcName === p.name && String(o.dcPhone || "").replace(/\D/g, "") === p.phone;
-    h += '<div class="gm-mat-loc' + (on ? " gm-mat-loc-on" : "") + '"><div><strong>' + escHtml(p.name) + '</strong><div class="gm-lead-sub">' + escHtml(p.phone + (p.email ? " · " + p.email : "")) + '</div></div>' +
+    h += '<div class="gm-mat-loc' + (on ? " gm-mat-loc-on" : "") + '"><div><strong>' + escHtml(p.name) + '</strong><div class="gm-lead-sub">' + escHtml(gmBrPhone(p.phone) + (p.email ? " · " + p.email : "")) + '</div></div>' +
       '<div class="gm-mat-loc-actions"><button type="button" class="gm-btn-secondary" aria-pressed="' + on + '" onclick="gmBrPickPerson(\'' + t + '\',' + i + ')">' + escHtml(on ? gmT("Escolhida", "Chosen") : gmT("Usar", "Use")) + '</button>' +
       '<button type="button" class="gm-btn-secondary" onclick="gmBrPersonRemoveAsk(' + i + ')">' + escHtml(gmT("Remover", "Remove")) + '</button></div></div>';
   });
@@ -8478,7 +8621,7 @@ function gmBrDraftPair(m) {
   var df = pairs.filter(function(p) { return p.is_default; })[0] || pairs[0];
   return df ? { ship_to: df.ship_to, branch: df.branch } : null;
 }
-function gmBrPairNameIn(m, p) { var hit = null; ((m.data && m.data.pairs) || []).forEach(function(x) { if (p && x.ship_to === p.ship_to && x.branch === p.branch) { hit = x; } }); return hit ? gmBrName(hit) : (p ? p.ship_to + " · " + p.branch : ""); }
+function gmBrPairNameIn(m, p) { var hit = null; ((m.data && m.data.pairs) || []).forEach(function(x) { if (p && x.ship_to === p.ship_to && x.branch === p.branch) { hit = x; } }); return hit ? gmBrName(hit) : (p ? gmBrLabel({ branch: p.branch }) : ""); }
 function gmBrCmpLoad(m) {
   if (!m || m.cmpLoading) { return; }
   m.cmpLoading = true; m.cmpErr = "";
@@ -8492,7 +8635,7 @@ function gmBrCardsHtml(cmp, curKey, orderFn) {
   cmp.pairs.forEach(function(p, i) {
     var rec = cmp.recommended && cmp.recommended.ship_to === p.ship_to && cmp.recommended.branch === p.branch;
     var words = gmBrReasonWords(p.reason_code);
-    h += '<div class="gm-br-card' + (rec ? " gm-br-card-rec" : "") + '"><div class="gm-br-card-head"><strong>' + escHtml(gmBrName(p)) + '</strong>' +
+    h += '<div class="gm-br-card' + (rec ? " gm-br-card-rec" : "") + '"><div class="gm-br-card-head"><strong>' + escHtml(gmBrName(p)) + '</strong>' + (gmBrAcct(p) ? '<span class="muted gm-br-acct">' + escHtml(gmBrAcct(p)) + '</span>' : "") +
       (rec && words[0] ? '<span class="gm-pill gm-gold">' + escHtml(words[0]) + '</span>' : "") + (gmBrKey(p) === curKey ? '<span class="gm-pill gm-muted">' + escHtml(gmT("Em uso", "In use")) + '</span>' : "") + '</div>';
     p.lines.forEach(function(l, li) {
       var txt = l.carried === false ? gmT("Não disponível nesta filial", "Not available at this branch")
@@ -8535,27 +8678,35 @@ function gmBrOrderFrom(i) {
   m.cf = { cur: m.cmp.pairs.filter(function(p) { return cur && gmBrKey(p) === gmBrKey(cur); })[0] || null, other: c, fix: {} };
   m.view = "conflict"; gmMatDraftRender();
 }
-// Saves the pair on the draft (and removes the lines named), then prices the lines again for the new pair.
-function gmBrDraftMove(c, removeIds, after) {
+// Saves the pair on the draft (removes the lines named, adds the substitutes), all in ONE save, then prices the lines again for the new pair.
+function gmBrDraftMove(c, removeIds, after, addLines) {
   var m = gmMatDraft; if (!m) { return; }
   m.busy = true; m.err = ""; gmMatDraftRender();
   var body = { ship_to: c.ship_to, branch: c.branch };
   if (removeIds && removeIds.length) { body.lines = removeIds.map(function(id) { return { id: id, removed: true }; }); }
+  if (addLines && addLines.length) { body.add_lines = addLines; }
   gmApi("abc/drafts/" + encodeURIComponent(m.id), { method: "PUT", body: body }).then(function() { return gmApi("abc/drafts/" + encodeURIComponent(m.id)); }).then(function(d) {
-    m.busy = false; m.data = d; m.form = gmMatDraftForm(d); m.cmp = null; m.cf = null; m.view = "edit"; gmMatDraftRender();
+    m.busy = false; m.data = d; m.form = gmMatDraftForm(d); m.cmp = null; m.cf = null; m.view = "edit"; m.sync = "ok"; m.sigChecked = gmBrSig(m); gmMatDraftRender();
     gmMatDraftPrices(function() { if (after) { after(); } });
   }).catch(function(e) { m.busy = false; m.err = e.message; m.view = "edit"; gmMatDraftRender(); console.error("abc move draft: " + e.message); });
 }
-// The conflict screen: two branches side by side, what each can and cannot supply, and three plain choices.
+// The conflict screen: two branches (stacked on a phone), what each can and cannot supply, and three plain choices.
+// fix[lineId] is "remove", or { item_number, description, uom, qty, cost } = the item chosen to take its place. Nothing changes before the final button.
+function gmBrFixText(fx) {
+  if (fx === "remove") { return gmT("Será removido", "Will be removed"); }
+  return gmT("Será trocado por ", "Will be replaced by ") + (fx && fx.description ? fx.description : "");
+}
+function gmBrFixOk(fx) { return fx === "remove" || (!!fx && typeof fx === "object" && !!fx.item_number && isFinite(Number(String(fx.qty).replace(",", "."))) && Number(String(fx.qty).replace(",", ".")) > 0); }
 function gmBrConflictHtml(m) {
   var cf = m.cf, o = cf.other, cur = cf.cur;
   var names = {}; m.data.lines.forEach(function(l) { names[l.id] = l.description; });
+  var row = function(name, price) { return '<div class="gm-br-line"><span class="gm-br-name">' + escHtml(name) + '</span><span class="gm-price">' + escHtml(price) + '</span></div>'; };
   var cardFor = function(p, title) {
     if (!p) { return ""; }
     var ok = p.lines.filter(function(l) { return l.carried === true; }), no = p.lines.filter(function(l) { return l.carried !== true; });
-    return '<div class="gm-br-card"><div class="gm-br-card-head"><strong>' + escHtml(title) + '</strong></div>' +
-      ok.map(function(l) { return '<div class="gm-br-line"><span>' + escHtml(names[l.line_id] || l.item_number) + '</span><span>' + escHtml(l.price !== null ? gmBrMoney(l.price) : "") + '</span></div>'; }).join("") +
-      (no.length ? gmMatCalloutHtml(gmT("Esta filial não vende", "This branch cannot supply"), no.map(function(l) { return [names[l.line_id] || l.item_number, l.price !== null && l.price !== undefined ? gmBrMoney(l.price) : "-"]; })) : "") + '</div>';
+    return '<div class="gm-br-card"><div class="gm-br-card-head"><strong>' + escHtml(title) + '</strong>' + (gmBrAcct(p) ? '<span class="muted gm-br-acct">' + escHtml(gmBrAcct(p)) + '</span>' : "") + '</div>' +
+      ok.map(function(l) { return row(names[l.line_id] || l.item_number, l.price !== null ? gmBrMoney(l.price) : ""); }).join("") +
+      (no.length ? gmMatCalloutHtml(gmT("Esta filial não vende", "This branch cannot supply"), no.map(function(l) { return [names[l.line_id] || l.item_number, l.price !== null && l.price !== undefined ? gmBrMoney(l.price) : "-", "price"]; })) : "") + '</div>';
   };
   var h = '<p class="muted">' + escHtml(gmT("Esta filial não vende todos os itens. Escolha uma opção. Nada muda até você tocar no botão final.", "This branch does not carry every item. Choose one option. Nothing changes until you tap a final button.")) + '</p>' +
     '<div class="gm-br-cards">' + cardFor(cur, cur ? gmBrName(cur) : gmT("Filial atual", "Current branch")) + cardFor(o, gmBrName(o)) + '</div>';
@@ -8565,15 +8716,25 @@ function gmBrConflictHtml(m) {
   h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("2. Pedir tudo de ", "2. Order everything from ") + gmBrShort(o)) + '</div>';
   var allFixed = true;
   unavailable.forEach(function(l) {
-    var fx = cf.fix[l.line_id];
-    if (!fx) { allFixed = false; }
-    h += '<div class="gm-br-line"><span>' + escHtml(names[l.line_id] || l.item_number) + '</span><span>' +
-      (fx ? escHtml(fx === "replace" ? gmT("Será trocado", "Will be replaced") : gmT("Será removido", "Will be removed")) : "") + '</span></div>' +
-      '<div class="gm-mat-loc-actions" style="margin:0 0 8px;"><button type="button" class="gm-btn-secondary" onclick="gmMatDraft.cf.fix[\'' + escHtml(l.line_id) + '\'] = \'replace\'; gmMatDraftRender()">' + escHtml(gmT("Trocar este item", "Replace this item")) + '</button>' +
-      '<button type="button" class="gm-btn-secondary" onclick="gmMatDraft.cf.fix[\'' + escHtml(l.line_id) + '\'] = \'remove\'; gmMatDraftRender()">' + escHtml(gmT("Remover", "Remove")) + '</button></div>';
+    var fx = cf.fix[l.line_id], lid = escHtml(l.line_id);
+    if (!gmBrFixOk(fx)) { allFixed = false; }
+    h += '<div class="gm-br-line"><span class="gm-br-name">' + escHtml(names[l.line_id] || l.item_number) + '</span></div>';
+    if (fx) {
+      h += '<p style="margin:0 0 6px;"><strong>' + escHtml(gmBrFixText(fx)) + '</strong></p>';
+      if (fx !== "remove") {
+        h += gmMatField("gmBrRepQty_" + l.line_id, gmT("Quantidade (", "Quantity (") + fx.uom + ")", fx.qty, "gmMatDraft.cf.fix['" + lid + "'].qty = this.value; gmBrConflictPaint()", { max: 9, inputmode: "decimal" }) +
+          (fx.cost !== null && fx.cost !== undefined ? '<p class="muted" style="margin:2px 0 6px;">' + escHtml(gmBrMoney(fx.cost) + gmT(" por ", " per ") + fx.uom) + '</p>' : "");
+      }
+      h += '<div class="gm-mat-loc-actions" style="margin:0 0 8px;"><button type="button" class="gm-btn-secondary" onclick="gmBrFixUndo(\'' + lid + '\')">' + escHtml(gmT("Desfazer", "Undo")) + '</button></div>';
+    } else if (cf.pick && cf.pick.lineId === l.line_id) {
+      h += gmBrRepPickHtml(m, cf.pick, o);
+    } else {
+      h += '<div class="gm-mat-loc-actions" style="margin:0 0 8px;"><button type="button" class="gm-btn-secondary" onclick="gmBrRepOpen(\'' + lid + '\')">' + escHtml(gmT("Trocar este item", "Replace this item")) + '</button>' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmMatDraft.cf.fix[\'' + lid + '\'] = \'remove\'; gmMatDraftRender()">' + escHtml(gmT("Remover", "Remove")) + '</button></div>';
+    }
   });
-  h += '<button type="button" class="gm-btn-primary"' + (allFixed && !m.busy ? "" : " disabled") + ' onclick="gmBrConflictMove()">' + escHtml(gmT("Pedir tudo de ", "Order everything from ") + gmBrShort(o)) + '</button>' +
-    (allFixed ? "" : '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("Troque ou remova cada item que esta filial não vende.", "Replace or remove each item this branch cannot supply.")) + '</p>') + '</div>';
+  h += '<button type="button" class="gm-btn-primary" id="gmBrConflictGo"' + (allFixed && !m.busy ? "" : " disabled") + ' onclick="gmBrConflictMove()">' + escHtml(gmT("Pedir tudo de ", "Order everything from ") + gmBrShort(o)) + '</button>' +
+    (allFixed ? "" : '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("Troque (escolhendo o item) ou remova cada item que esta filial não vende.", "Replace (choose the item) or remove each item this branch cannot supply.")) + '</p>') + '</div>';
   var carriedIds = o.lines.filter(function(l) { return l.carried === true; }).map(function(l) { return l.line_id; });
   h += '<div class="gm-sheet-section"><div class="gm-field-label">' + escHtml(gmT("3. Dividir em dois pedidos", "3. Split into two orders")) + '</div>' +
     '<p class="muted" style="margin:0 0 6px;">' + escHtml(gmT("Os itens que " + gmBrShort(o) + " vende vão para lá. Os outros ficam. Serão dois pedidos, um por filial, com a mesma data, contato e instruções.", "The items " + gmBrShort(o) + " carries go there. The others stay. Two orders will be made, one per branch, with the same date, contact and instructions.")) + '</p>' +
@@ -8581,10 +8742,60 @@ function gmBrConflictHtml(m) {
     '<button type="button" class="gm-btn-secondary" onclick="gmMatDraft.view = \'edit\'; gmMatDraft.cf = null; gmMatDraftRender()">' + escHtml(gmT("Voltar", "Back")) + '</button>';
   return h;
 }
+// Only the final button follows a typed quantity (the screen is not drawn again, so the box keeps its focus).
+function gmBrConflictPaint() {
+  var m = gmMatDraft, btn = document.getElementById("gmBrConflictGo"); if (!m || !m.cf || !btn) { return; }
+  var o = m.cf.other, ok = true;
+  o.lines.filter(function(l) { return l.carried !== true; }).forEach(function(l) { if (!gmBrFixOk(m.cf.fix[l.line_id])) { ok = false; } });
+  btn.disabled = !ok || !!m.busy;
+}
+function gmBrFixUndo(lineId) { var m = gmMatDraft; if (!m || !m.cf) { return; } delete m.cf.fix[lineId]; if (m.cf.pick && m.cf.pick.lineId === lineId) { m.cf.pick = null; } gmMatDraftRender(); }
+// Replace this item: the item picker on the OTHER branch (a search box, the results with prices, one tap to choose).
+function gmBrRepOpen(lineId) { var m = gmMatDraft; if (!m || !m.cf) { return; } m.cf.pick = { lineId: lineId, q: "", loading: false, items: null, err: "" }; gmMatDraftRender(); }
+function gmBrRepClose() { var m = gmMatDraft; if (!m || !m.cf) { return; } m.cf.pick = null; gmMatDraftRender(); }
+function gmBrRepPickHtml(m, pk, o) {
+  var h = '<div class="gm-rep-pick"><label class="gm-field-label" for="gmBrRepQ">' + escHtml(gmT("Buscar na filial ", "Search at ") + gmBrShort(o)) + '</label>' +
+    '<input type="text" id="gmBrRepQ" class="gm-input" maxlength="40" value="' + escHtml(pk.q) + '" placeholder="' + escHtml(gmT("Pelo menos 3 letras", "At least 3 characters")) + '" oninput="gmMatDraft.cf.pick.q = this.value" onkeydown="if (event.key === \'Enter\') { gmBrRepSearch(); }">' +
+    '<div class="gm-mat-loc-actions"><button type="button" class="gm-btn-primary"' + (pk.loading ? " disabled" : "") + ' onclick="gmBrRepSearch()">' + escHtml(gmT("Buscar", "Search")) + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmBrRepClose()">' + escHtml(gmT("Cancelar", "Cancel")) + '</button></div>';
+  if (pk.loading) { h += '<p class="muted">' + escHtml(gmT("Buscando...", "Searching...")) + '</p>'; }
+  if (pk.err) { h += '<p class="gm-warn">' + escHtml(pk.err) + '</p>'; }
+  if (pk.items && !pk.items.length && !pk.loading) { h += '<p class="muted">' + escHtml(gmT("Nenhum item encontrado nesta filial.", "No items found at this branch.")) + '</p>'; }
+  (pk.items || []).forEach(function(it, i) {
+    h += '<div class="gm-mat-line"><div class="gm-br-name"><strong>' + escHtml(it.description) + '</strong></div><div class="gm-lead-sub">' +
+      escHtml([it.item_number, it.has_price ? gmBrMoney(it.cost) + gmT(" por ", " per ") + (it.unit_name || it.unit_code || "") : gmT("A ABC não devolveu preço", "ABC returned no price")].filter(Boolean).join(" · ")) + '</div>' +
+      '<button type="button" class="gm-btn-secondary"' + (it.has_price ? "" : " disabled") + ' onclick="gmBrRepChoose(' + i + ')">' + escHtml(gmT("Usar este item", "Use this item")) + '</button></div>';
+  });
+  return h + '</div>';
+}
+function gmBrRepSearch() {
+  var m = gmMatDraft, cf = m && m.cf, pk = cf && cf.pick; if (!pk || pk.loading) { return; }
+  var q = String(pk.q || "").trim();
+  if (q.length < 3) { pk.err = gmT("Digite pelo menos 3 letras para buscar.", "Type at least 3 characters to search."); gmMatDraftRender(); return; }
+  pk.loading = true; pk.err = ""; pk.items = null; gmMatDraftRender();
+  gmApi("abc/items?q=" + encodeURIComponent(q) + "&ship_to=" + encodeURIComponent(cf.other.ship_to) + "&branch=" + encodeURIComponent(cf.other.branch)).then(function(d) {
+    pk.loading = false; pk.items = d.items || []; if (gmMatDraft === m) { gmMatDraftRender(); }
+  }).catch(function(e) { pk.loading = false; pk.items = null; pk.err = e.message; if (gmMatDraft === m) { gmMatDraftRender(); } console.error("abc replace search: " + e.message); });
+}
+// One tap on a result records the substitute for that line. The quantity is the line's own only when the unit is the same; otherwise it is asked.
+function gmBrRepChoose(i) {
+  var m = gmMatDraft, cf = m && m.cf, pk = cf && cf.pick, it = pk && pk.items && pk.items[i]; if (!it || !it.has_price) { return; }
+  var orig = null; m.data.lines.forEach(function(l) { if (l.id === pk.lineId) { orig = l; } });
+  var same = !!orig && orig.uom === it.unit_code && orig.quantity !== null && orig.quantity !== undefined;
+  cf.fix[pk.lineId] = { item_number: it.item_number, description: String(it.description || it.item_number).slice(0, 100), uom: it.unit_code, qty: same ? String(orig.quantity) : "", cost: it.cost };
+  cf.pick = null; gmMatDraftRender();
+}
 function gmBrConflictMove() {
-  var m = gmMatDraft; if (!m || !m.cf) { return; }
-  var ids = Object.keys(m.cf.fix), replace = ids.some(function(k) { return m.cf.fix[k] === "replace"; });
-  gmBrDraftMove(m.cf.other, ids, replace ? function() { gmToast(gmT("Escolha os itens que vão trocar.", "Now choose the replacement items.")); gmMatLineAddOpen(); } : null);
+  var m = gmMatDraft; if (!m || !m.cf || m.busy) { return; }
+  var ok = true, remove = [], add = [];
+  m.cf.other.lines.filter(function(l) { return l.carried !== true; }).forEach(function(l) {
+    var fx = m.cf.fix[l.line_id];
+    if (!gmBrFixOk(fx)) { ok = false; return; }
+    remove.push(l.line_id);
+    if (fx !== "remove") { add.push({ item_number: fx.item_number, description: fx.description, uom: fx.uom, quantity: Number(String(fx.qty).replace(",", ".")), abc_description: fx.description, abc_dimensional: false }); }
+  });
+  if (!ok) { return; }
+  gmBrDraftMove(m.cf.other, remove, null, add);
 }
 function gmBrConflictSplit() {
   var m = gmMatDraft; if (!m || !m.cf || m.busy) { return; }
@@ -8597,10 +8808,221 @@ function gmBrConflictSplit() {
   }).catch(function(e) { m.busy = false; m.err = e.message; m.view = "edit"; m.cf = null; gmMatDraftRender(); console.error("abc split: " + e.message); });
 }
 
-// ── 3.7 / 4(c) The pinned bar: what is still needed, then Review and send ──
-// Computed from what is on screen, so it follows the owner as they type. Each item scrolls to its field.
-var GM_BR_MISSING_IDS = { delivery_service: "gmMatSvc", delivery_date: "gmMatDateBox", delivery_place: "gmMatLocBox", address: "gmMatLocBox", contact_name: "gmMatCName", contact_email: "gmMatCEmail", contact_phone: "gmMatCPhone",
-  delivery_contact_name: "gmMatDcBox", delivery_contact_phone: "gmMatDcBox", quantity: "gmMatLinesBox", item_description: "gmMatLinesBox", item_length: "gmMatLinesBox", lines: "gmMatLinesBox", order_ref: "gmMatPo", job_name: "gmMatJob" };
+// ── 2026-11-16 Questions with the box right there ──
+// The pinned bar no longer lists links to fields far down the form. The page ASKS what is missing, one plain question at a
+// time, with the field right there. The answer is the Worker's own readiness list (draft.missing, ONE function on the server):
+// the bar says Ready to send only when what is on screen has been saved and checked there and nothing is listed.
+var GM_BR_ASK_GROUP = { delivery_service: "service", delivery_date: "date", delivery_contact_name: "person", delivery_contact_phone: "person",
+  delivery_place: "place", delivery_place_complete: "place", address: "place", location_name_taken: "place", contact_name: "contact", contact_email: "contact", contact_phone: "contact", person_name: "contact",
+  quantity: "qty", item_description: "desc", item_length: "len", line_price: "price", order_ref: "po", job_name: "job", branch: "branch", lines: "lines", order_fields: "fields" };
+var GM_BR_ASK_ORDER = ["service", "date", "person", "place", "contact", "qty", "desc", "len", "price", "po", "job", "branch", "lines", "fields"];
+// Is the address on screen complete (street, city, 2 letter state, zip)? name too for a new location.
+function gmBrAddrOk(a, withName) {
+  if (!a) { return false; }
+  if (withName && !String(a.name || "").trim()) { return false; }
+  return !!String(a.line1 || "").trim() && !!String(a.city || "").trim() && /^[A-Z]{2}$/.test(a.state || "") && /^\d{5}(-\d{4})?$/.test(a.postal || "");
+}
+// What the screen alone can tell is still needed, in the Worker's own words (keys).
+function gmBrAskLocal(m) {
+  var need = gmBrStillNeeded(m).filter(function(k) { return k !== "delivery_place"; });
+  var f = m.form;
+  if (!m.locMode) { need.push("delivery_place"); }
+  else if (m.locMode === "saved") { if (!f.locId) { need.push("delivery_place"); } }
+  else if (!gmBrAddrOk(m.locMode === "new" ? f.nl : f.ja, m.locMode === "new")) { need.push("delivery_place_complete"); }
+  if (!String(f.job_name || "").trim()) { need.push("job_name"); }
+  if (!/^[A-Za-z0-9-]{1,16}$/.test(String(f.order_ref || "").trim())) { need.push("order_ref"); }
+  return need;
+}
+// A signature of everything the owner can change on this screen. Same signature = what the Worker last checked.
+function gmBrSig(m) {
+  var f = m.form || {}, lines = {};
+  Object.keys(f.lines || {}).forEach(function(id) { lines[id] = [f.lines[id].qty, f.lines[id].removed]; });
+  return JSON.stringify([f.job_name, f.service, f.dateMode, f.date, f.dcName, f.dcPhone, f.dcEmail, f.instr, f.contact_name, f.contact_email, f.contact_phone, f.order_ref, m.locMode, f.locId, f.ja, f.nl, lines]);
+}
+function gmBrActiveLines(m) { return ((m.data && m.data.lines) || []).filter(function(l) { var lf = m.form && m.form.lines[l.id]; return !(lf ? lf.removed : l.removed); }); }
+// Everything still needed: what is on screen, plus what the Worker said about the SAVED copy once it matches the screen.
+function gmBrAskNeed(m) {
+  var need = gmBrAskLocal(m);
+  if (m.sync === "ok" && m.sigChecked === gmBrSig(m)) {
+    ((m.data.draft && m.data.draft.missing) || []).forEach(function(k) { if (k !== "line_price" && need.indexOf(k) === -1) { need.push(k); } });
+  }
+  if (m.ready) {
+    var act = gmBrActiveLines(m);
+    if (m.prices === "loading" || m.prices === "fail" || act.some(function(l) { return l.unit_price === null || l.unit_price === undefined; })) { need.push("line_price"); }
+  }
+  return need;
+}
+// The questions left, in the order they are asked (one per group).
+function gmBrAskGroups(need) {
+  var seen = {};
+  (need || []).forEach(function(k) { seen[GM_BR_ASK_GROUP[k] || "fields"] = true; });
+  return GM_BR_ASK_ORDER.filter(function(g) { return !!seen[g]; });
+}
+function gmBrAskGroup(m) { return gmBrAskGroups(gmBrAskNeed(m))[0] || ""; }
+var gmBrSyncTimer = null;
+// Saves what is on screen (when the screen itself has no gap) and asks the Worker what is still missing. The box never freezes.
+function gmBrSyncSoon(m) {
+  if (!m || m.view !== "edit" || !m.ready || gmMatDraft !== m) { return; }
+  m.sync = "pending";
+  if (gmBrSyncTimer) { clearTimeout(gmBrSyncTimer); }
+  gmBrSyncTimer = setTimeout(function() { gmBrSyncTimer = null; gmBrSyncNow(m); }, 700);
+}
+function gmBrSyncMerge(m, d) {
+  m.data.draft = d.draft; m.data.ship = d.ship; m.data.locations = d.locations || m.data.locations; m.data.job_address = d.job_address || m.data.job_address;
+  var by = {}; (d.lines || []).forEach(function(l2) { by[l2.id] = l2; });
+  m.data.lines.forEach(function(l) { var x = by[l.id]; if (x) { l.quantity = x.quantity; l.removed = x.removed; l.abc_description = x.abc_description; l.abc_dimensional = x.abc_dimensional; l.needs_quantity = x.needs_quantity; } });
+  if (d.draft.delivery_to === "saved" && d.draft.location_id && m.locMode === "new") { m.locMode = "saved"; m.form.locId = d.draft.location_id; m.form.nl = { name: "", line1: "", city: "", state: "", postal: "" }; }
+}
+function gmBrSyncNow(m) {
+  if (gmMatDraft !== m || m.view !== "edit" || m.busy) { return; }
+  if (m.syncBusy) { m.syncAgain = true; return; }
+  var sig = gmBrSig(m), before = m.err;
+  var body = gmMatDraftBody();
+  m.err = before;
+  if (!body) { m.sync = "err"; gmBrAskRepaint(m); return; }
+  m.syncBusy = true; m.syncAgain = false;
+  var path = "abc/drafts/" + encodeURIComponent(m.id);
+  var pend = "";
+  if (m.locMode === "new" && body.new_location) {
+    var n = body.new_location;
+    pend = "?loc_name=" + encodeURIComponent(n.name) + "&loc_line1=" + encodeURIComponent(n.line1) + "&loc_city=" + encodeURIComponent(n.city) + "&loc_state=" + encodeURIComponent(n.state) + "&loc_postal=" + encodeURIComponent(n.postal);
+  }
+  var done = function(d) {
+    m.syncBusy = false; m.sync = "ok"; m.sigChecked = sig; m.syncErr = "";
+    gmBrSyncMerge(m, d);
+    // a new location that was saved changes the screen: the signature is taken again
+    if (m.locMode !== "new" || !pend) { m.sigChecked = gmBrSig(m); }
+    if (m.syncAgain || gmBrSig(m) !== m.sigChecked) { gmBrSyncSoon(m); }
+    gmBrAskRepaint(m);
+  };
+  var chain = pend ? gmApi(path + pend) : Promise.resolve(null);
+  chain.then(function(peek) {
+    // The name is taken by another address: nothing is saved, the question shows why.
+    if (peek && (peek.draft.missing || []).indexOf("location_name_taken") !== -1) { return peek; }
+    return gmApi(path, { method: "PUT", body: body }).then(function() { return gmApi(path); });
+  }).then(done).catch(function(e) {
+    m.syncBusy = false; m.sync = "err"; m.syncErr = e.message; console.error("draft check: " + e.message); gmBrAskRepaint(m);
+  });
+}
+// Draws again only when the question changed (so a box being typed in keeps its focus); else only the bar.
+function gmBrAskRepaint(m) {
+  if (gmMatDraft !== m || m.view !== "edit") { return; }
+  if (gmBrAskGroup(m) !== m.askGroup || gmBrAskGroups(gmBrAskNeed(m)).length === 0 !== !!m.askReady) { gmMatDraftRender(); return; }
+  gmBrBarPaint();
+}
+function gmBrAskTitle(g) {
+  var t = {
+    service: gmT("Como deve ser a entrega?", "How should it be delivered?"), date: gmT("Quando entregar?", "When should it be delivered?"),
+    person: gmT("Quem vai estar na obra?", "Who will be at the job?"), place: gmT("Para onde vai?", "Where does it go?"),
+    contact: gmT("Quem é o seu contato para a ABC?", "Who is your contact for ABC?"), qty: gmT("Quantos de cada item?", "How many of each item?"),
+    desc: gmT("A ABC precisa descrever estes itens", "ABC needs to describe these items"), len: gmT("Estes itens são vendidos em comprimentos", "These items are sold in lengths"),
+    price: gmT("Preços da ABC", "ABC prices"), po: gmT("Qual é o número do pedido de compra?", "What is the purchase order number?"),
+    job: gmT("Qual é o nome do trabalho?", "What is the job name?"), branch: gmT("Esta filial saiu da sua lista", "This branch is no longer on your list"),
+    lines: gmT("O pedido não tem linhas", "The order has no lines"), fields: gmT("Falta algo no pedido", "Something is missing from the order")
+  };
+  return t[g] || "";
+}
+function gmBrAskInput(id, label, value, handler, o) { return gmMatField(id, label, value, handler, o); }
+// The box for one question.
+function gmBrAskBody(m, g) {
+  var f = m.form, h = "";
+  if (g === "service") {
+    h += '<div class="gm-seg">' + GM_MAT_SERVICES.map(function(s) {
+      return '<button type="button" class="gm-seg-btn' + (f.service === s[0] ? " gm-seg-on" : "") + '" aria-pressed="' + (f.service === s[0]) + '" onclick="gmMatDraft.form.service = \'' + s[0] + '\'; gmMatDraftRender()"><strong>' + escHtml(gmT(s[2], s[1])) + '</strong></button>';
+    }).join("") + '</div>';
+  } else if (g === "date") {
+    var on = function(k) { return f.dateMode === k ? " gm-seg-on" : ""; };
+    h += '<div class="gm-seg"><button type="button" class="gm-seg-btn' + on("date") + '" aria-pressed="' + (f.dateMode === "date") + '" onclick="gmBrSetR(\'draft\', \'dateMode\', \'date\')"><strong>' + escHtml(gmT("Escolher uma data", "Pick a date")) + '</strong></button>' +
+      '<button type="button" class="gm-seg-btn' + on("tbd") + '" aria-pressed="' + (f.dateMode === "tbd") + '" onclick="gmBrSetR(\'draft\', \'dateMode\', \'tbd\')"><strong>' + escHtml(gmT("A definir, segurar o pedido", "TBD, put the order on hold")) + '</strong></button></div>';
+    if (f.dateMode === "date") {
+      h += gmBrAskInput("gmAskDate", gmT("Data de entrega (MM/DD/AAAA)", "Delivery date (MM/DD/YYYY)"), f.date, "gmBrSet('draft', 'date', this.value)", { placeholder: "MM/DD/YYYY", max: 10, inputmode: "numeric" }) +
+        '<label class="gm-field-label" for="gmAskPick">' + escHtml(gmT("Ou escolha no calendário", "Or pick from the calendar")) + '</label>' +
+        '<input type="date" id="gmAskPick" class="gm-input" min="' + gmBrTodayIso() + '" onchange="gmBrSetR(\'draft\', \'date\', gmMatUsDate(this.value))">';
+      if (String(f.date || "").trim() && !gmMatIsoDate(f.date)) { h += '<p class="gm-warn" style="margin:6px 0 0;">' + escHtml(gmT("Escreva a data como MM/DD/AAAA.", "Write the date as MM/DD/YYYY.")) + '</p>'; }
+    } else if (f.dateMode === "tbd") { h += '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("A filial vai segurar o pedido até você dar uma data.", "The branch will hold the order until you give it a date.")) + '</p>'; }
+  } else if (g === "person") {
+    gmBrContactsLoad();
+    (gmBr.contacts || []).forEach(function(p, i) {
+      var sel = f.dcName === p.name && gmBrPhoneDigits(f.dcPhone) === p.phone;
+      h += '<div class="gm-mat-loc' + (sel ? " gm-mat-loc-on" : "") + '"><div><strong>' + escHtml(p.name) + '</strong><div class="gm-lead-sub">' + escHtml(gmBrPhone(p.phone) + (p.email ? " · " + p.email : "")) + '</div></div>' +
+        '<div class="gm-mat-loc-actions"><button type="button" class="gm-btn-secondary" aria-pressed="' + sel + '" onclick="gmBrPickPerson(\'draft\',' + i + ')">' + escHtml(sel ? gmT("Escolhida", "Chosen") : gmT("Usar", "Use")) + '</button></div></div>';
+    });
+    h += gmBrAskInput("gmAskDcName", gmT("Nome da pessoa", "Name"), f.dcName, "gmBrSet('draft', 'dcName', this.value)", { max: 60 }) +
+      gmBrAskInput("gmAskDcPhone", gmT("Telefone", "Phone"), gmBrPhone(f.dcPhone), "gmBrSet('draft', 'dcPhone', this.value)", { max: 30, inputmode: "tel" }) +
+      '<p class="muted" style="margin:4px 0 0;">' + escHtml(gmT("A filial pode ligar para esta pessoa.", "The branch may call this person.")) + '</p>';
+  } else if (g === "place") {
+    var mo = function(k) { return m.locMode === k ? " gm-seg-on" : ""; };
+    h += '<div class="gm-seg"><button type="button" class="gm-seg-btn' + mo("job") + '" aria-pressed="' + (m.locMode === "job") + '" onclick="gmMatLocMode(\'job\')"><strong>' + escHtml(gmT("Endereço da obra", "Job address")) + '</strong></button>' +
+      '<button type="button" class="gm-seg-btn' + mo("saved") + '" aria-pressed="' + (m.locMode === "saved") + '" onclick="gmMatLocMode(\'saved\')"><strong>' + escHtml(gmT("Local salvo", "Saved location")) + '</strong></button>' +
+      '<button type="button" class="gm-seg-btn' + mo("new") + '" aria-pressed="' + (m.locMode === "new") + '" onclick="gmMatLocMode(\'new\')"><strong>' + escHtml(gmT("Novo local", "New location")) + '</strong></button></div>';
+    if (m.locMode === "job") { h += '<p class="muted" style="margin:6px 0;">' + escHtml(gmT("Rua, cidade, estado com 2 letras e CEP. Vale só para este pedido.", "Street, city, 2 letter state and zip code. This order only.")) + '</p>' + gmMatAddrFields("ja", f.ja); }
+    else if (m.locMode === "saved") { h += gmMatSavedListHtml(m); }
+    else if (m.locMode === "new") { h += gmMatAddrFields("nl", f.nl, true); }
+    if (((m.data.draft && m.data.draft.missing) || []).indexOf("location_name_taken") !== -1 && m.locMode === "new") {
+      h += '<p class="gm-warn" style="margin:6px 0 0;">' + escHtml(gmT("Já existe um local salvo com esse nome e outro endereço. Use outro nome, ou escolha o local salvo.", "A saved location with that name and another address already exists. Use another name, or choose the saved one.")) + '</p>';
+    }
+  } else if (g === "contact") {
+    h += gmBrAskInput("gmAskCName", gmT("Seu nome", "Your name"), f.contact_name, "gmMatDraft.form.contact_name = this.value", { max: 60, hint: gmT("O nome de uma pessoa, não o da empresa.", "A person's name, not the business name.") }) +
+      gmBrAskInput("gmAskCEmail", gmT("Seu e-mail", "Your email"), f.contact_email, "gmMatDraft.form.contact_email = this.value", { max: 254, type: "email" }) +
+      gmBrAskInput("gmAskCPhone", gmT("Seu telefone", "Your phone"), f.contact_phone, "gmMatDraft.form.contact_phone = this.value", { max: 30, inputmode: "tel" });
+  } else if (g === "qty") {
+    gmBrActiveLines(m).forEach(function(l) {
+      var lf = f.lines[l.id]; if (!lf || String(lf.qty) !== "") { return; }
+      h += gmBrAskInput("gmAskQty_" + l.id, l.description + " (" + l.uom + ")", lf.qty, "gmMatLineQty('" + escHtml(l.id) + "', this.value)", { max: 9, inputmode: "decimal" });
+    });
+  } else if (g === "desc") {
+    h += '<p class="muted">' + escHtml(m.descTried ? gmT("A ABC não devolveu a descrição de algum item. Tente de novo.", "ABC did not give a description for some item. Try again.") : gmT("Buscando as descrições na ABC…", "Getting the descriptions from ABC…")) + '</p>' +
+      (m.descTried ? '<button type="button" class="gm-btn-secondary" onclick="gmBrDescRetry()">' + escHtml(gmT("Tentar de novo", "Try again")) + '</button>' : "");
+  } else if (g === "len") {
+    gmBrActiveLines(m).filter(function(l) { return l.abc_dimensional; }).forEach(function(l) {
+      h += '<div class="gm-mat-line"><div class="gm-mat-line-head"><strong>' + escHtml(l.description) + '</strong><button type="button" class="gm-btn-secondary" style="width:auto;margin:0;" onclick="gmMatLineRemove(\'' + escHtml(l.id) + '\', true)">' + escHtml(gmT("Remover", "Remove")) + '</button></div></div>';
+    });
+    h += '<p class="muted" style="margin:6px 0 0;">' + escHtml(gmT("Ainda não dá para escolher o comprimento aqui. Remova o item ou peça à filial.", "Choosing a length is not possible here yet. Remove the item or ask the branch.")) + '</p>';
+  } else if (g === "price") {
+    if (m.prices === "loading") { h += '<p class="muted">' + escHtml(gmT("Buscando os preços na ABC…", "Getting the prices from ABC…")) + '</p>'; }
+    else if (m.prices === "fail") { h += '<p class="gm-warn">' + escHtml(gmT("Não foi possível buscar os preços da ABC.", "ABC prices could not be loaded.")) + '</p><button type="button" class="gm-btn-secondary" onclick="gmMatDraftPrices()">' + escHtml(gmT("Tentar de novo", "Try again")) + '</button>'; }
+    else {
+      gmBrActiveLines(m).filter(function(l) { return l.unit_price === null || l.unit_price === undefined; }).forEach(function(l) {
+        h += '<div class="gm-mat-line"><div class="gm-mat-line-head"><strong>' + escHtml(l.description) + '</strong><button type="button" class="gm-btn-secondary" style="width:auto;margin:0;" onclick="gmMatLineRemove(\'' + escHtml(l.id) + '\', true)">' + escHtml(gmT("Remover", "Remove")) + '</button></div>' +
+          '<div class="gm-lead-sub">' + escHtml(gmT("A ABC não devolveu preço para este item nesta filial.", "ABC returned no price for this item at this branch.")) + '</div></div>';
+      });
+    }
+  } else if (g === "po") {
+    h += gmBrAskInput("gmAskPo", gmT("Número do pedido de compra", "Purchase order number"), f.order_ref, "gmMatDraft.form.order_ref = this.value", { max: 16, hint: gmT("Até 16 letras, números ou hifens.", "Up to 16 letters, numbers or hyphens.") });
+  } else if (g === "job") {
+    h += gmBrAskInput("gmAskJob", gmT("Nome do trabalho", "Job name"), f.job_name, "gmMatDraft.form.job_name = this.value", { max: 80 });
+  } else if (g === "branch") {
+    h += '<p class="muted">' + escHtml(gmT("Escolha uma filial da sua lista na seção Filial.", "Choose a branch from your list in the Branch section.")) + '</p>';
+  } else if (g === "lines") {
+    h += '<button type="button" class="gm-btn-secondary" onclick="gmMatLineAddOpen()">' + escHtml(gmT("+ Adicionar linha da ABC", "+ Add a line from ABC")) + '</button>';
+  } else {
+    h += '<p class="muted">' + escHtml(gmT("Confira os dados do pedido abaixo e toque em Salvar para depois.", "Check the order details below and tap Save for later.")) + '</p>';
+  }
+  return h;
+}
+// The block at the top of the delivery section.
+function gmBrAskHtml(m) {
+  var groups = gmBrAskGroups(gmBrAskNeed(m));
+  m.askGroup = groups[0] || ""; m.askReady = !groups.length;
+  if (!groups.length) {
+    var checking = m.sync === "pending" || m.sync === "stale";
+    return '<div class="gm-ask gm-ask-ok" id="gmBrAsk"><div class="gm-ask-q">' + escHtml(checking ? gmT("Conferindo…", "Checking…") : (m.sync === "err" ? gmT("Não deu para conferir agora", "Could not check just now") : gmT("Pronto para enviar", "Ready to send"))) + '</div>' +
+      (m.sync === "err" ? '<p class="muted" style="margin:4px 0 0;">' + escHtml(gmT("Toque em Revisar e enviar para tentar de novo.", "Tap Review and send to try again.")) + '</p>' : "") + '</div>';
+  }
+  var g = groups[0];
+  return '<div class="gm-ask" id="gmBrAsk"><div class="gm-ask-step">' + escHtml(gmT("Pergunta 1 de ", "Question 1 of ") + groups.length) + '</div><div class="gm-ask-q">' + escHtml(gmBrAskTitle(g)) + '</div>' + gmBrAskBody(m, g) + '</div>';
+}
+function gmBrDescRetry() {
+  var m = gmMatDraft; if (!m) { return; }
+  m.descTried = false; gmMatDraftRender();
+  gmApi("abc/drafts/" + encodeURIComponent(m.id) + "/refresh-descriptions", { method: "POST", body: {} }).then(function() { return gmApi("abc/drafts/" + encodeURIComponent(m.id)); })
+    .then(function(d2) { if (gmMatDraft === m) { gmBrSyncMerge(m, d2); m.descTried = true; m.sigChecked = gmBrSig(m); m.sync = "ok"; gmMatDraftRender(); } })
+    .catch(function(e) { m.descTried = true; gmMatDraftRender(); console.error("abc descriptions: " + e.message); });
+}
+
+// ── 3.7 / 4(c) The pinned bar: Review and send, and one line (the number of questions left, or Ready to send) ──
+// No list of links any more: the questions above ask for what is missing, with the box right there.
+// Computed from what is on screen, so it follows the owner as they type.
 function gmBrStillNeeded(m) {
   var f = m.form, d = m.data, need = [];
   if (!f.service) { need.push("delivery_service"); }
@@ -8617,22 +9039,35 @@ function gmBrStillNeeded(m) {
   ((d.draft && d.draft.missing) || []).forEach(function(k) { if ((k === "item_description" || k === "item_length") && need.indexOf(k) === -1) { need.push(k); } });
   return need;
 }
+// ok = what is on screen was saved and checked by the Worker; err = the check failed (Review and send tries again); pending = checking.
+function gmBrSyncState(m) { return m.sync === "err" ? "err" : (m.sync === "ok" && m.sigChecked === gmBrSig(m) ? "ok" : "pending"); }
 function gmBrBarHtml(m) {
-  var need = gmBrStillNeeded(m);
-  var h = '<div class="gm-bar" id="gmBrBar">' + gmBrBarInner(need) +
-    '<button type="button" class="gm-btn-primary"' + (m.busy ? " disabled" : "") + ' onclick="gmMatReviewOpen()">' + escHtml(gmT("Revisar e enviar", "Review and send")) + '</button></div>';
-  return h;
+  var groups = gmBrAskGroups(gmBrAskNeed(m)), st = gmBrSyncState(m);
+  var go = !groups.length && (st === "ok" || st === "err");
+  return '<div class="gm-bar" id="gmBrBar">' + gmBrBarInner(groups, st) +
+    '<button type="button" class="gm-btn-primary" id="gmBrReviewBtn"' + (m.busy || !go ? " disabled" : "") + ' onclick="gmMatReviewOpen()">' + escHtml(gmT("Revisar e enviar", "Review and send")) + '</button></div>';
 }
-function gmBrBarInner(need) {
-  if (!need.length) { return '<p class="gm-bar-ok" id="gmBrNeed">' + escHtml(gmT("Pronto para enviar", "Ready to send")) + '</p>'; }
-  return '<div class="gm-bar-need" id="gmBrNeed"><strong>' + escHtml(gmT("Ainda falta:", "Still needed:")) + '</strong> ' +
-    need.map(function(k) { var mm = GM_MAT_MISSING[k]; return '<button type="button" class="gm-bar-link" onclick="gmBrGoto(\'' + (GM_BR_MISSING_IDS[k] || "gmMatLinesBox") + '\')">' + escHtml(mm ? gmT(mm[0], mm[1]) : k) + '</button>'; }).join(" ") + '</div>';
+// groups: the questions left (a list); state: ok, pending or err.
+function gmBrBarInner(groups, state) {
+  state = state || "ok";
+  if (groups.length) { return '<p class="gm-bar-need" id="gmBrNeed">' + escHtml(groups.length === 1 ? gmT("Falta 1 pergunta", "1 question left") : gmT("Faltam " + groups.length + " perguntas", groups.length + " questions left")) + '</p>'; }
+  if (state === "pending") { return '<p class="gm-bar-need" id="gmBrNeed">' + escHtml(gmT("Conferindo…", "Checking…")) + '</p>'; }
+  if (state === "err") { return '<p class="gm-bar-need" id="gmBrNeed">' + escHtml(gmT("Não deu para conferir. Toque em Revisar e enviar.", "Could not check. Tap Review and send.")) + '</p>'; }
+  return '<p class="gm-bar-ok" id="gmBrNeed">' + escHtml(gmT("Pronto para enviar", "Ready to send")) + '</p>';
 }
 function gmBrBarPaint() {
   var m = gmMatDraft, el = document.getElementById("gmBrNeed");
-  if (!m || !m.form || m.view !== "edit" || !el) { return; }
-  var tmp = document.createElement("div"); tmp.innerHTML = gmBrBarInner(gmBrStillNeeded(m));
+  if (!m || !m.form || m.view !== "edit" || !el || !m.ready) { return; }
+  // The question changed: draw the screen again, so only the next question shows.
+  if (gmBrAskGroup(m) !== (m.askGroup || "")) { gmMatDraftRender(); return; }
+  // Nothing left that the screen can see: save it and ask the Worker, once per change.
+  if (!gmBrAskLocal(m).length && gmBrSig(m) !== m.sigChecked && m.sync !== "pending") { gmBrSyncSoon(m); }
+  var groups = gmBrAskGroups(gmBrAskNeed(m)), st = gmBrSyncState(m);
+  var tmp = document.createElement("div"); tmp.innerHTML = gmBrBarInner(groups, st);
   if (tmp.firstChild) { el.replaceWith(tmp.firstChild); }
+  var btn = document.getElementById("gmBrReviewBtn"); if (btn) { btn.disabled = !!m.busy || !(!groups.length && (st === "ok" || st === "err")); }
+  var q = document.getElementById("gmBrAsk");
+  if (q && !groups.length) { var re = document.createElement("div"); re.innerHTML = gmBrAskHtml(m); if (re.firstChild) { q.replaceWith(re.firstChild); } }
 }
 var gmBrBarWired = false;
 function gmBrBarWire() {
@@ -11606,6 +12041,11 @@ function gmConLoadResponses() {
   return gmApi("homeowner-responses").then(function(d) { gmConResponses = d.responses || []; return gmConResponses; }).catch(function(e) { console.error(e); return []; });
 }
 var GM_CON_RESP_DOC = { contract: ["o contrato", "the contract"], change_order: ["o aditivo", "the change order"], ack_before_photos: ["as fotos de antes", "the before-work photos"], ack_completion: ["o aceite de conclusão", "the completion sign-off"], estimate: ["o orçamento", "the estimate"] };
+// The reason of a stopped flow holds English, a record separator and Portuguese (one language only for an older row): the owner's language is shown.
+function gmConReasonText(reason) {
+  var parts = String(reason === null || reason === undefined ? "" : reason).split("\u001e");
+  return gmT(parts.length > 1 ? parts[1] : parts[0], parts[0]);
+}
 function gmConResponsesCardHtml() {
   if (!gmConResponses.length) { return ""; }
   return '<div class="card-title" style="margin-top:12px;">' + gmT("Respostas dos clientes", "Customer responses") + ' <span class="goal-pending-badge">' + gmConResponses.length + '</span></div>' +
@@ -11614,7 +12054,7 @@ function gmConResponsesCardHtml() {
       var flowStop = r.response === "contract_not_ready" || r.response === "invoice_not_ready";
       var verb = flowStop ? gmT(" assinou ", " signed ") : (r.response === "changes_requested" ? gmT(" pediu mudanças em ", " asked for changes to ") : gmT(" recusou ", " declined "));
       return '<div class="gm-row" style="cursor:default;"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(r.customer_name || r.job_name || "") + verb + escHtml(gmT(d[0], d[1])) + (r.doc_number ? " " + escHtml(r.doc_number) : "") + '</span>' +
-        (flowStop ? '<div class="gm-lead-sub" style="white-space:normal;">' + gmT("O próximo passo não foi enviado automaticamente: ", "The next step was not sent automatically: ") + escHtml(r.reason || "") + '</div>' :
+        (flowStop ? '<div class="gm-lead-sub" style="white-space:normal;">' + gmT("O próximo passo não foi enviado automaticamente: ", "The next step was not sent automatically: ") + escHtml(gmConReasonText(r.reason)) + '</div>' :
           (r.reason ? '<div class="gm-lead-sub" style="white-space:normal;">"' + escHtml(r.reason) + '"</div>' : '<div class="gm-lead-sub">' + gmT("sem motivo escrito", "no reason given") + '</div>')) +
         '<div class="gm-lead-sub">' + escHtml(r.job_name || "") + ' · ' + escHtml(formatDateTimeUTC(r.created_at)) + '</div>' +
         '<div class="gm-est-actions" style="margin-top:6px;">' + (r.job_id ? '<button data-help="projects#overview#7" type="button" class="gm-btn-primary" onclick="switchTab(\'gmjobs\'); gmContractGuardSend(\'' + escHtml(r.job_id) + '\')">' + gmT("Abrir o projeto", "Open the project") + '</button>' : "") +
@@ -16356,13 +16796,13 @@ function gmEstRowHtml(e) {
     (line3 ? '<div class="gm-lead-sub' + (s.reminders.length ? " gm-warn" : "") + '">' + line3 + '</div>' : "") + ask +
     '</span>' +
     '<span class="gm-lead-side">' + gmEstPillHtml(e) + '</span>' +
-    '</button>';
+    '</button>' + gmMatEstimateSendBtnHtml(e);
 }
 
 function gmEstSetFilter(f) { gmEstFilter = f; gmRenderEstimatesTab(); }
 
 function gmLoadEstimatesList() {
-  return gmApi("estimates").then(function(d) { gmEstList = d; gmAttentionRecompute(); return d; });
+  return gmApi("estimates").then(function(d) { gmEstList = d; gmAttentionRecompute(); return new Promise(function(resolve) { gmMatDraftsFresh(function() { resolve(d); }); }); });
 }
 
 // ── Detail sheet ────────────────────────────────────────────────────────
@@ -16370,7 +16810,7 @@ function gmLoadEstimatesList() {
 function gmOpenEstimate(id) {
   gmSheetOpen(gmT("Orçamento", "Estimate"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
   gmApi("estimates/" + encodeURIComponent(id))
-    .then(function(d) { gmEstDetail = d.estimate; gmRenderEstimateSheet(); })
+    .then(function(d) { gmEstDetail = d.estimate; gmMatDraftsFresh(function() { if (gmEstDetail && gmEstDetail.id === d.estimate.id) { gmRenderEstimateSheet(); } }); })
     .catch(function(e) {
       console.error("estimate load failed", e);
       var b = document.querySelector(".gm-sheet-body");
@@ -16463,6 +16903,8 @@ function gmRenderEstimateSheet() {
   if (est.stored_status !== "void" && est.stored_status !== "accepted" && !superseded) {
     body += '<button type="button" class="gm-btn-primary" id="gmEstSendBtn" onclick="gmEstSendOpen()">' + gmT("Enviar", "Send") + '</button>';
   }
+  // 2026-11-16: the materials order of an accepted estimate is the FIRST thing here, above Preview as customer.
+  body += gmMatEstimateSendBtnHtml(est) + gmMatEstimateCheckBtnHtml(est);
   body += '<a class="gm-btn-secondary" href="' + escHtml(est.link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>' +
     '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(est.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>';
   if (est.stored_status !== "draft" && est.stored_status !== "void") { body += gmLinkControlBtn("estimate", est.id, !!est.link_disabled_at || !!est.link_expired); }
@@ -16562,13 +17004,14 @@ function gmEstMarkAccepted() {
   var signer = document.getElementById("gmEstSigner");
   var opt = document.getElementById("gmEstAccOpt");
   gmApi("estimates/" + encodeURIComponent(est.id) + "/mark-accepted", { method: "POST", body: { signer_name: signer ? signer.value : "", option_id: opt ? opt.value : null } })
-    .then(function() { gmToast(gmT("Orçamento aceito", "Estimate accepted")); gmEstAfterAccept(est); })
+    .then(function(r) { gmToast(gmT("Orçamento aceito", "Estimate accepted")); gmMatDraftsLoad(function() { gmEstAfterAccept(est, !!(r && r.materials_order)); }); })
     .catch(function(e) { var m = document.getElementById("gmEstAccMsg"); if (m) { m.textContent = e.message; m.hidden = false; } console.error(e); });
 }
 
 // After acceptance (2i): prompt, never auto-change.
-function gmEstAfterAccept(est) {
-  var body = '<div class="gm-sheet-section"><p>' +
+function gmEstAfterAccept(est, materials) {
+  var matOrder = materials && (gmMatDraftsEstAll[est.id] || []).length ? gmMatEstimateSendBtnHtml(est) : "";
+  var body = '<div class="gm-sheet-section">' + (materials ? '<p><strong>' + gmT("Um pedido de material está pronto.", "A materials order is ready.") + '</strong></p>' + matOrder : "") + '<p>' +
     gmT("Orçamento aceito. Mover este lead para " + gmStageLabel("fechado") + " e criar o projeto?", "Estimate accepted. Move this lead to " + gmStageLabel("fechado") + " and create the project?") + '</p>' +
     '<button data-help="estimate#mark-accepted#3" type="button" class="gm-btn-primary" onclick="gmEstCloseAndPromote(\'' + escHtml(est.lead_id) + '\')">' + gmT("Sim, fechar e criar projeto", "Yes, close and create the project") + '</button>' +
     '<button data-help="estimate#mark-accepted#3" type="button" class="gm-btn-secondary" onclick="gmOpenEstimate(\'' + escHtml(est.id) + '\')">' + gmT("Agora não", "Not now") + '</button></div>';

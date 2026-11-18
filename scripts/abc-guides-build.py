@@ -26,6 +26,7 @@ for g in spec["guides"]:
                 tmp = dst["en"] + ".src.png"
                 if "file" in p:
                     im = Image.open(p["file"]).convert("RGB")
+                    if p.get("file_pt"): im_pt = Image.open(p["file_pt"]).convert("RGB")
                 else:
                     cr = p.get("crop", "1624:1250:8:346")
                     subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(p["t"]), "-i", p["video"], "-frames:v", "1", "-vf", "crop=" + cr, tmp], check=True)
@@ -41,7 +42,12 @@ for g in spec["guides"]:
                     ImageDraw.Draw(im).rectangle(box, fill=(138, 138, 138))
                 w = 946; h = round(im.height * w / im.width)
                 im = im.resize((w, h), Image.LANCZOS)
-                im.save(dst["en"], quality=88); im.save(dst["pt"], quality=88)
+                im.save(dst["en"], quality=88)
+                if p.get("file_pt"):
+                    # a separate Portuguese picture (taken in the Portuguese screen): same width, same quality
+                    im2 = im_pt; im2 = im2.resize((w, round(im2.height * w / im2.width)), Image.LANCZOS); im2.save(dst["pt"], quality=88)
+                else:
+                    im.save(dst["pt"], quality=88)
                 img = {"pt": rel % "pt", "en": rel % "en"}
             steps.append({"n": n, "text": st["text"], "image": img})
         sections.append({"id": sec["id"], "title": sec["title"], "steps": steps})

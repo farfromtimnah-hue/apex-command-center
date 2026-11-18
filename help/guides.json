@@ -32388,6 +32388,323 @@
       ]
     },
     {
+      "id": "abc-connect",
+      "audience": "client",
+      "who": [
+        "owner"
+      ],
+      "title": {
+        "en": "ABC Supply: connect your account",
+        "pt": "ABC Supply: conecte a sua conta"
+      },
+      "summary": {
+        "en": "Connect your own ABC Supply account, choose the account and branch Apex uses, change it later or disconnect.",
+        "pt": "Conecte a sua conta da ABC Supply, escolha a conta e a filial que a Apex usa, troque depois ou desconecte."
+      },
+      "keywords": {
+        "en": [
+          "abc supply",
+          "abc",
+          "supplier",
+          "connect",
+          "sign in",
+          "allow access",
+          "account",
+          "branch",
+          "disconnect",
+          "materials",
+          "myabcsupply",
+          "add another branch",
+          "default branch",
+          "several branches",
+          "setup wizard"
+        ],
+        "pt": [
+          "abc supply",
+          "abc",
+          "fornecedor",
+          "conectar",
+          "entrar",
+          "permitir acesso",
+          "conta",
+          "filial",
+          "desconectar",
+          "materiais",
+          "adicionar outra filial",
+          "filial padrão",
+          "várias filiais",
+          "assistente de configuração"
+        ]
+      },
+      "video": {
+        "pt": null,
+        "en": {
+          "src": "https://apex.resonateai.online/help/video/abc-connect-en.mp4",
+          "poster": "https://apex.resonateai.online/help/video/abc-connect-en.jpg"
+        }
+      },
+      "sections": [
+        {
+          "id": "connect",
+          "title": {
+            "pt": "Conectar e escolher a filial",
+            "en": "Connect and choose the branch"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Toque em Negócio, depois em Orçamentos e em Configurações, no alto. Role até Fornecedores. O cartão ABC Supply tem um botão, Conectar ABC Supply.",
+                "en": "Tap Business, then Estimates, then Settings at the top. Scroll to Suppliers. The ABC Supply card has one button, Connect ABC Supply."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-connect/connect-01.pt.jpg",
+                "en": "help/img/guides/abc-connect/connect-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "A ABC Supply é ativada em cada empresa aos poucos. Se você não vê o cartão da ABC Supply, ela ainda não está ativada para a sua empresa.",
+                "en": "ABC Supply is turned on for each business step by step. If you do not see the ABC Supply card, it is not turned on for your business yet."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-connect/connect-02.pt.jpg",
+                "en": "help/img/guides/abc-connect/connect-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Você também pode conectar no assistente de configuração. No passo Conexões, toque em Conectar no cartão da ABC Supply.",
+                "en": "You can also connect in the setup wizard. On the Connections step, tap Connect on the ABC Supply card."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Toque em Conectar ABC Supply. A ABC abre a página de entrada dela, fora da Apex, na mesma janela.",
+                "en": "Tap Connect ABC Supply. ABC opens its own sign-in page, outside Apex, in the same window."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Entre com a sua própria conta da ABC. A Apex nunca vê a sua senha da ABC.",
+                "en": "Sign in with your own ABC account. Apex never sees your ABC password."
+              },
+              "image": null
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "A ABC pergunta se o Apex Command Center pode ver as informações da sua conta, ver os seus pedidos, fazer pedidos e ver os seus preços. Toque em Allow Access.",
+                "en": "ABC asks if Apex Command Center may see your account information, see your orders, place orders and see your pricing. Tap Allow Access."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-connect/connect-06.pt.jpg",
+                "en": "help/img/guides/abc-connect/connect-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "De volta à Apex, o cartão pede que você escolha a conta e a filial da ABC. Toque em Escolher conta e filial.",
+                "en": "Back in Apex, the card asks you to choose the ABC account and branch. Tap Choose account and branch."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-connect/connect-07.pt.jpg",
+                "en": "help/img/guides/abc-connect/connect-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Toque na conta e na filial onde você compra. A filial é a loja da ABC que atende o seu pedido. Todas as filiais da sua conta da ABC aparecem.",
+                "en": "Tap the account and branch you buy from. A branch is the ABC store that fills your order. Every branch of your ABC account is listed."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-connect/connect-08.pt.jpg",
+                "en": "help/img/guides/abc-connect/connect-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "O cartão agora mostra a filial como Nome (número), com o nome e o número da conta embaixo. Por exemplo, Nome da filial (340).",
+                "en": "The card now shows the branch as Name (number), with the account name and number under it. For example Branch name (340)."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-connect/connect-09.pt.jpg",
+                "en": "help/img/guides/abc-connect/connect-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Toque em Trocar conta ou filial para mudar depois. A lista das suas contas e filiais da ABC abre de novo.",
+                "en": "Tap Change account or branch to switch later. The list of your ABC accounts and branches opens again."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-connect/connect-10.pt.jpg",
+                "en": "help/img/guides/abc-connect/connect-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Toque em Desconectar. A Apex pergunta Desconectar a ABC Supply? Toque em Manter conectada para continuar conectado.",
+                "en": "Tap Disconnect. Apex asks Disconnect ABC Supply? Tap Keep it connected to stay connected."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-connect/connect-11.pt.jpg",
+                "en": "help/img/guides/abc-connect/connect-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Ou toque em Sim, desconectar a ABC Supply. A Apex apaga a conexão salva e deixa de ver os seus preços. Os pedidos que você já enviou continuam na lista.",
+                "en": "Or tap Yes, disconnect ABC Supply. Apex deletes the saved connection and stops seeing your prices. The orders you already sent stay in the list."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-connect/connect-12.pt.jpg",
+                "en": "help/img/guides/abc-connect/connect-12.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "branches",
+          "title": {
+            "pt": "Usar várias contas e filiais",
+            "en": "Use several accounts and branches"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abaixo de Trocar conta ou filial, toque em Adicionar outra filial. A Apex carrega as suas contas e filiais da ABC. Você pode adicionar até 10.",
+                "en": "Under Change account or branch, tap Add another branch. Apex loads your ABC accounts and branches. You can add up to 10."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-connect/branches-01.pt.jpg",
+                "en": "help/img/guides/abc-connect/branches-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Toque na conta e na filial que você quer adicionar. A Apex diz Conta e filial adicionadas. Nada do que você já usa é trocado.",
+                "en": "Tap the account and branch you want to add. Apex says Account and branch added. Nothing you already use is replaced."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-connect/branches-02.pt.jpg",
+                "en": "help/img/guides/abc-connect/branches-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Com mais de um par, cada um mostra Nome (número). O primeiro tem a marca Padrão. A Apex usa a filial padrão primeiro.",
+                "en": "With more than one pair, each shows Name (number). The first one is marked Default. Apex uses the default branch first."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-connect/branches-03.pt.jpg",
+                "en": "help/img/guides/abc-connect/branches-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Toque em Tornar padrão em outro par para ele ser o que a Apex usa primeiro.",
+                "en": "Tap Make default on another pair to make it the one Apex uses first."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-connect/branches-04.pt.jpg",
+                "en": "help/img/guides/abc-connect/branches-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Toque em Remover para tirar um par da sua lista. A Apex pergunta Remover esta conta e filial da lista? Pedidos já enviados continuam na lista.",
+                "en": "Tap Remove to take a pair off your list. Apex asks Remove this account and branch from your list? Orders already sent stay in the list."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-connect/branches-05.pt.jpg",
+                "en": "help/img/guides/abc-connect/branches-05.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Conectar ABC Supply"
+            ],
+            "en": [
+              "Connect ABC Supply"
+            ]
+          },
+          "section": "connect",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Escolher conta e filial"
+            ],
+            "en": [
+              "Choose account and branch"
+            ]
+          },
+          "section": "connect",
+          "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Trocar conta ou filial"
+            ],
+            "en": [
+              "Change account or branch"
+            ]
+          },
+          "section": "connect",
+          "step": 10
+        },
+        {
+          "labels": {
+            "pt": [
+              "Adicionar outra filial"
+            ],
+            "en": [
+              "Add another branch"
+            ]
+          },
+          "section": "branches",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Tornar padrão"
+            ],
+            "en": [
+              "Make default"
+            ]
+          },
+          "section": "branches",
+          "step": 4
+        }
+      ]
+    },
+    {
       "id": "abc-price-list",
       "audience": "client",
       "who": [
@@ -32413,7 +32730,12 @@
           "link item",
           "unit conversion",
           "extra material",
-          "supplier price"
+          "supplier price",
+          "branch",
+          "other branches",
+          "already on your price list",
+          "confirm the item",
+          "update this item"
         ],
         "pt": [
           "abc supply",
@@ -32426,7 +32748,12 @@
           "vincular item",
           "conversão de unidade",
           "material extra",
-          "preço do fornecedor"
+          "preço do fornecedor",
+          "filial",
+          "outras filiais",
+          "já está na sua lista de preços",
+          "confirmar o item",
+          "atualizar este item"
         ]
       },
       "video": {
@@ -32440,15 +32767,15 @@
         {
           "id": "add",
           "title": {
-            "en": "Add items from ABC",
-            "pt": "Adicionar itens da ABC"
+            "pt": "Adicionar itens da ABC",
+            "en": "Add items from ABC"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "en": "Tap Business at the top, then Pricing. This is your Price list. ABC Supply must be connected first (see the guide ABC Supply: connect your account).",
-                "pt": "Toque em Negócio, no alto, e depois em Preços. Esta é a sua tabela de preços. A ABC Supply precisa estar conectada antes (veja o guia ABC Supply: conecte a sua conta)."
+                "pt": "Toque em Negócio e depois em Preços. Esta é a sua tabela de preços. A ABC Supply precisa estar conectada antes (veja o guia ABC Supply: conectar a sua conta).",
+                "en": "Tap Business, then Pricing. This is your Price list. ABC Supply must be connected first (see the guide ABC Supply: connect your account)."
               },
               "image": {
                 "pt": "help/img/guides/abc-price-list/add-01.pt.jpg",
@@ -32458,8 +32785,8 @@
             {
               "n": 2,
               "text": {
-                "en": "Scroll down and tap Add from ABC Supply. A search box opens.",
-                "pt": "Role para baixo e toque em Adicionar da ABC Supply. Uma caixa de busca abre."
+                "pt": "Role para baixo e toque em Adicionar da ABC Supply. Uma caixa de busca abre.",
+                "en": "Scroll down and tap Add from ABC Supply. A search box opens."
               },
               "image": {
                 "pt": "help/img/guides/abc-price-list/add-02.pt.jpg",
@@ -32469,8 +32796,8 @@
             {
               "n": 3,
               "text": {
-                "en": "Type at least three letters, for example ridge, and tap Search. Apex shows ABC items with the cost from your own ABC account. If ABC has no price for an item, it says ABC returned no price.",
-                "pt": "Digite pelo menos três letras, por exemplo ridge, e toque em Buscar. A Apex mostra itens da ABC com o custo da sua própria conta da ABC. Se a ABC não tem preço para um item, aparece que a ABC não devolveu preço."
+                "pt": "Com várias filiais, abas aparecem no alto. Toque na aba da filial que você busca. Com uma filial só, você vê Mostrando itens da filial 340.",
+                "en": "With several branches, tabs show at the top. Tap the tab of the branch you search. With one branch you see Showing items carried at branch 340 instead."
               },
               "image": {
                 "pt": "help/img/guides/abc-price-list/add-03.pt.jpg",
@@ -32480,8 +32807,8 @@
             {
               "n": 4,
               "text": {
-                "en": "Tick the items you want. For each one you can change the unit and add extra material in percent. Then tap Add selected items.",
-                "pt": "Marque os itens que você quer. Em cada um você pode mudar a unidade e acrescentar material extra em porcentagem. Depois toque em Adicionar itens selecionados."
+                "pt": "Digite pelo menos três letras, por exemplo ridge, e toque em Buscar. A Apex lista itens da ABC com o custo da sua própria conta da ABC.",
+                "en": "Type at least three letters, for example ridge, and tap Search. Apex lists ABC items with the cost from your own ABC account."
               },
               "image": {
                 "pt": "help/img/guides/abc-price-list/add-04.pt.jpg",
@@ -32491,12 +32818,180 @@
             {
               "n": 5,
               "text": {
-                "en": "Each item is added to your Price list with an ABC badge and your ABC cost. The selling price stays empty so you decide it. Apex never changes your selling prices.",
-                "pt": "Cada item entra na sua tabela de preços com a marca ABC e o seu custo da ABC. O preço de venda fica vazio para você decidir. A Apex nunca muda os seus preços de venda."
+                "pt": "Se a ABC não tem preço para um item, aparece A ABC não devolveu preço, e você não pode marcá-lo.",
+                "en": "If ABC has no price for an item, it says ABC returned no price, and you cannot tick it."
               },
               "image": {
                 "pt": "help/img/guides/abc-price-list/add-05.pt.jpg",
                 "en": "help/img/guides/abc-price-list/add-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Leia a linha acima da lista, como 20 de 49 mostrados. Digite mais letras para afinar. Itens que a filial não vende ficam ocultos, e a Apex os conta.",
+                "en": "Read the line above the list, like 20 of 49 shown. Type more letters to narrow it. Items the branch does not carry are hidden, and Apex counts them."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-price-list/add-06.pt.jpg",
+                "en": "help/img/guides/abc-price-list/add-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Abaixo de um item, a Apex mostra o preço em cada uma das suas outras filiais, ou Não disponível nesta filial.",
+                "en": "Under an item, Apex shows the price at each of your other branches, or Not available at this branch."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-price-list/add-07.pt.jpg",
+                "en": "help/img/guides/abc-price-list/add-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Não achou? Toque em Não achou? Buscar nas minhas outras filiais. Depois toque em Usar da filial e o nome da filial em um item para mudar para essa filial.",
+                "en": "Not found? Tap Can't find it? Search my other branches. Then tap Use from and the branch name on an item to switch to that branch."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-price-list/add-08.pt.jpg",
+                "en": "help/img/guides/abc-price-list/add-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Marque os itens que você quer. Para cada um, você pode digitar Sua unidade (opcional) e Material extra (por cento) para o desperdício.",
+                "en": "Tick the items you want. For each one you can type Your unit (optional), and Extra material (percent) for waste."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-price-list/add-09.pt.jpg",
+                "en": "help/img/guides/abc-price-list/add-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Se a sua unidade é diferente da da ABC, a Apex pergunta Quantas da sua unidade cabem em 1 da ABC. Digite o número.",
+                "en": "If your unit differs from ABC's, Apex asks How many of your unit are in 1 ABC unit. Type the number."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-price-list/add-10.pt.jpg",
+                "en": "help/img/guides/abc-price-list/add-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Toque em Adicionar itens selecionados. A Apex adiciona cada item marcado à sua tabela de preços.",
+                "en": "Tap Add selected items. Apex adds each ticked item to your Price list."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-price-list/add-11.pt.jpg",
+                "en": "help/img/guides/abc-price-list/add-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Se um item já está na sua tabela de preços, a Apex não adiciona nada e diz Já está na sua lista de preços: e o nome do item.",
+                "en": "If an item is already on your Price list, Apex adds nothing and says Already on your Price list: and the item name."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-price-list/add-12.pt.jpg",
+                "en": "help/img/guides/abc-price-list/add-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Cada item novo entra com a marca ABC e o seu custo da ABC. O preço de venda fica vazio para você decidir. A Apex nunca muda os seus preços de venda.",
+                "en": "Each new item is added with an ABC badge and your ABC cost. The selling price stays empty so you decide it. Apex never changes your selling prices."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-price-list/add-13.pt.jpg",
+                "en": "help/img/guides/abc-price-list/add-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "A Apex pode abrir Confirmar o item com a foto e a descrição da ABC. Se ela consegue ler o tamanho, diz Confira o tamanho. Toque em Sim, está certo, ou Não, vou digitar.",
+                "en": "Apex may open Confirm the item with ABC's photo and description. If it can read the size, it says Check the size. Tap Yes, that is right, or No, I will type it."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-price-list/add-14.pt.jpg",
+                "en": "help/img/guides/abc-price-list/add-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Se ela não consegue ler o tamanho, diz Não deu para ler o tamanho. Toque em Pesquisar na internet para buscar, ou em Digitar o tamanho. Toque em Pular por agora para deixar para depois.",
+                "en": "If it cannot read the size, it says We could not read the size. Tap Look it up to search the web, or Type the size. Tap Skip for now to leave the item for later."
+              },
+              "image": null
+            }
+          ]
+        },
+        {
+          "id": "branchpl",
+          "title": {
+            "pt": "Tabela de preços com várias filiais",
+            "en": "Price list with several branches"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Na tabela de preços, uma aba para cada filial aparece no alto. Toque em uma aba para ver os itens vendidos lá. Itens que se sabe que a filial não vende ficam ocultos.",
+                "en": "On the Price list, a tab for each branch shows at the top. Tap a tab to see the items carried there. Items known not to be carried at that branch are hidden."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-price-list/branchpl-01.pt.jpg",
+                "en": "help/img/guides/abc-price-list/branchpl-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Abaixo de um item, Adicionado da filial mostra onde você o adicionou. De outra filial aparece quando essa não é a aba aberta.",
+                "en": "Under an item, Added from shows the branch where you added it. From a different branch shows when that is not the open tab."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-price-list/branchpl-02.pt.jpg",
+                "en": "help/img/guides/abc-price-list/branchpl-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Disponível em lista as filiais que vendem o item. Uma marca vermelha, Não vendido em e o nome da filial, quer dizer que a sua filial padrão não vende o item.",
+                "en": "Available at lists the branches that carry the item. A red tag, Not carried at and the branch name, means your default branch does not carry it."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-price-list/branchpl-03.pt.jpg",
+                "en": "help/img/guides/abc-price-list/branchpl-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Se a ABC não tem preço do item nessa filial, uma marca dourada diz Preço manual. Digite o seu próprio custo.",
+                "en": "If ABC has no price for the item at that branch, a gold tag says Manual price. Type your own cost."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Abra um item. Em Minhas filiais da ABC, uma linha por filial mostra o preço, ou Não disponível nesta filial.",
+                "en": "Open an item. Under My ABC branches, one row per branch shows its price, or Not available at this branch."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-price-list/branchpl-05.pt.jpg",
+                "en": "help/img/guides/abc-price-list/branchpl-05.en.jpg"
               }
             }
           ]
@@ -32504,15 +32999,15 @@
         {
           "id": "update",
           "title": {
-            "en": "Update the costs",
-            "pt": "Atualizar os custos"
+            "pt": "Atualizar os custos",
+            "en": "Update the costs"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "en": "Scroll down and tap Update costs from ABC. Apex asks ABC for the new cost of every ABC item on your Price list, only when you tap this button. Estimates, contracts and invoices you already made keep the rates they saved.",
-                "pt": "Role para baixo e toque em Atualizar custos da ABC. A Apex pergunta à ABC o novo custo de cada item da ABC na sua tabela de preços, só quando você toca neste botão. Orçamentos, contratos e faturas que você já fez mantêm os valores que salvaram."
+                "pt": "Role para baixo e toque em Atualizar custos da ABC (reserva). A Apex pede à ABC o novo custo de cada item da ABC, só quando você toca. Orçamentos, contratos e faturas salvos mantêm os valores.",
+                "en": "Scroll down and tap Update costs from ABC (backup). Apex asks ABC for the new cost of every ABC item, only when you tap it. Saved estimates, contracts and invoices keep their rates."
               },
               "image": {
                 "pt": "help/img/guides/abc-price-list/update-01.pt.jpg",
@@ -32522,43 +33017,63 @@
             {
               "n": 2,
               "text": {
-                "en": "Apex tells you how many costs were updated, how many stayed the same, and which items ABC returned no price for. Those keep their last cost.",
-                "pt": "A Apex diz quantos custos foram atualizados, quantos ficaram iguais e para quais itens a ABC não devolveu preço. Esses mantêm o último custo."
+                "pt": "A Apex diz quantos custos foram atualizados, quantos ficaram iguais e para quais itens a ABC não devolveu preço. Esses mantêm o último custo.",
+                "en": "Apex says how many costs were updated, how many are unchanged, and which items had no price returned. Those keep their last cost."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/abc-price-list/update-02.pt.jpg",
+                "en": "help/img/guides/abc-price-list/update-02.en.jpg"
+              }
             }
           ]
         },
         {
           "id": "link",
           "title": {
-            "en": "Link an item you already have",
-            "pt": "Vincular um item que você já tem"
+            "pt": "Vincular um item que você já tem",
+            "en": "Link an item you already have"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "en": "Open the item on your Price list and save any changes first. At the bottom, type the ABC item number and tap Link to ABC.",
-                "pt": "Abra o item na sua tabela de preços e salve antes qualquer mudança. Embaixo, digite o número do item da ABC e toque em Vincular à ABC."
+                "pt": "Abra o item na sua tabela de preços e salve antes qualquer mudança. Em ABC Supply, digite o número do item na ABC e toque em Ligar à ABC.",
+                "en": "Open the item on your Price list and save any changes first. Under ABC Supply, type the ABC item number and tap Link to ABC."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/abc-price-list/link-01.pt.jpg",
+                "en": "help/img/guides/abc-price-list/link-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "en": "Tell Apex how many of your units are in 1 ABC unit, for example 1 piece covers 1 square foot, and tap Save conversion. Apex then brings in the ABC cost per your unit.",
-                "pt": "Diga à Apex quantas das suas unidades cabem em 1 unidade da ABC, por exemplo 1 peça cobre 1 pé quadrado, e toque em Salvar conversão. A Apex então traz o custo da ABC por unidade sua."
+                "pt": "Diga à Apex quantas unidades suas cabem em 1 unidade da ABC, por exemplo 1 peça cobre 1 pé quadrado, e toque em Salvar conversão. A Apex traz o custo da ABC por unidade sua.",
+                "en": "Tell Apex how many of your units are in 1 ABC unit, for example 1 piece covers 1 square foot, and tap Save conversion. Apex then brings in the ABC cost per your unit."
               },
               "image": null
             },
             {
               "n": 3,
               "text": {
-                "en": "To remove the link, tap Unlink from ABC. The ABC cost line is removed. The other cost lines and your selling price stay.",
-                "pt": "Para remover o vínculo, toque em Desvincular da ABC. A linha de custo da ABC é removida. As outras linhas de custo e o seu preço de venda ficam."
+                "pt": "Toque em Atualizar este item para atualizar o custo da ABC só deste item.",
+                "en": "Tap Update this item to refresh the ABC cost of this one item."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/abc-price-list/link-03.pt.jpg",
+                "en": "help/img/guides/abc-price-list/link-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Para remover o vínculo, toque em Desligar da ABC. A linha de custo da ABC é removida. As outras linhas de custo e o seu preço de venda ficam.",
+                "en": "To remove the link, tap Unlink from ABC. The ABC cost line is removed. The other cost lines and your selling price stay."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-price-list/link-04.pt.jpg",
+                "en": "help/img/guides/abc-price-list/link-04.en.jpg"
+              }
             }
           ]
         }
@@ -32586,7 +33101,19 @@
             ]
           },
           "section": "add",
-          "step": 4
+          "step": 11
+        },
+        {
+          "labels": {
+            "pt": [
+              "Não achou? Buscar nas minhas outras filiais"
+            ],
+            "en": [
+              "Can't find it? Search my other branches"
+            ]
+          },
+          "section": "add",
+          "step": 8
         },
         {
           "labels": {
@@ -32599,172 +33126,54 @@
           },
           "section": "update",
           "step": 1
-        }
-      ]
-    },
-    {
-      "id": "abc-batch",
-      "audience": "client",
-      "who": [
-        "owner"
-      ],
-      "title": {
-        "en": "ABC Supply: send several material orders at once (batch order)",
-        "pt": "ABC Supply: envie vários pedidos de material de uma vez (pedido em lote)"
-      },
-      "summary": {
-        "en": "Pick two or more order drafts, choose one delivery question once, then send separate orders or one combined order.",
-        "pt": "Escolha dois ou mais rascunhos de pedido, responda uma vez à pergunta de entrega e envie pedidos separados ou um pedido combinado."
-      },
-      "keywords": {
-        "en": [
-          "abc supply",
-          "batch order",
-          "several orders",
-          "combine orders",
-          "one purchase order",
-          "delivery location",
-          "materials orders"
-        ],
-        "pt": [
-          "abc supply",
-          "pedido em lote",
-          "vários pedidos",
-          "combinar pedidos",
-          "um pedido de compra",
-          "local de entrega",
-          "pedidos de material"
-        ]
-      },
-      "video": {
-        "pt": null,
-        "en": {
-          "src": "https://apex.resonateai.online/help/video/abc-batch-en.mp4",
-          "poster": "https://apex.resonateai.online/help/video/abc-batch-en.jpg"
-        }
-      },
-      "sections": [
-        {
-          "id": "batch",
-          "title": {
-            "en": "Batch order",
-            "pt": "Pedido em lote"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "en": "Tap Materials orders, on the Home card or on the Price list. Tick two or more orders that say To review, then tap Batch order.",
-                "pt": "Toque em Pedidos de material, no cartão da página inicial ou na tabela de preços. Marque dois ou mais pedidos que dizem Para revisar e toque em Pedido em lote."
-              },
-              "image": {
-                "pt": "help/img/guides/abc-batch/batch-01.pt.jpg",
-                "en": "help/img/guides/abc-batch/batch-01.en.jpg"
-              }
-            },
-            {
-              "n": 2,
-              "text": {
-                "en": "Apex asks one question: How should these orders be delivered? Choose Each order to its own delivery location, or All orders to one location.",
-                "pt": "A Apex faz uma pergunta: como estes pedidos devem ser entregues? Escolha Cada pedido no seu próprio local de entrega, ou Todos os pedidos em um local."
-              },
-              "image": {
-                "pt": "help/img/guides/abc-batch/batch-02.pt.jpg",
-                "en": "help/img/guides/abc-batch/batch-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "en": "For one location, Apex shows the location you used last, for example Warehouse. Tap Use this location, or Change location to pick another one.",
-                "pt": "Para um local só, a Apex mostra o último local que você usou, por exemplo Warehouse. Toque em Usar este local, ou em Trocar local para escolher outro."
-              },
-              "image": {
-                "pt": "help/img/guides/abc-batch/batch-03.pt.jpg",
-                "en": "help/img/guides/abc-batch/batch-03.en.jpg"
-              }
-            },
-            {
-              "n": 4,
-              "text": {
-                "en": "Choose the delivery type, an optional delivery date and the contact. You do this once for all the orders.",
-                "pt": "Escolha o tipo de entrega, uma data de entrega opcional e o contato. Você faz isto uma vez para todos os pedidos."
-              },
-              "image": {
-                "pt": "help/img/guides/abc-batch/batch-04.pt.jpg",
-                "en": "help/img/guides/abc-batch/batch-04.en.jpg"
-              }
-            },
-            {
-              "n": 5,
-              "text": {
-                "en": "Choose how they go: Separate orders (one per job, each with its own purchase order number) or One combined order (lines merged by ABC item, one purchase order).",
-                "pt": "Escolha como eles vão: Pedidos separados (um por trabalho, cada um com o seu número de pedido de compra) ou Um pedido combinado (linhas juntadas por item da ABC, um pedido de compra)."
-              },
-              "image": {
-                "pt": "help/img/guides/abc-batch/batch-05.pt.jpg",
-                "en": "help/img/guides/abc-batch/batch-05.en.jpg"
-              }
-            },
-            {
-              "n": 6,
-              "text": {
-                "en": "For separate orders, check each purchase order number and the total, then tap Send all.",
-                "pt": "Para pedidos separados, confira o número de pedido de compra de cada um e o total, e toque em Enviar todos."
-              },
-              "image": {
-                "pt": "help/img/guides/abc-batch/batch-06.pt.jpg",
-                "en": "help/img/guides/abc-batch/batch-06.en.jpg"
-              }
-            },
-            {
-              "n": 7,
-              "text": {
-                "en": "Apex shows the result of each order and the ABC confirmation number.",
-                "pt": "A Apex mostra o resultado de cada pedido e o número de confirmação da ABC."
-              },
-              "image": {
-                "pt": "help/img/guides/abc-batch/batch-07.pt.jpg",
-                "en": "help/img/guides/abc-batch/batch-07.en.jpg"
-              }
-            },
-            {
-              "n": 8,
-              "text": {
-                "en": "For one combined order, check the merged line and the total, then tap Send the combined order.",
-                "pt": "Para um pedido combinado, confira a linha juntada e o total, e toque em Enviar o pedido combinado."
-              },
-              "image": {
-                "pt": "help/img/guides/abc-batch/batch-08.pt.jpg",
-                "en": "help/img/guides/abc-batch/batch-08.en.jpg"
-              }
-            },
-            {
-              "n": 9,
-              "text": {
-                "en": "Apex shows each job and the one order it was combined into, with ABC's confirmation number.",
-                "pt": "A Apex mostra cada trabalho e o pedido único em que ele entrou, com o número de confirmação da ABC."
-              },
-              "image": {
-                "pt": "help/img/guides/abc-batch/batch-09.pt.jpg",
-                "en": "help/img/guides/abc-batch/batch-09.en.jpg"
-              }
-            }
-          ]
-        }
-      ],
-      "buttons": [
+        },
         {
           "labels": {
             "pt": [
-              "Pedido em lote"
+              "Ligar à ABC"
             ],
             "en": [
-              "Batch order"
+              "Link to ABC"
             ]
           },
-          "section": "batch",
+          "section": "link",
           "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Salvar conversão"
+            ],
+            "en": [
+              "Save conversion"
+            ]
+          },
+          "section": "link",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Atualizar este item"
+            ],
+            "en": [
+              "Update this item"
+            ]
+          },
+          "section": "link",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Desligar da ABC"
+            ],
+            "en": [
+              "Unlink from ABC"
+            ]
+          },
+          "section": "link",
+          "step": 4
         }
       ]
     },
@@ -32794,7 +33203,8 @@
           "bundle",
           "sq ft",
           "quantity",
-          "abc order"
+          "abc order",
+          "standard extra material"
         ],
         "pt": [
           "material extra",
@@ -32807,7 +33217,8 @@
           "pacote",
           "pé quadrado",
           "quantidade",
-          "pedido abc"
+          "pedido abc",
+          "material extra padrão"
         ]
       },
       "video": {
@@ -32821,23 +33232,26 @@
         {
           "id": "extra",
           "title": {
-            "en": "Extra material and how an item is sold",
-            "pt": "Material extra e como um item é vendido"
+            "pt": "Material extra e como um item é vendido",
+            "en": "Extra material and how an item is sold"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "en": "Open an item on your Price list. In Extra material (percent), type the percent you want added to every order for waste, for example 10. Tap Set up measured material to tell Apex how the item is measured and sold.",
-                "pt": "Abra um item na sua tabela de preços. Em Material extra (porcentagem), digite a porcentagem que você quer somar a cada pedido para o desperdício, por exemplo 10. Toque em Configurar material medido para dizer à Apex como o item é medido e vendido."
+                "pt": "Na tabela de preços, toque em Definir material extra padrão. Digite uma porcentagem, por exemplo 10, e toque em Salvar. Itens medidos novos começam com esse número.",
+                "en": "On the Price list, tap Set standard extra material. Type a percent, for example 10, and tap Save. New measured items start with this number."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/abc-extra-material/extra-01.pt.jpg",
+                "en": "help/img/guides/abc-extra-material/extra-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "en": "When you save, Apex asks: Make 10 percent your standard? New items start with this number. A number for one item does not change the standard. Tap Yes, make it my standard, or No, this item only.",
-                "pt": "Quando você salva, a Apex pergunta: tornar 10 por cento o seu padrão? Itens novos começam com este número. O número de um item não muda o padrão. Toque em Sim, tornar padrão, ou Não, só este item."
+                "pt": "Abra um item na sua tabela de preços. Em Material extra (por cento), digite a porcentagem que você quer somar a cada pedido para o desperdício, por exemplo 10.",
+                "en": "Open an item on your Price list. In Extra material (percent), type the percent you want added to every order for waste, for example 10."
               },
               "image": {
                 "pt": "help/img/guides/abc-extra-material/extra-02.pt.jpg",
@@ -32847,8 +33261,8 @@
             {
               "n": 3,
               "text": {
-                "en": "Apex may ask: Apply this to all existing items? Measured items with no number of their own get it. Items that already have a number stay as they are.",
-                "pt": "A Apex pode perguntar: aplicar isto a todos os itens existentes? Os itens medidos sem número próprio recebem este. Os itens que já têm um número ficam como estão."
+                "pt": "Se há um padrão definido, toque em Usar o padrão (10 por cento) para preencher esse número.",
+                "en": "If a standard is set, tap Use the standard (10 percent) to fill in that number."
               },
               "image": {
                 "pt": "help/img/guides/abc-extra-material/extra-03.pt.jpg",
@@ -32858,8 +33272,8 @@
             {
               "n": 4,
               "text": {
-                "en": "Step 1 of 4: how is this item measured? Area (tiles, pavers, flooring, shingles), Length (trim, gutter, pipe), Volume (mulch, gravel, sand) or Counted (a door, a window). You can skip any step.",
-                "pt": "Passo 1 de 4: como este item é medido? Área (azulejos, pavers, pisos, telhas), Comprimento (acabamento, calha, tubo), Volume (cobertura vegetal, cascalho, areia) ou Contado (uma porta, uma janela). Você pode pular qualquer passo."
+                "pt": "Toque em Configurar material medido para dizer à Apex como o item é medido e vendido.",
+                "en": "Tap Set up measured material to tell Apex how the item is measured and sold."
               },
               "image": {
                 "pt": "help/img/guides/abc-extra-material/extra-04.pt.jpg",
@@ -32869,8 +33283,8 @@
             {
               "n": 5,
               "text": {
-                "en": "Step 2 of 4: type the size of one piece, for example 6 by 9 inches. Apex shows how much it covers: 6 in by 9 in covers 0.375 sq ft. If you know how much one box or pallet covers, tap that button instead.",
-                "pt": "Passo 2 de 4: digite o tamanho de uma peça, por exemplo 6 por 9 polegadas. A Apex mostra quanto ela cobre: 6 pol por 9 pol cobre 0,375 pé quadrado. Se você sabe quanto uma caixa ou um palete cobre, toque nesse botão."
+                "pt": "Quando você salva, a Apex pergunta: Tornar 10 por cento o seu padrão? Itens novos já começam com esse número. Um número só para este item não muda o padrão. Toque em Sim, tornar padrão, ou Não, só este item.",
+                "en": "When you save, Apex asks: Make 10 percent your standard? New items start with this number. A number for one item does not change the standard. Tap Yes, make it my standard, or No, this item only."
               },
               "image": {
                 "pt": "help/img/guides/abc-extra-material/extra-05.pt.jpg",
@@ -32880,8 +33294,8 @@
             {
               "n": 6,
               "text": {
-                "en": "Step 3 of 4: how does the supplier sell it? Piece, Box, Pallet or Bundle. Tap one.",
-                "pt": "Passo 3 de 4: como o fornecedor vende? Peça, Caixa, Palete ou Pacote. Toque em um."
+                "pt": "A Apex pode perguntar: Aplicar isto a todos os itens existentes? Itens medidos sem número próprio recebem esse número. Itens que já têm um número ficam como estão. Toque em Sim, aplicar, ou Não, deixar como está.",
+                "en": "Apex may ask: Apply this to all existing items? Measured items with no number of their own get it. Items that already have a number stay as they are. Tap Yes, apply, or No, leave them."
               },
               "image": {
                 "pt": "help/img/guides/abc-extra-material/extra-06.pt.jpg",
@@ -32891,8 +33305,8 @@
             {
               "n": 7,
               "text": {
-                "en": "If you picked Pallet, say how much one pallet covers in square feet, or how many pieces are in one pallet.",
-                "pt": "Se você escolheu Palete, diga quanto um palete cobre em pés quadrados, ou quantas peças há em um palete."
+                "pt": "Passo 1 de 4: como este item é medido? Toque em Área (ladrilho, pavers, piso, telhas), Comprimento (rodapé, calha, tubo), Volume (mulch, cascalho, areia) ou Contado (uma porta, uma janela). Você pode pular qualquer passo.",
+                "en": "Step 1 of 4: how is this item measured? Tap Area (tile, pavers, flooring, shingles), Length (trim, gutter, pipe), Volume (mulch, gravel, sand) or Counted (a door, a window). You can skip any step."
               },
               "image": {
                 "pt": "help/img/guides/abc-extra-material/extra-07.pt.jpg",
@@ -32902,8 +33316,8 @@
             {
               "n": 8,
               "text": {
-                "en": "Step 4 of 4: the extra material percent for this item. It starts with your standard. Tap Done.",
-                "pt": "Passo 4 de 4: a porcentagem de material extra deste item. Ela começa com o seu padrão. Toque em Concluir."
+                "pt": "Passo 2 de 4: digite o tamanho de uma peça, por exemplo 6 por 9 polegadas. A Apex mostra quanto cobre: 6 in por 9 in cobre 0,375 sq ft. Se você sabe quanto uma caixa ou palete cobre, toque em Sei quanto uma caixa ou palete cobre.",
+                "en": "Step 2 of 4: type the size of one piece, for example 6 by 9 inches. Apex shows what it covers: 6 in by 9 in covers 0.375 sq ft. If you know what one box or pallet covers, tap I know how much one box or pallet covers."
               },
               "image": {
                 "pt": "help/img/guides/abc-extra-material/extra-08.pt.jpg",
@@ -32913,10 +33327,57 @@
             {
               "n": 9,
               "text": {
-                "en": "When you order, Apex turns the area on the contract into whole ABC units, adds your extra percent, and rounds up. You can still change the quantity on the order before you send it.",
-                "pt": "Quando você faz o pedido, a Apex transforma a área do contrato em unidades inteiras da ABC, soma o seu extra e arredonda para cima. Você ainda pode mudar a quantidade no pedido antes de enviar."
+                "pt": "Para um item ligado à ABC, o passo 3 pergunta Quanto 1 BD da ABC cobre, em pés? Digite o número. Se a unidade da ABC é a mesma da sua, diz Nada para converter.",
+                "en": "For an item linked to ABC, step 3 asks How much does 1 BD from ABC cover, in feet? Type the number. If the ABC unit is the same as yours, it says Nothing to convert."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/abc-extra-material/extra-09.pt.jpg",
+                "en": "help/img/guides/abc-extra-material/extra-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Para um item que não é da ABC, o passo 3 pergunta como o fornecedor vende. Toque em Peça, Caixa, Palete ou Pacote.",
+                "en": "For an item not from ABC, step 3 asks how the supplier sells it. Tap Piece, Box, Pallet or Bundle."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-extra-material/extra-10.pt.jpg",
+                "en": "help/img/guides/abc-extra-material/extra-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Se você escolheu Palete, diga quanto um palete cobre em pés quadrados, ou quantas peças há em um palete.",
+                "en": "If you picked Pallet, say how much one pallet covers in square feet, or how many pieces are in one pallet."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-extra-material/extra-11.pt.jpg",
+                "en": "help/img/guides/abc-extra-material/extra-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Passo 4 de 4: o Material extra (por cento) deste item. Ele começa com o seu padrão. Toque em Concluir.",
+                "en": "Step 4 of 4: the Extra material (percent) for this item. It starts with your standard. Tap Done."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-extra-material/extra-12.pt.jpg",
+                "en": "help/img/guides/abc-extra-material/extra-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Quando você pede, a Apex transforma a área do contrato ou do orçamento em unidades inteiras da ABC, soma o seu extra e arredonda para cima. Você pode mudar a quantidade antes de enviar.",
+                "en": "When you order, Apex turns the area on the contract or estimate into whole ABC units, adds your extra percent, and rounds up. You can change the quantity before you send."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-extra-material/extra-13.pt.jpg",
+                "en": "help/img/guides/abc-extra-material/extra-13.en.jpg"
+              }
             }
           ]
         }
@@ -32932,7 +33393,19 @@
             ]
           },
           "section": "extra",
-          "step": 2
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Configurar material medido"
+            ],
+            "en": [
+              "Set up measured material"
+            ]
+          },
+          "section": "extra",
+          "step": 4
         }
       ]
     },
@@ -32943,12 +33416,12 @@
         "owner"
       ],
       "title": {
-        "en": "ABC Supply: order materials from a signed contract",
-        "pt": "ABC Supply: peça materiais a partir de um contrato assinado"
+        "pt": "ABC Supply: pedir materiais de um contrato, de um orçamento aceito ou do zero",
+        "en": "ABC Supply: order materials from a contract, an accepted estimate or from scratch"
       },
       "summary": {
-        "en": "Open a signed contract, review the order Apex builds from it, choose delivery, send it to ABC and follow its status.",
-        "pt": "Abra um contrato assinado, revise o pedido que a Apex monta a partir dele, escolha a entrega, envie à ABC e acompanhe a situação."
+        "pt": "Faça um pedido de material, responda às perguntas, escolha a filial, confira, envie à ABC e acompanhe a situação.",
+        "en": "Make a materials order, answer the questions, choose the branch, review, send it to ABC and follow its status."
       },
       "keywords": {
         "en": [
@@ -32963,7 +33436,19 @@
           "add a line",
           "new location",
           "saved location",
-          "status"
+          "status",
+          "new order",
+          "accepted estimate",
+          "no contract",
+          "questions",
+          "ready to send",
+          "tbd",
+          "on site",
+          "compare my branches",
+          "replace this item",
+          "split",
+          "discard",
+          "estimate"
         ],
         "pt": [
           "abc supply",
@@ -32977,7 +33462,19 @@
           "adicionar linha",
           "novo local",
           "local salvo",
-          "situação"
+          "situação",
+          "novo pedido",
+          "orçamento aceito",
+          "sem contrato",
+          "perguntas",
+          "pronto para enviar",
+          "a definir",
+          "pessoa na obra",
+          "comparar minhas filiais",
+          "trocar este item",
+          "dividir",
+          "descartar",
+          "orçamento"
         ]
       },
       "video": {
@@ -32991,37 +33488,31 @@
         {
           "id": "draft",
           "title": {
-            "en": "Make and check the order",
-            "pt": "Montar e conferir o pedido"
+            "pt": "Fazer o pedido de um contrato assinado",
+            "en": "Make the order from a signed contract"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "en": "Before you start: your contract must be signed by both sides, and its items must be linked to ABC items on your Price list (see the guide ABC Supply: add items and costs to your Price list). Tap Business, then Contracts, and open the signed contract. When ABC items are on it, the row Materials order says Ready to review.",
-                "pt": "Antes de começar: o contrato precisa estar assinado pelos dois lados e os itens dele precisam estar vinculados a itens da ABC na sua tabela de preços (veja o guia ABC Supply: adicione itens e custos à sua tabela de preços). Toque em Negócio, depois em Contratos, e abra o contrato assinado. Quando há itens da ABC nele, a linha Pedido de material diz Pronto para revisar."
+                "pt": "Toque em Negócio e depois em Contratos, e abra um contrato assinado pelos dois lados. Os itens dele precisam estar ligados a itens da ABC na sua tabela de preços (veja ABC Supply: adicionar itens e custos à sua tabela de preços).",
+                "en": "Tap Business, then Contracts, and open a contract signed by both sides. Its items must be linked to ABC items on your Price list (see ABC Supply: add items and costs to your Price list)."
               },
-              "image": {
-                "pt": "help/img/guides/abc-order/draft-01.pt.jpg",
-                "en": "help/img/guides/abc-order/draft-01.en.jpg"
-              }
+              "image": null
             },
             {
               "n": 2,
               "text": {
-                "en": "Tap Materials order. Apex builds the order from the contract: each ABC item, the quantity (with your extra material percent) and today's ABC price. Items that are not from ABC are listed as left out.",
-                "pt": "Toque em Pedido de material. A Apex monta o pedido a partir do contrato: cada item da ABC, a quantidade (com o seu material extra) e o preço de hoje da ABC. Itens que não são da ABC aparecem como deixados de fora."
+                "pt": "Toque no botão dourado Enviar pedido de material para a ABC. Se o trabalho precisa de duas filiais, ele diz Enviar pedidos de material (2) e abre a lista com os dois marcados.",
+                "en": "Tap the gold button Send materials order to ABC. If the job needs two branches it says Send materials orders (2) and opens the list with both ticked."
               },
-              "image": {
-                "pt": "help/img/guides/abc-order/draft-02.pt.jpg",
-                "en": "help/img/guides/abc-order/draft-02.en.jpg"
-              }
+              "image": null
             },
             {
               "n": 3,
               "text": {
-                "en": "To change the order, type a new quantity on a line, or tap the x to remove a line. To add something, tap Add a line from ABC.",
-                "pt": "Para mudar o pedido, digite outra quantidade em uma linha, ou toque no x para remover a linha. Para acrescentar algo, toque em Adicionar linha da ABC."
+                "pt": "Leia o pedido que a Apex montou do contrato: cada item da ABC, a quantidade com o seu material extra e o preço de hoje da ABC. Fora do pedido, não são da ABC lista os outros itens.",
+                "en": "Read the order Apex built from the contract: each ABC item, its quantity with your extra material percent, and today's ABC price. Not from ABC, left out lists the other items."
               },
               "image": {
                 "pt": "help/img/guides/abc-order/draft-03.pt.jpg",
@@ -33031,8 +33522,8 @@
             {
               "n": 4,
               "text": {
-                "en": "Type at least three letters and tap Search. Tick an item and type a quantity for it.",
-                "pt": "Digite pelo menos três letras e toque em Buscar. Marque um item e digite uma quantidade para ele."
+                "pt": "Para mudar uma quantidade, digite o novo número na caixa da linha. Toque em × para remover uma linha, e em Desfazer para colocá-la de volta.",
+                "en": "To change a quantity, type the new number in the line's box. Tap × to remove a line, and Undo to put it back."
               },
               "image": {
                 "pt": "help/img/guides/abc-order/draft-04.pt.jpg",
@@ -33042,54 +33533,457 @@
             {
               "n": 5,
               "text": {
-                "en": "Tap Add to the order. The new line appears with its ABC price and the total changes.",
-                "pt": "Toque em Adicionar ao pedido. A nova linha aparece com o preço da ABC e o total muda."
+                "pt": "Para adicionar algo, toque em + Adicionar linha da ABC. Digite pelo menos três letras e toque em Buscar.",
+                "en": "To add something, tap + Add a line from ABC. Type at least three letters and tap Search."
               },
               "image": {
                 "pt": "help/img/guides/abc-order/draft-05.pt.jpg",
                 "en": "help/img/guides/abc-order/draft-05.en.jpg"
               }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Marque um item, digite uma quantidade para ele e toque em Adicionar ao pedido. A nova linha aparece com o preço da ABC e o total muda.",
+                "en": "Tick an item, type a quantity for it, and tap Add to the order. The new line appears with its ABC price and the total changes."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/draft-06.pt.jpg",
+                "en": "help/img/guides/abc-order/draft-06.en.jpg"
+              }
             }
           ]
         },
         {
-          "id": "delivery",
+          "id": "estimate",
           "title": {
-            "en": "Delivery and contact",
-            "pt": "Entrega e contato"
+            "pt": "Fazer o pedido de um orçamento aceito",
+            "en": "Make the order from an accepted estimate"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "en": "Under Delivery, choose the delivery type: Common carrier, Customer pickup, Express pickup, Our truck to the roof, to the ground or to the window, or Third party carrier. The ABC branch decides which ones it offers. Then choose Where it goes: Job address, Saved location or New location.",
-                "pt": "Em Entrega, escolha o tipo: Transportadora comum, Retirada pelo cliente, Retirada expressa, Caminhão deles até o telhado, até o chão ou até a janela, ou Transportadora terceirizada. A filial da ABC decide quais oferece. Depois escolha Para onde vai: Endereço da obra, Local salvo ou Novo local."
+                "pt": "Toque em Negócio e depois em Orçamentos, e abra um orçamento aceito com itens da ABC. Ele não precisa de contrato. Um botão dourado, Enviar pedido de material para a ABC, fica no alto.",
+                "en": "Tap Business, then Estimates, and open an accepted estimate with ABC items. It does not need a contract. A gold button, Send materials order to ABC, sits at the top."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Ainda sem o botão dourado? Toque em Verificar itens da ABC. A Apex faz o pedido com os itens da ABC do orçamento, ou diz Este orçamento não tem itens da ABC para pedir.",
+                "en": "No gold button yet? Tap Check for ABC items. Apex makes the order from the estimate's ABC items, or says This estimate has no ABC items to order."
+              },
+              "image": null
+            }
+          ]
+        },
+        {
+          "id": "new",
+          "title": {
+            "pt": "Fazer um pedido novo a partir da tabela de preços",
+            "en": "Make a new order from the Price list"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Toque em Negócio e depois em Preços. Toque no botão dourado Pedidos de material.",
+                "en": "Tap Business, then Pricing. Tap the gold button Materials orders."
               },
               "image": {
-                "pt": "help/img/guides/abc-order/delivery-01.pt.jpg",
-                "en": "help/img/guides/abc-order/delivery-01.en.jpg"
+                "pt": "help/img/guides/abc-order/new-01.pt.jpg",
+                "en": "help/img/guides/abc-order/new-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "en": "For a new location, type a name (for example Warehouse), the address, city, state and zip. It is saved when you use it, and it appears in the list next time. For a saved location, tap Use, Change to edit it, or Remove.",
-                "pt": "Para um novo local, digite um nome (por exemplo Warehouse), o endereço, a cidade, o estado e o CEP. Ele é salvo quando você o usa e aparece na lista da próxima vez. Para um local salvo, toque em Usar, em Trocar para editar, ou em Remover."
+                "pt": "Toque em Novo pedido, abaixo da lista de pedidos. Você não precisa de orçamento nem de contrato.",
+                "en": "Tap New order, under the list of orders. You need no estimate and no contract."
               },
               "image": {
-                "pt": "help/img/guides/abc-order/delivery-02.pt.jpg",
-                "en": "help/img/guides/abc-order/delivery-02.en.jpg"
+                "pt": "help/img/guides/abc-order/new-02.pt.jpg",
+                "en": "help/img/guides/abc-order/new-02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "en": "The delivery date is optional. If you leave it empty, the ABC branch decides. Check the contact, the job name and the purchase order number (up to 16 letters, numbers or hyphens, and different from your other orders). Then tap Review and send.",
-                "pt": "A data de entrega é opcional. Se você deixar vazia, a filial da ABC decide. Confira o contato, o nome da obra e o número do pedido de compra (até 16 letras, números ou hifens, diferente dos seus outros pedidos). Depois toque em Revisar e enviar."
+                "pt": "Digite o Nome do trabalho. Depois, em Quantos de cada item?, digite uma quantidade para cada item da ABC que você quer, na unidade em que a ABC vende, por exemplo paletes ou fardos.",
+                "en": "Type the Job name. Then under How many of each item?, type a quantity for each ABC item you want, in the unit ABC sells, for example pallets or bundles."
               },
               "image": {
-                "pt": "help/img/guides/abc-order/delivery-03.pt.jpg",
-                "en": "help/img/guides/abc-order/delivery-03.en.jpg"
+                "pt": "help/img/guides/abc-order/new-03.pt.jpg",
+                "en": "help/img/guides/abc-order/new-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Toque em Criar o pedido. A Apex cria o pedido e o abre com as perguntas. Você pode descartá-lo depois.",
+                "en": "Tap Make the order. Apex makes the order and opens it with its questions. You can discard it later."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/new-04.pt.jpg",
+                "en": "help/img/guides/abc-order/new-04.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "questions",
+          "title": {
+            "pt": "Responder às perguntas",
+            "en": "Answer the questions"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Veja o bloco no alto da parte de entrega. Ele faz uma pergunta de cada vez, como Pergunta 1 de 5. Responda e a próxima aparece.",
+                "en": "Find the block at the top of the delivery part. It asks one question at a time, like Question 1 of 5. Answer it and the next one appears."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-01.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Toque em como será entregue: Transportadora comum, Retirada pelo cliente, Retirada expressa, Nosso caminhão, no telhado, Nosso caminhão, no chão, Nosso caminhão, na janela, ou Transportadora terceirizada.",
+                "en": "Tap how it is delivered: Common carrier, Customer pickup, Express pickup, Our truck, to the roof, Our truck, to the ground, Our truck, to the window, or Third party carrier."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-02.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "A filial da ABC decide quais tipos de entrega oferece. Se a ABC recusar um, volte ao pedido e escolha outro.",
+                "en": "The ABC branch decides which delivery types it offers. If ABC refuses one, go back to the order and pick another."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-03.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Toque em Escolher uma data. Digite a Data de entrega como MM/DD/AAAA, ou escolha no calendário. A Apex nunca preenche uma data por você.",
+                "en": "Tap Pick a date. Type the Delivery date as MM/DD/YYYY, or pick it from the calendar. Apex never fills in a date for you."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-04.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Ou toque em A definir, deixar o pedido em espera. A Apex deixa a data de fora, e a filial segura o pedido até você dar uma data.",
+                "en": "Or tap TBD, put the order on hold. Apex leaves the date out, and the branch holds the order until you give it a date."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-05.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Em Quem vai estar na obra?, toque em Usar em uma pessoa salva, ou digite Nome e Telefone. A filial pode ligar para esta pessoa.",
+                "en": "Under Who will be at the job?, tap Use on a saved person, or type Name and Phone. The branch may call this person."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-06.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Para salvar uma pessoa nova, abra Todos os dados de entrega e contato. Toque em Adicionar outra pessoa, digite Nome, Telefone e E-mail (opcional), e toque em Salvar e usar esta pessoa.",
+                "en": "To save a new person, open All delivery and contact details. Tap Add another person, type Name, Phone and Email (optional), then Save and use this person."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-07.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Para apagar uma pessoa salva, toque em Remover. A Apex pergunta se você quer tirar essa pessoa da lista. Pedidos que já usam essa pessoa não mudam.",
+                "en": "To delete a saved person, tap Remove. Apex asks if you want to remove that person from the list. Orders that already use this person do not change."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-08.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Em Para onde vai?, toque em Endereço da obra, Local salvo ou Novo local.",
+                "en": "Under Where does it go?, tap Job address, Saved location or New location."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-09.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Para Endereço da obra, digite a rua, a cidade, o estado com 2 letras e o CEP. Vale só para este pedido. O projeto não muda.",
+                "en": "For Job address, type the street, city, 2 letter state and zip code. It counts for this order only. The project does not change."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-10.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Para Local salvo, toque em Usar em um local. Toque em Alterar para editá-lo, ou em Remover para tirá-lo da lista.",
+                "en": "For Saved location, tap Use on a location. Tap Change to edit it, or Remove to take it off the list."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-11.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Para Novo local, digite o Nome do local, por exemplo Depósito, depois o endereço, a cidade, o estado e o CEP. A Apex salva quando você usa e lista na próxima vez.",
+                "en": "For New location, type the Location name, for example Warehouse, then the address, city, state and zip. Apex saves it when you use it and lists it next time."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-12.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Em Quem é o seu contato para a ABC?, digite Seu nome, Seu e-mail e Seu telefone. Use o nome de uma pessoa, não o da empresa.",
+                "en": "Under Who is your contact for ABC?, type Your name, Your email and Your phone. Use a person's name, not the business name."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-13.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Olhe a barra embaixo. Ela diz Faltam 5 perguntas, depois Conferindo, depois Pronto para enviar. Revisar e enviar fica desligado até dizer Pronto para enviar.",
+                "en": "Look at the bar at the bottom. It says 5 questions left, then Checking, then Ready to send. Review and send stays off until it says Ready to send."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-14.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Preencha o Nome do trabalho e o Número do pedido de compra. O número tem até 16 letras, números ou hifens e é diferente dos seus outros pedidos.",
+                "en": "Fill the Job name and the Purchase order number. The number has up to 16 letters, numbers or hyphens and is different from your other orders."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-15.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-15.en.jpg"
+              }
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "Digite as Instruções de entrega (opcional), até 255 letras. Toque em Ligar antes de entregar, Deixar na garagem ou Adicionar código do portão para incluir uma frase.",
+                "en": "Type Delivery instructions (optional), up to 255 characters. Tap Call before delivery, Leave at the garage, or Add gate code to add a phrase."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-16.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-16.en.jpg"
+              }
+            },
+            {
+              "n": 17,
+              "text": {
+                "pt": "Toque em Salvar para depois para guardar o pedido e terminar outro dia. Toque em Voltar à lista para sair.",
+                "en": "Tap Save for later to keep the order and finish it another day. Tap Back to the list to leave it."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-17.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-17.en.jpg"
+              }
+            },
+            {
+              "n": 18,
+              "text": {
+                "pt": "Toque em Descartar este pedido. A Apex pergunta Descartar este pedido? e diz o que acontece. Toque em Sim, descartar, ou Manter.",
+                "en": "Tap Discard this order. Apex asks Discard this order? and says what happens. Tap Yes, discard, or Keep it."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/questions-18.pt.jpg",
+                "en": "help/img/guides/abc-order/questions-18.en.jpg"
+              }
+            },
+            {
+              "n": 19,
+              "text": {
+                "pt": "As palavras dependem do pedido. Um pedido de contrato diz que sai da lista e não é enviado. Um pedido de orçamento diz o mesmo sobre o orçamento. Um Novo pedido diz Este pedido sai da lista e não é enviado.",
+                "en": "The words depend on the order. A contract order says it leaves the list and is not sent. An estimate order says the same for the estimate. A New order says This order leaves the list and is not sent."
+              },
+              "image": null
+            }
+          ]
+        },
+        {
+          "id": "branch",
+          "title": {
+            "pt": "Comparar e escolher a filial",
+            "en": "Compare and choose the branch"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Com mais de uma filial, o pedido mostra a filial como Nome (número). Toque em Comparar minhas filiais para ver o que cada filial vende.",
+                "en": "With more than one branch, the order shows its branch as Name (number). Tap Compare my branches to see what each branch carries."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/branch-01.pt.jpg",
+                "en": "help/img/guides/abc-order/branch-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Leia o cartão de cada filial. Uma linha diz Disponível com o preço, Não disponível nesta filial ou Não deu para conferir. Também diz Vende 0 de 1 itens quando a filial não vende tudo.",
+                "en": "Read each branch card. A line says Available with a price, Not available at this branch or Could not check. It also says Carries 0 of 1 items when a branch cannot supply them all."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/branch-02.pt.jpg",
+                "en": "help/img/guides/abc-order/branch-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Uma marca dourada diz por que uma filial é a melhor: Menor total, Vende tudo, Mais itens, Única filial ou Filial padrão. Em uso marca a filial que o pedido usa agora.",
+                "en": "A gold tag says why a branch is best: Lowest total, Carries everything, Most items, Only branch or Default branch. In use marks the branch the order has now."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/branch-03.pt.jpg",
+                "en": "help/img/guides/abc-order/branch-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Toque em Pedir da filial e o nome da filial no cartão que você quer. Se essa filial vende todos os itens, o pedido vai para lá e os preços são calculados de novo.",
+                "en": "Tap Order from and the branch name on the card you want. If that branch carries every item, the order moves there and is priced again."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/branch-04.pt.jpg",
+                "en": "help/img/guides/abc-order/branch-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Se ela não vende todos os itens, uma tela diz Esta filial não vende todos os itens. Escolha uma opção. Nada muda até você tocar no botão final.",
+                "en": "If it does not carry every item, a screen says This branch does not carry every item. Choose one option. Nothing changes until you tap a final button."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/branch-05.pt.jpg",
+                "en": "help/img/guides/abc-order/branch-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Opção 1: toque em Manter a filial atual. Você volta ao pedido e nada muda.",
+                "en": "Option 1: tap Keep the current branch. You go back to the order and nothing changes."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/branch-06.pt.jpg",
+                "en": "help/img/guides/abc-order/branch-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Opção 2: abaixo de um item que a filial não vende, toque em Trocar este item. Uma busca abre nessa filial.",
+                "en": "Option 2: under an item the branch cannot supply, tap Replace this item. A search opens at that branch."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/branch-07.pt.jpg",
+                "en": "help/img/guides/abc-order/branch-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Digite pelo menos 3 letras, toque em Buscar e depois em Usar este item em um resultado. A linha diz Será trocado por e o nome do item.",
+                "en": "Type at least 3 characters, tap Search, then tap Use this item on a result. The line says Will be replaced by and the item name."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/branch-08.pt.jpg",
+                "en": "help/img/guides/abc-order/branch-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Digite a Quantidade se a caixa estiver vazia. Ela fica vazia quando as unidades são diferentes. Toque em Desfazer para desfazer a troca.",
+                "en": "Type the Quantity if the box is empty. It is empty when the units differ. Tap Undo to take the replacement back."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/branch-09.pt.jpg",
+                "en": "help/img/guides/abc-order/branch-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Ou toque em Remover abaixo do item. A linha diz Será removido, e você pode tocar em Desfazer.",
+                "en": "Or tap Remove under the item. The line says Will be removed, and you can tap Undo."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/branch-10.pt.jpg",
+                "en": "help/img/guides/abc-order/branch-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Toque em Pedir tudo de e o nome da filial. Ele fica desligado até todo item ser trocado ou removido. A Apex então muda as linhas e calcula os preços de novo.",
+                "en": "Tap Order everything from and the branch name. It stays off until every item is replaced or removed. Apex then changes the lines and prices them again."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/branch-11.pt.jpg",
+                "en": "help/img/guides/abc-order/branch-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Opção 3: toque em Dividir em dois pedidos. Os itens que a outra filial vende vão para lá, os outros ficam. São feitos dois pedidos com a mesma data, contato e instruções.",
+                "en": "Option 3: tap Split into two orders. The items the other branch carries go there, the rest stay. Two orders are made with the same date, contact and instructions."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/branch-12.pt.jpg",
+                "en": "help/img/guides/abc-order/branch-12.en.jpg"
               }
             }
           ]
@@ -33097,15 +33991,15 @@
         {
           "id": "send",
           "title": {
-            "en": "Send and follow the order",
-            "pt": "Enviar e acompanhar o pedido"
+            "pt": "Conferir, enviar e acompanhar o pedido",
+            "en": "Review, send and follow the order"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "en": "Apex asks ABC for the current prices again and shows a summary: delivery, where it goes, the date, the contact, the purchase order, each line and the total. Check it. If a price changed since you opened the order, Apex asks you to confirm the new price before it sends.",
-                "pt": "A Apex pede à ABC os preços atuais de novo e mostra um resumo: entrega, para onde vai, a data, o contato, o pedido de compra, cada linha e o total. Confira. Se um preço mudou desde que você abriu o pedido, a Apex pede que você confirme o novo preço antes de enviar."
+                "pt": "Toque em Revisar e enviar. A Apex pede à ABC os preços atuais de novo e mostra o Resumo do pedido: entrega, destino, filial, data, contatos, pedido de compra, cada linha e o total.",
+                "en": "Tap Review and send. Apex asks ABC for the current prices again and shows the Order summary: delivery, where it goes, branch, date, contacts, purchase order, each line and the total."
               },
               "image": {
                 "pt": "help/img/guides/abc-order/send-01.pt.jpg",
@@ -33115,19 +34009,16 @@
             {
               "n": 2,
               "text": {
-                "en": "Tap Send order to ABC. ABC answers with a confirmation number and the status Submitted. The order cannot be edited or sent again. The status follows what ABC sends.",
-                "pt": "Toque em Enviar pedido à ABC. A ABC responde com um número de confirmação e a situação Enviado. O pedido não pode mais ser editado nem enviado de novo. A situação acompanha o que a ABC envia."
+                "pt": "Se um preço mudou desde que você abriu o pedido, um cartão diz Um preço mudou desde a sua revisão. Marque Conferi os novos preços antes de poder enviar.",
+                "en": "If a price changed since you opened the order, a card says A price changed since you reviewed. Tick I checked the new prices before you can send."
               },
-              "image": {
-                "pt": "help/img/guides/abc-order/send-02.pt.jpg",
-                "en": "help/img/guides/abc-order/send-02.en.jpg"
-              }
+              "image": null
             },
             {
               "n": 3,
               "text": {
-                "en": "If ABC refuses the order, Apex shows ABC's own words. Tap Back to edit, fix what ABC says (for example a different delivery type), and send again. Nothing is sent twice.",
-                "pt": "Se a ABC recusar o pedido, a Apex mostra as palavras da própria ABC. Toque em Voltar e editar, corrija o que a ABC diz (por exemplo outro tipo de entrega) e envie de novo. Nada é enviado duas vezes."
+                "pt": "Toque em Enviar pedido à ABC. A ABC responde com um número de confirmação e a situação Submitted. O pedido não pode ser editado nem enviado de novo. A situação acompanha o que a ABC envia.",
+                "en": "Tap Send order to ABC. ABC answers with a confirmation number and the status Submitted. The order cannot be edited or sent again. The status follows what ABC sends."
               },
               "image": {
                 "pt": "help/img/guides/abc-order/send-03.pt.jpg",
@@ -33137,12 +34028,34 @@
             {
               "n": 4,
               "text": {
-                "en": "To see all your orders, tap Materials orders on the Home card or on the Price list. Each order shows its status and ABC's confirmation number. Orders you did not send yet say To review.",
-                "pt": "Para ver todos os seus pedidos, toque em Pedidos de material no cartão da página inicial ou na tabela de preços. Cada pedido mostra a situação e o número de confirmação da ABC. Pedidos que você ainda não enviou dizem Para revisar."
+                "pt": "Se a ABC recusar o pedido, a Apex mostra as palavras da própria ABC. Toque em Voltar e editar, corrija o que a ABC diz, por exemplo outro tipo de entrega, e envie de novo. Nada é enviado duas vezes.",
+                "en": "If ABC refuses the order, Apex shows ABC's own words. Tap Back to edit, fix what ABC says, for example a different delivery type, and send again. Nothing is sent twice."
               },
               "image": {
                 "pt": "help/img/guides/abc-order/send-04.pt.jpg",
                 "en": "help/img/guides/abc-order/send-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Toque em Pedidos de material, no cartão da Home ou na tabela de preços, para ver todos os seus pedidos. Cada linha mostra a situação, o número de confirmação da ABC e o número: contrato, EST-0044 ou Novo pedido.",
+                "en": "Tap Materials orders, on the Home card or on the Price list, to see all your orders. Each row shows its status, ABC's confirmation number and the number: contract, EST-0044 or New order."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/send-05.pt.jpg",
+                "en": "help/img/guides/abc-order/send-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Pedidos que você ainda não enviou dizem Para revisar. Um pedido enviado mostra a sua situação, como Submitted.",
+                "en": "Orders you did not send yet say To review. A sent order says its status, such as Submitted."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-order/send-06.pt.jpg",
+                "en": "help/img/guides/abc-order/send-06.en.jpg"
               }
             }
           ]
@@ -33152,14 +34065,28 @@
         {
           "labels": {
             "pt": [
-              "Adicionar linha da ABC"
+              "Enviar pedido de material para a ABC"
             ],
             "en": [
-              "Add a line from ABC"
+              "Send materials order to ABC"
             ]
           },
           "section": "draft",
-          "step": 3
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Adicionar linha da ABC",
+              "+ Adicionar linha da ABC"
+            ],
+            "en": [
+              "Add a line from ABC",
+              "+ Add a line from ABC"
+            ]
+          },
+          "section": "draft",
+          "step": 5
         },
         {
           "labels": {
@@ -33171,7 +34098,91 @@
             ]
           },
           "section": "draft",
-          "step": 5
+          "step": 6
+        },
+        {
+          "labels": {
+            "pt": [
+              "Verificar itens da ABC"
+            ],
+            "en": [
+              "Check for ABC items"
+            ]
+          },
+          "section": "estimate",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Novo pedido"
+            ],
+            "en": [
+              "New order"
+            ]
+          },
+          "section": "new",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Criar o pedido"
+            ],
+            "en": [
+              "Make the order"
+            ]
+          },
+          "section": "new",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Descartar este pedido"
+            ],
+            "en": [
+              "Discard this order"
+            ]
+          },
+          "section": "questions",
+          "step": 18
+        },
+        {
+          "labels": {
+            "pt": [
+              "Comparar minhas filiais"
+            ],
+            "en": [
+              "Compare my branches"
+            ]
+          },
+          "section": "branch",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Trocar este item"
+            ],
+            "en": [
+              "Replace this item"
+            ]
+          },
+          "section": "branch",
+          "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Dividir em dois pedidos"
+            ],
+            "en": [
+              "Split into two orders"
+            ]
+          },
+          "section": "branch",
+          "step": 12
         },
         {
           "labels": {
@@ -33183,7 +34194,7 @@
             ]
           },
           "section": "send",
-          "step": 2
+          "step": 3
         },
         {
           "labels": {
@@ -33195,127 +34206,227 @@
             ]
           },
           "section": "send",
-          "step": 4
+          "step": 5
         }
       ]
     },
     {
-      "id": "abc-connect",
+      "id": "abc-batch",
       "audience": "client",
       "who": [
         "owner"
       ],
       "title": {
-        "en": "ABC Supply: connect your account",
-        "pt": "ABC Supply: conecte a sua conta"
+        "en": "ABC Supply: send several material orders at once (batch order)",
+        "pt": "ABC Supply: envie vários pedidos de material de uma vez (pedido em lote)"
       },
       "summary": {
-        "en": "Connect your own ABC Supply account, choose the account and branch Apex uses, change it later or disconnect.",
-        "pt": "Conecte a sua conta da ABC Supply, escolha a conta e a filial que a Apex usa, troque depois ou desconecte."
+        "en": "Pick two or more order drafts, choose one delivery question once, then send separate orders or one combined order.",
+        "pt": "Escolha dois ou mais rascunhos de pedido, responda uma vez à pergunta de entrega e envie pedidos separados ou um pedido combinado."
       },
       "keywords": {
         "en": [
           "abc supply",
-          "abc",
-          "supplier",
-          "connect",
-          "sign in",
-          "allow access",
-          "account",
-          "branch",
-          "disconnect",
-          "materials",
-          "myabcsupply"
+          "batch order",
+          "several orders",
+          "combine orders",
+          "one purchase order",
+          "delivery location",
+          "materials orders",
+          "delivery date",
+          "tbd",
+          "on site"
         ],
         "pt": [
           "abc supply",
-          "abc",
-          "fornecedor",
-          "conectar",
-          "entrar",
-          "permitir acesso",
-          "conta",
-          "filial",
-          "desconectar",
-          "materiais"
+          "pedido em lote",
+          "vários pedidos",
+          "combinar pedidos",
+          "um pedido de compra",
+          "local de entrega",
+          "pedidos de material",
+          "data de entrega",
+          "a definir",
+          "pessoa na obra"
         ]
       },
       "video": {
         "pt": null,
         "en": {
-          "src": "https://apex.resonateai.online/help/video/abc-connect-en.mp4",
-          "poster": "https://apex.resonateai.online/help/video/abc-connect-en.jpg"
+          "src": "https://apex.resonateai.online/help/video/abc-batch-en.mp4",
+          "poster": "https://apex.resonateai.online/help/video/abc-batch-en.jpg"
         }
       },
       "sections": [
         {
-          "id": "connect",
+          "id": "batch",
           "title": {
-            "en": "Connect and choose the branch",
-            "pt": "Conectar e escolher a filial"
+            "pt": "Pedido em lote",
+            "en": "Batch order"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "en": "Tap Settings at the top, then find Suppliers. The ABC Supply card has one button, Connect ABC Supply.",
-                "pt": "Toque em Ajustes, no alto, e procure Fornecedores. O cartão da ABC Supply tem um botão, Conectar ABC Supply."
+                "pt": "Toque em Pedidos de material, no cartão da Home ou na tabela de preços.",
+                "en": "Tap Materials orders, on the Home card or on the Price list."
               },
               "image": {
-                "pt": "help/img/guides/abc-connect/connect-01.pt.jpg",
-                "en": "help/img/guides/abc-connect/connect-01.en.jpg"
+                "pt": "help/img/guides/abc-batch/batch-01.pt.jpg",
+                "en": "help/img/guides/abc-batch/batch-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "en": "Tap Connect ABC Supply. ABC opens its own sign-in page. Sign in with your own ABC account. Apex never sees your ABC password.",
-                "pt": "Toque em Conectar ABC Supply. A ABC abre a página de entrada dela. Entre com a sua conta da ABC. A Apex nunca vê a sua senha da ABC."
+                "pt": "Marque dois ou mais pedidos que dizem Para revisar. Depois toque em Pedido em lote.",
+                "en": "Tick two or more orders that say To review. Then tap Batch order."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/abc-batch/batch-02.pt.jpg",
+                "en": "help/img/guides/abc-batch/batch-02.en.jpg"
+              }
             },
             {
               "n": 3,
               "text": {
-                "en": "ABC asks if Apex Command Center may see your account information, see your orders, place orders and see your pricing. Tap Allow Access.",
-                "pt": "A ABC pergunta se o Apex Command Center pode ver as informações da sua conta, ver os seus pedidos, fazer pedidos e ver os seus preços. Toque em Allow Access (Permitir acesso)."
+                "pt": "A Apex faz uma pergunta: Como estes pedidos devem ser entregues? Toque em Cada pedido no seu local de entrega, ou em Todos os pedidos em um só local.",
+                "en": "Apex asks one question: How should these orders be delivered? Tap Each order to its own delivery location, or All orders to one location."
               },
               "image": {
-                "pt": "help/img/guides/abc-connect/connect-03.pt.jpg",
-                "en": "help/img/guides/abc-connect/connect-03.en.jpg"
+                "pt": "help/img/guides/abc-batch/batch-03.pt.jpg",
+                "en": "help/img/guides/abc-batch/batch-03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "en": "Back in Apex, the card asks you to choose the ABC account and branch Apex will use. Tap Choose account and branch.",
-                "pt": "De volta à Apex, o cartão pede que você escolha a conta e a filial da ABC que a Apex vai usar. Toque em Escolher conta e filial."
+                "pt": "Para Cada pedido no seu local de entrega, preencha o que falta em cada pedido, como o tipo, o local, a data ou A definir, a pessoa na obra e Seu nome. Toque em Salvar entrega.",
+                "en": "For Each order to its own delivery location, fill what is missing under each order, such as the type, place, date or TBD, on-site person and Your name. Tap Save delivery."
               },
-              "image": {
-                "pt": "help/img/guides/abc-connect/connect-04.pt.jpg",
-                "en": "help/img/guides/abc-connect/connect-04.en.jpg"
-              }
+              "image": null
             },
             {
               "n": 5,
               "text": {
-                "en": "Tap the account and branch you buy from. Every branch of your ABC account is listed.",
-                "pt": "Toque na conta e na filial onde você compra. Todas as filiais da sua conta da ABC aparecem na lista."
+                "pt": "Com várias filiais, escolha a Filial deste pedido na lista abaixo de cada pedido. Depois toque em Ver preços e enviar todos, que abre a revisão.",
+                "en": "With several branches, pick the Branch for this order in the list under each order. Then tap See prices and send all, which opens the review."
               },
               "image": {
-                "pt": "help/img/guides/abc-connect/connect-05.pt.jpg",
-                "en": "help/img/guides/abc-connect/connect-05.en.jpg"
+                "pt": "help/img/guides/abc-batch/batch-05.pt.jpg",
+                "en": "help/img/guides/abc-batch/batch-05.en.jpg"
               }
             },
             {
               "n": 6,
               "text": {
-                "en": "The card now shows your account and branch. Tap Change account or branch to switch later. Tap Disconnect to remove the connection; Apex deletes the saved connection.",
-                "pt": "O cartão agora mostra a sua conta e a sua filial. Toque em Trocar conta ou filial para mudar depois. Toque em Desconectar para remover a conexão; a Apex apaga a conexão salva."
+                "pt": "Para Todos os pedidos em um só local, a Apex mostra o local que você usou por último, por exemplo Depósito. Toque em Usar este local, ou em Mudar o local para escolher outro.",
+                "en": "For All orders to one location, Apex shows the location you used last, for example Warehouse. Tap Use this location, or Change location to pick another one."
               },
               "image": {
-                "pt": "help/img/guides/abc-connect/connect-06.pt.jpg",
-                "en": "help/img/guides/abc-connect/connect-06.en.jpg"
+                "pt": "help/img/guides/abc-batch/batch-06.pt.jpg",
+                "en": "help/img/guides/abc-batch/batch-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Escolha o tipo de entrega na lista. Você faz isso uma vez para todos os pedidos.",
+                "en": "Choose the delivery type from the list. You do this once for all the orders."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-batch/batch-07.pt.jpg",
+                "en": "help/img/guides/abc-batch/batch-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Toque em Escolher uma data de entrega, ou em A definir, deixar o pedido em espera. Uma data nunca é escolhida por você.",
+                "en": "Tap Pick a delivery date and choose the day, or tap TBD, put the order on hold. A date is never chosen for you."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-batch/batch-08.pt.jpg",
+                "en": "help/img/guides/abc-batch/batch-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Escolha ou adicione a pessoa que vai estar na obra, e adicione instruções de entrega se quiser. Você faz isso uma vez para todos os pedidos.",
+                "en": "Pick or add the person who will be on site, and add delivery instructions if you want. You do this once for all the orders."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-batch/batch-09.pt.jpg",
+                "en": "help/img/guides/abc-batch/batch-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Digite o Nome do contato, o E-mail do contato e o Telefone do contato. É a pessoa que a ABC contata sobre todos os pedidos.",
+                "en": "Type the Contact name, Contact email and Contact phone. This is the person ABC contacts about all the orders."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-batch/batch-10.pt.jpg",
+                "en": "help/img/guides/abc-batch/batch-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Toque em Pedidos separados (um por trabalho, cada um com o seu número de compra) ou em Um pedido combinado (linhas juntadas por item da ABC, um pedido de compra).",
+                "en": "Tap Separate orders (one per job, each with its own purchase order number) or One combined order (lines merged by ABC item, one purchase order)."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-batch/batch-11.pt.jpg",
+                "en": "help/img/guides/abc-batch/batch-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Um pedido combinado fica desligado quando os pedidos usam contas ou filiais da ABC diferentes. Um pedido da ABC tem uma conta e uma filial.",
+                "en": "One combined order is off when the orders use different ABC accounts or branches. An ABC order has one account and one branch."
+              },
+              "image": null
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "Para pedidos separados, confira cada Número do pedido de compra e o total, e toque em Enviar todos.",
+                "en": "For separate orders, check each Purchase order number and the total, then tap Send all."
+              },
+              "image": null
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "A Apex mostra o resultado de cada pedido: Enviado com o número de confirmação da ABC, ou Não enviado com o motivo.",
+                "en": "Apex shows the result of each order: Sent with ABC's confirmation number, or Not sent with the reason."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-batch/batch-14.pt.jpg",
+                "en": "help/img/guides/abc-batch/batch-14.en.jpg"
+              }
+            },
+            {
+              "n": 15,
+              "text": {
+                "pt": "Para um pedido combinado, confira o Número do pedido de compra, a linha juntada e o total, e toque em Enviar o pedido combinado.",
+                "en": "For one combined order, check the Purchase order number, the merged line and the total, then tap Send the combined order."
+              },
+              "image": null
+            },
+            {
+              "n": 16,
+              "text": {
+                "pt": "A Apex mostra cada trabalho e o único pedido em que ele foi combinado, com o número de confirmação da ABC.",
+                "en": "Apex shows each job and the one order it was combined into, with ABC's confirmation number."
+              },
+              "image": {
+                "pt": "help/img/guides/abc-batch/batch-16.pt.jpg",
+                "en": "help/img/guides/abc-batch/batch-16.en.jpg"
               }
             }
           ]
@@ -33325,38 +34436,14 @@
         {
           "labels": {
             "pt": [
-              "Conectar ABC Supply"
+              "Pedido em lote"
             ],
             "en": [
-              "Connect ABC Supply"
+              "Batch order"
             ]
           },
-          "section": "connect",
+          "section": "batch",
           "step": 2
-        },
-        {
-          "labels": {
-            "pt": [
-              "Escolher conta e filial"
-            ],
-            "en": [
-              "Choose account and branch"
-            ]
-          },
-          "section": "connect",
-          "step": 4
-        },
-        {
-          "labels": {
-            "pt": [
-              "Trocar conta ou filial"
-            ],
-            "en": [
-              "Change account or branch"
-            ]
-          },
-          "section": "connect",
-          "step": 6
         }
       ]
     }

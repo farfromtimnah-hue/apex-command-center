@@ -76123,16 +76123,11 @@ async function handleGetHelpFile(request, env, path) {
 // ---------------------------------------------------------------------------
 // COMING SOON features (Learn / Aprenda). The list lives in the help_coming_soon
 // table (migrations/help_coming_soon.sql) so the owner can change it by hand with
-// no deploy. HELP_COMING_SOON_FALLBACK holds the same first three rows so the
+// no deploy. HELP_COMING_SOON_FALLBACK holds the same first two rows so the
 // help route still answers right before the migration is applied, or when the
 // table is empty or cannot be read. Rows have the table's own shape.
 // ---------------------------------------------------------------------------
 var HELP_COMING_SOON_FALLBACK = [
-    { id: "abc-supply", name_en: "ABC Supply", name_pt: "ABC Supply",
-      aliases: "abc supply, abcsupply, abc supplies, abc roofing",
-      description_en: "Supplier connection for roofing contractors: see your own ABC prices and order materials.",
-      text_en: "ABC Supply is coming soon to Apex. You will be able to see your own ABC prices and order materials from inside Apex. It is not available yet, so there is nothing to set up today.",
-      text_pt: "A ABC Supply está chegando ao Apex. Você vai poder ver os seus preços da ABC e pedir material direto no Apex. Ainda não está disponível, então não há nada para configurar hoje." },
     { id: "srs", name_en: "SRS Distribution", name_pt: "SRS Distribution",
       aliases: "srs, srs distribution, roof hub, roofhub",
       description_en: "Supplier connection for roofing contractors: see your own SRS prices and order materials.",
@@ -76205,23 +76200,6 @@ async function helpComingSoonList(env) {
         ttl = HELP_COMING_SOON_FAIL_TTL_MS;
     }
     HELP_COMING_SOON_CACHE = { rows: rows, at: now, ttl: ttl };
-    return rows;
-}
-
-// The coming soon rows for ONE person. ABC Supply stops being "coming soon" for a business
-// where it is switched on (today only the Sandbox test business): there Aprenda answers from
-// the ABC guides instead. Everyone else still gets the saved text. Never throws.
-async function helpComingSoonForUser(env, user) {
-    var rows = await helpComingSoonList(env);
-    try {
-        var cid = user && user.client_id ? String(user.client_id) : "";
-        if (cid) {
-            var cfg = abcSettings(env, cid);
-            if (cfg.ready) {
-                rows = rows.filter(function(r) { return !r || r.id !== "abc-supply"; });
-            }
-        }
-    } catch (e) { /* keep the saved list */ }
     return rows;
 }
 
@@ -76376,7 +76354,7 @@ async function handlePostHelpAsk(request, env) {
         // A feature Apex is building but has not released: answered here, before any
         // model call, from the saved list. Nothing is counted against the Claude budget
         // and nothing is written. The reply is always the row's own text.
-        var soon = await helpComingSoonForUser(env, user);
+        var soon = await helpComingSoonList(env);
         var soonHit = helpComingSoonMatch(soon, question);
         if (soonHit) {
             return jsonOk({ found: false, kind: "coming_soon", guide_ids: [], best: null, reply: helpComingSoonText(soonHit, language), coming_soon_id: soonHit.id, logged: false, audience: audience, other_side: [] });
@@ -76635,7 +76613,7 @@ async function handlePostHelpSuggest(request, env) {
         // First turn only: a feature Apex is already building is not a suggestion. No
         // question, no model call, no ticket; the person gets the saved text instead.
         if (transcript.length === 1) {
-            var soonRows = await helpComingSoonForUser(env, user);
+            var soonRows = await helpComingSoonList(env);
             var soonRow = helpComingSoonMatch(soonRows, transcript[0].text);
             if (soonRow) {
                 return jsonOk({ done: true, logged: false, coming_soon: true, coming_soon_id: soonRow.id, reply: helpComingSoonText(soonRow, language) });

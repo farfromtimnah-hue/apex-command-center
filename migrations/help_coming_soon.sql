@@ -12,7 +12,7 @@
 -- short English sentence the model reads to recognise paraphrases.
 --
 -- Add-only and safe to run twice: CREATE TABLE IF NOT EXISTS and INSERT OR IGNORE.
--- The Worker also carries the first three rows built in, so it answers correctly
+-- The Worker also carries the first two rows built in, so it answers correctly
 -- before this runs.
 
 CREATE TABLE IF NOT EXISTS help_coming_soon (
@@ -26,13 +26,6 @@ CREATE TABLE IF NOT EXISTS help_coming_soon (
   active         INTEGER NOT NULL DEFAULT 1,
   created_at     TEXT NOT NULL
 );
-
-INSERT OR IGNORE INTO help_coming_soon (id, name_en, name_pt, aliases, description_en, text_en, text_pt, active, created_at) VALUES
-('abc-supply', 'ABC Supply', 'ABC Supply', 'abc supply, abcsupply, abc supplies, abc roofing',
- 'Supplier connection for roofing contractors: see your own ABC prices and order materials.',
- 'ABC Supply is coming soon to Apex. You will be able to see your own ABC prices and order materials from inside Apex. It is not available yet, so there is nothing to set up today.',
- 'A ABC Supply está chegando ao Apex. Você vai poder ver os seus preços da ABC e pedir material direto no Apex. Ainda não está disponível, então não há nada para configurar hoje.',
- 1, '2026-11-05T00:00:00Z');
 
 INSERT OR IGNORE INTO help_coming_soon (id, name_en, name_pt, aliases, description_en, text_en, text_pt, active, created_at) VALUES
 ('srs', 'SRS Distribution', 'SRS Distribution', 'srs, srs distribution, roof hub, roofhub',

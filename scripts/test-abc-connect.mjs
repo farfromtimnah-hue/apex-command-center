@@ -20,7 +20,7 @@ const migration = readFileSync(new URL("migrations/abc_connect.sql", root), "utf
 const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientAccess", "sessionSellerName", "actorName",
   "tokenEncKey", "tokenIsSealed", "tokenSeal", "tokenOpen", "bytesToB64", "b64ToBytes", "gmStr", "gmEstNewToken",
   "metaHex", "metaHmac", "metaSafeEqual", "metaScrub", "metaPlain", "publicReadRateLimited",
-  "abcSettings", "abcClientAllowed", "abcTablesReady", "abcNotAvailable", "abcOwnerGuard", "abcRedirectUri", "abcWebhookUrl",
+  "abcSettings", "abcTablesReady", "abcNotAvailable", "abcOwnerGuard", "abcRedirectUri", "abcWebhookUrl",
   "abcB64url", "abcPkcePair", "abcSha256Hex", "abcFetch", "abcApi", "abcReadOnlyCall", "abcErrTransient", "abcTokenCall", "abcAuthorizeUrl", "abcBack",
   "abcStateUse", "abcFlagReconnect", "abcAccessToken", "abcStatusPayload", "abcWebhookRegister", "abcWebhookRemove",
   "abcPriceInput", "abcOrderInput", "abcOrderBody", "abcPlaceOrder", "abcValidDate", "abcText", "abcOwnerStart", "abcRefreshToken", "abcServerError", "abcUpstreamError",
@@ -28,7 +28,7 @@ const FNS = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientA
   "abcBranchColumnsReady", "abcMap", "abcPairKey", "abcPairOut", "abcPairArg", "abcPairIn", "abcPairs", "abcApplyPair", "abcWriteBranchRow", "abcBusinessNames", "abcNameKey", "abcAvailCall", "abcAvailability", "abcPairInfo", "abcSearchForPair", "abcAuthLike", "abcCron",
   "handleGetGmAbcStatus", "handlePostGmAbcConnect", "handleGetAbcCallback", "handlePostGmAbcDisconnect", "handleGetGmAbcAccounts", "abcFetchAccounts",
   "handlePostGmAbcAccount", "handlePostGmAbcPrice", "handlePostGmAbcOrder", "handleGetGmAbcOrders", "handlePostAbcWebhook",
-  "handleGetAbcSandboxPing", "clientRequestAllowed", "sellerRequestAllowed"].filter(hasFn);
+  "handleGetAbcSandboxPing", "abcPing", "clientRequestAllowed", "sellerRequestAllowed"].filter(hasFn);
 const VARS = ["DEFAULT_ORIGIN", "CORS_HEADERS", "GM_ACTOR_KEY_RE", "GM_HIDDEN_ACTORS", "TOKEN_SEAL_PREFIX", "ABC", "ABC_NA_PT", "ABC_NA_EN",
   "PUBLIC_READ_HITS", "PUBLIC_READ_HITS_SWEPT", "ABC_REFRESHING", "ABC_BRANCH_READY", "ABC_EMAIL_RE", "ABC_SHIPTO_RE", "ABC_BRANCH_RE", "ABC_ITEM_RE", "ABC_UOM_RE"].filter(function (v) { try { varSrc(v); return true; } catch (e) { return false; } });
 
@@ -181,33 +181,28 @@ const sealedOk = (v) => typeof v === "string" && v.indexOf("enc:v1:") === 0;
 // ── 1. Settings and the sandbox gate ─────────────────────────────────────
 await check("settings", async () => {
   const w = world();
-  ok(w.F.abcSettings({}).mode === "sandbox", "no ABC_ENV: sandbox, never production");
-  ok(w.F.abcSettings({ ABC_ENV: "Production " }).mode === "production", "ABC_ENV production (any case, trimmed) is production");
-  ok(w.F.abcSettings({ ABC_ENV: "prod" }).mode === "sandbox", "any other ABC_ENV value stays sandbox");
-  ok(w.F.abcSettings(ENV_OK).ready === true, "ready with the two secrets and the sealing key");
-  ok(w.F.abcSettings({ ABC_CLIENT_ID: "a", ABC_CLIENT_SECRET: "b" }).ready === false, "not ready without the sealing key");
-  ok(w.F.abcSettings({ TOKEN_ENC_KEY: "k" }).ready === false, "not ready without the secrets");
-  const sb = w.F.abcSettings(ENV_OK);
+  // The environment is per business (see test-abc-environments.mjs for the full set). ABC_ENV no longer exists.
+  ok(w.F.abcSettings({}, "c1").mode === "production", "a business that is not listed is Production");
+  ok(w.F.abcSettings({}, "test-client-temp-001").mode === "sandbox", "the Apex test client is Sandbox by default");
+  ok(w.F.abcSettings(ENV_OK, "c1").ready === true, "ready with the two secrets and the sealing key");
+  ok(w.F.abcSettings({ ABC_CLIENT_ID: "a", ABC_CLIENT_SECRET: "b", ABC_SANDBOX_CLIENT_IDS: "c1" }, "c1").ready === false, "not ready without the sealing key");
+  ok(w.F.abcSettings({ TOKEN_ENC_KEY: "k" }, "c1").ready === false, "not ready without the secrets");
+  const sb = w.F.abcSettings(ENV_OK, "c1");
   ok(sb.api_origin === SB_API && sb.auth_origin === SB_AUTH + SB_AUTH_PATH, "sandbox hosts are the sandbox ones");
-  const pr = w.F.abcSettings(Object.assign({ ABC_ENV: "production" }, ENV_OK));
-  ok(pr.api_origin === PROD_API && pr.auth_origin === "https://auth.partners.abcsupply.com/oauth2/ausvvp0xuwGKLenYy357", "production hosts only in production");
+  const pr = w.F.abcSettings(ENV_OK, "c2");
+  ok(pr.api_origin === PROD_API && pr.auth_origin === "https://auth.partners.abcsupply.com/oauth2/ausvvp0xuwGKLenYy357", "production hosts for a business that is not listed");
 });
 await check("gate", async () => {
   const w = world();
-  const sb = w.F.abcSettings(ENV_OK);
-  ok(w.F.abcClientAllowed(sb, "c1") === true && w.F.abcClientAllowed(sb, "c2") === false, "sandbox: only the listed client ids");
-  const dflt = w.F.abcSettings({ ABC_CLIENT_ID: "a", ABC_CLIENT_SECRET: "b", TOKEN_ENC_KEY: "k" });
-  ok(w.F.abcClientAllowed(dflt, "test-client-temp-001") === true && w.F.abcClientAllowed(dflt, "c1") === false, "variable unset: only the Apex test client");
-  const none = w.F.abcSettings({ ABC_SANDBOX_CLIENT_IDS: "", ABC_CLIENT_ID: "a", ABC_CLIENT_SECRET: "b", TOKEN_ENC_KEY: "k" });
-  ok(w.F.abcClientAllowed(none, "test-client-temp-001") === false, "variable set empty: nobody");
-  const pr = w.F.abcSettings(Object.assign({ ABC_ENV: "production" }, ENV_OK));
-  ok(w.F.abcClientAllowed(pr, "c2") === true, "production: every client");
+  ok(w.F.abcSettings(ENV_OK, "c1").mode === "sandbox" && w.F.abcSettings(ENV_OK, "c2").mode === "production", "only the listed client ids use the sandbox");
+  ok(w.F.abcSettings({}, "test-client-temp-001").mode === "sandbox" && w.F.abcSettings({}, "c1").mode === "production", "variable unset: only the Apex test client uses the sandbox");
+  ok(w.F.abcSettings({ ABC_SANDBOX_CLIENT_IDS: "" }, "test-client-temp-001").mode === "production", "variable set empty: nobody uses the sandbox");
   user = OWNER;
-  const w2 = world({ env: Object.assign({}, ENV_OK, { ABC_SANDBOX_CLIENT_IDS: "someone-else" }) });
+  const w2 = world({ env: { ABC_SANDBOX_CLIENT_IDS: "someone-else", ABC_CLIENT_ID: CLIENT_ID, ABC_CLIENT_SECRET: SECRET, TOKEN_ENC_KEY: ENV_OK.TOKEN_ENC_KEY } });
   const s = await read(await w2.F.handleGetGmAbcStatus("c1", get("/x"), w2.env));
-  ok(s.status === 200 && s.data.available === false && s.data.connected === false, "client not on the list: status says available false");
+  ok(s.status === 200 && s.data.available === false && s.data.connected === false, "no Production keys: a business that is not listed sees available false");
   const c = await read(await w2.F.handlePostGmAbcConnect("c1", post("/x", {}), w2.env));
-  ok(c.status === 503 && c.data.available === false && !w2.d.q("SELECT * FROM gm_abc_oauth_states").length, "client not on the list: connect refuses and stores no state");
+  ok(c.status === 503 && c.data.available === false && !w2.d.q("SELECT * FROM gm_abc_oauth_states").length, "no Production keys: connect refuses and stores no state");
   const w3 = world({ migrated: false });
   const s3 = await read(await w3.F.handleGetGmAbcStatus("c1", get("/x"), w3.env));
   ok(s3.data.available === false, "tables missing: status says available false");
@@ -256,11 +251,10 @@ await check("connect", async () => {
   ok(!JSON.stringify(row).match(/[A-Za-z0-9_-]{43,128}/) || sealedOk(row.verifier_sealed), "no plain verifier in the row");
   ok(row.used_at === null && row.expires_at > new Date().toISOString().replace("T", " ").slice(0, 19), "state expires later and is unused");
   ok(!HIDDEN.some((h) => r.text.indexOf(h) !== -1 && h !== CLIENT_ID), "no secret in the connect answer");
-  const prod = world({ env: Object.assign({ ABC_ENV: "production" }, ENV_OK) });
-  const p = await read(await prod.F.handlePostGmAbcConnect("c2", post("/x", {}), prod.env));
+  const prod = world({ env: Object.assign({ ABC_PROD_CLIENT_ID: "prod-id-1", ABC_PROD_CLIENT_SECRET: "prod-secret-1" }, ENV_OK) });
   user = RIVAL;
   const p2 = await read(await prod.F.handlePostGmAbcConnect("c2", post("/x", {}), prod.env));
-  ok(p2.data && p2.data.url && p2.data.url.indexOf("https://auth.partners.abcsupply.com/oauth2/ausvvp0xuwGKLenYy357/v1/authorize?") === 0, "production uses the production sign-in only when ABC_ENV is production");
+  ok(p2.data && p2.data.url && p2.data.url.indexOf("https://auth.partners.abcsupply.com/oauth2/ausvvp0xuwGKLenYy357/v1/authorize?") === 0, "a business that is not listed uses the production sign-in");
   user = OWNER;
   // Rate limit: the 11th connect from one client in the window is 429.
   const w2 = world();
@@ -323,7 +317,7 @@ await check("callback", async () => {
 await check("refresh", async () => {
   const w = world();
   await connect(w);
-  const cfg = w.F.abcSettings(w.env);
+  const cfg = w.F.abcSettings(w.env, "c1");
   const n0 = w.abc.calls.length;
   ok((await w.F.abcAccessToken(w.env, cfg, "c1")) === ACCESS && w.abc.calls.length === n0, "token with 30 minutes left: used as it is, no refresh");
   w.d.raw.prepare("UPDATE gm_abc_connections SET token_expires_at = datetime('now', '+3 minutes')").run();
@@ -341,7 +335,7 @@ await check("refresh", async () => {
   w2.abc.refreshGood = "something-else";
   w2.d.raw.prepare("UPDATE gm_abc_connections SET token_expires_at = datetime('now', '-1 minutes')").run();
   let threw = false;
-  try { await w2.F.abcAccessToken(w2.env, w2.F.abcSettings(w2.env), "c1"); } catch (e) { threw = true; }
+  try { await w2.F.abcAccessToken(w2.env, w2.F.abcSettings(w2.env, "c1"), "c1"); } catch (e) { threw = true; }
   const c2 = w2.d.q("SELECT needs_reconnect, last_error FROM gm_abc_connections")[0];
   ok(threw && c2.needs_reconnect === 1, "refresh refused: needs_reconnect set and the call fails");
   ok(!HIDDEN.some((h) => String(c2.last_error).indexOf(h) !== -1), "stored error text hides tokens");
@@ -352,13 +346,13 @@ await check("refresh", async () => {
   await connect(w3);
   w3.abc.refreshStatus = 503;
   w3.d.raw.prepare("UPDATE gm_abc_connections SET token_expires_at = datetime('now', '-1 minutes')").run();
-  try { await w3.F.abcAccessToken(w3.env, w3.F.abcSettings(w3.env), "c1"); } catch (e) { /* expected */ }
+  try { await w3.F.abcAccessToken(w3.env, w3.F.abcSettings(w3.env, "c1"), "c1"); } catch (e) { /* expected */ }
   ok(w3.d.q("SELECT needs_reconnect FROM gm_abc_connections")[0].needs_reconnect === 0, "ABC server error: not flagged");
   // Two requests refresh at once: ABC rotates the refresh token, so the second one is refused. It must use the first one's result.
   const w4 = world();
   await connect(w4);
   w4.d.raw.prepare("UPDATE gm_abc_connections SET token_expires_at = datetime('now', '-1 minutes')").run();
-  const cfg4 = w4.F.abcSettings(w4.env);
+  const cfg4 = w4.F.abcSettings(w4.env, "c1");
   const both = await Promise.all([w4.F.abcAccessToken(w4.env, cfg4, "c1"), w4.F.abcAccessToken(w4.env, cfg4, "c1")]);
   ok(both[0] === NEW_ACCESS && both[1] === NEW_ACCESS, "two refreshes at once: both get the new token");
   ok(w4.d.q("SELECT needs_reconnect FROM gm_abc_connections")[0].needs_reconnect === 0, "two refreshes at once: nobody is told to reconnect");
@@ -368,12 +362,12 @@ await check("refresh", async () => {
   w5.d.raw.prepare("UPDATE gm_abc_connections SET environment = 'production'").run();
   const n5 = w5.abc.calls.length;
   let threw5 = false;
-  try { await w5.F.abcAccessToken(w5.env, w5.F.abcSettings(w5.env), "c1"); } catch (e) { threw5 = true; }
+  try { await w5.F.abcAccessToken(w5.env, w5.F.abcSettings(w5.env, "c1"), "c1"); } catch (e) { threw5 = true; }
   ok(threw5 && w5.abc.calls.length === n5, "a production token is never used in sandbox mode");
   // Flagged connection is not used
   w5.d.raw.prepare("UPDATE gm_abc_connections SET environment = 'sandbox', needs_reconnect = 1").run();
   let threw6 = false;
-  try { await w5.F.abcAccessToken(w5.env, w5.F.abcSettings(w5.env), "c1"); } catch (e) { threw6 = true; }
+  try { await w5.F.abcAccessToken(w5.env, w5.F.abcSettings(w5.env, "c1"), "c1"); } catch (e) { threw6 = true; }
   ok(threw6, "a connection flagged needs_reconnect is not used");
 });
 
@@ -541,6 +535,7 @@ await check("webhook", async () => {
   ok(badInv.status === 401, "invoice event with a wrong key is 401");
   // Odd values are ignored, not stored
   const w2 = await hookWorld();
+  w2.env.ABC_SANDBOX_CLIENT_IDS = "c1,c9";
   const odd = await hook(w2, w2.token, { Authorization: WH_SECRET }, UPDATE("<script>alert(1)</script>"));
   ok(odd.status === 200 && orderRow(w2).status === "submitted", "an odd status is ignored, answer is still 200");
   const garbage = await w2.F.handlePostAbcWebhook(w2.token, new Request(API + "/x", { method: "POST", headers: { Authorization: WH_SECRET }, body: "{not json" }), w2.env);

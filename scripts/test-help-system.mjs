@@ -2135,7 +2135,7 @@ const configSrc = read("help-config.js");
     const row = (id, over) => Object.assign({ id, name_en: id + " name", name_pt: id + " nome", aliases: id + " thing, other " + id, description_en: "A feature called " + id + ".", text_en: "Text en " + id, text_pt: "Texto pt " + id, active: 1 }, over || {});
     // (i) ABC Supply is not "coming soon" for a business where it is switched on
     { const rows3 = [row("abc-supply"), row("srs")];
-      const on = mkWorker({ abcSettings: () => ({ ready: true }), abcAllowed: (cfg, id) => id === "c1" }); const e1 = mkEnv({ soonRows: rows3 });
+      const on = mkWorker({ abcSettings: (env, id) => ({ ready: id === "c1" }) }); const e1 = mkEnv({ soonRows: rows3 });
       const lOn = await on.w.helpComingSoonForUser(e1.env, { client_id: "c1" });
       ok(lOn.length === 1 && lOn[0].id === "srs", "(soon i) a business with ABC switched on does not get the ABC coming soon row (the others stay)");
       const e2 = mkEnv({ soonRows: rows3 });

@@ -41867,29 +41867,28 @@ var ABC_REFRESHING = {};
 var ABC_BRANCH_READY = false;
 var ABC_NOCON_READY = false;
 
-// The Worker settings, trimmed. The environment is sandbox unless ABC_ENV says
-// exactly production. ready is false when a secret or the sealing key is missing.
-function abcSettings(env) {
+// The Worker settings for ONE business, trimmed. The environment is decided per business (2026-11-17):
+// a business listed in ABC_SANDBOX_CLIENT_IDS (default: only the Apex test client) uses the ABC Sandbox, its
+// origins and its key pair (ABC_CLIENT_ID / ABC_CLIENT_SECRET). Every other business, and a call with no
+// business id, uses ABC Production, its origins and its own pair (ABC_PROD_CLIENT_ID / ABC_PROD_CLIENT_SECRET).
+// The two never mix: a missing pair makes ready false, it never borrows the other pair or its origins.
+// forceMode ("sandbox" or "production") is for the two staff read checks only: they name their environment.
+// ready is false when the pair of that environment or the sealing key is missing.
+function abcSettings(env, clientId, forceMode) {
     var e = env || {};
-    var mode = String(e.ABC_ENV || "").trim().toLowerCase() === "production" ? "production" : "sandbox";
+    var listed = String(e.ABC_SANDBOX_CLIENT_IDS === undefined || e.ABC_SANDBOX_CLIENT_IDS === null ? ABC.test_client : e.ABC_SANDBOX_CLIENT_IDS)
+        .split(",").map(function(x) { return x.trim(); }).filter(function(x) { return !!x; });
+    var id = clientId === undefined || clientId === null ? "" : String(clientId);
+    var mode = forceMode === "sandbox" || forceMode === "production" ? forceMode : (id && listed.indexOf(id) !== -1 ? "sandbox" : "production");
     var out = {
-        client_id: String(e.ABC_CLIENT_ID || "").trim(),
-        client_secret: String(e.ABC_CLIENT_SECRET || "").trim(),
+        client_id: String((mode === "sandbox" ? e.ABC_CLIENT_ID : e.ABC_PROD_CLIENT_ID) || "").trim(),
+        client_secret: String((mode === "sandbox" ? e.ABC_CLIENT_SECRET : e.ABC_PROD_CLIENT_SECRET) || "").trim(),
         mode: mode,
         api_origin: ABC.api_origin[mode],
         auth_origin: ABC.auth_base[mode]
     };
     out.ready = !!(out.client_id && out.client_secret && String(e.TOKEN_ENC_KEY || "").trim());
-    out.sandbox_clients = String(e.ABC_SANDBOX_CLIENT_IDS === undefined || e.ABC_SANDBOX_CLIENT_IDS === null ? ABC.test_client : e.ABC_SANDBOX_CLIENT_IDS)
-        .split(",").map(function(x) { return x.trim(); }).filter(function(x) { return !!x; });
     return out;
-}
-
-// The sandbox has only an ABC test user, so a real business must never start
-// a sandbox connection. Production has no list.
-function abcClientAllowed(cfg, clientId) {
-    if (cfg.mode === "production") { return true; }
-    return cfg.sandbox_clients.indexOf(String(clientId)) !== -1;
 }
 
 // False until migrations/abc_connect.sql has run.
@@ -42111,8 +42110,8 @@ async function abcRefreshToken(env, cfg, clientId, conn, token) {
 
 // What the card shows. Never a token, and never ABC's own error text.
 async function abcStatusPayload(env, clientId, fillNames) {
-    var cfg = abcSettings(env);
-    if (!cfg.ready || !abcClientAllowed(cfg, clientId) || !(await abcTablesReady(env))) { return { available: false, connected: false }; }
+    var cfg = abcSettings(env, clientId);
+    if (!cfg.ready || !(await abcTablesReady(env))) { return { available: false, connected: false }; }
     var conn = await env.DB.prepare("SELECT connected_by, connected_at, needs_reconnect, ship_to_number, branch_number, environment FROM gm_abc_connections WHERE client_id = ?").bind(clientId).first();
     if (!conn) { return { available: true, connected: false }; }
     var hook = await env.DB.prepare("SELECT secret_hash FROM gm_abc_webhooks WHERE client_id = ?").bind(clientId).first();
@@ -42208,7 +42207,7 @@ async function abcEnsurePairNames(env, clientId, pairs) {
     try {
         var todo = (pairs || []).slice(0, 20).filter(function(p) { return !p.ship_to_name || !p.branch_name; });
         if (!todo.length) { return; }
-        var cfg = abcSettings(env);
+        var cfg = abcSettings(env, clientId);
         if (!cfg.ready) { return; }
         var last = ABC_NAMES_LAST[clientId];
         if (last && Date.now() - last < 600000) { return; }
@@ -42268,8 +42267,8 @@ async function abcOwnerStart(request, env, id) {
     var user = await authenticate(request, env);
     var block = abcOwnerGuard(user, id);
     if (block) { return { err: block }; }
-    var cfg = abcSettings(env);
-    if (!cfg.ready || !abcClientAllowed(cfg, id) || !(await abcTablesReady(env))) { return { err: abcNotAvailable() }; }
+    var cfg = abcSettings(env, id);
+    if (!cfg.ready || !(await abcTablesReady(env))) { return { err: abcNotAvailable() }; }
     return { user: user, cfg: cfg };
 }
 
@@ -42309,8 +42308,9 @@ async function handlePostGmAbcConnect(id, request, env) {
 // ABC sends the browser here after the sign-in. Everything is read from ABC
 // BEFORE anything is written, so a failure leaves the business as it was.
 async function handleGetAbcCallback(request, env) {
-    var cfg = abcSettings(env);
-    var secrets = [cfg.client_secret];
+    // The business, and so the environment, is known only after the state row is read. Until then scrub both pairs.
+    var cfg = null;
+    var secrets = [env && env.ABC_CLIENT_SECRET, env && env.ABC_PROD_CLIENT_SECRET].map(function(x) { return String(x || "").trim(); }).filter(function(x) { return !!x; });
     var url = null;
     try { url = new URL(request.url); } catch (e0) { url = null; }
     var code = url ? String(url.searchParams.get("code") || "") : "";
@@ -42325,10 +42325,12 @@ async function handleGetAbcCallback(request, env) {
     }
     try {
         if (code) { secrets.push(code); }
-        if (!cfg.ready || !(await abcTablesReady(env))) { return abcBack("failed"); }
+        if (!(await abcTablesReady(env))) { return abcBack("failed"); }
         var st = await abcStateUse(env, stateParam);
         if (!st || !code || refused) { return abcBack("failed"); }
         var clientId = st.client_id;
+        cfg = abcSettings(env, clientId);
+        if (!cfg.ready) { return abcBack("failed"); }
         var verifier = await tokenOpen(env, st.verifier_sealed);
         secrets.push(verifier);
 
@@ -42360,7 +42362,7 @@ async function handlePostGmAbcDisconnect(id, request, env) {
         var block = abcOwnerGuard(user, id);
         if (block) { return block; }
         if (!(await abcTablesReady(env))) { return abcNotAvailable(); }
-        await abcWebhookRemove(env, abcSettings(env), id);
+        await abcWebhookRemove(env, abcSettings(env, id), id);
         await env.DB.prepare("DELETE FROM gm_abc_connections WHERE client_id = ?").bind(id).run();
         if (await abcBranchColumnsReady(env)) { await env.DB.prepare("DELETE FROM gm_abc_branches WHERE client_id = ?").bind(id).run(); }
         return jsonOk(await abcStatusPayload(env, id));
@@ -42718,8 +42720,8 @@ async function handleGetGmAbcDiagnose(id, request, env) {
         var staff = !!du && (du.role === "alice" || du.role === "rafa" || du.role === "developer");
         var a = null;
         if (staff) {
-            var dcfg = abcSettings(env);
-            if (!dcfg.ready || !abcClientAllowed(dcfg, id) || !(await abcTablesReady(env))) { return abcNotAvailable(); }
+            var dcfg = abcSettings(env, id);
+            if (!dcfg.ready || !(await abcTablesReady(env))) { return abcNotAvailable(); }
             a = { user: du, cfg: dcfg };
         } else {
             a = await abcOwnerStart(request, env, id);
@@ -42896,8 +42898,6 @@ async function handleGetGmAbcOrders(id, request, env) {
 // registration in the Authorization header (order update) or in
 // webhookDetails[].apiKey (invoice event); only its hash is stored.
 async function handlePostAbcWebhook(webhookToken, request, env) {
-    var cfg = abcSettings(env);
-    if (!cfg.ready) { return metaPlain(ABC_NA_EN, 503); }
     if (!/^[a-f0-9]{48}$/.test(String(webhookToken || ""))) { return metaPlain("Not found", 404); }
     var hook = null;
     try {
@@ -42906,6 +42906,8 @@ async function handlePostAbcWebhook(webhookToken, request, env) {
         return metaPlain("Try again later", 503);
     }
     if (!hook) { return metaPlain("Not found", 404); }
+    // The hook row gives the business, and the business gives the environment and its key pair.
+    if (!abcSettings(env, hook.client_id).ready) { return metaPlain(ABC_NA_EN, 503); }
     var body = null;
     try {
         var text = await request.text();
@@ -42949,17 +42951,20 @@ async function handlePostAbcWebhook(webhookToken, request, env) {
     return metaPlain("OK", 200);
 }
 
-// GET /api/abc/sandbox-ping   (platform staff only)
-// Proves the two ABC secrets work: a client-credentials token for
+// GET /api/abc/sandbox-ping and GET /api/abc/production-ping   (platform staff only)
+// Proves the two ABC secrets of ONE environment work: a client-credentials token for
 // location.read and product.read, then one Search Branches and one Search
-// Items call. Answers status codes and counts only, never a token.
-async function handleGetAbcSandboxPing(request, env) {
+// Items call. Answers status codes and counts only, never a token. One shared
+// function: the mode names the environment, so the Sandbox ping only ever uses the
+// Sandbox pair and the Production ping only the Production pair. It only reads:
+// no pricing, no order, no webhook.
+async function abcPing(request, env, mode) {
     var secrets = [];
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
-        var cfg = abcSettings(env);
+        var cfg = abcSettings(env, null, mode === "production" ? "production" : "sandbox");
         if (!cfg.client_id || !cfg.client_secret) { return abcNotAvailable(); }
         secrets = [cfg.client_secret];
         var out = { mode: cfg.mode, token_status: 0, branches: { status: 0, count: null }, items: { status: 0, total: null } };
@@ -42987,8 +42992,16 @@ async function handleGetAbcSandboxPing(request, env) {
         } catch (e3) { out.items.status = e3 && e3.abcStatus !== undefined ? e3.abcStatus : 0; }
         return jsonOk(out);
     } catch (e) {
-        return abcServerError("sandbox ping", e, secrets);
+        return abcServerError((mode === "production" ? "production" : "sandbox") + " ping", e, secrets);
     }
+}
+
+async function handleGetAbcSandboxPing(request, env) {
+    return abcPing(request, env, "sandbox");
+}
+
+async function handleGetAbcProductionPing(request, env) {
+    return abcPing(request, env, "production");
 }
 
 // The 4-hour job: sign-in states older than a day are removed.
@@ -44067,8 +44080,8 @@ async function abcDraftBuildLines(env, clientId, contract, ctx) {
 // customer signing has no owner present); it is never the business name.
 async function abcDraftEnsureForContract(env, clientId, contractId, actor, person) {
     if (!clientId || !contractId || !ABC_ID_RE.test(String(contractId))) { return null; }
-    var cfg = abcSettings(env);
-    if (!cfg.ready || !abcClientAllowed(cfg, clientId) || !(await abcTablesReady(env)) || !(await abcDraftTablesReady(env)) || !(await abcPlColumnsReady(env))) { return null; }
+    var cfg = abcSettings(env, clientId);
+    if (!cfg.ready || !(await abcTablesReady(env)) || !(await abcDraftTablesReady(env)) || !(await abcPlColumnsReady(env))) { return null; }
     var conn = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(clientId).first();
     if (!conn || !conn.ship_to_number || !conn.branch_number) { return null; }
     var con = await env.DB.prepare("SELECT id, client_id, job_id, lead_id, estimate_ids_json, number, status, homeowner_signed_at FROM gm_contracts WHERE id = ? AND client_id = ?").bind(contractId, clientId).first();
@@ -44157,8 +44170,8 @@ async function abcDraftAdoptEstimateDrafts(env, clientId, contractId, con) {
 // the business may not use ABC, discarded earlier, the migration not applied). Safe to call again.
 async function abcDraftEnsureForEstimate(env, clientId, estimateId, actor, person) {
     if (!clientId || !estimateId || !ABC_ID_RE.test(String(estimateId))) { return null; }
-    var cfg = abcSettings(env);
-    if (!cfg.ready || !abcClientAllowed(cfg, clientId) || !(await abcTablesReady(env)) || !(await abcDraftTablesReady(env)) || !(await abcPlColumnsReady(env)) || !(await abcNoContractReady(env))) { return null; }
+    var cfg = abcSettings(env, clientId);
+    if (!cfg.ready || !(await abcTablesReady(env)) || !(await abcDraftTablesReady(env)) || !(await abcPlColumnsReady(env)) || !(await abcNoContractReady(env))) { return null; }
     var conn = await env.DB.prepare("SELECT ship_to_number, branch_number FROM gm_abc_connections WHERE client_id = ?").bind(clientId).first();
     if (!conn || !conn.ship_to_number || !conn.branch_number) { return null; }
     var est = await env.DB.prepare("SELECT id, client_id, job_id, lead_id, number, revision, status, job_name FROM gm_estimates WHERE id = ? AND client_id = ?").bind(estimateId, clientId).first();
@@ -64987,6 +65000,7 @@ async function handleFetch(request, env, ctx) {
         if (path === ABC.callback_path && method === "GET") { return handleGetAbcCallback(request, env); }
         if (path.indexOf(ABC.webhook_path) === 0 && method === "POST") { return handlePostAbcWebhook(path.slice(ABC.webhook_path.length), request, env); }
         if (path === "/api/abc/sandbox-ping" && method === "GET") { return handleGetAbcSandboxPing(request, env); }
+        if (path === "/api/abc/production-ping" && method === "GET") { return handleGetAbcProductionPing(request, env); }
         if (path.indexOf("/api/abc/") === 0) { return jsonErr("Not found", 404); }
 
         // PUBLIC online booking page of a client business (book.html). The 48-hex
@@ -76202,8 +76216,8 @@ async function helpComingSoonForUser(env, user) {
     try {
         var cid = user && user.client_id ? String(user.client_id) : "";
         if (cid) {
-            var cfg = abcSettings(env);
-            if (cfg.ready && abcClientAllowed(cfg, cid)) {
+            var cfg = abcSettings(env, cid);
+            if (cfg.ready) {
                 rows = rows.filter(function(r) { return !r || r.id !== "abc-supply"; });
             }
         }

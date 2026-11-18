@@ -19,6 +19,23 @@ export const REFRESH = "ABCREFRESH-bbb222";
 export const HIDDEN = [SECRET, ACCESS, REFRESH];
 export const ENV_OK = { ABC_SANDBOX_CLIENT_IDS: "c1", ABC_CLIENT_ID: CLIENT_ID, ABC_CLIENT_SECRET: SECRET, TOKEN_ENC_KEY: Buffer.alloc(32, 7).toString("base64") };
 export const SB_API = "https://partners-sb.abcsupply.com";
+// Environments per business (2026-11-17): the Production pair and origins, and the tokens the fake hands out for each.
+export const PROD_API = "https://partners.abcsupply.com";
+export const SB_AUTH = "https://sandbox.auth.partners.abcsupply.com";
+export const SB_AUTH_PATH = "/oauth2/aus1vp07knpuqf6Xz0h8";
+export const PROD_AUTH = "https://auth.partners.abcsupply.com";
+export const PROD_AUTH_PATH = "/oauth2/ausvvp0xuwGKLenYy357";
+export const PROD_ID = "abc-PROD-client-id-777";
+export const PROD_SECRET = "abc-PROD-client-secret-zzz999";
+export const PROD_ACCESS = "ABCPRODACCESS-ppp111";
+export const PROD_REFRESH = "ABCPRODREFRESH-qqq222";
+export const SB_CC = "ABCSBCC-token-ggg777";
+export const PROD_CC = "ABCPRODCC-token-rrr333";
+export const CODE = "ABCCODE-ddd444";
+export const WH_SECRET = "WHSECRET-hhh888";
+export const ALL_SECRETS = [SECRET, PROD_SECRET, ACCESS, REFRESH, PROD_ACCESS, PROD_REFRESH, SB_CC, PROD_CC, CODE, WH_SECRET];
+// Both key pairs present. The Sandbox list is the default (only the Apex test client), so c1 and c2 are both Production unless a test lists them.
+export const ENV_BOTH = { ABC_CLIENT_ID: CLIENT_ID, ABC_CLIENT_SECRET: SECRET, ABC_PROD_CLIENT_ID: PROD_ID, ABC_PROD_CLIENT_SECRET: PROD_SECRET, TOKEN_ENC_KEY: Buffer.alloc(32, 7).toString("base64") };
 export const OWNER = { role: "client", client_id: "c1", login_role: "client", display_name: "Zeta Owner", username: "zeta" };
 export const SELLER = { role: "client", client_id: "c1", login_role: "seller", seller_name: "Maria Silva", display_name: "Maria Silva", username: "maria" };
 export const RIVAL = { role: "client", client_id: "c2", login_role: "client", display_name: "Omega Owner", username: "omega" };
@@ -32,7 +49,7 @@ export const put = send("PUT");
 const FN_BASE = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireClientAccess", "sessionSellerName", "actorName",
   "tokenEncKey", "tokenIsSealed", "tokenSeal", "tokenOpen", "bytesToB64", "b64ToBytes", "gmStr", "gmNum", "gmEstNewToken",
   "metaHex", "metaHmac", "metaSafeEqual", "metaScrub", "metaPlain", "publicReadRateLimited",
-  "abcSettings", "abcClientAllowed", "abcTablesReady", "abcNotAvailable", "abcOwnerGuard", "abcB64url", "abcSha256Hex", "abcFetch", "abcApi", "abcReadOnlyCall",
+  "abcSettings", "abcTablesReady", "abcNotAvailable", "abcOwnerGuard", "abcB64url", "abcSha256Hex", "abcFetch", "abcApi", "abcReadOnlyCall",
   "abcErrTransient", "abcTokenCall", "abcFlagReconnect", "abcAccessToken", "abcRefreshToken", "abcText", "abcOwnerStart", "abcServerError", "abcUpstreamError",
   "gmPricingParseBreakdown", "gmCostLineType", "gmPricingComputed", "gmPricingCachedTotal", "gmPricingKind", "gmOwnedRow", "gmServiceFromPricingStmt", "gmRunUpdate",
   "gmPricingFields", "handleGetGmPricing", "handlePutGmPricing", "handlePostGmPricing",
@@ -55,6 +72,8 @@ const FN_BASE = ["jsonOk", "jsonErr", "jsonErr2", "gmActorReplacer", "requireCli
   "handlePostGmAbcDraftRefreshDescriptions", "abcLenToInches", "abcCoverageHint", "abcCap", "abcItemSafe", "handleGetGmAbcItem", "gmEstimateLinePairs",
   "abcDateOk", "abcTodayUtc",
   "abcNoContractReady", "abcDraftReadiness", "abcDraftEnsureForEstimate", "abcDraftAdoptEstimateDrafts", "handlePostGmAbcDraftNew", "abcFillPairNames", "abcFetchAccounts", "abcEnsurePairNames", "abcDraftLeadId", "abcLeadAddress", "abcDraftPendingLocation",
+  "abcPkcePair", "abcAuthorizeUrl", "abcBack", "abcStateUse", "abcRedirectUri", "abcWebhookUrl", "handlePostGmAbcConnect", "handleGetAbcCallback", "handlePostAbcWebhook",
+  "handleGetAbcSandboxPing", "handleGetAbcProductionPing", "abcPing",
   "handleGetGmAbcAccounts", "handlePostGmAbcAccount", "handlePostGmAbcDisconnect", "abcWebhookRegister", "abcWebhookRemove", "abcStatusPayload", "handleGetGmAbcStatus",
   "gmEstParseOptions", "gmEstWriteOptions", "gmEstOptTotals", "gmCents", "gmEstLineAmountCents", "gmEstParseDiscount", "gmEstOptDiscount", "gmEstOptionTotals", "gmEstDiscountCents",
   "clientRequestAllowed", "sellerRequestAllowed"];
@@ -104,7 +123,7 @@ export function makeWorld(opts, getUser) {
   const abc = { calls: [], prices: {}, priceBatches: [], orders: [], down: false, orderFail: null, onPrice: null,
     // branch -> item numbers that branch carries (Search Item Availability); a branch not listed carries nothing
     carried: { "1234": Object.keys(CATALOG), "340": Object.keys(CATALOG), "55": Object.keys(CATALOG) },
-    pairPrices: {}, availFail: null, availPageSize: 50, searchHonorsBranch: false, searchTotal: null, availCalls: [], searchCalls: [], getItemCalls: [],
+    webhooks: [], tokenFail: 0, branchesFail: 0, pairPrices: {}, availFail: null, availPageSize: 50, searchHonorsBranch: false, searchTotal: null, availCalls: [], searchCalls: [], getItemCalls: [],
     accounts: [
       { number: "2010466-2", name: "Zeta Roofing", branches: [{ number: "1234", name: "Tampa" }, { number: "340", name: "Orem" }] },
       { number: "2010999-1", name: "Zeta Siding", branches: [{ number: "55", name: "Provo" }] },
@@ -124,10 +143,33 @@ export function makeWorld(opts, getUser) {
     abc.calls.push({ method, host: u.origin, path: u.pathname, headers, json });
     if (abc.down) { throw new Error("connect ECONNREFUSED " + url); }
     const J = (body, status) => new Response(JSON.stringify(body), { status: status || 200, headers: { "Content-Type": "application/json" } });
-    if (u.origin !== SB_API) { return J({ title: "unknown host in the fake", detail: url }, 500); }
+    const authSb = u.origin === SB_AUTH && u.pathname === SB_AUTH_PATH + "/v1/token";
+    const authProd = u.origin === PROD_AUTH && u.pathname === PROD_AUTH_PATH + "/v1/token";
+    if (authSb || authProd) {
+      // Each sign-in answers only to its own key pair: the other pair is invalid_client.
+      const pair = authSb ? [CLIENT_ID, SECRET] : [PROD_ID, PROD_SECRET];
+      if (headers.Authorization !== "Basic " + Buffer.from(pair[0] + ":" + pair[1]).toString("base64")) { return J({ error: "invalid_client" }, 401); }
+      const form = Object.fromEntries(new URLSearchParams((init && init.body) || "").entries());
+      if (form.grant_type === "authorization_code") {
+        if (form.code !== CODE || !form.code_verifier) { return J({ error: "invalid_grant" }, 400); }
+        return authSb ? J({ access_token: ACCESS, refresh_token: REFRESH, expires_in: 1800 }) : J({ access_token: PROD_ACCESS, refresh_token: PROD_REFRESH, expires_in: 1800 });
+      }
+      if (form.grant_type === "client_credentials") {
+        if (form.scope !== "location.read product.read") { return J({ error: "invalid_scope" }, 400); }
+        if (abc.tokenFail) { return J({ error: "server_error" }, abc.tokenFail); }
+        return J({ access_token: authSb ? SB_CC : PROD_CC, expires_in: 1800 });
+      }
+      return J({ error: "unsupported_grant_type" }, 400);
+    }
+    if (u.origin !== SB_API && u.origin !== PROD_API) { return J({ title: "unknown host in the fake", detail: url }, 500); }
     const bearer = String(headers.Authorization || "").replace(/^Bearer /, "");
-    if (bearer !== ACCESS) { return J({ message: "Unauthorized" }, 401); }
+    const goodTokens = u.origin === PROD_API ? [PROD_ACCESS, PROD_CC] : [ACCESS, SB_CC];
+    if (goodTokens.indexOf(bearer) === -1) { return J({ message: "Unauthorized" }, 401); }
     const p = u.pathname;
+    if (p === "/api/location/v1/branches" && method === "GET") { if (abc.branchesFail) { return J({ message: "branches failed" }, abc.branchesFail); } return J([{ branch: { number: "1" } }, { branch: { number: "2" } }, { branch: { number: "3" } }]); }
+    if (p === "/api/notification/v2/webhooks" && method === "POST") { const id = "wh-" + (abc.webhooks.length + 1); abc.webhooks.push({ id, host: u.origin, json }); return J({ id, name: json.name, status: "REGISTERED", secret: WH_SECRET }); }
+    const wm = /^\/api\/notification\/v2\/webhooks\/([\w-]+)$/.exec(p);
+    if (wm && method === "DELETE") { abc.webhooks = abc.webhooks.filter((x) => x.id !== wm[1]); return J({}); }
     let m = /^\/api\/product\/v1\/items\/([\w-]+)$/.exec(p);
     if (m && method === "GET") { abc.getItemCalls.push(m[1]); return CATALOG[m[1]] ? J(Object.assign({ itemNumber: m[1] }, CATALOG[m[1]])) : J({ message: "not found" }, 404); }
     if (p === "/api/pricing/v2/prices" && method === "POST") {
@@ -187,10 +229,10 @@ export function makeWorld(opts, getUser) {
 
 export async function seedConn(w, o) {
   o = o || {};
-  const sealed = await w.F.tokenSeal(w.env, ACCESS);
-  const sealedR = await w.F.tokenSeal(w.env, REFRESH);
-  w.d.raw.prepare("INSERT INTO gm_abc_connections (client_id, token_sealed, refresh_sealed, token_expires_at, connected_by, ship_to_number, branch_number, environment, needs_reconnect) VALUES ('c1', ?, ?, datetime('now', '+30 minutes'), 'Zeta Owner', ?, ?, 'sandbox', ?)")
-    .run(sealed, sealedR, o.account === false ? null : "2010466-2", o.account === false ? null : "1234", o.reconnect ? 1 : 0);
+  const sealed = await w.F.tokenSeal(w.env, o.access || ACCESS);
+  const sealedR = await w.F.tokenSeal(w.env, o.refresh || REFRESH);
+  w.d.raw.prepare("INSERT INTO gm_abc_connections (client_id, token_sealed, refresh_sealed, token_expires_at, connected_by, ship_to_number, branch_number, environment, needs_reconnect) VALUES (?, ?, ?, datetime('now', '+30 minutes'), 'Zeta Owner', ?, ?, ?, ?)")
+    .run(o.client || "c1", sealed, sealedR, o.account === false ? null : "2010466-2", o.account === false ? null : "1234", o.environment || "sandbox", o.reconnect ? 1 : 0);
 }
 let seq = 0;
 export function addRow(w, o) {

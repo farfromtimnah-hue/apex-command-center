@@ -13943,6 +13943,13 @@ function gmDownloadReferralQr() {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, 800, 800);
     ctx.drawImage(img, 0, 0, 800, 800);
+    // The iPhone app ignores the download attribute: show the picture in the
+    // app's viewer, where press and hold saves or shares it.
+    if (gmInApp()) {
+      gmAppViewer(canvas.toDataURL("image/png"), true);
+      gmToast(gmT("Segure a imagem para salvar ou compartilhar.", "Press and hold the image to save or share."));
+      return;
+    }
     var a = document.createElement("a");
     a.href = canvas.toDataURL("image/png");
     a.download = "qr-" + (row.referral_slug || "indicacao") + ".png";

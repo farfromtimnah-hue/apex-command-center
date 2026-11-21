@@ -294,7 +294,7 @@
     <div class="header-right">
       <button class="hdr-btn" onclick="goBack()"><span class="show-pt">Voltar</span><span class="show-en">Back</span></button>
       <button class="hdr-btn" onclick="toggleLang()">PT / EN</button>
-      <button class="hdr-btn" onclick="window.print()"><span class="show-pt">Exportar PDF</span><span class="show-en">Export PDF</span></button>
+      <button class="hdr-btn" id="btnExportPdf" onclick="exportPdf()"><span class="show-pt">Exportar PDF</span><span class="show-en">Export PDF</span></button>
     </div>
   </header>
 
@@ -327,6 +327,47 @@
     var CLIENT_ID   = params.get("client");
     var CLIENT_NAME = params.get("name") || localStorage.getItem("apex_client_name") || "";
     var PREVIEW_AS  = params.get("previewAs");
+    // The iPhone app cannot print a page. In the app the Export PDF button asks
+    // the Worker to print this report (docs PDF system) and opens the real PDF.
+    // rt= is a Worker-signed render token for THIS assessment only, used as the
+    // Bearer by the Worker's headless browser; body[data-render-done] is the
+    // "finished" signal it waits for.
+    var RENDER_TOKEN = /^rndr_[A-Za-z0-9_.-]+$/.test(params.get("rt") || "") ? params.get("rt") : null;
+    if (params.get("lang") === "en") { document.body.classList.remove("lang-pt"); document.body.classList.add("lang-en"); }
+    function renderDone(v) { if (document.body) { document.body.setAttribute("data-render-done", v); } }
+    function pdfToast(pt, en) {
+      var t = document.getElementById("pdfToast");
+      if (!t) {
+        t = document.createElement("div"); t.id = "pdfToast";
+        t.style.cssText = "position:fixed;left:16px;right:16px;bottom:24px;background:#1c1c1c;color:#fff;padding:12px 16px;border-radius:10px;font-size:14px;text-align:center;z-index:9999";
+        document.body.appendChild(t);
+      }
+      t.textContent = isEn() ? en : pt; t.style.display = "block";
+      setTimeout(function() { t.style.display = "none"; }, 5000);
+    }
+    function exportPdf() {
+      var inApp = false;
+      try { inApp = !!(window.apexIsNative && apexIsNative()); } catch (e) { inApp = false; }
+      if (!inApp || !CLIENT_ID || PREVIEW_AS) { window.print(); return; }
+      var w = window.open("", "_blank");
+      var key = String(REPORT_PATH).split("/").pop();
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/clients/" + encodeURIComponent(CLIENT_ID) + "/gm/pdf-link", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ kind: "assessment-report", id: "report", lang: isEn() ? "en" : "pt",
+            report: { a: key, n: CLIENT_NAME, l: isEn() ? "en" : "pt" } })
+        });
+      }).then(function(res) {
+        return res.json().then(function(d) { if (!res.ok || !d.url) { throw new Error(d && d.error || ("HTTP " + res.status)); } return d; });
+      }).then(function(d) {
+        if (w) { w.location.href = d.url; } else { window.location.href = d.url; }
+      }).catch(function(e) {
+        if (w) { w.close(); }
+        console.error(e);
+        pdfToast("Não foi possível gerar o PDF. Tente de novo.", "Could not make the PDF. Try again.");
+      });
+    }
 
     // Band copy, the tags and the cutoffs ALL live in the Worker
     // (MGMT_CUTOFFS / computeManagementXrayScore) and arrive already applied
@@ -408,6 +449,7 @@
     }
 
     function getToken() {
+      if (RENDER_TOKEN) { return Promise.resolve(RENDER_TOKEN); }
       var capt = localStorage.getItem("apex_client_token");
       if (capt) { return Promise.resolve(capt); }
       if (currentUser) { return currentUser.getIdToken(); }
@@ -424,6 +466,7 @@
     }
 
     function showMsg(pt, en) {
+      renderDone("notfound");
       var el = document.getElementById("stateMsg");
       el.hidden = false;
       el.innerHTML = ptEn(escHtml(pt), escHtml(en));
@@ -601,6 +644,7 @@
       var bodyEl = document.getElementById("reportBody");
       bodyEl.innerHTML = html;
       bodyEl.hidden = false;
+      renderDone("1");
     }
 
     var REPORT_PATH = "/api/clients/" + encodeURIComponent(CLIENT_ID) +
@@ -653,6 +697,7 @@
       }
       // Password-based portal clients carry a capt_ token in localStorage;
       // admins and Google-linked clients authenticate via Firebase.
+      if (RENDER_TOKEN) { loadReport(); return; }
       if (localStorage.getItem("apex_client_token")) {
         loadReport();
         return;

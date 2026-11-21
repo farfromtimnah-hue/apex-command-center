@@ -8179,6 +8179,15 @@
         var docPath = (!doc.has_file && doc.has_preview) ? "/preview" : "/file";
         // window.open must be synchronous in the click; fetch with auth then
         // hand the blob to the tab (same Safari-safe pattern as client.html).
+        // The iPhone app has no tab to open: the file is fetched and shown in
+        // the app's own viewer (gm.js gmAppViewBlob), the way the owner screens do.
+        if (typeof gmInApp === "function" && gmInApp()) {
+          apiFetch("/api/clients/" + clientId + "/documents/" + doc.id + docPath)
+            .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.blob(); })
+            .then(function(blob) { gmAppViewBlob(blob); })
+            .catch(function(e) { gmToast(e.message); console.error(e); });
+          return;
+        }
         var newTab = window.open("", "_blank");
         if (!newTab) { gmToast(gmT("Permita pop-ups para abrir.", "Allow pop-ups to open this.")); return; }
         apiFetch("/api/clients/" + clientId + "/documents/" + doc.id + docPath)
@@ -8449,7 +8458,7 @@
     init();
   </script>
   <script src="gm-measure.js?v=1794074434"></script>
-  <script src="gm.js?v=1795289874"></script>
+  <script src="gm.js?v=1795295446"></script>
   <script src="nav.js"></script>
   <script src="help-config.js"></script>
   <script src="help-core.js"></script>

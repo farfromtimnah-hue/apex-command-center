@@ -62359,8 +62359,33 @@ var DOC_PDF_KINDS = {
     // parameters (p) are signed into the token, so the headless page can fetch
     // THIS client's report for THESE dates and nothing else. Never final,
     // never stored: every download is a live render.
-    "finance-report": { label: "Financial report", page: "/finance-report-view", owner: function(cid, id) { return "/api/clients/" + cid + "/gm/finance/report"; }, ownerQuery: function(p) { return { from: p.f, to: p.t }; }, params: true }
+    "finance-report": { label: "Financial report", page: "/finance-report-view", owner: function(cid, id) { return "/api/clients/" + cid + "/gm/finance/report"; }, ownerQuery: function(p) { return { from: p.f, to: p.t }; }, params: true },
+    // The seven assessment reports (Business X-Ray and its six siblings). The
+    // iPhone app cannot print them, so the Worker prints them. The assessment
+    // (p.a) and the language are signed into the token; the headless page may
+    // GET only that one assessment of THIS client, with no query.
+    "assessment-report": { label: "Report", page: "/xray-report", owner: function(cid, id, p) { return "/api/clients/" + cid + "/assessments/" + (p && p.a ? p.a : "business_xray"); }, ownerQuery: function() { return {}; }, params: true, check: function(raw) { return docPdfAssessmentParams(raw); } }
 };
+var DOC_PDF_ASSESSMENTS = {
+    business_xray:       { page: "/xray-report",                    label: "Business X-Ray" },
+    falhas_xray:         { page: "/falhas-xray-report",             label: "Failures X-Ray" },
+    feedback_360:        { page: "/feedback-360-report",            label: "Feedback 360" },
+    leadership_xray:     { page: "/leadership-xray-report",         label: "Leadership X-Ray" },
+    management_xray:     { page: "/management-xray-report",         label: "Management X-Ray" },
+    permissividade_xray: { page: "/permissividade-xray-report",     label: "Permissiveness X-Ray" },
+    pilares_crescimento: { page: "/pilares-crescimento-report",     label: "Growth Pillars" }
+};
+function docPdfAssessmentParams(raw) {
+    raw = raw || {};
+    var a = raw.a !== undefined ? raw.a : raw.assessment;
+    if (typeof a !== "string" || !Object.prototype.hasOwnProperty.call(DOC_PDF_ASSESSMENTS, a)) { return { error: "assessment" }; }
+    var n = raw.n !== undefined ? raw.n : raw.name;
+    if (n === undefined || n === null) { n = ""; }
+    if (typeof n !== "string") { return { error: "text" }; }
+    n = n.replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+    var l = raw.l !== undefined ? raw.l : raw.lang;
+    return { p: { a: a, n: n, l: l === "pt" ? "pt" : "en" } };
+}
 var DOC_PDF_TOKEN_TTL_MS = 10 * 60 * 1000;
 // The sign handlers get (token, request, env); the render that runs after the
 // response needs ctx.waitUntil, so handleFetch files ctx under the request.
@@ -62430,7 +62455,7 @@ async function docPdfByToken(env, kind, token) {
 // The same, by row id, for the owner flow. The row must belong to clientId.
 async function docPdfById(env, kind, clientId, id, report) {
     var r;
-    if (kind === "finance-report") {
+    if (kind === "finance-report" || kind === "assessment-report") {
         if (id !== "report" || !report) { return null; }
         r = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(clientId).first();
         return r ? { kind: kind, id: "report", client_id: clientId, number: null, status: null, final: false, token: null, report: report } : null;
@@ -62485,6 +62510,10 @@ function docPdfReportParams(raw) {
 }
 
 function docPdfFileName(doc, business) {
+    if (doc.kind === "assessment-report") {
+        var ar = DOC_PDF_ASSESSMENTS[doc.report.a].label + " report" + (business ? " - " + business : "");
+        return ar.replace(/[\\\/:*?"<>|\r\n]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 150) + ".pdf";
+    }
     if (doc.kind === "finance-report") {
         var fr = "Financial report" + (business ? " - " + business : "") + " - " + doc.report.f + " to " + doc.report.t;
         return fr.replace(/[\\\/:*?"<>|\r\n]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 150) + ".pdf";
@@ -62535,7 +62564,7 @@ async function docPdfVerifyToken(env, token) {
         // A parameterised kind: the signed parameters must still be valid,
         // and the id is fixed.
         if (claims.i !== "report") { return null; }
-        var checked = docPdfReportParams(claims.p);
+        var checked = (DOC_PDF_KINDS[claims.k].check || docPdfReportParams)(claims.p);
         if (!checked.p) { return null; }
         claims.p = checked.p;
     }
@@ -62558,7 +62587,7 @@ async function docPdfRenderSession(token, env) {
         email: null, role: "client", display_name: "PDF render", avatar_url: null,
         client_id: claims.c, username: null, login_role: "client", seller_name: null,
         must_change_password: false, auth_method: "render",
-        render_path: DOC_PDF_KINDS[claims.k].owner(claims.c, claims.i),
+        render_path: DOC_PDF_KINDS[claims.k].owner(claims.c, claims.i, claims.p),
         render_query: docPdfRenderQuery(claims)
     };
 }
@@ -62732,6 +62761,12 @@ async function handleGetRenderTokenPdf(token, request, env) {
         if (!claims) { return docPdfMessagePage(lang, "expired", 403); }
         var doc = await docPdfById(env, claims.k, claims.c, claims.i, claims.p);
         if (!doc) { return docPdfMessagePage(lang, "notfound", 404); }
+        if (claims.k === "assessment-report") {
+            var ap = claims.p;
+            var assessUrl = DEFAULT_ORIGIN + DOC_PDF_ASSESSMENTS[ap.a].page + "?client=" + encodeURIComponent(claims.c) +
+                "&lang=" + ap.l + (ap.n ? "&name=" + encodeURIComponent(ap.n) : "") + "&rt=" + encodeURIComponent(token) + "&noprint=1";
+            return await docPdfServe(env, doc, assessUrl, lang);
+        }
         if (DOC_PDF_KINDS[claims.k].params) {
             var rp = claims.p;
             var reportUrl = DEFAULT_ORIGIN + DOC_PDF_KINDS[claims.k].page + "?client=" + encodeURIComponent(claims.c) +
@@ -62774,18 +62809,18 @@ async function handlePostDocPdfLink(clientId, request, env, ctx) {
             // signed into the token. A staff preview (previewAs on this
             // request) is replayed too, so staff see exactly what they could
             // open; it never reaches the token.
-            var checked = docPdfReportParams(body.report);
+            var checked = (spec.check || docPdfReportParams)(body.report);
             if (!checked.p || id !== "report") { return jsonErr2("Parâmetros do relatório inválidos", "Invalid report parameters", 400); }
             report = checked.p;
             var q = spec.ownerQuery(report), qs = Object.keys(q).map(function(k) { return k + "=" + encodeURIComponent(q[k]); });
             var pv = new URL(request.url).searchParams.get("previewAs");
             if (pv) { qs.push("previewAs=" + encodeURIComponent(pv)); }
-            ownerSearch = "?" + qs.join("&");
+            ownerSearch = qs.length ? "?" + qs.join("&") : "";
         }
         var doc = await docPdfById(env, kind, clientId, id, report);
         if (!doc) { return jsonErr2("Documento não encontrado", "Document not found", 404); }
         var origin = new URL(request.url).origin;
-        var check = new Request(origin + spec.owner(clientId, id) + ownerSearch, { method: "GET", headers: { "Authorization": request.headers.get("Authorization") || "" } });
+        var check = new Request(origin + spec.owner(clientId, id, report) + ownerSearch, { method: "GET", headers: { "Authorization": request.headers.get("Authorization") || "" } });
         var res = await handleFetch(check, env, ctx);
         if (!res.ok) { return jsonErr2("Você não tem acesso a este documento", "You do not have access to this document", res.status === 404 ? 404 : 403); }
         var token = await docPdfMintToken(env, kind, clientId, id, report);

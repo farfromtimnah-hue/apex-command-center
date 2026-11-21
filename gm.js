@@ -468,11 +468,16 @@ function gmPdfHref(link) {
 }
 // Owner-side documents (the affidavit): the Worker issues a link for this one
 // document, opened in the window taken on the tap so no popup rule blocks it.
-function gmPdfOpenOwner(kind, id, before) {
+// `extra` adds fields to the request (the financial report sends its dates).
+function gmPdfOpenOwner(kind, id, before, extra) {
   var w = window.open("", "_blank");
   var first = before ? before() : Promise.resolve();
   first
-    .then(function() { return gmApi("pdf-link", { method: "POST", body: { kind: kind, id: id, lang: isEn() ? "en" : "pt" } }); })
+    .then(function() {
+      var body = { kind: kind, id: id, lang: isEn() ? "en" : "pt" };
+      if (extra) { Object.keys(extra).forEach(function(k) { body[k] = extra[k]; }); }
+      return gmApi("pdf-link", { method: "POST", body: body });
+    })
     .then(function(d) { if (w) { w.location.href = d.url; } else { window.location.href = d.url; } })
     .catch(function(e) { if (w) { w.close(); } gmToast(e.message); console.error(e); });
 }
@@ -5584,9 +5589,17 @@ function gmFinanceReportOpen() {
   // does, with previewAs on it.
   if (typeof PREVIEW_AS !== "undefined" && PREVIEW_AS) { href += "&previewAs=" + encodeURIComponent(PREVIEW_AS); }
   gmSheetClose();
-  // In the iOS app a new tab does not exist: the app's own copy of the page
-  // opens in the in-app viewer, same origin, same signed-in session.
-  if (gmInApp()) { gmAppViewer(href); return; }
+  // The iPhone app ignores window.print() inside its in-app viewer, so there
+  // the Worker prints the report to a real PDF (the same system as the
+  // estimate, invoice and affidavit downloads) and the link opens in Safari's
+  // PDF viewer, where Share and Save to Files work. A browser keeps the page,
+  // where Print works.
+  if (gmInApp()) {
+    gmPdfOpenOwner("finance-report", "report", null, {
+      report: { from: from, to: to, open: openCents, for: who, title: title, lang: isEn() ? "en" : "pt" }
+    });
+    return;
+  }
   window.open(href, "_blank");
 }
 

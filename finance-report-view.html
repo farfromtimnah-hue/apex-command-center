@@ -56,6 +56,9 @@
     .state { text-align: center; padding: 20px 0; }
     .state p { color: var(--muted); }
     .hidden { display: none !important; }
+    /* noprint=1: the server prints this page to the PDF (the Worker's
+       headless Chrome), so the buttons are not on it. */
+    body.noprint-mode .no-print { display: none !important; }
     @media (max-width: 560px) {
       table.led.entries { min-width: 540px; }
       .balance-tile .bt-value { font-size: 32px; }
@@ -80,6 +83,11 @@
       table.led tr.totals-row { break-before: avoid; page-break-before: avoid; }
       h2 { break-after: avoid; page-break-after: avoid; }
       table.led.cats { break-inside: avoid; page-break-inside: avoid; }
+      /* The server's PDF only: a little smaller keeps the totals and the
+         footer from spilling onto a page of their own (a 28 row report that
+         has notes printed three pages without it, two with it). The browser's
+         own Print is left as it was. */
+      html.noprint-mode { zoom: 0.93; }
     }
   </style>
 </head>
@@ -272,6 +280,20 @@
     var REP_FOR    = String(params.get("for") || "").trim().slice(0, 120);
     var REP_TITLE  = String(params.get("title") || "").trim().slice(0, 120);
     var REP_OPEN   = /^-?\d{1,12}$/.test(params.get("open") || "") ? parseInt(params.get("open"), 10) : 0;
+    // The PDF the Worker prints (docs PDF system): rt= is a Worker-signed
+    // render token for THIS report only, used as the Bearer for the one
+    // allowed GET. noprint=1 leaves the buttons off. The page sets
+    // body[data-render-done] when it is finished ("1") or has nothing ("notfound").
+    var RENDER_TOKEN = /^rndr_[A-Za-z0-9_.-]+$/.test(params.get("rt") || "") ? params.get("rt") : null;
+    var NOPRINT = params.get("noprint") === "1";
+    function renderDone(v) { if (document.body) { document.body.setAttribute("data-render-done", v); } }
+    // The in-app viewer shows a page inside a frame, and the iPhone app
+    // ignores window.print() there: no Print button in a frame. The portal's
+    // own button asks the Worker for the PDF instead.
+    function printUnavailable() {
+      try { if (window.self !== window.top) { return true; } } catch (e) { return true; }
+      return !!(window.apexIsNative && window.apexIsNative());
+    }
 
     var currentUser = null;
     var auth = null;
@@ -300,6 +322,7 @@
     function toggleLang() { setLang(!isEn()); }
 
     function showState(pt, en) {
+      renderDone("notfound");
       var msg = byId("stateMsg");
       if (msg) { msg.innerHTML = ptEn(escHtml(pt), escHtml(en)); }
       var card = byId("cardState");
@@ -342,6 +365,7 @@
     }
 
     function getToken() {
+      if (RENDER_TOKEN) { return Promise.resolve(RENDER_TOKEN); }
       var capt = clientTokenStored();
       if (capt && !triedFirebaseFallback) { return Promise.resolve(capt); }
       return firebaseUser().then(function(user) { return user.getIdToken(); });
@@ -494,7 +518,8 @@
       var doc = byId("doc");
       if (doc) { doc.classList.remove("hidden"); }
       var print = byId("btnPrint");
-      if (print) { print.classList.remove("hidden"); }
+      if (print && !NOPRINT && !printUnavailable()) { print.classList.remove("hidden"); }
+      renderDone("1");
     }
 
     function reportPath() {
@@ -537,6 +562,7 @@
     }
 
     window.onload = function() {
+      if (NOPRINT) { document.body.classList.add("noprint-mode"); document.documentElement.classList.add("noprint-mode"); }
       setLang(params.get("lang") === "en");
       var lang = byId("btnLang");
       if (lang) { lang.onclick = toggleLang; }

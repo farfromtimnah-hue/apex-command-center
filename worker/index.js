@@ -17114,7 +17114,13 @@ async function enforceClientRoleGateChecks(request, env, path, method, user) {
     // A render token (headless Chrome printing a customer document) reaches
     // exactly the one owner route it was signed for, GET only.
     if (user.auth_method === "render") {
-        if (method === "GET" && path === user.render_path) { return null; }
+        if (method === "GET" && path === user.render_path) {
+            // A report token also names its exact query: the same dates, and
+            // no other parameter (so no previewAs, no other period).
+            var rq = new URL(request.url).searchParams, seen = [];
+            rq.forEach(function(v, k) { seen.push(k + "=" + v); });
+            if (seen.sort().join("&") === (user.render_query || "")) { return null; }
+        }
         return jsonErr("Forbidden", 403);
     }
     // A salesperson session goes through its own strict allowlist and never
@@ -62348,7 +62354,12 @@ var DOC_PDF_KINDS = {
     "change-order": { label: "Change Order", page: "/templates/client-change-order-template.html", owner: function(cid, id) { return "/api/clients/" + cid + "/gm/change-orders/" + id; }, ownerParam: "preview" },
     // No print template exists for acknowledgments: the page itself prints.
     "ack":          { label: "Acknowledgment", page: "/ack-view",                                   owner: function(cid, id) { return "/api/clients/" + cid + "/gm/acks/" + id; }, ownerParam: "preview" },
-    "affidavit":    { label: "Final Payment Affidavit", page: "/templates/client-affidavit-template.html", owner: function(cid, id) { return "/api/clients/" + cid + "/gm/jobs/" + id + "/affidavit"; }, ownerParam: "job" }
+    "affidavit":    { label: "Final Payment Affidavit", page: "/templates/client-affidavit-template.html", owner: function(cid, id) { return "/api/clients/" + cid + "/gm/jobs/" + id + "/affidavit"; }, ownerParam: "job" },
+    // The financial report has no row id: it is a period of the ledger. Its
+    // parameters (p) are signed into the token, so the headless page can fetch
+    // THIS client's report for THESE dates and nothing else. Never final,
+    // never stored: every download is a live render.
+    "finance-report": { label: "Financial report", page: "/finance-report-view", owner: function(cid, id) { return "/api/clients/" + cid + "/gm/finance/report"; }, ownerQuery: function(p) { return { from: p.f, to: p.t }; }, params: true }
 };
 var DOC_PDF_TOKEN_TTL_MS = 10 * 60 * 1000;
 // The sign handlers get (token, request, env); the render that runs after the
@@ -62417,8 +62428,13 @@ async function docPdfByToken(env, kind, token) {
 }
 
 // The same, by row id, for the owner flow. The row must belong to clientId.
-async function docPdfById(env, kind, clientId, id) {
+async function docPdfById(env, kind, clientId, id, report) {
     var r;
+    if (kind === "finance-report") {
+        if (id !== "report" || !report) { return null; }
+        r = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(clientId).first();
+        return r ? { kind: kind, id: "report", client_id: clientId, number: null, status: null, final: false, token: null, report: report } : null;
+    }
     if (kind === "contract") {
         r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token FROM gm_contracts WHERE id = ? AND client_id = ?").bind(id, clientId).first();
         return r ? { kind: kind, id: r.id, client_id: r.client_id, number: docPdfRevNumber(r.number, r.revision), status: r.status, final: r.status === "completed", token: r.public_token } : null;
@@ -62438,7 +62454,41 @@ async function docPdfById(env, kind, clientId, id) {
     return null;
 }
 
+// The financial report's parameters, checked the same way for the link request
+// and again when a token is read back. Returns { p } (the cleaned claims:
+// f from, t to, o opening balance in cents, w "prepared for", h title,
+// l language) or { error }.
+function docPdfReportParams(raw) {
+    raw = raw || {};
+    function realDate(v) {
+        if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) { return false; }
+        var d = new Date(v + "T00:00:00Z");
+        return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+    }
+    function text(v) {
+        if (v === undefined || v === null || v === "") { return ""; }
+        if (typeof v !== "string") { return null; }
+        return v.replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+    }
+    var f = raw.f !== undefined ? raw.f : raw.from, t = raw.t !== undefined ? raw.t : raw.to;
+    if (!realDate(f) || !realDate(t)) { return { error: "dates" }; }
+    if (f > t) { return { error: "range" }; }
+    var o = raw.o !== undefined ? raw.o : raw.open;
+    if (o === undefined || o === null || o === "") { o = 0; }
+    if (typeof o === "string" && /^-?\d{1,12}$/.test(o)) { o = parseInt(o, 10); }
+    // Cents. Up to one billion dollars either way is far past any real ledger.
+    if (typeof o !== "number" || !Number.isInteger(o) || Math.abs(o) > 100000000000) { return { error: "open" }; }
+    var w = text(raw.w !== undefined ? raw.w : raw.for), h = text(raw.h !== undefined ? raw.h : raw.title);
+    if (w === null || h === null) { return { error: "text" }; }
+    var l = raw.l !== undefined ? raw.l : raw.lang;
+    return { p: { f: f, t: t, o: o, w: w, h: h, l: l === "pt" ? "pt" : "en" } };
+}
+
 function docPdfFileName(doc, business) {
+    if (doc.kind === "finance-report") {
+        var fr = "Financial report" + (business ? " - " + business : "") + " - " + doc.report.f + " to " + doc.report.t;
+        return fr.replace(/[\\\/:*?"<>|\r\n]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 150) + ".pdf";
+    }
     var label = DOC_PDF_KINDS[doc.kind].label;
     if (doc.kind === "ack") { label = doc.ack_kind === "completion" ? "Completion sign-off" : "Before-work photos"; }
     var name = label + (doc.number ? " " + doc.number : "") + (doc.job_name ? " - " + doc.job_name : "") + (business ? " - " + business : "");
@@ -62461,8 +62511,10 @@ async function docPdfHmac(env, text) {
     var sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(text));
     return docPdfB64url(new Uint8Array(sig));
 }
-async function docPdfMintToken(env, kind, clientId, id) {
-    var body = docPdfB64url(new TextEncoder().encode(JSON.stringify({ k: kind, c: clientId, i: id, x: Date.now() + DOC_PDF_TOKEN_TTL_MS })));
+async function docPdfMintToken(env, kind, clientId, id, report) {
+    var claims = { k: kind, c: clientId, i: id, x: Date.now() + DOC_PDF_TOKEN_TTL_MS };
+    if (DOC_PDF_KINDS[kind] && DOC_PDF_KINDS[kind].params) { claims.p = report; }
+    var body = docPdfB64url(new TextEncoder().encode(JSON.stringify(claims)));
     return "rndr_" + body + "." + (await docPdfHmac(env, body));
 }
 // The decoded claims, or null for a bad signature, an unknown kind or an
@@ -62479,7 +62531,23 @@ async function docPdfVerifyToken(env, token) {
     try { claims = JSON.parse(atob(m[1].replace(/-/g, "+").replace(/_/g, "/"))); } catch (e) { return null; }
     if (!claims || !DOC_PDF_KINDS[claims.k] || !DOC_PDF_KINDS[claims.k].owner || !claims.c || !claims.i) { return null; }
     if (!(claims.x > Date.now())) { return null; }
+    if (DOC_PDF_KINDS[claims.k].params) {
+        // A parameterised kind: the signed parameters must still be valid,
+        // and the id is fixed.
+        if (claims.i !== "report") { return null; }
+        var checked = docPdfReportParams(claims.p);
+        if (!checked.p) { return null; }
+        claims.p = checked.p;
+    }
     return claims;
+}
+// The one query a render session may send to its owner route, as a sorted
+// "k=v&k=v" string (empty for the kinds that take no query).
+function docPdfRenderQuery(claims) {
+    var spec = DOC_PDF_KINDS[claims.k];
+    if (!spec.ownerQuery) { return ""; }
+    var q = spec.ownerQuery(claims.p), keys = Object.keys(q).sort();
+    return keys.map(function(k) { return k + "=" + q[k]; }).join("&");
 }
 // authenticate() for an rndr_ Bearer: a client-tier session that the client
 // gate lets reach ONE path (render_path), GET only. Never a login.
@@ -62490,7 +62558,8 @@ async function docPdfRenderSession(token, env) {
         email: null, role: "client", display_name: "PDF render", avatar_url: null,
         client_id: claims.c, username: null, login_role: "client", seller_name: null,
         must_change_password: false, auth_method: "render",
-        render_path: DOC_PDF_KINDS[claims.k].owner(claims.c, claims.i)
+        render_path: DOC_PDF_KINDS[claims.k].owner(claims.c, claims.i),
+        render_query: docPdfRenderQuery(claims)
     };
 }
 
@@ -62661,8 +62730,16 @@ async function handleGetRenderTokenPdf(token, request, env) {
     try {
         var claims = await docPdfVerifyToken(env, token);
         if (!claims) { return docPdfMessagePage(lang, "expired", 403); }
-        var doc = await docPdfById(env, claims.k, claims.c, claims.i);
+        var doc = await docPdfById(env, claims.k, claims.c, claims.i, claims.p);
         if (!doc) { return docPdfMessagePage(lang, "notfound", 404); }
+        if (DOC_PDF_KINDS[claims.k].params) {
+            var rp = claims.p;
+            var reportUrl = DEFAULT_ORIGIN + DOC_PDF_KINDS[claims.k].page + "?client=" + encodeURIComponent(claims.c) +
+                "&from=" + encodeURIComponent(rp.f) + "&to=" + encodeURIComponent(rp.t) + "&lang=" + rp.l +
+                (rp.w ? "&for=" + encodeURIComponent(rp.w) : "") + (rp.h ? "&title=" + encodeURIComponent(rp.h) : "") +
+                (rp.o ? "&open=" + rp.o : "") + "&rt=" + encodeURIComponent(token) + "&noprint=1";
+            return await docPdfServe(env, doc, reportUrl, lang);
+        }
         // A final document is ONE file whoever asks: served (or first stored)
         // from the homeowner's own view.
         if (doc.final && doc.token) { return await docPdfServe(env, doc, docPdfPublicPageUrl(doc), lang); }
@@ -62691,13 +62768,27 @@ async function handlePostDocPdfLink(clientId, request, env, ctx) {
         var kind = String(body.kind || ""), id = String(body.id || "");
         var spec = DOC_PDF_KINDS[kind];
         if (!spec || !spec.owner || !/^[A-Za-z0-9-]{1,80}$/.test(id)) { return jsonErr2("Documento inválido", "Invalid document", 400); }
-        var doc = await docPdfById(env, kind, clientId, id);
+        var report = null, ownerSearch = new URL(request.url).search;
+        if (spec.params) {
+            // The report's parameters: validated here, replayed below, and
+            // signed into the token. A staff preview (previewAs on this
+            // request) is replayed too, so staff see exactly what they could
+            // open; it never reaches the token.
+            var checked = docPdfReportParams(body.report);
+            if (!checked.p || id !== "report") { return jsonErr2("Parâmetros do relatório inválidos", "Invalid report parameters", 400); }
+            report = checked.p;
+            var q = spec.ownerQuery(report), qs = Object.keys(q).map(function(k) { return k + "=" + encodeURIComponent(q[k]); });
+            var pv = new URL(request.url).searchParams.get("previewAs");
+            if (pv) { qs.push("previewAs=" + encodeURIComponent(pv)); }
+            ownerSearch = "?" + qs.join("&");
+        }
+        var doc = await docPdfById(env, kind, clientId, id, report);
         if (!doc) { return jsonErr2("Documento não encontrado", "Document not found", 404); }
         var origin = new URL(request.url).origin;
-        var check = new Request(origin + spec.owner(clientId, id) + new URL(request.url).search, { method: "GET", headers: { "Authorization": request.headers.get("Authorization") || "" } });
+        var check = new Request(origin + spec.owner(clientId, id) + ownerSearch, { method: "GET", headers: { "Authorization": request.headers.get("Authorization") || "" } });
         var res = await handleFetch(check, env, ctx);
         if (!res.ok) { return jsonErr2("Você não tem acesso a este documento", "You do not have access to this document", res.status === 404 ? 404 : 403); }
-        var token = await docPdfMintToken(env, kind, clientId, id);
+        var token = await docPdfMintToken(env, kind, clientId, id, report);
         return jsonOk({ url: origin + "/api/pdf/r/" + token + (body.lang === "pt" ? "?lang=pt" : "") });
     } catch (e) {
         return jsonErr2("Erro ao preparar o PDF: " + e.message, "Error preparing the PDF: " + e.message, 500);

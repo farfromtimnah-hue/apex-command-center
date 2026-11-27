@@ -15561,9 +15561,9 @@ function gmDocSettingsFormHtml() {
     '<button type="button" class="gm-btn-secondary" onclick="gmDocAddPreset()">' + gmT("+ Novo modelo", "+ New preset") + '</button>' +
     '</div>';
 
-  // ── Margin and late fee ──
+  // ── Profit margin (shown, set on Projects) ──
   html += '<div class="gm-sheet-section">' +
-    '<p class="gm-sheet-section-title">' + gmT("Margem e atraso", "Margin and late payment") + '</p>' +
+    '<p class="gm-sheet-section-title">' + gmT("Margem de lucro", "Profit margin") + '</p>' +
     // G6g: ONE minimum margin. It is typed on Projects (target margin); here
     // it is shown, not asked again.
     '<p class="muted" style="margin:0 0 10px;">' + (d.min_margin_pct !== "" ?
@@ -15571,6 +15571,11 @@ function gmDocSettingsFormHtml() {
           "Minimum margin: " + d.min_margin_pct + "% (the same as on Projects; the builder warns when an estimate falls below it). Change it on Projects.") :
       gmT("Margem mínima: defina em Projetos (margem alvo); o assistente avisa quando um orçamento fica abaixo dela.",
           "Minimum margin: set it on Projects (target margin); the builder warns when an estimate falls below it.")) + '</p>' +
+    '</div>';
+
+  // ── Late payment (interest and grace days) ──
+  html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Pagamento em atraso", "Late payment") + '</p>' +
     gmDocField("gmDocLateFee", "Juros por atraso (% ao ano)", "Late payment interest (% per year)",
       gmDocTextInput("gmDocLateFee", "late_fee_annual_pct", d.late_fee_annual_pct, 'inputmode="decimal"'), "late_fee_annual_pct") +
     '<p class="muted" id="gmDocLateFeeNote" style="margin:-4px 0 10px;">' +

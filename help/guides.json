@@ -3822,8 +3822,8 @@
             {
               "n": 12,
               "text": {
-                "pt": "Em Margem e atraso, Margem mínima (1) mostra o mesmo valor dos Projetos: o assistente avisa quando um orçamento fica abaixo dela, e você muda em Projetos. Juros por atraso (% ao ano) (2) e Dias de carência (3) são seus para preencher.",
-                "en": "Under Margin and late payment, Minimum margin (1) shows the same value as on Projects: the builder warns when an estimate falls below it, and you change it on Projects. Late payment interest (% per year) (2) and Grace days (3) are yours to fill in."
+                "pt": "Em Margem de lucro, Margem mínima (1) mostra o mesmo valor dos Projetos: o assistente avisa quando um orçamento fica abaixo dela, e você muda em Projetos. Em Pagamento em atraso, Juros por atraso (% ao ano) (2) e Dias de carência (3) são seus para preencher.",
+                "en": "Under Profit margin, Minimum margin (1) shows the same value as on Projects: the builder warns when an estimate falls below it, and you change it on Projects. Under Late payment, Late payment interest (% per year) (2) and Grace days (3) are yours to fill in."
               },
               "image": {
                 "pt": "help/img/guides/payments-and-terms/terms-12.pt.jpg",
